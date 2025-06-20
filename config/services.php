@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'ym' => [
+        'api_key' => env('YM_API_KEY', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683'),
+        'business_id' => env('YM_BUSINESS_ID', 198666367),
+        'category_id' => env('YM_CATEGORY_ID', 70301474),
+    ]
+
 ];
