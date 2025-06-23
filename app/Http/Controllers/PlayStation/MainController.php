@@ -184,9 +184,9 @@ class MainController extends Controller
 
             $name .= ", электронный ключ активации, TR";
 
-            if ($item->sku !== 'EP5265-CUSA42720_00-0401675771013120') {
-                continue;
-            }
+//            if ($item->sku !== 'EP5265-CUSA42720_00-0401675771013120') {
+//                continue;
+//            }
 
 //            return response()->json([
 //                'data' => $data
@@ -250,48 +250,57 @@ class MainController extends Controller
                     ...(!empty($videos) ? ['videos' => $videos] : [])
                 ]
             ];
-
         }
 
-//        return response()->json($finished_data);
-//
-//        dd($finished_data);
+        $finished_data_chunks = [];
 
-        $ym_sender_log = YmSenderLog::create([
-            'lang_region_id' => $lang_region_id,
-            'price_region_id' => $price_region_id,
-            'send_id' => $send_id,
-            'request' => json_encode($finished_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'status' => 'pending',
-            'created_at' => now()
-        ]);
+        $error_bag = [];
 
-        $service = new \App\Http\Services\YmService();
+        $send_id = Str::random();
 
-        try {
-            $response = $service->offerMappingsUpdate($finished_data);
+        if (count($finished_data) > 100) {
+            $finished_data_chunks = array_chunk($finished_data, 100);
 
-            $ym_sender_log->update([
-                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                'updated_at' => now(),
-                'status' => 'success'
-            ]);
+//            dd($finished_data_chunks);
+        }
 
-        } catch (\Exception $e) {
-            $ym_sender_log->update([
-                'response' => $e->getMessage(),
-                'updated_at' => now(),
-                'status' => 'error'
-            ]);
 
-            return response()->json([
-                'result' => json_decode($e->getMessage())
-            ], 400);
+        if (!empty($finished_data_chunks)) {
+            foreach ($finished_data_chunks as $chunk) {
+
+                $res = $this->senderToYm(
+                    lang_region_id: $lang_region_id,
+                    price_region_id: $price_region_id,
+                    finished_data: $chunk,
+                    send_id: $send_id
+                );
+
+                if (!$res['success']) {
+                    $error_bag[] = $res['error'];
+                }
+            }
+        } else {
+
+            dd($finished_data);
+
+            $res = $this->senderToYm(
+                lang_region_id: $lang_region_id,
+                price_region_id: $price_region_id,
+                finished_data: $finished_data,
+                send_id: $send_id
+            );
+
+            if (!$res['success']) {
+                $error_bag[] = $res['error'];
+            }
         }
 
         return response()->json([
-            'result' => $response
-        ]);
+            'success' => empty($error_bag),
+            'error_bag' => $error_bag,
+            'send_id' => $send_id
+        ], empty($error_bag) ? 200 : 400);
+
     }
 
     /**
@@ -461,6 +470,45 @@ class MainController extends Controller
         return response()->json([
             'success' => true
         ]);
+    }
+
+    private function senderToYm(string $lang_region_id, string $price_region_id, array $finished_data, string $send_id): array
+    {
+        $ym_sender_log = YmSenderLog::create([
+            'lang_region_id' => $lang_region_id,
+            'price_region_id' => $price_region_id,
+            'send_id' => $send_id,
+            'request' => json_encode($finished_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'status' => 'pending',
+            'created_at' => now()
+        ]);
+
+        $service = new YmService();
+
+        try {
+            $response = $service->offerMappingsUpdate($finished_data);
+
+            $ym_sender_log->update([
+                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'updated_at' => now(),
+                'status' => 'success'
+            ]);
+
+        } catch (\Exception $e) {
+            $ym_sender_log->update([
+                'response' => $e->getMessage(),
+                'updated_at' => now(),
+                'status' => 'error'
+            ]);
+
+            return [
+                'success' => false,
+                'send_id' => $send_id,
+                'error' => json_decode($e->getMessage(), true),
+            ];
+        }
+
+        return ['success' => true, 'send_id' => $send_id];
     }
 
     /**
