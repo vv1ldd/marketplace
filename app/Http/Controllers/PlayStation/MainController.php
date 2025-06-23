@@ -3,15 +3,18 @@
 namespace App\Http\Controllers\PlayStation;
 
 use App\Http\Controllers\Controller;
+use App\Http\Services\YmService;
 use App\Models\PlayStation\PlayStation;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\PlayStation\PlayStationCategory;
 use App\Models\PlayStation\PlayStationRegion;
 use App\Models\PlayStation\PlayStationRegionCategory;
+use App\Models\YmSenderLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use PlaystationStoreApi\Client;
 use PlaystationStoreApi\Enum\CategoryEnum;
 use PlaystationStoreApi\Enum\RegionEnum;
@@ -36,6 +39,9 @@ class MainController extends Controller
             'price_region_id' => 'required|uuid',
         ]);
 
+        $lang_region_id = $data['lang_region_id'];
+        $price_region_id = $data['price_region_id'];
+
         $items = \DB::table('play_station_alts as t1')
             ->select([
                 't1.sku',
@@ -47,6 +53,7 @@ class MainController extends Controller
                     ->where('t2.region_id', '=', $data['lang_region_id']);
             })
             ->where('t1.region_id', '=', $data['price_region_id'])
+            ->where('t1.price', '>', 0)
             ->whereNotNull('t2.data');
 
         if (!empty($data['sku'])) {
@@ -57,7 +64,16 @@ class MainController extends Controller
 
         $finished_data = [];
 
-        foreach ($items as $item) {
+        $send_id = date('Ymd');
+
+        foreach ($items as $key => $item) {
+
+            if ($item->price * 1.99 < 300) {
+                continue;
+            }
+
+            $tags = [];
+
             $data = json_decode($item->data, true);
 
             if (count($data['images'])) {
@@ -67,10 +83,16 @@ class MainController extends Controller
                 }
             }
 
+            if (isset($data['mediaList']['screenshots']) && count($data['mediaList']['screenshots'])) {
+                foreach ($data['mediaList']['screenshots'] as $screenshot) {
+                    $pictures[] = $screenshot['url'];
+                }
+            }
+
             if (count($data['promomedia'])) {
                 $videos = [];
                 foreach ($data['promomedia'] as $promomedia) {
-                    if(isset($promomedia['url'])) {
+                    if (isset($promomedia['url'])) {
                         $videos[] = $promomedia['url'];
                     }
                 }
@@ -82,14 +104,21 @@ class MainController extends Controller
 
                 $params = [];
 
-                // Платформа
-                if (!empty($metadata['playable_platform']['values'][0])) {
-                    $platform = $metadata['playable_platform']['values'][0];
-                    $platformName = match ($platform) {
-                        'PS4™' => 'PlayStation 4',
-                        'PS5™' => 'PlayStation 5',
-                        default => $platform,
-                    };
+                // Платформа/ы
+
+                if ($platforms = data_get($data, 'skus.0.platforms')) {
+
+                    $platformName = '';
+
+                    if (in_array(18, $platforms)) {
+                        $platformName .= 'PlayStation 5';
+                        $tags[] = 'PS5';
+                    }
+
+                    if (in_array(13, $platforms)) {
+                        $platformName .= ' & PlayStation 4';
+                        $tags[] = 'PS4';
+                    }
 
                     $params[] = [
                         'name' => 'Платформа',
@@ -129,7 +158,7 @@ class MainController extends Controller
                 // Режим игры
                 if (!empty($metadata['cn_numberOfPlayers']['values'][0])) {
                     $players = $metadata['cn_numberOfPlayers']['values'][0];
-                    $mode = $players === '1' ? 'Одиночный' : 'Многопользовательский';
+                    $mode = $players === '1' ? 'одиночный' : 'мультиплеер';
 
                     $params[] = [
                         'name' => 'Режим игры',
@@ -138,36 +167,131 @@ class MainController extends Controller
                 }
             }
 
+            if (isset($players)) {
+
+                $count_players = "1";
+
+                if ($players > 1 && $players < 100) {
+                    $count_players = "до $players";
+                }
+            }
+
+            $name = "Игра {$data['name']}";
+
+            if (isset($platformName)) {
+                $name .= " для $platformName";
+            }
+
+            $name .= ", электронный ключ активации, TR";
+
+            if ($item->sku !== 'EP5265-CUSA42720_00-0401675771013120') {
+                continue;
+            }
+
+//            return response()->json([
+//                'data' => $data
+//            ]);
 
             $finished_data[] = [
                 "offer" => [
                     "offerId" => $item->sku,
-                    "name" => $data['name'],
+                    "name" => $name,
                     'marketCategoryId' => config('services.ym.category_id', 70301474),
                     'pictures' => $pictures ?? [],
-                    ...(isset($data['provider_name']) ? ['providerName' => $data['provider_name']] : []),
+                    ...(isset($data['provider_name']) ? ['vendor' => $data['provider_name']] : []),
                     "description" => $data['long_desc'],
-                    "additionalExpenses" => [
-                        "value" => $item->price * 1.99, // курс лиры
-                        "currencyId" => "RUR",
+                    "parameterValues" => [
+                        ...(isset($platformName) ? [
+                            [
+                                "parameterId" => 45128695,
+                                "value" => $platformName,
+                            ]
+                        ] : []),
+                        [
+                            "parameterId" => 37693330,
+                            "value" => "электронный ключ",
+                        ],
+                        [
+                            "parameterId" => 37972050,
+                            "value" => "без сервиса активации",
+                        ],
+                        [
+                            "parameterId" => 45132091,
+                            "value" => "сервис активации",
+                        ],
+                        [
+                            "parameterId" => 16382542,
+                            "value" => "Инструкции по активации будут отправлены вам по электронной почте вместе с кодом активации в течение 10 минут после покупки.",
+                        ],
+                        [
+                            "parameterId" => 37919810,
+                            "value" => "все страны",
+                        ],
+                        ...(isset($mode) ? [
+                            [
+                                "parameterId" => 45131673,
+                                "value" => $mode
+                            ]
+                        ] : []),
+                        ...(isset($count_players) ? [
+                            [
+                                "parameterId" => 39984210,
+                                "value" => $count_players
+                            ]
+                        ] : [])
                     ],
+                    "downloadable" => true,
                     'basicPrice' => [
                         "value" => $item->price * 1.99, // курс лиры
                         "currencyId" => "RUR",
                     ],
+                    ...(!empty($tags) ? ['tags' => $tags] : []),
                     'params' => $params ?? [],
                     ...(!empty($videos) ? ['videos' => $videos] : [])
                 ]
             ];
+
         }
 
-        dd($finished_data);
+//        return response()->json($finished_data);
+//
+//        dd($finished_data);
+
+        $ym_sender_log = YmSenderLog::create([
+            'lang_region_id' => $lang_region_id,
+            'price_region_id' => $price_region_id,
+            'send_id' => $send_id,
+            'request' => json_encode($finished_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'status' => 'pending',
+            'created_at' => now()
+        ]);
 
         $service = new \App\Http\Services\YmService();
 
-        $response = $service->offerMappingsUpdate($finished_data);
+        try {
+            $response = $service->offerMappingsUpdate($finished_data);
 
-        return response()->json($response);
+            $ym_sender_log->update([
+                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'updated_at' => now(),
+                'status' => 'success'
+            ]);
+
+        } catch (\Exception $e) {
+            $ym_sender_log->update([
+                'response' => $e->getMessage(),
+                'updated_at' => now(),
+                'status' => 'error'
+            ]);
+
+            return response()->json([
+                'result' => json_decode($e->getMessage())
+            ], 400);
+        }
+
+        return response()->json([
+            'result' => $response
+        ]);
     }
 
     /**
@@ -327,6 +451,8 @@ class MainController extends Controller
             if (!empty($result)) {
                 $query->where('sku', $item->sku)->update([
                     'data' => json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                    'price' => data_get($result, 'skus.0.price', 0),
+                    'name' => data_get($result, 'name', ''),
                     'updated_at' => now()
                 ]);
             }

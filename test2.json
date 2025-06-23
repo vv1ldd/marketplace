@@ -1,0 +1,106 @@
+{
+    "offerMappings": [
+        {
+            "offer": {
+                "offerId": "EB0094-CUSA47888_00-0652295652973057", // id
+                "name": "Cowboy Duel: Red Wild West Massacre (PS4)", // title_name
+                "pictures": [ // images
+                    "https://vulcan.dl.playstation.net/ap/rnd/202403/0513/4595f6f3b59c705b24a8a570b63bc8cf072b4c95ef0eab81.jpg",
+                    "https://vulcan.dl.playstation.net/ap/rnd/202403/0513/7c61330320f771c88810d1c37ce40866e4395bb1f7ddef49.jpg",
+                    "https://vulcan.dl.playstation.net/ap/rnd/202403/0513/2cf6a3b5373ab5916878ff654e497e376302035fb64f3328.jpg"
+                ],
+                "videos": [], // promomedia[0].url
+                "vendor": "GameToTop Corporation LTD", // provider_name
+                "description": "Игра в жанре шутера, симулятора и файтинга в сеттинге Дикого Запада. Дуэли, улучшение оружия, путешествия по городам и миссии. Поддержка DualShock 4, одиночная игра. Для PlayStation 4.", // long_desc
+                "weightDimensions": {
+                    "length": 0,
+                    "width": 0,
+                    "height": 0,
+                    "weight": 0.001
+                },
+                "vendorCode": "CUSA47888",
+                "tags": [
+                    "новинка",
+                    "цифровая игра"
+                ],
+                "shelfLife": {
+                    "timePeriod": 0,
+                    "timeUnit": "HOUR",
+                    "comment": ""
+                },
+                "lifeTime": {
+                    "timePeriod": 0,
+                    "timeUnit": "HOUR",
+                    "comment": ""
+                },
+                "guaranteePeriod": {
+                    "timePeriod": 0,
+                    "timeUnit": "HOUR",
+                    "comment": ""
+                },
+                "customsCommodityCode": 8523491000,
+                "commodityCodes": [
+                    {
+                        "code": "8523491000",
+                        "type": "CUSTOMS_COMMODITY_CODE"
+                    }
+                ],
+                "certificates": [],
+                "boxCount": 0,
+                "condition": {
+                    "type": "NEW",
+                    "quality": "PERFECT"
+                },
+                "type": "DEFAULT",
+                "downloadable": true,
+                "adult": false,
+                "age": {
+                    "value": 12,
+                    "ageUnit": "YEAR"
+                },
+                "params": [
+                    {
+                        "name": "Платформа",
+                        "value": "PlayStation 4" // playable_platform[0]
+                    },
+                    {
+                        "name": "Жанр",
+                        "value": "Шутер, Симулятор, Файтинг"
+                    },
+                    {
+                        "name": "Режим игры",
+                        "value": "Одиночный"
+                    },
+                    {
+                        "name": "Язык интерфейса",
+                        "value": "Английский"
+                    }
+                ],
+                "parameterValues": [],
+                "basicPrice": {
+                    "value": 525.00,
+                    "currencyId": "TRY",
+                    "discountBase": 0
+                },
+                "purchasePrice": {
+                    "value": 0,
+                    "currencyId": "TRY"
+                },
+                "additionalExpenses": {
+                    "value": 0,
+                    "currencyId": "TRY"
+                },
+                "cofinancePrice": {
+                    "value": 0,
+                    "currencyId": "TRY"
+                },
+                "firstVideoAsCover": true,
+                "deleteParameters": []
+            },
+            "mapping": {
+                "marketSku": 0
+            }
+        }
+    ],
+    "onlyPartnerMediaContent": false
+}

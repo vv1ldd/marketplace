@@ -1,0 +1,563 @@
+{
+    "id": "EP5265-CUSA42720_00-0401675771013120",
+    "name": "Escape First Alchemist PS4 & PS5",
+    "size": 0,
+    "skus": [
+        {
+            "id": "EP5265-CUSA42720_00-0401675771013120-E001",
+            "name": "Game",
+            "type": "standard",
+            "price": 34900,
+            "rewards": [],
+            "sku_type": 0,
+            "platforms": [
+                0,
+                18,
+                10,
+                13
+            ],
+            "defaultSku": true,
+            "is_original": false,
+            "amortizeFlag": false,
+            "entitlements": [
+                {
+                    "id": "EP5265-CUSA42720_00-0640446331495004",
+                    "drms": [],
+                    "name": "Escape First Alchemist",
+                    "size": 0,
+                    "type": 5,
+                    "subType": 0,
+                    "duration": 0,
+                    "metadata": {
+                        "voiceLanguageCode": [
+                            "en"
+                        ],
+                        "subtitleLanguageCode": [
+                            "de",
+                            "en",
+                            "fr",
+                            "es"
+                        ]
+                    },
+                    "packages": [
+                        {
+                            "size": 2434465792,
+                            "platformId": 13,
+                            "platformName": "ps4"
+                        }
+                    ],
+                    "use_count": 0,
+                    "description": null,
+                    "packageType": "PS4GD",
+                    "license_type": 0,
+                    "feature_type_id": 3,
+                    "exp_after_first_use": 0,
+                    "voice_language_codes": [
+                        "en"
+                    ],
+                    "durationOverrideTypeId": null,
+                    "subtitle_language_codes": [
+                        "de",
+                        "en",
+                        "fr",
+                        "es"
+                    ],
+                    "preorder_placeholder_flag": false
+                },
+                {
+                    "id": "EP5265-PPSA29359_00-0017348506477054",
+                    "drms": [],
+                    "name": "Escape First Alchemist",
+                    "size": 0,
+                    "type": 5,
+                    "subType": 0,
+                    "duration": 0,
+                    "metadata": {
+                        "isBeta": [
+                            "FALSE"
+                        ],
+                        "isGame": [
+                            "TRUE"
+                        ],
+                        "voiceLanguageCode": [
+                            "en"
+                        ],
+                        "subtitleLanguageCode": [
+                            "de",
+                            "en",
+                            "fr",
+                            "es"
+                        ]
+                    },
+                    "packages": [
+                        {
+                            "size": 1516699648,
+                            "platformId": 18,
+                            "platformName": "ps5"
+                        }
+                    ],
+                    "use_count": 0,
+                    "description": null,
+                    "packageType": "PSGD",
+                    "license_type": 0,
+                    "feature_type_id": 3,
+                    "exp_after_first_use": 0,
+                    "voice_language_codes": [
+                        "en"
+                    ],
+                    "durationOverrideTypeId": null,
+                    "subtitle_language_codes": [
+                        "de",
+                        "en",
+                        "fr",
+                        "es"
+                    ],
+                    "preorder_placeholder_flag": false
+                }
+            ],
+            "display_price": "349,00 TL",
+            "eligibilities": [],
+            "offerOnlyFlag": false,
+            "charge_type_id": 0,
+            "bundleExclusiveFlag": false,
+            "chargeImmediatelyFlag": false,
+            "seasonPassExclusiveFlag": false,
+            "credit_card_required_flag": 0,
+            "skuAvailabilityOverrideFlag": false
+        }
+    ],
+    "links": [],
+    "start": 0,
+    "bucket": "games",
+    "images": [
+        {
+            "url": "https://vulcan.dl.playstation.net/ap/rnd/202503/1812/b632aeefdd62a62e1f33909fed7e65fff273d10b7b421e2f.png",
+            "type": 10
+        },
+        {
+            "url": "https://vulcan.dl.playstation.net/ap/rnd/202503/1812/29219695f18c6be5883eb103dc91fe82eb24987e86b6ad59.png",
+            "type": 12
+        },
+        {
+            "url": "https://vulcan.dl.playstation.net/ap/rnd/202503/1812/b5b07164cf7882c9d501d627f84e6604e49c1bcc20cadeeb.png",
+            "type": 13
+        }
+    ],
+    "metadata": {
+        "genre": {
+            "name": "Genre",
+            "values": [
+                "Puzzle",
+                "Adventure"
+            ]
+        },
+        "subgenre": {
+            "name": "subgenre",
+            "values": [
+                "FANTASY"
+            ]
+        },
+        "game_genre": {
+            "name": "Genre",
+            "values": [
+                "PUZZLE",
+                "ADVENTURE"
+            ]
+        },
+        "product_type": {
+            "name": "product_type",
+            "values": [
+                "GAME.BUNDLE"
+            ]
+        },
+        "top_category": {
+            "name": "top_category",
+            "values": [
+                "GAME"
+            ]
+        },
+        "game_subgenre": {
+            "name": "subgenre",
+            "values": [
+                "FANTASY"
+            ]
+        },
+        "playable_platform": {
+            "name": "playable_platform",
+            "values": [
+                "PS4™"
+            ]
+        },
+        "cn_numberOfPlayers": {
+            "name": "cn_numberOfPlayers",
+            "values": [
+                "1"
+            ]
+        },
+        "primary_classification": {
+            "name": "primary_classification",
+            "values": [
+                "PREMIUM_GAME"
+            ]
+        },
+        "tertiary_classification": {
+            "name": "tertiary_classification",
+            "values": [
+                "BUNDLE"
+            ]
+        },
+        "secondary_classification": {
+            "name": "secondary_classification",
+            "values": [
+                "GAME"
+            ]
+        },
+        "store_display_classification": {
+            "name": "store_display_classification",
+            "values": [
+                "GAME_BUNDLE"
+            ]
+        },
+        "cn_numberOfNetworkPlayersPSPlus": {
+            "name": "cn_numberOfNetworkPlayersPSPlus",
+            "values": [
+                "4"
+            ]
+        }
+    },
+    "revision": 4,
+    "age_limit": 3,
+    "long_desc": "<b>To play this game on PS5, your system may need to be updated to the latest system software. Although this game is playable on PS5, some features available on PS4 may be absent. See PlayStation.com/bc for more details.</b><br>Escape first: Alchemist is a multiplayer first person escape room / adventure game, where you play as the apprentices of the reclusive sorceror-alchemist \"Trismegistus\". Your benevolent master managed to trap himself in a prison of his own making, and has bestowed upon you the challenge of releasing him. Of course, to make sure you don't just run away from his cunning riddles, he deigned fit to trap you as well...<br/><br/><br/>Online multiplayer (2-4 players). A paid-for PlayStation Plus membership is required. Online features require an account and are subject to our terms of service (playstationnetwork.com/terms-of-service), our privacy policy (playstationnetwork.com/privacy-policy), and the game publisher’s privacy policy.<br/>Offline single player<br/><br><br>Download of this product is subject to the PlayStation Network Terms of Service and our Software Usage Terms plus any specific additional conditions applying to this product. If you do not wish to accept these terms, do not download this product. See Terms of Service for more important information.<br><br>One-time licence fee to download to multiple PS4 systems. Sign in to PlayStation Network is not required to use this on your primary PS4, but is required for use on other PS4 systems.<br><br>See <a href=\"https://www.playstation.com/legal/health-warning/\">Health Warnings</a> for important health information before using this product.<br><br>Library programs ©Sony Interactive Entertainment Inc. exclusively licensed to Sony Interactive Entertainment Europe. Software Usage Terms apply, See eu.playstation.com/legal for full usage rights.<br>",
+    "mediaList": {
+        "screenshots": [
+            {
+                "url": "https://vulcan.dl.playstation.net/ap/rnd/202504/2808/86fbf1350de80fe39f6c8f99739f5542fe7d226dcbf03504.jpg",
+                "type": "SCREENSHOT",
+                "order": 0,
+                "source": "PRODUCT_MEDIA",
+                "typeId": 4
+            },
+            {
+                "url": "https://vulcan.dl.playstation.net/ap/rnd/202504/2808/4eead489867487acf3f01d7ae2acf87db2b6452de241c88b.jpg",
+                "type": "SCREENSHOT",
+                "order": 1,
+                "source": "PRODUCT_MEDIA",
+                "typeId": 4
+            },
+            {
+                "url": "https://vulcan.dl.playstation.net/ap/rnd/202504/2808/830e9e7c9ad7e28091530681ef839a435cd7bc7fb192e04a.jpg",
+                "type": "SCREENSHOT",
+                "order": 2,
+                "source": "PRODUCT_MEDIA",
+                "typeId": 4
+            },
+            {
+                "url": "https://vulcan.dl.playstation.net/ap/rnd/202504/2808/16cec5ee6e1ade95a8e1c02922a41496f2b554be27d2199f.jpg",
+                "type": "SCREENSHOT",
+                "order": 3,
+                "source": "PRODUCT_MEDIA",
+                "typeId": 4
+            },
+            {
+                "url": "https://vulcan.dl.playstation.net/ap/rnd/202504/2808/a81ee12c4934c17b7fbb40ff02fbc16cd02ce810ded44606.jpg",
+                "type": "SCREENSHOT",
+                "order": 4,
+                "source": "PRODUCT_MEDIA",
+                "typeId": 4
+            },
+            {
+                "url": "https://vulcan.dl.playstation.net/ap/rnd/202504/2808/a7803673243c99976ae216da3e2f86b9c030719242926c06.jpg",
+                "type": "SCREENSHOT",
+                "order": 5,
+                "source": "PRODUCT_MEDIA",
+                "typeId": 4
+            }
+        ]
+    },
+    "sku_links": [],
+    "timestamp": 1749283355000,
+    "pageTypeId": 2,
+    "promomedia": [],
+    "restricted": false,
+    "short_name": "Escape First Alchemist PS4 & PS5",
+    "title_name": "Escape First: Alchemist",
+    "default_sku": {
+        "id": "EP5265-CUSA42720_00-0401675771013120-E001",
+        "name": "Game",
+        "type": "standard",
+        "price": 34900,
+        "rewards": [],
+        "sku_type": 0,
+        "platforms": [
+            0,
+            18,
+            10,
+            13
+        ],
+        "defaultSku": true,
+        "is_original": false,
+        "amortizeFlag": false,
+        "entitlements": [
+            {
+                "id": "EP5265-CUSA42720_00-0640446331495004",
+                "drms": [],
+                "name": "Escape First Alchemist",
+                "size": 0,
+                "type": 5,
+                "subType": 0,
+                "duration": 0,
+                "metadata": {
+                    "voiceLanguageCode": [
+                        "en"
+                    ],
+                    "subtitleLanguageCode": [
+                        "de",
+                        "en",
+                        "fr",
+                        "es"
+                    ]
+                },
+                "packages": [
+                    {
+                        "size": 2434465792,
+                        "platformId": 13,
+                        "platformName": "ps4"
+                    }
+                ],
+                "use_count": 0,
+                "description": null,
+                "packageType": "PS4GD",
+                "license_type": 0,
+                "feature_type_id": 3,
+                "exp_after_first_use": 0,
+                "voice_language_codes": [
+                    "en"
+                ],
+                "durationOverrideTypeId": null,
+                "subtitle_language_codes": [
+                    "de",
+                    "en",
+                    "fr",
+                    "es"
+                ],
+                "preorder_placeholder_flag": false
+            },
+            {
+                "id": "EP5265-PPSA29359_00-0017348506477054",
+                "drms": [],
+                "name": "Escape First Alchemist",
+                "size": 0,
+                "type": 5,
+                "subType": 0,
+                "duration": 0,
+                "metadata": {
+                    "isBeta": [
+                        "FALSE"
+                    ],
+                    "isGame": [
+                        "TRUE"
+                    ],
+                    "voiceLanguageCode": [
+                        "en"
+                    ],
+                    "subtitleLanguageCode": [
+                        "de",
+                        "en",
+                        "fr",
+                        "es"
+                    ]
+                },
+                "packages": [
+                    {
+                        "size": 1516699648,
+                        "platformId": 18,
+                        "platformName": "ps5"
+                    }
+                ],
+                "use_count": 0,
+                "description": null,
+                "packageType": "PSGD",
+                "license_type": 0,
+                "feature_type_id": 3,
+                "exp_after_first_use": 0,
+                "voice_language_codes": [
+                    "en"
+                ],
+                "durationOverrideTypeId": null,
+                "subtitle_language_codes": [
+                    "de",
+                    "en",
+                    "fr",
+                    "es"
+                ],
+                "preorder_placeholder_flag": false
+            }
+        ],
+        "display_price": "349,00 TL",
+        "eligibilities": [],
+        "offerOnlyFlag": false,
+        "charge_type_id": 0,
+        "bundleExclusiveFlag": false,
+        "chargeImmediatelyFlag": false,
+        "seasonPassExclusiveFlag": false,
+        "credit_card_required_flag": 0,
+        "skuAvailabilityOverrideFlag": false
+    },
+    "parent_name": "Escape First: Alchemist",
+    "star_rating": {
+        "count": [
+            {
+                "star": 1,
+                "count": 42
+            },
+            {
+                "star": 2,
+                "count": 8
+            },
+            {
+                "star": 3,
+                "count": 22
+            },
+            {
+                "star": 4,
+                "count": 15
+            },
+            {
+                "star": 5,
+                "count": 112
+            }
+        ],
+        "score": "3.74",
+        "total": "199"
+    },
+    "content_type": "1",
+    "dob_required": false,
+    "parent_links": [
+        {
+            "id": "EP5265-CUSA42720_00-0640446331495004",
+            "url": "https://store.playstation.com/store/api/chihiro/00_09_000/container/TR/en/999/EP5265-CUSA42720_00-0640446331495004/1749058148",
+            "name": "Escape First: Alchemist",
+            "bucket": "games",
+            "images": [
+                {
+                    "url": "https://vulcan.dl.playstation.net/ap/rnd/202503/1812/b632aeefdd62a62e1f33909fed7e65fff273d10b7b421e2f.png",
+                    "type": 10
+                },
+                {
+                    "url": "https://vulcan.dl.playstation.net/ap/rnd/202503/1812/29219695f18c6be5883eb103dc91fe82eb24987e86b6ad59.png",
+                    "type": 12
+                },
+                {
+                    "url": "https://vulcan.dl.playstation.net/ap/rnd/202503/1812/b5b07164cf7882c9d501d627f84e6604e49c1bcc20cadeeb.png",
+                    "type": 13
+                }
+            ],
+            "revision": 16,
+            "timestamp": 1749058148000,
+            "restricted": false,
+            "short_name": "Escape First: Alchemist",
+            "default_sku": {
+                "id": "EP5265-CUSA42720_00-0640446331495004-E002",
+                "name": "Game",
+                "type": "standard",
+                "price": 34900,
+                "rewards": [],
+                "sku_type": 0,
+                "platforms": [
+                    0,
+                    10,
+                    13
+                ],
+                "defaultSku": true,
+                "is_original": false,
+                "amortizeFlag": false,
+                "entitlements": [
+                    {
+                        "id": "EP5265-CUSA42720_00-0640446331495004",
+                        "drms": [],
+                        "name": "Escape First Alchemist",
+                        "size": 0,
+                        "type": 5,
+                        "subType": 0,
+                        "duration": 0,
+                        "metadata": {
+                            "voiceLanguageCode": [
+                                "en"
+                            ],
+                            "subtitleLanguageCode": [
+                                "de",
+                                "en",
+                                "fr",
+                                "es"
+                            ]
+                        },
+                        "packages": [
+                            {
+                                "size": 2434465792,
+                                "platformId": 13,
+                                "platformName": "ps4"
+                            }
+                        ],
+                        "use_count": 0,
+                        "description": null,
+                        "packageType": "PS4GD",
+                        "license_type": 0,
+                        "feature_type_id": 3,
+                        "exp_after_first_use": 0,
+                        "voice_language_codes": [
+                            "en"
+                        ],
+                        "durationOverrideTypeId": null,
+                        "subtitle_language_codes": [
+                            "de",
+                            "en",
+                            "fr",
+                            "es"
+                        ],
+                        "preorder_placeholder_flag": false
+                    }
+                ],
+                "display_price": "349,00 TL",
+                "eligibilities": [],
+                "offerOnlyFlag": false,
+                "charge_type_id": 0,
+                "bundleExclusiveFlag": false,
+                "chargeImmediatelyFlag": false,
+                "seasonPassExclusiveFlag": false,
+                "credit_card_required_flag": 0,
+                "skuAvailabilityOverrideFlag": false
+            },
+            "content_type": "1",
+            "release_date": "2023-09-01T10:00:00Z",
+            "top_category": "downloadable_game",
+            "provider_name": "ONSKULL DEVELOPMENT",
+            "container_type": "product",
+            "game_contentType": "FULL_GAME",
+            "playable_platform": [
+                "PS4"
+            ]
+        }
+    ],
+    "release_date": "2025-05-31T00:00:00Z",
+    "top_category": "downloadable_game",
+    "provider_name": "ONSKULL DEVELOPMENT",
+    "total_results": 0,
+    "container_type": "product",
+    "content_origin": 0,
+    "content_rating": {
+        "url": "https://cdn-a.sonyentertainmentnetwork.com/grc/images/ratings/hd/pegi/3.png",
+        "url4k": "https://cdn-a.sonyentertainmentnetwork.com/grc/images/ratings/4k/pegi/3.png",
+        "description": "PEGI 3+",
+        "rating_system": "PEGI"
+    },
+    "game_contentType": "Bundle",
+    "playable_platform": [
+        "PS4™"
+    ],
+    "gameContentTypesList": [
+        {
+            "key": "BUNDLE",
+            "name": "Bundle"
+        }
+    ]
+}
