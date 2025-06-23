@@ -42,6 +42,8 @@ class MainController extends Controller
         $lang_region_id = $data['lang_region_id'];
         $price_region_id = $data['price_region_id'];
 
+        $start = time();
+
         $items = \DB::table('play_station_alts as t1')
             ->select([
                 't1.sku',
@@ -63,8 +65,6 @@ class MainController extends Controller
         $items = $items->get();
 
         $finished_data = [];
-
-        $send_id = date('Ymd');
 
         foreach ($items as $key => $item) {
 
@@ -184,14 +184,6 @@ class MainController extends Controller
 
             $name .= ", электронный ключ активации, TR";
 
-//            if ($item->sku !== 'EP5265-CUSA42720_00-0401675771013120') {
-//                continue;
-//            }
-
-//            return response()->json([
-//                'data' => $data
-//            ]);
-
             $finished_data[] = [
                 "offer" => [
                     "offerId" => $item->sku,
@@ -260,10 +252,7 @@ class MainController extends Controller
 
         if (count($finished_data) > 100) {
             $finished_data_chunks = array_chunk($finished_data, 100);
-
-//            dd($finished_data_chunks);
         }
-
 
         if (!empty($finished_data_chunks)) {
             foreach ($finished_data_chunks as $chunk) {
@@ -271,7 +260,7 @@ class MainController extends Controller
                 $res = $this->senderToYm(
                     lang_region_id: $lang_region_id,
                     price_region_id: $price_region_id,
-                    finished_data: $chunk,
+                    chunk: $chunk,
                     send_id: $send_id
                 );
 
@@ -280,13 +269,10 @@ class MainController extends Controller
                 }
             }
         } else {
-
-            dd($finished_data);
-
             $res = $this->senderToYm(
                 lang_region_id: $lang_region_id,
                 price_region_id: $price_region_id,
-                finished_data: $finished_data,
+                chunk: $finished_data,
                 send_id: $send_id
             );
 
@@ -298,7 +284,10 @@ class MainController extends Controller
         return response()->json([
             'success' => empty($error_bag),
             'error_bag' => $error_bag,
-            'send_id' => $send_id
+            'send_id' => $send_id,
+            'total' => count($finished_data),
+            'on_sent' => count($finished_data) - count($error_bag) * 100,
+            'time' => time() - $start
         ], empty($error_bag) ? 200 : 400);
 
     }
@@ -472,13 +461,20 @@ class MainController extends Controller
         ]);
     }
 
-    private function senderToYm(string $lang_region_id, string $price_region_id, array $finished_data, string $send_id): array
+    /**
+     * @param string $lang_region_id
+     * @param string $price_region_id
+     * @param array $chunk
+     * @param string $send_id
+     * @return array
+     */
+    private function senderToYm(string $lang_region_id, string $price_region_id, array $chunk, string $send_id): array
     {
         $ym_sender_log = YmSenderLog::create([
             'lang_region_id' => $lang_region_id,
             'price_region_id' => $price_region_id,
             'send_id' => $send_id,
-            'request' => json_encode($finished_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'request' => json_encode($chunk, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'status' => 'pending',
             'created_at' => now()
         ]);
@@ -486,7 +482,7 @@ class MainController extends Controller
         $service = new YmService();
 
         try {
-            $response = $service->offerMappingsUpdate($finished_data);
+            $response = $service->offerMappingsUpdate($chunk);
 
             $ym_sender_log->update([
                 'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
