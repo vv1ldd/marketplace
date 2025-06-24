@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\PlayStation;
 
 use App\Http\Controllers\Controller;
+use App\Http\Services\BinanceService;
 use App\Http\Services\YmService;
 use App\Models\PlayStation\PlayStation;
 use App\Models\PlayStation\PlayStationAlt;
@@ -34,7 +35,7 @@ class MainController extends Controller
     public function sendToMarket(Request $request)
     {
         $data = $request->validate([
-            'sku' => 'nullable|string',
+            'skus' => 'nullable|array|min:1',
             'lang_region_id' => 'required|uuid',
             'price_region_id' => 'required|uuid',
         ]);
@@ -58,13 +59,25 @@ class MainController extends Controller
             ->where('t1.price', '>', 0)
             ->whereNotNull('t2.data');
 
-        if (!empty($data['sku'])) {
-            $items = $items->where('t1.sku', '=', $data['sku']);
+        if (!empty($data['skus'])) {
+            $items = $items->whereIn('t1.sku', $data['skus']);
         }
 
         $items = $items->get();
 
+        if (empty($items)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No items found',
+            ], 400);
+        }
+
         $finished_data = [];
+
+        $binance_service = new BinanceService();
+
+        $usdt_try = $binance_service->tickerPrice('USDTTRY');
+        $usdt_rub = $binance_service->tickerPrice('USDTRUB');
 
         foreach ($items as $key => $item) {
 
@@ -184,6 +197,8 @@ class MainController extends Controller
 
             $name .= ", электронный ключ активации, TR";
 
+            $price = round((($item->price / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 20) / 100), 2);
+
             $finished_data[] = [
                 "offer" => [
                     "offerId" => $item->sku,
@@ -234,7 +249,7 @@ class MainController extends Controller
                     ],
                     "downloadable" => true,
                     'basicPrice' => [
-                        "value" => $item->price * 1.99, // курс лиры
+                        "value" => $price, // курс лиры
                         "currencyId" => "RUR",
                     ],
                     ...(!empty($tags) ? ['tags' => $tags] : []),
@@ -287,7 +302,7 @@ class MainController extends Controller
             'send_id' => $send_id,
             'total' => count($finished_data),
             'on_sent' => count($finished_data) - count($error_bag) * 100,
-            'time' => time() - $start
+            'seconds_spent' => time() - $start
         ], empty($error_bag) ? 200 : 400);
 
     }
