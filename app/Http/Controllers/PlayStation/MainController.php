@@ -75,7 +75,7 @@ class MainController extends Controller
             ], 400);
         }
 
-        ini_set('max_execution_time', 1200);
+        ini_set('max_execution_time', 12000);
 
         $finished_data = [];
 
@@ -510,7 +510,7 @@ class MainController extends Controller
 
         } catch (\Exception $e) {
             $ym_sender_log->update([
-                'response' => $e->getMessage(),
+                'response' =>  json_encode($e->getMessage(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'updated_at' => now(),
                 'status' => 'error'
             ]);
