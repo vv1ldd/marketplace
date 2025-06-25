@@ -20,6 +20,7 @@ use PlaystationStoreApi\Client;
 use PlaystationStoreApi\Enum\CategoryEnum;
 use PlaystationStoreApi\Enum\RegionEnum;
 use GuzzleHttp\Client as HTTPClient;
+use PlaystationStoreApi\Request\RequestConceptByProductId;
 use PlaystationStoreApi\Request\RequestProductById;
 use PlaystationStoreApi\Request\RequestProductList;
 use PlaystationStoreApi\ValueObject\Pagination;
@@ -48,15 +49,17 @@ class MainController extends Controller
         $items = \DB::table('play_station_alts as t1')
             ->select([
                 't1.sku',
-                \DB::raw('ROUND(t1.price / 100, 2) as price'),
+                \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
+                \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
                 't2.data',
+                't2.name as name'
             ])
             ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
                 $join->on('t1.sku', '=', 't2.sku')
                     ->where('t2.region_id', '=', $data['lang_region_id']);
             })
             ->where('t1.region_id', '=', $data['price_region_id'])
-            ->where('t1.price', '>', 0)
+            ->where('t1.price_with_discount', '>', 0)
             ->whereNotNull('t2.data');
 
         if (!empty($data['skus'])) {
@@ -72,6 +75,8 @@ class MainController extends Controller
             ], 400);
         }
 
+        ini_set('max_execution_time', 1200);
+
         $finished_data = [];
 
         $binance_service = new BinanceService();
@@ -81,57 +86,54 @@ class MainController extends Controller
 
         foreach ($items as $key => $item) {
 
-            if ($item->price * 1.99 < 300) {
-                continue;
-            }
-
             $tags = [];
 
             $data = json_decode($item->data, true);
 
-            if (count($data['images'])) {
+            $concept = data_get($data, 'data.productRetrieve.concept');
+
+            if (!$concept) {
+                continue;
+            }
+
+            $price_with_discount = round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
+            $base_price = round((($item->base_price / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
+
+            if ($price_with_discount < 300) {
+                continue;
+            }
+
+            if (count($concept['media'])) {
+                $concept['media'] = array_reverse($concept['media']);
                 $pictures = [];
-                foreach ($data['images'] as $image) {
-                    $pictures[] = $image['url'];
-                }
-            }
-
-            if (isset($data['mediaList']['screenshots']) && count($data['mediaList']['screenshots'])) {
-                foreach ($data['mediaList']['screenshots'] as $screenshot) {
-                    $pictures[] = $screenshot['url'];
-                }
-            }
-
-            if (count($data['promomedia'])) {
                 $videos = [];
-                foreach ($data['promomedia'] as $promomedia) {
-                    if (isset($promomedia['url'])) {
-                        $videos[] = $promomedia['url'];
+                foreach ($concept['media'] as $media) {
+                    if ($media['type'] !== 'VIDEO') {
+                        $pictures[] = $media['url'];
+                    } else {
+                        $videos[] = $media['url'];
                     }
+
+                }
+
+                if (count($videos) > 6) {
+                    $videos = array_slice($videos, 0, 6);
                 }
             }
 
-            if (count($data['metadata'])) {
+            if (count($concept['selectableProducts']['purchasableProducts'])) {
 
-                $metadata = $data['metadata'];
+                $metadata = $concept['selectableProducts']['purchasableProducts'];
 
                 $params = [];
 
                 // Платформа/ы
 
-                if ($platforms = data_get($data, 'skus.0.platforms')) {
+                if ($platforms = data_get($metadata, '0.platforms')) {
 
-                    $platformName = '';
+                    $platformName = implode(' & ', $platforms);
 
-                    if (in_array(18, $platforms)) {
-                        $platformName .= 'PlayStation 5';
-                        $tags[] = 'PS5';
-                    }
-
-                    if (in_array(13, $platforms)) {
-                        $platformName .= ' & PlayStation 4';
-                        $tags[] = 'PS4';
-                    }
+                    $tags = $platforms;
 
                     $params[] = [
                         'name' => 'Платформа',
@@ -141,25 +143,11 @@ class MainController extends Controller
 
                 // Жанр
                 $genres = [];
-                if (!empty($metadata['genre']['values'])) {
-                    $genres = array_merge($genres, $metadata['genre']['values']);
+                if (!empty($concept['combinedLocalizedGenres'])) {
+                    foreach ($concept['combinedLocalizedGenres'] as $genre) {
+                        $genres[] = $genre['value'];
+                    }
                 }
-                if (!empty($metadata['game_genre']['values'])) {
-                    $genres = array_merge($genres, $metadata['game_genre']['values']);
-                }
-
-                // Здесь можно добавить маппинг английских значений на русские, если нужно
-                $genreMap = [
-                    'ARCADE' => 'Аркада',
-                    'SHOOTER' => 'Шутер',
-                    'SIMULATOR' => 'Симулятор',
-                    'FIGHTING' => 'Файтинг',
-                    // Добавь другие по мере необходимости
-                ];
-
-                $genres = array_unique(array_map(function ($g) use ($genreMap) {
-                    return $genreMap[$g] ?? $g;
-                }, $genres));
 
                 if (!empty($genres)) {
                     $params[] = [
@@ -169,14 +157,20 @@ class MainController extends Controller
                 }
 
                 // Режим игры
-                if (!empty($metadata['cn_numberOfPlayers']['values'][0])) {
-                    $players = $metadata['cn_numberOfPlayers']['values'][0];
-                    $mode = $players === '1' ? 'одиночный' : 'мультиплеер';
+                if (!empty($concept['compatibilityNotices'])) {
 
-                    $params[] = [
-                        'name' => 'Режим игры',
-                        'value' => $mode,
-                    ];
+                    foreach ($concept['compatibilityNotices'] as $notice) {
+
+                        if ($notice['type'] === 'NO_OF_PLAYERS') {
+                            $players = $notice['value'];
+                            $mode = $players == '1' ? 'одиночный' : 'мультиплеер';
+
+                            $params[] = [
+                                'name' => 'Режим игры',
+                                'value' => $mode,
+                            ];
+                        }
+                    }
                 }
             }
 
@@ -189,7 +183,7 @@ class MainController extends Controller
                 }
             }
 
-            $name = "Игра {$data['name']}";
+            $name = "Игра {$item->name}";
 
             if (isset($platformName)) {
                 $name .= " для $platformName";
@@ -197,7 +191,15 @@ class MainController extends Controller
 
             $name .= ", электронный ключ активации, TR";
 
-            $price = round((($item->price / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 20) / 100), 2);
+            $description = '';
+
+            if (!empty($concept['descriptions'])) {
+                foreach ($concept['descriptions'] as $desc) {
+                    if ($desc['type'] !== 'SHORT') {
+                        $description .= $desc['value'];
+                    }
+                }
+            }
 
             $finished_data[] = [
                 "offer" => [
@@ -205,8 +207,8 @@ class MainController extends Controller
                     "name" => $name,
                     'marketCategoryId' => config('services.ym.category_id', 70301474),
                     'pictures' => $pictures ?? [],
-                    ...(isset($data['provider_name']) ? ['vendor' => $data['provider_name']] : []),
-                    "description" => $data['long_desc'],
+                    ...(isset($concept['publisherName']) ? ['vendor' => $concept['publisherName']] : []),
+                    "description" => $description,
                     "parameterValues" => [
                         ...(isset($platformName) ? [
                             [
@@ -249,8 +251,11 @@ class MainController extends Controller
                     ],
                     "downloadable" => true,
                     'basicPrice' => [
-                        "value" => $price, // курс лиры
+                        "value" => $price_with_discount,
                         "currencyId" => "RUR",
+                        ...($base_price > $price_with_discount ? [
+                            "discountBase" => $base_price
+                        ] : [])
                     ],
                     ...(!empty($tags) ? ['tags' => $tags] : []),
                     'params' => $params ?? [],
@@ -265,8 +270,8 @@ class MainController extends Controller
 
         $send_id = Str::random();
 
-        if (count($finished_data) > 100) {
-            $finished_data_chunks = array_chunk($finished_data, 100);
+        if (count($finished_data) > 20) {
+            $finished_data_chunks = array_chunk($finished_data, 20);
         }
 
         if (!empty($finished_data_chunks)) {
@@ -383,10 +388,8 @@ class MainController extends Controller
                     'total_count' => $totalCount,
                 ]);
 
-                sleep(rand(1, 3));
             }
 
-            sleep(rand(2, 5));
         }
 
         return response()->json(['message' => 'success',]);
@@ -414,8 +417,8 @@ class MainController extends Controller
         }
 
         $parse_data = $query->where(function ($query) {
-            $query->whereNull('data');
-            $query->orWhere('updated_at', '<', now()->subDays(1));
+            $query->whereNotNull('data');
+            $query->orWhere('updated_at', '<', now()->subHours(3));
         })->get(['sku']);
 
         if (empty($parse_data)) {
@@ -429,21 +432,26 @@ class MainController extends Controller
         $region = PlayStationRegion::where('id', $region_id)->first();
 
         if ($alt) {
-            [$lang, $region] = explode('-', $region->slug);
+//            [$lang, $region] = explode('-', $region->slug);
 
-            $client = new \GuzzleHttp\Client(['base_uri' => $this->API_REST . $region . '/' . $lang . '/', 'timeout' => 5]);
+//            $client_old = new \GuzzleHttp\Client(['base_uri' => $this->API_REST . $region . '/' . $lang . '/', 'timeout' => 5]);
+            $client = new Client(RegionEnum::from($region->slug), new HTTPClient(['base_uri' => $this->API_GRAPHQL, 'timeout' => 5]));
 
         } else {
             $client = new Client(RegionEnum::from($region->slug), new HTTPClient(['base_uri' => $this->API_GRAPHQL, 'timeout' => 5]));
         }
 
+//        dd($parse_data);
+
         foreach ($parse_data as $item) {
+
+//            dd($item);
 
             if ($alt) {
                 $query = PlayStationAlt::where('region_id', $region_id);
 
                 try {
-                    $result = $client->get('999/' . $item->sku);
+                    $result = $client->get(new RequestConceptByProductId($item->sku));
                 } catch (\Exception $exception) {
                     continue;
                 }
@@ -454,18 +462,13 @@ class MainController extends Controller
                 $result = $client->get(new RequestProductById($item->sku));
             }
 
-            if ($result->getStatusCode() === 204) {
-                continue;
-            } else {
-                $result = json_decode($result->getBody()->getContents(), true);
-            }
-
-
             if (!empty($result)) {
                 $query->where('sku', $item->sku)->update([
                     'data' => json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-                    'price' => data_get($result, 'skus.0.price', 0),
-                    'name' => data_get($result, 'name', ''),
+                    'concept_id' => (int)data_get($result, 'data.productRetrieve.concept.id'),
+                    'base_price' => data_get($result, 'data.productRetrieve.price.basePriceValue', 0),
+                    'price_with_discount' => data_get($result, 'data.productRetrieve.price.discountedValue', 0),
+                    'name' => data_get($result, 'data.productRetrieve.concept.name'),
                     'updated_at' => now()
                 ]);
             }

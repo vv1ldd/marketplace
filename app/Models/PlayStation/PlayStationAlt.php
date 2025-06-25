@@ -9,7 +9,8 @@ class PlayStationAlt extends Model
     protected $fillable = [
         'sku',
         'data',
-        'price',
+        'base_price',
+        'price_with_discount',
         'name',
     ];
 }
