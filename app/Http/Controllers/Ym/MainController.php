@@ -1,0 +1,419 @@
+<?php
+
+namespace App\Http\Controllers\Ym;
+
+use App\Http\Controllers\Controller;
+use App\Http\Services\BinanceService;
+use App\Http\Services\YmService;
+use App\Models\YmSenderLog;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+
+class MainController extends Controller
+{
+    /**
+     * @throws ConnectionException
+     */
+    public function prepareToSendItems(Request $request)
+    {
+        $data = $request->validate([
+            'skus' => 'nullable|array|min:1',
+            'lang_region_id' => 'required|uuid',
+            'price_region_id' => 'required|uuid',
+        ]);
+
+        $lang_region_id = $data['lang_region_id'];
+        $price_region_id = $data['price_region_id'];
+
+        $start = time();
+
+        $items = \DB::table('play_station_alts as t1')
+            ->select([
+                't1.sku',
+                \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
+                \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
+                't2.data',
+                't2.name as name'
+            ])
+            ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
+                $join->on('t1.sku', '=', 't2.sku')
+                    ->where('t2.region_id', '=', $data['lang_region_id']);
+            })
+            ->where('t1.region_id', '=', $data['price_region_id'])
+            ->where('t1.price_with_discount', '>', 0)
+            ->whereNotNull('t2.data');
+
+        if (!empty($data['skus'])) {
+            $items = $items->whereIn('t1.sku', $data['skus']);
+        }
+
+        $items = $items->get();
+
+        if (empty($items)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No items found',
+            ], 400);
+        }
+
+        ini_set('max_execution_time', 12000);
+
+        $finished_data = [];
+
+        $binance_service = new BinanceService();
+
+        $usdt_try = $binance_service->tickerPrice('USDTTRY');
+        $usdt_rub = $binance_service->tickerPrice('USDTRUB');
+
+        foreach ($items as $key => $item) {
+
+            $tags = [];
+
+            $data = json_decode($item->data, true);
+
+            $concept = data_get($data, 'data.productRetrieve.concept');
+
+            if (!$concept) {
+                continue;
+            }
+
+            $price_with_discount = round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
+            $base_price = round((($item->base_price / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
+
+            if ($price_with_discount < 300) {
+                continue;
+            }
+
+            if (count($concept['media'])) {
+                $concept['media'] = array_reverse($concept['media']);
+                $pictures = [];
+                $videos = [];
+                foreach ($concept['media'] as $media) {
+                    if ($media['type'] !== 'VIDEO') {
+                        $pictures[] = $media['url'];
+                    } else {
+                        $videos[] = $media['url'];
+                    }
+
+                }
+
+                if (count($videos) > 6) {
+                    $videos = array_slice($videos, 0, 6);
+                }
+            }
+
+            if (count($concept['selectableProducts']['purchasableProducts'])) {
+
+                $metadata = $concept['selectableProducts']['purchasableProducts'];
+
+                $params = [];
+
+                // Платформа/ы
+
+                if ($platforms = data_get($metadata, '0.platforms')) {
+
+                    $platformName = implode(' & ', $platforms);
+
+                    $tags = $platforms;
+
+                    $params[] = [
+                        'name' => 'Платформа',
+                        'value' => $platformName,
+                    ];
+                }
+
+                // Жанр
+                $genres = [];
+                if (!empty($concept['combinedLocalizedGenres'])) {
+                    foreach ($concept['combinedLocalizedGenres'] as $genre) {
+                        $genres[] = $genre['value'];
+                    }
+                }
+
+                if (!empty($genres)) {
+                    $params[] = [
+                        'name' => 'Жанр',
+                        'value' => implode(', ', $genres),
+                    ];
+                }
+
+                // Режим игры
+                if (!empty($concept['compatibilityNotices'])) {
+
+                    foreach ($concept['compatibilityNotices'] as $notice) {
+
+                        if ($notice['type'] === 'NO_OF_PLAYERS') {
+                            $players = $notice['value'];
+                            $mode = $players == '1' ? 'одиночный' : 'мультиплеер';
+
+                            $params[] = [
+                                'name' => 'Режим игры',
+                                'value' => $mode,
+                            ];
+                        }
+                    }
+                }
+            }
+
+            if (isset($players)) {
+
+                $count_players = "1";
+
+                if ($players > 1 && $players < 100) {
+                    $count_players = "до $players";
+                }
+            }
+
+            $name = "Игра {$item->name}";
+
+            if (isset($platformName)) {
+                $name .= " для $platformName";
+            }
+
+            $name .= ", электронный ключ активации, TR";
+
+            $description = '';
+
+            if (!empty($concept['descriptions'])) {
+                foreach ($concept['descriptions'] as $desc) {
+                    if ($desc['type'] !== 'SHORT') {
+                        $description .= $desc['value'];
+                    }
+                }
+            }
+
+            $finished_data[] = [
+                "offer" => [
+                    "offerId" => $item->sku,
+                    "name" => $name,
+                    'marketCategoryId' => config('services.ym.category_id', 70301474),
+                    'pictures' => $pictures ?? [],
+                    ...(isset($concept['publisherName']) ? ['vendor' => $concept['publisherName']] : []),
+                    "description" => $description,
+                    "parameterValues" => [
+                        ...(isset($platformName) ? [
+                            [
+                                "parameterId" => 45128695,
+                                "value" => $platformName,
+                            ]
+                        ] : []),
+                        [
+                            "parameterId" => 37693330,
+                            "value" => "электронный ключ",
+                        ],
+                        [
+                            "parameterId" => 37972050,
+                            "value" => "без сервиса активации",
+                        ],
+                        [
+                            "parameterId" => 45132091,
+                            "value" => "сервис активации",
+                        ],
+                        [
+                            "parameterId" => 16382542,
+                            "value" => "Инструкции по активации будут отправлены вам по электронной почте вместе с кодом активации в течение 10 минут после покупки.",
+                        ],
+                        [
+                            "parameterId" => 37919810,
+                            "value" => "все страны",
+                        ],
+                        ...(isset($mode) ? [
+                            [
+                                "parameterId" => 45131673,
+                                "value" => $mode
+                            ]
+                        ] : []),
+                        ...(isset($count_players) ? [
+                            [
+                                "parameterId" => 39984210,
+                                "value" => $count_players
+                            ]
+                        ] : [])
+                    ],
+                    "downloadable" => true,
+                    'basicPrice' => [
+                        "value" => $price_with_discount,
+                        "currencyId" => "RUR",
+                        ...($base_price > $price_with_discount ? [
+                            "discountBase" => $base_price
+                        ] : [])
+                    ],
+                    ...(!empty($tags) ? ['tags' => $tags] : []),
+                    'params' => $params ?? [],
+                    ...(!empty($videos) ? ['videos' => $videos] : [])
+                ]
+            ];
+        }
+
+        $finished_data_chunks = [];
+
+        $error_bag = [];
+
+        $send_id = Str::random();
+
+        if (count($finished_data) > 20) {
+            $finished_data_chunks = array_chunk($finished_data, 20);
+        }
+
+        if (!empty($finished_data_chunks)) {
+            foreach ($finished_data_chunks as $chunk) {
+
+                $res = $this->sendItems(
+                    lang_region_id: $lang_region_id,
+                    price_region_id: $price_region_id,
+                    chunk: $chunk,
+                    send_id: $send_id
+                );
+
+                if (!$res['success']) {
+                    $error_bag[] = $res['error'];
+                }
+            }
+        } else {
+            $res = $this->sendItems(
+                lang_region_id: $lang_region_id,
+                price_region_id: $price_region_id,
+                chunk: $finished_data,
+                send_id: $send_id
+            );
+
+            if (!$res['success']) {
+                $error_bag[] = $res['error'];
+            }
+        }
+
+        return response()->json([
+            'success' => empty($error_bag),
+            'error_bag' => $error_bag,
+            'send_id' => $send_id,
+            'total' => count($finished_data),
+            'on_sent' => count($finished_data) - count($error_bag) * 100,
+            'seconds_spent' => time() - $start
+        ], empty($error_bag) ? 200 : 400);
+
+    }
+
+    public function prepareSendStockItems(Request $request)
+    {
+        $data = $request->validate([
+            'skus' => 'nullable|array|min:1',
+            'lang_region_id' => 'required|uuid',
+            'price_region_id' => 'required|uuid',
+            'stock' => 'nullable|integer|min:0|max:2000000000',
+        ]);
+
+        $start = time();
+
+        $stock = $data['stock'] ?? 100;
+
+        $items = \DB::table('play_station_alts as t1')
+            ->select(['t1.sku'])
+            ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
+                $join->on('t1.sku', '=', 't2.sku')
+                    ->where('t2.region_id', '=', $data['lang_region_id']);
+            })
+            ->where('t1.region_id', '=', $data['price_region_id'])
+            ->where('t1.price_with_discount', '>', 0)
+            ->whereNotNull('t2.data');
+
+        if (!empty($data['skus'])) {
+            $items = $items->whereIn('t1.sku', $data['skus']);
+        }
+
+        $items = $items->get();
+
+        if (empty($items)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No items found',
+            ], 400);
+        }
+
+        ini_set('max_execution_time', 12000);
+
+        $finished_data = [];
+
+        foreach ($items as $item) {
+
+            $finished_data[] = [
+                'sku' => $item->sku,
+                'items' => [
+                    [
+                        'count' => $stock,
+                    ]
+                ]
+            ];
+        }
+
+        $service = new YmService();
+
+        $finished_data_chunks = [];
+
+        if (count($finished_data) > 1000) {
+            $finished_data_chunks = array_chunk($finished_data, 1000);
+        }
+
+//        dd($finished_data_chunks[0]);
+
+        if (!empty($finished_data_chunks)) {
+            foreach ($finished_data_chunks as $chunk) {
+                $service->offerStocks($chunk);
+            }
+        } else {
+            $service->offerStocks($finished_data);
+        }
+
+        return response()->json([
+            'success' => true,
+            'seconds_spent' => time() - $start
+        ]);
+    }
+
+    /**
+     * @param string $lang_region_id
+     * @param string $price_region_id
+     * @param array $chunk
+     * @param string $send_id
+     * @return array
+     */
+    private function sendItems(string $lang_region_id, string $price_region_id, array $chunk, string $send_id): array
+    {
+        $ym_sender_log = YmSenderLog::create([
+            'lang_region_id' => $lang_region_id,
+            'price_region_id' => $price_region_id,
+            'send_id' => $send_id,
+            'request' => json_encode($chunk, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'status' => 'pending',
+            'created_at' => now()
+        ]);
+
+        $service = new YmService();
+
+        try {
+            $response = $service->offerMappingsUpdate($chunk);
+
+            $ym_sender_log->update([
+                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'updated_at' => now(),
+                'status' => 'success'
+            ]);
+
+        } catch (\Exception $e) {
+
+            $ym_sender_log->update([
+                'response' => json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'updated_at' => now(),
+                'status' => 'error'
+            ]);
+
+            return [
+                'success' => false,
+                'send_id' => $send_id,
+                'error' => json_decode($e->getMessage(), true),
+            ];
+        }
+
+        return ['success' => true, 'send_id' => $send_id];
+    }
+}

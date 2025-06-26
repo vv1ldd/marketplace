@@ -13,7 +13,28 @@ class YmService
 
     public function __construct()
     {
-        $this->client = Http::withHeaders(['Api-Key' => config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683'),]);
+        $this->client = Http::withHeaders([
+            'Api-Key' => config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683'),
+        ])
+            ->withOptions([
+                'timeout' => 60,
+                'connect_timeout' => 40,
+            ]);
+    }
+
+    public function offerStocks(array $offerStocks)
+    {
+        $campaign_id = config('services.ym.campaign_id', 143486522);
+
+        $response = $this->client->baseUrl($this->base_url)->put("campaigns/$campaign_id/offers/stocks", [
+            'skus' => $offerStocks,
+        ]);
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json();
     }
 
     public function offerMappingsUpdate(array $offerMappings)
