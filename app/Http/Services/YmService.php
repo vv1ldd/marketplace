@@ -19,11 +19,54 @@ class YmService
             ->withOptions([
                 'timeout' => 60,
                 'connect_timeout' => 40,
+                'verify' => false,
             ]);
+    }
+
+    public function offerShow(array $offerIds)
+    {
+        if (count($offerIds) > 500) {
+            throw new \Exception('Too many offerIds');
+        }
+
+        $campaign_id = config('services.ym.campaign_id', 143486522);
+
+        $response = $this->client->baseUrl($this->base_url)->post("campaigns/$campaign_id/hidden-offers/delete", [
+            'hiddenOffers' => $offerIds,
+        ]);
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json();
+    }
+
+    public function offerPriceUpdate(array $offerPrices)
+    {
+        if (count($offerPrices) > 500) {
+            throw new \Exception('Too many offerPrices');
+        }
+
+        $business_id = config('services.ym.business_id', 198666367);
+
+        $response = $this->client->baseUrl($this->base_url)->post("businesses/$business_id/offer-prices/updates", [
+            'offers' => $offerPrices,
+        ]);
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json();
     }
 
     public function offerStocks(array $offerStocks)
     {
+        if (count($offerStocks) > 1000) {
+            throw new \Exception('Too many offerStocks');
+        }
+
         $campaign_id = config('services.ym.campaign_id', 143486522);
 
         $response = $this->client->baseUrl($this->base_url)->put("campaigns/$campaign_id/offers/stocks", [

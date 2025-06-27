@@ -15,9 +15,10 @@ return new class extends Migration {
             $table->uuid('lang_region_id');
             $table->uuid('price_region_id');
             $table->string('send_id', 16);
-            $table->jsonb('request');
             $table->string('status')->default('pending');
+            $table->jsonb('request');
             $table->jsonb('response')->nullable();
+            $table->string('action')->default('send');
             $table->timestamps();
         });
     }

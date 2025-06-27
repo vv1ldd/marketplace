@@ -5,6 +5,7 @@ namespace App\Http\Controllers\PlayStation;
 use App\Http\Controllers\Controller;
 use App\Http\Services\BinanceService;
 use App\Http\Services\YmService;
+use App\Jobs\UpdatePlayStationSkuDataJob;
 use App\Models\PlayStation\PlayStation;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\PlayStation\PlayStationCategory;
@@ -125,75 +126,35 @@ class MainController extends Controller
             'alt' => 'required|boolean',
         ]);
 
-        $region_id = $data['id'];
         $alt = $data['alt'];
 
-        if ($alt) {
-            $query = PlayStationAlt::where('region_id', $region_id);
-        } else {
-            $query = PlayStation::where('region_id', $region_id);
-        }
+        $region = PlayStationRegion::findOrFail($data['id']);
 
-        $parse_data = $query->where(function ($query) {
-            $query->whereNotNull('data');
-            $query->orWhere('updated_at', '<', now()->subHours(3));
-        })->get(['sku']);
+        $query = $alt ? PlayStationAlt::query() : PlayStation::query();
 
-        if (empty($parse_data)) {
+        $items = $query->where('region_id', $region->id)
+            ->where(function ($query) {
+                $query->whereNotNull('data')
+                    ->orWhere('updated_at', '<', now()->subHours(3));
+            })
+            ->get(['sku']);
+
+        if (empty($items)) {
             return response()->json(['success' => false,]);
         }
 
-        ini_set('max_execution_time', 12000);
-
-        $region_id = $data['id'];
-
-        $region = PlayStationRegion::where('id', $region_id)->first();
-
-        if ($alt) {
-//            [$lang, $region] = explode('-', $region->slug);
-
-//            $client_old = new \GuzzleHttp\Client(['base_uri' => $this->API_REST . $region . '/' . $lang . '/', 'timeout' => 5]);
-            $client = new Client(RegionEnum::from($region->slug), new HTTPClient(['base_uri' => $this->API_GRAPHQL, 'timeout' => 5]));
-
-        } else {
-            $client = new Client(RegionEnum::from($region->slug), new HTTPClient(['base_uri' => $this->API_GRAPHQL, 'timeout' => 5]));
-        }
-
-//        dd($parse_data);
-
-        foreach ($parse_data as $item) {
-
-//            dd($item);
-
-            if ($alt) {
-                $query = PlayStationAlt::where('region_id', $region_id);
-
-                try {
-                    $result = $client->get(new RequestConceptByProductId($item->sku));
-                } catch (\Exception $exception) {
-                    continue;
-                }
-
-            } else {
-                $query = PlayStation::where('region_id', $region_id);
-
-                $result = $client->get(new RequestProductById($item->sku));
-            }
-
-            if (!empty($result)) {
-                $query->where('sku', $item->sku)->update([
-                    'data' => json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-                    'concept_id' => (int)data_get($result, 'data.productRetrieve.concept.id'),
-                    'base_price' => data_get($result, 'data.productRetrieve.price.basePriceValue', 0),
-                    'price_with_discount' => data_get($result, 'data.productRetrieve.price.discountedValue', 0),
-                    'name' => data_get($result, 'data.productRetrieve.concept.name'),
-                    'updated_at' => now()
-                ]);
-            }
+        foreach ($items as $item) {
+            UpdatePlayStationSkuDataJob::dispatch(
+                sku: $item->sku,
+                regionSlug: $region->slug,
+                regionId: $region->id,
+                alt: $alt
+            );
         }
 
         return response()->json([
-            'success' => true
+            'success' => true,
+            'queued' => $items->count(),
         ]);
     }
 

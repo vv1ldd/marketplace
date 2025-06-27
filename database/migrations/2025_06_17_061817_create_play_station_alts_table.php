@@ -15,8 +15,11 @@ return new class extends Migration {
             $table->string('sku', 36);
             $table->uuid('region_id');
             $table->jsonb('data')->nullable();
-
             $table->timestamps();
+            $table->integer('base_price')->nullable();
+            $table->integer('price_with_discount')->nullable();
+            $table->string('name')->nullable();
+            $table->timestamp('send_to_ym_at')->nullable();
 
             $table->unique(['sku', 'region_id']);
         });

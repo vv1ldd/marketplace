@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Ym;
 use App\Http\Controllers\Controller;
 use App\Http\Services\BinanceService;
 use App\Http\Services\YmService;
+use App\Jobs\ItemsYmShow;
+use App\Jobs\UpdateYmPrices;
+use App\Models\PlayStation\PlayStationAlt;
 use App\Models\YmSenderLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
@@ -12,6 +15,140 @@ use Illuminate\Support\Str;
 
 class MainController extends Controller
 {
+    public function prepareToItemsShow(Request $request)
+    {
+        $data = $request->validate([
+            'skus' => 'nullable|array|min:1',
+            'lang_region_id' => 'required|uuid',
+            'price_region_id' => 'required|uuid',
+        ]);
+
+        $items = \DB::table('play_station_alts as t1')
+            ->select([
+                't1.sku',
+                \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
+                \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
+                't2.data',
+                't2.name as name'
+            ])
+            ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
+                $join->on('t1.sku', '=', 't2.sku')
+                    ->where('t2.region_id', '=', $data['lang_region_id']);
+            })
+            ->where('t1.region_id', '=', $data['price_region_id'])
+            ->where('t1.price_with_discount', '>', 0)
+            ->whereNotNull('t2.data');
+
+        if (!empty($data['skus'])) {
+            $items = $items->whereIn('sku', $data['skus']);
+        }
+
+        $items = $items->get();
+
+        if (empty($items)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No items found',
+            ], 400);
+        }
+
+        $finished_data = [];
+
+        foreach ($items as $item) {
+            $finished_data[] = [
+                'offerId' => $item->sku,
+            ];
+        }
+
+        $finished_data_chunk = array_chunk($finished_data, 500);
+
+        foreach ($finished_data_chunk as $key => $chunk) {
+            ItemsYmShow::dispatch($chunk)->delay(now()->addSeconds(10 + $key * 10));;
+        }
+
+        return response()->json([
+            'success' => true,
+            'queued' => count($finished_data_chunk),
+        ]);
+
+    }
+
+    public function prepareToUpdatePriceItems(Request $request)
+    {
+        $data = $request->validate([
+            'skus' => 'nullable|array|min:1',
+            'lang_region_id' => 'required|uuid',
+            'price_region_id' => 'required|uuid',
+        ]);
+
+        $items = \DB::table('play_station_alts as t1')
+            ->select([
+                't1.sku',
+                \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
+                \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
+                't2.data',
+                't2.name as name'
+            ])
+            ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
+                $join->on('t1.sku', '=', 't2.sku')
+                    ->where('t2.region_id', '=', $data['lang_region_id']);
+            })
+            ->where('t1.region_id', '=', $data['price_region_id'])
+            ->where('t1.price_with_discount', '>', 0)
+            ->whereNotNull('t2.data');
+
+        if (!empty($data['skus'])) {
+            $items = $items->whereIn('sku', $data['skus']);
+        }
+
+        $items = $items->get();
+
+        if (empty($items)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No items found',
+            ], 400);
+        }
+
+        $binance_service = new BinanceService();
+
+        $usdt_try = $binance_service->tickerPrice('USDTTRY');
+        $usdt_rub = $binance_service->tickerPrice('USDTRUB');
+
+        $finished_data = [];
+
+        foreach ($items as $item) {
+
+            [$price_with_discount, $base_price] = $this->pricesCalc($item, $usdt_try, $usdt_rub);
+
+            if ($price_with_discount < 300) {
+                continue;
+            }
+
+            $finished_data[] = [
+                'offerId' => $item->sku,
+                'price' => [
+                    "value" => $price_with_discount,
+                    "currencyId" => "RUR",
+                    ...($base_price > $price_with_discount ? [
+                        "discountBase" => $base_price
+                    ] : [])
+                ]
+            ];
+        }
+
+        $finished_data_chunks = array_chunk($finished_data, 500);
+
+        foreach ($finished_data_chunks as $key => $chunk) {
+            UpdateYmPrices::dispatch($chunk)->delay(now()->addSeconds(10 + $key * 10));
+        }
+
+        return response()->json([
+            'success' => true,
+            'queued' => count($finished_data_chunks),
+        ]);
+    }
+
     /**
      * @throws ConnectionException
      */
@@ -57,8 +194,6 @@ class MainController extends Controller
             ], 400);
         }
 
-        ini_set('max_execution_time', 12000);
-
         $finished_data = [];
 
         $binance_service = new BinanceService();
@@ -78,14 +213,13 @@ class MainController extends Controller
                 continue;
             }
 
-            $price_with_discount = round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
-            $base_price = round((($item->base_price / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
+            [$price_with_discount, $base_price] = $this->pricesCalc($item, $usdt_try, $usdt_rub);
 
             if ($price_with_discount < 300) {
                 continue;
             }
 
-            if (count($concept['media'])) {
+            if ($concept['media'] = data_get($concept, 'selectableProducts.purchasableProducts.0.media')) {
                 $concept['media'] = array_reverse($concept['media']);
                 $pictures = [];
                 $videos = [];
@@ -183,6 +317,8 @@ class MainController extends Controller
                 }
             }
 
+            $description = str_replace('facebook', '(соц. сеть на букву ф)', $description);
+
             $finished_data[] = [
                 "offer" => [
                     "offerId" => $item->sku,
@@ -256,25 +392,15 @@ class MainController extends Controller
             $finished_data_chunks = array_chunk($finished_data, 20);
         }
 
-        if (!empty($finished_data_chunks)) {
-            foreach ($finished_data_chunks as $chunk) {
+        YmSenderLog::where('lang_region_id', $lang_region_id)
+            ->where('price_region_id', $send_id)
+            ->delete();
 
-                $res = $this->sendItems(
-                    lang_region_id: $lang_region_id,
-                    price_region_id: $price_region_id,
-                    chunk: $chunk,
-                    send_id: $send_id
-                );
-
-                if (!$res['success']) {
-                    $error_bag[] = $res['error'];
-                }
-            }
-        } else {
+        foreach ($finished_data_chunks as $chunk) {
             $res = $this->sendItems(
                 lang_region_id: $lang_region_id,
                 price_region_id: $price_region_id,
-                chunk: $finished_data,
+                chunk: $chunk,
                 send_id: $send_id
             );
 
@@ -399,6 +525,8 @@ class MainController extends Controller
                 'status' => 'success'
             ]);
 
+            PlayStationAlt::whereIn('sku', array_column($chunk, 'sku'))->update(['send_to_ym_at' => now()]);
+
         } catch (\Exception $e) {
 
             $ym_sender_log->update([
@@ -415,5 +543,24 @@ class MainController extends Controller
         }
 
         return ['success' => true, 'send_id' => $send_id];
+    }
+
+    private function updatePriceItems()
+    {
+
+    }
+
+    /**
+     * @param $item
+     * @param $usdt_try
+     * @param $usdt_rub
+     * @return array
+     */
+    private function pricesCalc($item, $usdt_try, $usdt_rub): array
+    {
+        $price_with_discount = round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
+        $base_price = round((($item->base_price / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
+
+        return [$price_with_discount, $base_price];
     }
 }

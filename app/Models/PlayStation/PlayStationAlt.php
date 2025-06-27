@@ -12,5 +12,7 @@ class PlayStationAlt extends Model
         'base_price',
         'price_with_discount',
         'name',
+        'updated_at',
+        'send_to_ym_at',
     ];
 }
