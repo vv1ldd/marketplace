@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Services\BinanceService;
 use App\Http\Services\YmService;
 use App\Jobs\UpdatePlayStationSkuDataJob;
+use App\Jobs\UpdateYmPrices;
 use App\Models\PlayStation\PlayStation;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\PlayStation\PlayStationCategory;
@@ -15,6 +16,7 @@ use App\Models\YmSenderLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PlaystationStoreApi\Client;
@@ -25,6 +27,7 @@ use PlaystationStoreApi\Request\RequestConceptByProductId;
 use PlaystationStoreApi\Request\RequestProductById;
 use PlaystationStoreApi\Request\RequestProductList;
 use PlaystationStoreApi\ValueObject\Pagination;
+use App\Http\Controllers\Ym\MainController as YmMainController;
 
 class MainController extends Controller
 {
@@ -45,7 +48,6 @@ class MainController extends Controller
         $categories = PlayStationCategory::all()->toArray();
 
         $region_id = $data['id'];
-        $alt = $data['alt'];
 
         $region = PlayStationRegion::where('id', $region_id)->first();
 
@@ -61,7 +63,7 @@ class MainController extends Controller
             $pre_request = $client->get($pre_request);
             $totalCount = $pre_request['data']['categoryGridRetrieve']['pageInfo']['totalCount'];
 
-            $count = PlayStation::where('region_id', $region_id)
+            $count = PlayStationAlt::where('region_id', $region_id)
                 ->where('category_id', $category['id'])->count();
 
             if ($count >= $totalCount) {
@@ -85,27 +87,23 @@ class MainController extends Controller
                     $products_insert[] = [
                         'sku' => $product['id'],
                         'category_id' => $category['id'],
+                        'name' => $product['name'],
                         'region_id' => $region_id,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
                 }
 
-                PlayStation::insertOrIgnore($products_insert);
+//                PlayStation::insertOrIgnore($products_insert);
 
-                PlayStationAlt::insertOrIgnore([
-                    'region_id' => $region_id,
-                    'sku' => $product['id'],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                PlayStationAlt::insertOrIgnore($products_insert);
 
-                PlayStationRegionCategory::updateOrCreate([
-                    'region_id' => $region_id,
-                    'category_id' => $category['id'],
-                ], [
-                    'total_count' => $totalCount,
-                ]);
+//                PlayStationRegionCategory::updateOrCreate([
+//                    'region_id' => $region_id,
+//                    'category_id' => $category['id'],
+//                ], [
+//                    'total_count' => $totalCount,
+//                ]);
 
             }
 
@@ -123,19 +121,16 @@ class MainController extends Controller
     {
         $data = $request->validate([
             'id' => 'required|exists:App\Models\PlayStation\PlayStationRegion',
-            'alt' => 'required|boolean',
         ]);
-
-        $alt = $data['alt'];
 
         $region = PlayStationRegion::findOrFail($data['id']);
 
-        $query = $alt ? PlayStationAlt::query() : PlayStation::query();
+        $query = PlayStationAlt::query();
 
         $items = $query->where('region_id', $region->id)
             ->where(function ($query) {
                 $query->whereNotNull('data')
-                    ->orWhere('updated_at', '<', now()->subHours(3));
+                    ->orWhere('updated_at', '<', now()->subHours(1));
             })
             ->get(['sku']);
 
@@ -147,9 +142,8 @@ class MainController extends Controller
             UpdatePlayStationSkuDataJob::dispatch(
                 sku: $item->sku,
                 regionSlug: $region->slug,
-                regionId: $region->id,
-                alt: $alt
-            );
+                regionId: $region->id
+            )->onQueue('high');
         }
 
         return response()->json([

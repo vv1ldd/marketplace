@@ -1,9 +1,11 @@
 <?php
 
+use App\Console\Commands\PlayStation\DetailFromRegion;
 use Illuminate\Support\Facades\Schedule;
-use App\Console\Commands\PlayStationObserver;
 
-Schedule::command(PlayStationObserver::class)->everyFiveMinutes();
+Schedule::command(DetailFromRegion::class)->everyTwoHours();
+
+
 
 
 

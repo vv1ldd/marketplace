@@ -14,5 +14,6 @@ class PlayStationAlt extends Model
         'name',
         'updated_at',
         'send_to_ym_at',
+        'category_id',
     ];
 }

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\PlayStation\PlayStationAlt;
+use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -15,13 +16,12 @@ use PlaystationStoreApi\Request\RequestConceptByProductId;
 
 class UpdatePlayStationSkuDataJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, Batchable;
 
     public function __construct(
         public string $sku,
         public string $regionSlug,
-        public string    $regionId,
-        public bool   $alt = false,
+        public string $regionId,
         public string $base_uri = 'https://web.np.playstation.com/api/graphql/v1/'
     )
     {
@@ -32,19 +32,39 @@ class UpdatePlayStationSkuDataJob implements ShouldQueue
      */
     public function handle(): void
     {
-        $client = new Client(RegionEnum::from($this->regionSlug), new HTTPClient(['base_uri' => $this->base_uri, 'timeout' => 5, 'verify' => false,]));
+        $client = new Client(RegionEnum::from($this->regionSlug), new HTTPClient(['base_uri' => $this->base_uri, 'timeout' => 30, 'verify' => false,]));
 
         $result = $client->get(new RequestConceptByProductId($this->sku));
 
-        PlayStationAlt::where('region_id', $this->regionId)
-            ->where('sku', $this->sku)
-            ->update([
-                'data' => json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-                'concept_id' => (int)data_get($result, 'data.productRetrieve.concept.id'),
-                'base_price' => data_get($result, 'data.productRetrieve.price.basePriceValue', 0),
-                'price_with_discount' => data_get($result, 'data.productRetrieve.price.discountedValue', 0),
-                'name' => data_get($result, 'data.productRetrieve.concept.name'),
-                'updated_at' => now()
-            ]);
+        $data = data_get($result, 'data.productRetrieve.concept.selectableProducts.purchasableProducts');
+        $concept_id = (int)data_get($result, 'data.productRetrieve.concept.id');
+
+        if (data_get($result, 'errors.0')) {
+            return;
+        }
+
+        if (empty($data)) {
+
+            $data[] = data_get($result, 'data.productRetrieve');;
+
+            if (empty($data)) {
+                return;
+            }
+        }
+
+        foreach ($data as $product) {
+            if ($this->sku === $product['id']) {
+                PlayStationAlt::where('region_id', $this->regionId)
+                    ->where('sku', $this->sku)
+                    ->update([
+                        'data' => json_encode($product, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                        'concept_id' => $concept_id,
+                        'base_price' => data_get($product, 'price.basePriceValue', 0),
+                        'price_with_discount' => data_get($product, 'price.discountedValue', 0),
+                        'name' => $product['name'] ?? data_get($product, 'concept.name'),
+                        'updated_at' => now()
+                    ]);
+            }
+        }
     }
 }

@@ -13,7 +13,10 @@ class BinanceService
 
     public function __construct()
     {
-        $this->client = Http::baseUrl($this->base_url);
+        $this->client = Http::baseUrl($this->base_url)->withOptions([
+            'timeout' => 60,
+            'verify' => false,
+        ]);
     }
 
     /**

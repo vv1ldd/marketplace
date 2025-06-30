@@ -63,7 +63,7 @@ class MainController extends Controller
         $finished_data_chunk = array_chunk($finished_data, 500);
 
         foreach ($finished_data_chunk as $key => $chunk) {
-            ItemsYmShow::dispatch($chunk)->delay(now()->addSeconds(10 + $key * 10));;
+            ItemsYmShow::dispatch($chunk)->delay(now()->addSeconds(10 + $key * 10));
         }
 
         return response()->json([
@@ -73,7 +73,12 @@ class MainController extends Controller
 
     }
 
-    public function prepareToUpdatePriceItems(Request $request)
+    /**
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     * @throws ConnectionException
+     */
+    public function prepareToUpdatePriceItems(Request $request): \Illuminate\Http\JsonResponse
     {
         $data = $request->validate([
             'skus' => 'nullable|array|min:1',
@@ -86,7 +91,6 @@ class MainController extends Controller
                 't1.sku',
                 \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
                 \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
-                't2.data',
                 't2.name as name'
             ])
             ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
@@ -94,8 +98,7 @@ class MainController extends Controller
                     ->where('t2.region_id', '=', $data['lang_region_id']);
             })
             ->where('t1.region_id', '=', $data['price_region_id'])
-            ->where('t1.price_with_discount', '>', 0)
-            ->whereNotNull('t2.data');
+            ->where('t1.price_with_discount', '>', 0);
 
         if (!empty($data['skus'])) {
             $items = $items->whereIn('sku', $data['skus']);
@@ -140,7 +143,9 @@ class MainController extends Controller
         $finished_data_chunks = array_chunk($finished_data, 500);
 
         foreach ($finished_data_chunks as $key => $chunk) {
-            UpdateYmPrices::dispatch($chunk)->delay(now()->addSeconds(10 + $key * 10));
+            UpdateYmPrices::dispatch($chunk)
+                ->delay(now()->addSeconds(10 + $key * 10))
+                ->onQueue('low');
         }
 
         return response()->json([
@@ -163,6 +168,8 @@ class MainController extends Controller
         $lang_region_id = $data['lang_region_id'];
         $price_region_id = $data['price_region_id'];
 
+        ini_set('max_execution_time', 12000);
+
         $start = time();
 
         $items = \DB::table('play_station_alts as t1')
@@ -171,7 +178,10 @@ class MainController extends Controller
                 \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
                 \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
                 't2.data',
-                't2.name as name'
+                't2.name as name',
+                't1.region_id as region_id',
+                't1.concept_id as concept_id',
+                't2.is_group'
             ])
             ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
                 $join->on('t1.sku', '=', 't2.sku')
@@ -180,6 +190,7 @@ class MainController extends Controller
             ->where('t1.region_id', '=', $data['price_region_id'])
             ->where('t1.price_with_discount', '>', 0)
             ->whereNotNull('t2.data');
+
 
         if (!empty($data['skus'])) {
             $items = $items->whereIn('t1.sku', $data['skus']);
@@ -205,11 +216,11 @@ class MainController extends Controller
 
             $tags = [];
 
+            $is_group = $item->is_group;
+
             $data = json_decode($item->data, true);
 
-            $concept = data_get($data, 'data.productRetrieve.concept');
-
-            if (!$concept) {
+            if (!$data) {
                 continue;
             }
 
@@ -219,11 +230,11 @@ class MainController extends Controller
                 continue;
             }
 
-            if ($concept['media'] = data_get($concept, 'selectableProducts.purchasableProducts.0.media')) {
-                $concept['media'] = array_reverse($concept['media']);
+            if ($data['media'] = data_get($data, 'media')) {
+                $data['media'] = array_reverse($data['media']);
                 $pictures = [];
                 $videos = [];
-                foreach ($concept['media'] as $media) {
+                foreach ($data['media'] as $media) {
                     if ($media['type'] !== 'VIDEO') {
                         $pictures[] = $media['url'];
                     } else {
@@ -237,58 +248,56 @@ class MainController extends Controller
                 }
             }
 
-            if (count($concept['selectableProducts']['purchasableProducts'])) {
 
-                $metadata = $concept['selectableProducts']['purchasableProducts'];
+            //TODO Asdasda
 
-                $params = [];
+            $params = [];
 
-                // Платформа/ы
+            // Платформа/ы
+            if ($platforms = data_get($data, 'platforms')) {
 
-                if ($platforms = data_get($metadata, '0.platforms')) {
+                $platformName = implode(' & ', $platforms);
 
-                    $platformName = implode(' & ', $platforms);
+                $tags = $platforms;
 
-                    $tags = $platforms;
+                $params[] = [
+                    'name' => 'Платформа',
+                    'value' => $platformName,
+                ];
+            }
 
-                    $params[] = [
-                        'name' => 'Платформа',
-                        'value' => $platformName,
-                    ];
+            // Жанр
+            $genres = [];
+            if (!empty($data['combinedLocalizedGenres'])) {
+                foreach ($data['combinedLocalizedGenres'] as $genre) {
+                    $genres[] = $genre['value'];
                 }
+            }
 
-                // Жанр
-                $genres = [];
-                if (!empty($concept['combinedLocalizedGenres'])) {
-                    foreach ($concept['combinedLocalizedGenres'] as $genre) {
-                        $genres[] = $genre['value'];
-                    }
-                }
+            if (!empty($genres)) {
+                $params[] = [
+                    'name' => 'Жанр',
+                    'value' => implode(', ', $genres),
+                ];
+            }
 
-                if (!empty($genres)) {
-                    $params[] = [
-                        'name' => 'Жанр',
-                        'value' => implode(', ', $genres),
-                    ];
-                }
+            // Режим игры
+            if (!empty($data['compatibilityNotices'])) {
 
-                // Режим игры
-                if (!empty($concept['compatibilityNotices'])) {
+                foreach ($data['compatibilityNotices'] as $notice) {
 
-                    foreach ($concept['compatibilityNotices'] as $notice) {
+                    if ($notice['type'] === 'NO_OF_PLAYERS') {
+                        $players = $notice['value'];
+                        $mode = $players == '1' ? 'одиночный' : 'мультиплеер';
 
-                        if ($notice['type'] === 'NO_OF_PLAYERS') {
-                            $players = $notice['value'];
-                            $mode = $players == '1' ? 'одиночный' : 'мультиплеер';
-
-                            $params[] = [
-                                'name' => 'Режим игры',
-                                'value' => $mode,
-                            ];
-                        }
+                        $params[] = [
+                            'name' => 'Режим игры',
+                            'value' => $mode,
+                        ];
                     }
                 }
             }
+//            }
 
             if (isset($players)) {
 
@@ -309,9 +318,9 @@ class MainController extends Controller
 
             $description = '';
 
-            if (!empty($concept['descriptions'])) {
-                foreach ($concept['descriptions'] as $desc) {
-                    if ($desc['type'] !== 'SHORT') {
+            if (!empty($data['descriptions'])) {
+                foreach ($data['descriptions'] as $desc) {
+                    if ($desc['type'] === 'LONG' || $desc['type'] === 'COMPATIBILITY_NOTICE') {
                         $description .= $desc['value'];
                     }
                 }
@@ -344,12 +353,22 @@ class MainController extends Controller
                         ],
                         [
                             "parameterId" => 45132091,
-                            "value" => "сервис активации",
+                            "value" => "цифровое",
+                        ],
+                        [
+                            "parameterId" => 45130810,
+                            "value" => $item->name,
                         ],
                         [
                             "parameterId" => 16382542,
                             "value" => "Инструкции по активации будут отправлены вам по электронной почте вместе с кодом активации в течение 10 минут после покупки.",
                         ],
+                        ...($is_group ? [
+                            [
+                                "parameterId" => 200,
+                                "value" => $item->concept_id
+                            ]
+                        ] : []),
                         [
                             "parameterId" => 37919810,
                             "value" => "все страны",
@@ -382,15 +401,11 @@ class MainController extends Controller
             ];
         }
 
-        $finished_data_chunks = [];
-
         $error_bag = [];
 
         $send_id = Str::random();
 
-        if (count($finished_data) > 20) {
-            $finished_data_chunks = array_chunk($finished_data, 20);
-        }
+        $finished_data_chunks = array_chunk($finished_data, 20);
 
         YmSenderLog::where('lang_region_id', $lang_region_id)
             ->where('price_region_id', $send_id)
