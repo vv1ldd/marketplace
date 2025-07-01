@@ -144,7 +144,7 @@ class MainController extends Controller
 
         foreach ($finished_data_chunks as $key => $chunk) {
             UpdateYmPrices::dispatch($chunk)
-                ->delay(now()->addSeconds(1800 + $key * 10))
+                ->delay(now()->addSeconds(1200 + $key * 10))
                 ->onQueue('low');
         }
 
