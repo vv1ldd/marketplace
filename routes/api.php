@@ -20,13 +20,13 @@ Route::group(['prefix' => 'ps'], function () {
 });
 
 Route::group(['prefix' => 'ym'], function () {
-    Route::any('callback', function (Request $request) {
+    Route::any('notification', function (Request $request) {
 
         // 5.45.207.0/25
         //141.8.142.0/25
         //5.255.253.0/25
 
-        \Log::debug("ym callback", [
+        \Log::debug("ym notification", [
             'request' => $request->all(),
             'headers' => $request->headers->all(),
         ]);
