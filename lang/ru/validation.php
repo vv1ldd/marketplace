@@ -126,7 +126,7 @@ return [
     'regex'                => 'Поле имеет некорректный формат.',
     'required'             => 'Поле :attribute обязательно.',
     'required_array_keys'  => 'Массив, указанный, обязательно должен иметь ключи: :values',
-    'required_if'          => 'Поле :attribute обязательно для заполнения, когда :other содержит :value.',
+    'required_if'          => 'Поле обязательно для заполнения',
     'required_if_accepted' => 'Поле :attribute обязательно, когда :other принято.',
     'required_if_declined' => 'Поле :attribute обязательно, когда :other отклонено.',
     'required_unless'      => 'Поле :attribute обязательно для заполнения, когда :other не содержит :values.',
