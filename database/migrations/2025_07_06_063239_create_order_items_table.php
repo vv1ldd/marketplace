@@ -19,6 +19,7 @@ return new class extends Migration {
             $table->uuid('sku');
             $table->integer('count');
             $table->date('activate_till');
+            $table->json('client_info')->nullable();
             $table->timestamps();
 
             $table->unique(['order_id', 'sku']);

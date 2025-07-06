@@ -13,10 +13,12 @@ class OrderItems extends Model
         'is_activated',
         'is_redeemed',
         'activate_till',
+        'client_info',
     ];
 
     protected $casts = [
         'activate_till' => 'datetime',
+        'client_info' => 'array',
     ];
 
     public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo
