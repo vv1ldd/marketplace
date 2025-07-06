@@ -135,10 +135,10 @@ class OrderController extends Controller
 
         } else if ($data['status'] === 'DELIVERED') {
 
-            $log->info('status DELIVERY');
+            $log->info('status DELIVERED');
 
             $order->update([
-                'status' => 'DELIVERY',
+                'status' => 'DELIVERED',
                 'sub_status' => $data['substatus']
             ]);
 
