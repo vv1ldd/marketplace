@@ -165,6 +165,16 @@ class OrderController extends Controller
 
         $log->debug('created data', [$data]);
 
+        $order = Order::where('order_id', $data['orderId'])->first();
+
+        if ($order) {
+            $log->error('order already created', [$order]);
+            return [
+                'success' => false,
+                'error' => 'order already created',
+            ];
+        }
+
         $service = new YmService();
 
         try {
@@ -200,7 +210,7 @@ class OrderController extends Controller
                 'order_id' => $data['orderId'],
                 'uuid' => Str::uuid()->toString(),
                 'info' => json_encode($order_full_info, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                'client_info' => json_encode($client_info, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'client_info' => $client_info,
             ])->id;
         } catch (\Exception $e) {
 
