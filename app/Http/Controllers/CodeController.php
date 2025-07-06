@@ -73,7 +73,7 @@ class CodeController extends Controller
             'is_frame' => 'nullable|string|in:1,0',
         ]);
 
-        $order_item = OrderItems::where('key', $data['code'])->where('is_redeemed', false)->first();
+        $order_item = OrderItems::where('key', $data['code'])->first();
 
         if (!$order_item) {
             return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);

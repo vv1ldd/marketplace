@@ -19,9 +19,9 @@ class SendMessage
         $message = "Новый заказ #{$order->id}\n";
         $message .= "Статус: {$order->status}\n";
         $message .= "-------\n";
-        $message .= "Клиент: {$client_info->lastName} {$client_info->firstName} {$client_info->middleName}\n";
-        $message .= "Телефон: {$client_info->phone}\n";
-        $message .= "Почта: {$client_info->email}\n";
+        $message .= "Клиент: {$client_info?->lastName} {$client_info?->firstName} {$client_info?->middleName}\n";
+        $message .= "Телефон: {$client_info?->phone}\n";
+        $message .= "Почта: {$client_info?->email}\n";
         $message .= "-------\n";
         $message .= "Товары:\n";
 

@@ -83,6 +83,8 @@ class OrderController extends Controller
                     'activate_till' => now()->addYear()->format('Y-m-d'),
                     'sku' => data_get($item, 'offerId'),
                     'count' => data_get($item, 'count'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ];
             }
 
