@@ -5,7 +5,7 @@
 @section('content')
     <div class="w-full @if(!$is_frame) max-w-xl rounded-2xl @endif bg-zinc-800 border border-zinc-700 shadow-xl p-8">
         <h2 class="text-2xl font-bold text-white mb-6 text-center">Ваш заказ почти готов, остался один шаг</h2>
-        <form class="space-y-5" method="POST" action="{{ route('form') }}">
+        <form class="space-y-5" method="POST" action="{{ route('form-send') }}">
             @csrf
             <input hidden name="order_uuid" value="{{ $order_uuid }}">
             <div class="flex sm:flex-row justify-between gap-3 flex-col">
