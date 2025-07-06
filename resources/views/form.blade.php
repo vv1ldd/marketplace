@@ -23,7 +23,7 @@
                         minlength="2"
                         maxlength="100"
                         autocomplete="first_name"
-                        value="{{ $client_info['firstName'] ?? old('first_name') }}"
+                        value="{{$client_info['firstName'] ?? old('first_name')}}"
                         autofocus
                         required
                         tabindex="1"

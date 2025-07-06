@@ -61,13 +61,17 @@ class CodeController extends Controller
 
     public function getViewForm(Request $request)
     {
-        $data = $request->validate(['order_uuid' => 'required|uuid', 'is_frame' => 'nullable|string|in:1,0']);
+        $data = $request->validate(['code' => 'required|string|regex:/^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/', 'is_frame' => 'nullable|string|in:1,0']);
 
         if (!$request->hasValidSignature()) {
             return redirect()->route('redeem')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
-        return view('form', ['order_uuid' => data_get($data, 'order_uuid'), 'is_frame' => (bool)data_get($data, 'is_frame')]);
+        $order_item = OrderItems::where('key', $data['code'])->where('is_activated', false)->first();
+
+        $order = Order::find($order_item->order_id);
+
+        return view('form', ['code' => data_get($data, 'code'), 'is_frame' => (bool)data_get($data, 'is_frame'), 'client_info' => $order->client_info]);
     }
 
     public function checkCode(Request $request)
@@ -91,9 +95,7 @@ class CodeController extends Controller
             return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
         }
 
-        $client_info = $order->client_info;
-
-        return redirect()->temporarySignedRoute('form', now()->addHours(), ['code' => $data['code'], 'is_frame' => (bool)data_get($data, 'is_frame'), 'client_info' => $client_info]);
+        return redirect()->temporarySignedRoute('form', now()->addHours(), ['code' => $data['code'], 'is_frame' => (bool)data_get($data, 'is_frame')]);
     }
 
     public function getCodeView(Request $request)
