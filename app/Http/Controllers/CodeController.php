@@ -53,7 +53,7 @@ class CodeController extends Controller
 
         $order_item->update([
             'is_activated' => true,
-            'client_info' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'client_info' => $data,
         ]);
 
         return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
