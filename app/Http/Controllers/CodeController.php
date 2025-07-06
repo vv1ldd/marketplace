@@ -89,7 +89,7 @@ class CodeController extends Controller
 
         $order_item->update(['is_redeemed' => true]);
 
-        $order = Order::where('order_id', $order_item->order_id)->first();
+        $order = Order::where('id', $order_item->order_id)->first();
 
         if (!$order) {
             return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
