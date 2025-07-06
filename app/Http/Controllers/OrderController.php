@@ -35,7 +35,7 @@ class OrderController extends Controller
 
         $log->debug('updated data', [$data]);
 
-        $order = Order::where('orderId', $data['orderId'])->first();
+        $order = Order::where('order_id', $data['orderId'])->first();
 
         if (!$order) {
             $log->error('order not found', [$order]);
@@ -50,7 +50,7 @@ class OrderController extends Controller
 
             $log->info('status PROCESSING');
 
-            $order_info = json_decode($order->info, true);
+            $order_info = $order->info;
 
             $keys_data = [];
             $insert_data = [];
@@ -171,7 +171,9 @@ class OrderController extends Controller
             $order_full_info = $service->getOrder(campaignId: $data['campaignId'], orderId: $data['orderId']);
             $log->debug('order_full_info', [$order_full_info]);
         } catch (ConnectionException $e) {
-            $log->error($e->getMessage());
+            $log->error('order_full_info', [
+                'exception' => $e->getMessage(),
+            ]);
 
             return [
                 'success' => false,
@@ -183,7 +185,9 @@ class OrderController extends Controller
             $client_info = $service->getOrderBuyerInfo(campaignId: $data['campaignId'], orderId: $data['orderId']);
             $log->debug('client_info', [$client_info]);
         } catch (ConnectionException $e) {
-            $log->error($e->getMessage());
+            $log->error('getOrderBuyerInfo', [
+                'exception' => $e->getMessage(),
+            ]);
 
             return [
                 'success' => false,
@@ -193,13 +197,15 @@ class OrderController extends Controller
 
         try {
             $order_id = Order::create([
-                'order_id' => $data['order_id'],
+                'orderId' => $data['orderId'],
                 'info' => json_encode($order_full_info, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'client_info' => json_encode($client_info, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ])->id;
         } catch (\Exception $e) {
 
-            $log->error($e->getMessage());
+            $log->error('create order', [
+                'exception' => $e->getMessage(),
+            ]);
 
             return [
                 'success' => false,

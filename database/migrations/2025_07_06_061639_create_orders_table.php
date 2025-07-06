@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->bigInteger('orderId')->unique();
+            $table->bigInteger('order_id')->unique();
             $table->string('status')->default('NEW');
             $table->string('sub_status')->nullable();
             $table->json('info');

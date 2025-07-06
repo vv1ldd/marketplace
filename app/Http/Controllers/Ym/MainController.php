@@ -596,8 +596,8 @@ class MainController extends Controller
         try {
             $data = $request->validate([
                 'notificationType' => 'required|string|in:PING,ORDER_CREATED,ORDER_STATUS_UPDATED',
-                'orderId' => 'required|numeric',
-                'campaignId' => 'required|numeric',
+                'orderId' => 'nullable|numeric',
+                'campaignId' => 'nullable|numeric',
 
                 'status' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
                 'substatus' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
@@ -606,6 +606,7 @@ class MainController extends Controller
 
             $log->error("Невалидные данные", [
                 'exception' => $exception->getMessage(),
+                'errors' => $exception->errors()
             ]);
 
             return response()->json([
@@ -666,8 +667,16 @@ class MainController extends Controller
                 $log->debug("Заказ обновлен", ['result' => $result]);
 
                 break;
-            default:
+            case 'PING':
+                $log->info('notificationType PING');
                 break;
+            default:
+                return response()->json([
+                    'error' => [
+                        'message' => 'Неизвестное уведомление',
+                        'type' => 'UNKNOWN'
+                    ]
+                ], 400);
         }
 
         return response()->json([
