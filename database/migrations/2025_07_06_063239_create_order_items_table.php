@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->string('key', 20)->unique();
             $table->boolean('is_activated')->default(false);
+            $table->boolean('is_redeemed')->default(false);
             $table->bigInteger('order_id');
             $table->uuid('sku');
             $table->integer('count');

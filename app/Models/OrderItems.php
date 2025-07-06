@@ -11,6 +11,7 @@ class OrderItems extends Model
         'sku',
         'count',
         'is_activated',
+        'is_redeemed',
         'activate_till',
     ];
 

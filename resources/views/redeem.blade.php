@@ -6,15 +6,22 @@
     <div
         class="w-full bg-zinc-800 border border-zinc-700 @if(!$is_frame) max-w-xl rounded-2xl @endif shadow-xl sm:p-8 p-4">
         <h2 class="text-2xl font-bold text-white mb-6 text-center">Введите полученный код</h2>
-        <form class="space-y-5" method="POST" action="{{ route('check-code') }}">
+        <form class="space-y-5" method="POST" action="{{ route('redeem') }}">
             @csrf
             <div class="w-full">
                 @if($is_frame)
                     <input hidden name="is_frame" value="1"/>
                 @endif
+                    <label class="block text-sm text-zinc-300 mb-1" for="first_name">В формате 1GROS-XXXX-XXXX-XXXX<span
+                            class="text-red-500">*</span></label>
                 <input
                     id="code"
                     type="text"
+                    maxlength="20"
+                    minlength="20"
+                    spellcheck="false"
+                    autocomplete="off"
+                    pattern="^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$"
                     placeholder="Код"
                     name="code"
                     value="{{ old('code') }}"
@@ -36,3 +43,33 @@
         </form>
     </div>
 @endsection
+
+@section('scripts')
+    <script>
+        const input = document.getElementById('code');
+        const staticPrefix = '1GROS-';
+
+        input.addEventListener('focus', () => {
+            if (!input.value.startsWith(staticPrefix)) {
+                input.value = staticPrefix;
+            }
+        });
+
+        input.addEventListener('input', () => {
+            let value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+            if (!value.startsWith('1GROS')) {
+                value = '1GROS';
+            }
+
+            value = value.replace(/^1GROS/, '');
+
+            const parts = [];
+            for (let i = 0; i < 12 && i < value.length; i += 4) {
+                parts.push(value.substring(i, i + 4));
+            }
+
+            input.value = staticPrefix + parts.join('-');
+        });
+    </script>
+@endSection

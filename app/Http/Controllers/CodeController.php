@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Order;
+use App\Models\OrderItems;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -29,12 +31,13 @@ class CodeController extends Controller
 
         dd($request->all());
     }
+
     public function getViewForm(Request $request)
     {
         $data = $request->validate(['order_uuid' => 'required|uuid', 'is_frame' => 'nullable|string|in:1,0']);
 
         if (!$request->hasValidSignature()) {
-            return redirect()->route('check-code')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
         return view('form', ['order_uuid' => data_get($data, 'order_uuid'), 'is_frame' => (bool)data_get($data, 'is_frame')]);
@@ -43,9 +46,17 @@ class CodeController extends Controller
     public function checkCode(Request $request)
     {
         $data = $request->validate([
-            'code' => 'required|string',
+            'code' => 'required|string|regex:/^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/',
             'is_frame' => 'nullable|string|in:1,0',
         ]);
+
+        $order_item = OrderItems::where('key', $data['code'])->where('is_redeemed', false)->first();
+
+        if (!$order_item) {
+            return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
+        }
+
+        $order_item->update(['is_redeemed' => true]);
 
         //TODO проверять в таблице заказов, если соответствует редиректить на подписанную form
 
@@ -75,6 +86,6 @@ class CodeController extends Controller
             abort(403);
         }
 
-        return view('check-code', ['is_frame' => (bool)data_get($data, 'is_frame')]);
+        return view('redeem', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }
 }
