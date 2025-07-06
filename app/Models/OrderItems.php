@@ -19,6 +19,8 @@ class OrderItems extends Model
     protected $casts = [
         'activate_till' => 'datetime',
         'client_info' => 'array',
+        'is_activated' => 'boolean',
+        'is_redeemed' => 'boolean',
     ];
 
     public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo

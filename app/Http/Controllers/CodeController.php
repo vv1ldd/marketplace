@@ -84,7 +84,7 @@ class CodeController extends Controller
         $order_item = OrderItems::where('key', $data['code'])->where('is_activated', false)->first();
 
         if (!$order_item) {
-            return back()->withErrors(['code' => 'Введен неверный или несуществующий код 1']);
+            return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
         }
 
         $order_item->update(['is_redeemed' => true]);
@@ -92,7 +92,7 @@ class CodeController extends Controller
         $order = Order::where('id', $order_item->order_id)->first();
 
         if (!$order) {
-            return back()->withErrors(['code' => 'Введен неверный или несуществующий код 2']);
+            return back()->withErrors(['code' => 'Заказ не был найден']);
         }
 
         return redirect()->temporarySignedRoute('form', now()->addHours(), ['code' => $data['code'], 'is_frame' => (bool)data_get($data, 'is_frame')]);
