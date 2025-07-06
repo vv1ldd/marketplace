@@ -8,6 +8,7 @@ class OrderItems extends Model
 {
     protected $fillable = [
         'order_id',
+        'key',
         'sku',
         'count',
         'is_activated',
