@@ -7,7 +7,10 @@
         <h2 class="text-2xl font-bold text-white mb-6 text-center">Ваш заказ почти готов, остался один шаг</h2>
         <form class="space-y-5" method="POST" action="{{ route('form-send') }}">
             @csrf
-            <input hidden name="order_uuid" value="{{ $order_uuid }}">
+            <input hidden name="code" value="{{ $code }}">
+            @if($is_frame)
+                <input hidden name="is_frame" value="1"/>
+            @endif
             <div class="flex sm:flex-row justify-between gap-3 flex-col">
                 <div class="w-full">
                     <label class="block text-sm text-zinc-300 mb-1" for="first_name">Имя<span
@@ -20,7 +23,7 @@
                         minlength="2"
                         maxlength="100"
                         autocomplete="first_name"
-                        value="{{ old('first_name') }}"
+                        value="{{ $client_info['firstName'] ?? old('first_name') }}"
                         autofocus
                         required
                         tabindex="1"
@@ -41,7 +44,7 @@
                         name="last_name"
                         placeholder="Ваша фамилия"
                         autocomplete="last_name"
-                        value="{{ old('last_name') }}"
+                        value="{{ $client_info['lastName'] ?? old('last_name') }}"
                         required
                         tabindex="2"
                         class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"

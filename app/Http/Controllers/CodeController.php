@@ -11,10 +11,17 @@ use Illuminate\Validation\ValidationException;
 class CodeController extends Controller
 {
 
+    public function getFinishView(Request $request)
+    {
+        $data = $request->validate(['is_frame' => 'nullable|string|in:1,0',]);
+
+        return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
+    }
     public function sendForm(Request $request)
     {
         $data = $request->validate([
-            'order_uuid' => 'required|uuid',
+            'code' => 'required|string|regex:/^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/',
+            'is_frame' => 'nullable|string|in:1,0',
             'first_name' => 'required|string|min:2|max:100',
             'last_name' => 'required|string|min:2|max:100',
             'email' => 'required|email',
@@ -29,7 +36,8 @@ class CodeController extends Controller
             'option.1.ps_birthday' => 'required_if:option.1.check,on|date_format:Y-m-d',
         ]);
 
-        dd($request->all());
+
+        return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }
 
     public function getViewForm(Request $request)
@@ -58,16 +66,15 @@ class CodeController extends Controller
 
         $order_item->update(['is_redeemed' => true]);
 
-        //TODO проверять в таблице заказов, если соответствует редиректить на подписанную form
+        $order = Order::find($order_item->order_id);
 
-        // обмена кода на uuid записи заказа
+        if (!$order) {
+            return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
+        }
 
-        $uuid = Str::uuid()->toString();
+        $client_info = $order->client_info;
 
-
-//        return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
-
-        return redirect()->temporarySignedRoute('form', now()->addHours(), ['order_uuid' => $uuid, 'is_frame' => (bool)data_get($data, 'is_frame')]);
+        return redirect()->temporarySignedRoute('form', now()->addHours(), ['code' => $data['code'], 'is_frame' => (bool)data_get($data, 'is_frame'), 'client_info' => $client_info]);
     }
 
     public function getCodeView(Request $request)
