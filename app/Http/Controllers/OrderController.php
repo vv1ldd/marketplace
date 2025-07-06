@@ -15,16 +15,23 @@ use Random\RandomException;
 
 class OrderController extends Controller
 {
+    private $log;
+
+    public function __construct(string $method)
+    {
+        $this->log = \Log::channel('ps_order')->withContext([
+            'method' => $method,
+            'log_id' => Str::random(8),
+        ]);
+    }
+
     /**
      * @param array $data
      * @return array|true[]
      */
     public function updated(array $data): array
     {
-        $log = \Log::channel('ps_order')->withContext([
-            'method' => 'updated',
-            'log_id' => Str::random(8),
-        ]);
+        $log = $this->log;
 
         $log->debug('updated data', [$data]);
 
@@ -154,10 +161,7 @@ class OrderController extends Controller
      */
     public function created(array $data): array
     {
-        $log = \Log::channel('ps_order')->withContext([
-            'method' => 'created',
-            'log_id' => Str::random(8),
-        ]);
+        $log = $this->log;
 
         $log->debug('created data', [$data]);
 

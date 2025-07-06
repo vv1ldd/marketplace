@@ -617,13 +617,12 @@ class MainController extends Controller
 
         }
 
-        $order_controller = new OrderController();
-
         switch ($data['notificationType']) {
             case 'ORDER_CREATED':
 
                 $log->info('notificationType ORDER_CREATED');
 
+                $order_controller = new OrderController('ORDER_CREATED');
                 $result = $order_controller->created($data);
 
                 if (!$result['success']) {
@@ -647,6 +646,7 @@ class MainController extends Controller
 
                 $log->info('notificationType ORDER_STATUS_UPDATED');
 
+                $order_controller = new OrderController('ORDER_STATUS_UPDATED');
                 $result = $order_controller->updated($data);
 
                 if (!$result['success']) {

@@ -37,7 +37,7 @@ class DetailFromRegion extends Command
 
         $this->info("Передан регион $region_id");
 
-        $log = \Log::channel('play_stations_observer')->withContext([
+        $log = \Log::channel('ps_observer')->withContext([
             'log_id' => Str::random(),
             'region_id' => $region_id,
         ]);

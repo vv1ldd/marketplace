@@ -141,6 +141,14 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 31),
             'replace_placeholders' => true,
+        ],
+
+        'ps_observer' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ps/observer.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 3),
+            'replace_placeholders' => true,
         ]
 
     ],
