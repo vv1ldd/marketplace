@@ -133,7 +133,7 @@ class OrderController extends Controller
                 'success' => true,
             ];
 
-        } else if ($data['status'] === 'DELIVERY') {
+        } else if ($data['status'] === 'DELIVERED') {
 
             $log->info('status DELIVERY');
 
@@ -148,7 +148,7 @@ class OrderController extends Controller
 
         } else {
 
-            $log->error('status not PROCESSING');
+            $log->error('status not PROCESSING or DELIVERED');
 
             return [
                 'success' => false,
