@@ -16,7 +16,7 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'items' => 'array',
+        'info' => 'array',
         'client_info' => 'array',
     ];
 
