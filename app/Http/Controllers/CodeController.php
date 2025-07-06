@@ -17,6 +17,7 @@ class CodeController extends Controller
 
         return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }
+
     public function sendForm(Request $request)
     {
         $data = $request->validate([
@@ -38,19 +39,22 @@ class CodeController extends Controller
 
         $order_item = OrderItems::where('code', $data['code'])->first();
 
-        if($order_item->is_activated) {
+        if ($order_item->is_activated) {
             return redirect()->route('redeem')->withErrors(['code' => 'Код уже активирован']);
         }
 
-        if(!$order_item->is_redeemed) {
-            return redirect()->route('redeem')->withErrors(['code' => 'Код уже использован']);
+        if (!$order_item->is_redeemed) {
+            return redirect()->route('redeem')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
-        if($order_item->activate_till < now()) {
+        if ($order_item->activate_till < now()) {
             return redirect()->route('redeem')->withErrors(['code' => 'Код уже истек']);
         }
 
-
+        $order_item->update([
+            'is_activated' => true,
+            'client_info' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
 
         return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }
@@ -73,7 +77,7 @@ class CodeController extends Controller
             'is_frame' => 'nullable|string|in:1,0',
         ]);
 
-        $order_item = OrderItems::where('key', $data['code'])->first();
+        $order_item = OrderItems::where('key', $data['code'])->where('is_activated', false)->first();
 
         if (!$order_item) {
             return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
