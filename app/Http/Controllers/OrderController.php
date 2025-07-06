@@ -198,6 +198,7 @@ class OrderController extends Controller
         try {
             $order_id = Order::create([
                 'orderId' => $data['orderId'],
+                'uuid' => Str::uuid()->toString(),
                 'info' => json_encode($order_full_info, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'client_info' => json_encode($client_info, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ])->id;
