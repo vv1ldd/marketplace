@@ -37,7 +37,7 @@ class CodeController extends Controller
             'option.1.ps_birthday' => 'required_if:option.1.check,on|date_format:Y-m-d',
         ]);
 
-        $order_item = OrderItems::where('code', $data['code'])->first();
+        $order_item = OrderItems::where('key', $data['code'])->first();
 
         if ($order_item->is_activated) {
             return redirect()->route('redeem')->withErrors(['code' => 'Код уже активирован']);
