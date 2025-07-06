@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Ym;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\OrderController;
 use App\Http\Services\BinanceService;
 use App\Http\Services\YmService;
 use App\Jobs\ItemsYmShow;
@@ -12,6 +13,7 @@ use App\Models\YmSenderLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MainController extends Controller
 {
@@ -577,5 +579,101 @@ class MainController extends Controller
         $base_price = round((($item->base_price / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
 
         return [$price_with_discount, $base_price];
+    }
+
+    public function notification(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $log = \Log::channel('ym_notification')->withContext([
+            'log_id' => Str::random(8),
+        ]);
+
+        $log->debug('Пришло уведомление', [
+            'request' => $request->all(),
+            'headers' => $request->headers->all(),
+            'ip' => $request->ip()
+        ]);
+
+        try {
+            $data = $request->validate([
+                'notificationType' => 'required|string|in:PING,ORDER_CREATED,ORDER_STATUS_UPDATED',
+                'orderId' => 'required|numeric',
+                'campaignId' => 'required|numeric',
+
+                'status' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
+                'substatus' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
+            ]);
+        } catch (ValidationException $exception) {
+
+            $log->error("Невалидные данные", [
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => [
+                    'message' => $exception->getMessage(),
+                    'type' => 'WRONG_EVENT_FORMAT'
+                ]
+            ], 400);
+
+        }
+
+        $order_controller = new OrderController();
+
+        switch ($data['notificationType']) {
+            case 'ORDER_CREATED':
+
+                $log->info('notificationType ORDER_CREATED');
+
+                $result = $order_controller->created($data);
+
+                if (!$result['success']) {
+
+                    $log->error("Не удалось создать заказ", [
+                        'result' => $result
+                    ]);
+
+                    return response()->json([
+                        'error' => [
+                            'message' => $result['error'],
+                            'type' => 'UNKNOWN'
+                        ]
+                    ], 400);
+                }
+
+                $log->debug("Заказ создан", ['result' => $result]);
+
+                break;
+            case 'ORDER_STATUS_UPDATED':
+
+                $log->info('notificationType ORDER_STATUS_UPDATED');
+
+                $result = $order_controller->updated($data);
+
+                if (!$result['success']) {
+
+                    $log->error("Не удалось обновить статус заказа", [
+                        'result' => $result
+                    ]);
+
+                    return response()->json([
+                        'error' => [
+                            'message' => $result['error'],
+                            'type' => 'UNKNOWN'
+                        ]
+                    ], 400);
+                }
+
+                $log->debug("Заказ обновлен", ['result' => $result]);
+
+                break;
+            default:
+                break;
+        }
+
+        return response()->json([
+            'name' => 'marketplace.1gros.ru',
+            'time' => now('UTC')->toIso8601String(),
+            'version' => '0.0.1'
+        ]);
     }
 }

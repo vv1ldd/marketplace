@@ -127,6 +127,22 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'ym_notification' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ym/notification.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 31),
+            'replace_placeholders' => true,
+        ],
+
+        'ps_order' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ps/order.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 31),
+            'replace_placeholders' => true,
+        ]
+
     ],
 
 ];

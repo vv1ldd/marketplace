@@ -31,18 +31,21 @@ class CodeController extends Controller
     }
     public function getViewForm(Request $request)
     {
-        $data = $request->validate(['order_uuid' => 'required|uuid']);
+        $data = $request->validate(['order_uuid' => 'required|uuid', 'is_frame' => 'nullable|string|in:1,0']);
 
         if (!$request->hasValidSignature()) {
             return redirect()->route('check-code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
-        return view('form', ['order_uuid' => data_get($data, 'order_uuid')]);
+        return view('form', ['order_uuid' => data_get($data, 'order_uuid'), 'is_frame' => (bool)data_get($data, 'is_frame')]);
     }
 
     public function checkCode(Request $request)
     {
-        $data = $request->validate(['code' => 'required|string']);
+        $data = $request->validate([
+            'code' => 'required|string',
+            'is_frame' => 'nullable|string|in:1,0',
+        ]);
 
         //TODO проверять в таблице заказов, если соответствует редиректить на подписанную form
 
@@ -50,7 +53,10 @@ class CodeController extends Controller
 
         $uuid = Str::uuid()->toString();
 
-        return redirect()->temporarySignedRoute('form', now()->addHours(), ['order_uuid' => $uuid]);
+
+//        return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
+
+        return redirect()->temporarySignedRoute('form', now()->addHours(), ['order_uuid' => $uuid, 'is_frame' => (bool)data_get($data, 'is_frame')]);
     }
 
     public function getCodeView(Request $request)

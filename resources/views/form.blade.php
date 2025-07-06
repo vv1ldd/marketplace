@@ -3,7 +3,7 @@
 @section('title', 'Form')
 
 @section('content')
-    <div class="w-full max-w-xl bg-zinc-800 border border-zinc-700 rounded-2xl shadow-xl p-8">
+    <div class="w-full @if(!$is_frame) max-w-xl rounded-2xl @endif bg-zinc-800 border border-zinc-700 shadow-xl p-8">
         <h2 class="text-2xl font-bold text-white mb-6 text-center">Ваш заказ почти готов, остался один шаг</h2>
         <form class="space-y-5" method="POST" action="{{ route('form') }}">
             @csrf

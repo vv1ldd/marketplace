@@ -20,21 +20,5 @@ Route::group(['prefix' => 'ps'], function () {
 });
 
 Route::group(['prefix' => 'ym'], function () {
-    Route::any('notification', function (Request $request) {
-
-        // 5.45.207.0/25
-        //141.8.142.0/25
-        //5.255.253.0/25
-
-        \Log::debug("ym notification", [
-            'request' => $request->all(),
-            'headers' => $request->headers->all(),
-        ]);
-
-        return response()->json([
-            'name' => 'marketplace.1gros.ru',
-            'time' => now('UTC')->toIso8601String(),
-            'version' => '0.0.1'
-        ]);
-    });
+    Route::any('notification/{token}', [YmMainController::class, 'notification'])->where('token', config('services.ym.notification_token'));
 });

@@ -39,6 +39,12 @@ return [
         'api_key' => env('YM_API_KEY', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683'),
         'business_id' => env('YM_BUSINESS_ID', 198666367),
         'category_id' => env('YM_CATEGORY_ID', 70301474),
+        'notification_token' => env('YM_NOTIFICATION_TOKEN'),
+    ],
+
+    'tg' => [
+        'token' => env('TG_TOKEN'),
+        'chat_id' => env('TG_CHAT_ID'),
     ],
 
     'trusted_hosts' => env('TRUSTED_HOSTS', 'platform.local'),
