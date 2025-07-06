@@ -55,12 +55,23 @@
             }
         });
 
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+
+            const pastedData = (e.clipboardData || window.clipboardData).getData('text').toUpperCase();
+
+            let value = pastedData.replace(/^1GROS-?/i, '').replace(/[^A-Z0-9]/g, '');
+
+            const parts = [];
+            for (let i = 0; i < 12 && i < value.length; i += 4) {
+                parts.push(value.substring(i, i + 4));
+            }
+
+            input.value = staticPrefix + parts.join('-');
+        });
+
         input.addEventListener('input', () => {
             let value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-            if (!value.startsWith('1GROS')) {
-                value = '1GROS';
-            }
 
             value = value.replace(/^1GROS/, '');
 
