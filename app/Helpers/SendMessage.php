@@ -19,9 +19,10 @@ class SendMessage
         $message = "Новый заказ #{$order->id}\n";
         $message .= "Статус: {$order->status}\n";
         $message .= "-------\n";
-        $message .= "Клиент: {$client_info?->lastName} {$client_info?->firstName} {$client_info?->middleName}\n";
-        $message .= "Телефон: {$client_info?->phone}\n";
-        $message .= "Почта: {$client_info?->email}\n";
+
+        $message .= "Клиент:" . data_get($client_info, 'lastName', 'нет данных') . " " . data_get($client_info, 'firstName', 'нет данных') . " " . data_get($client_info, 'middleName', 'нет данных') . "\n";
+        $message .= "Телефон: " . data_get($client_info, 'phone', 'нет данных') . "\n";
+        $message .= "Почта: " . data_get($client_info, 'email', 'нет данных') . "\n";
         $message .= "-------\n";
         $message .= "Товары:\n";
 
