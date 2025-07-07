@@ -211,7 +211,7 @@ class OrderController extends Controller
             $order_id = Order::create([
                 'order_id' => $data['orderId'],
                 'uuid' => Str::uuid()->toString(),
-                'info' => json_encode($order_full_info, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'info' => $order_full_info,
                 'client_info' => $client_info,
             ])->id;
         } catch (\Exception $e) {
