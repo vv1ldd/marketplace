@@ -10,7 +10,8 @@
         "filament/filament": "~4.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
-        "mrt1m/playstation-store-api": "^2.2"
+        "mrt1m/playstation-store-api": "^2.2",
+        "opcodesio/log-viewer": "^3.18"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
