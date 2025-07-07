@@ -587,6 +587,8 @@ class MainController extends Controller
             'log_id' => Str::random(8),
         ]);
 
+        $log->info('-------------');
+
         $log->debug('Пришло уведомление', [
             'request' => $request->all(),
             'headers' => $request->headers->all(),

@@ -54,6 +54,7 @@ class CheckNewOrderFromYM extends Command
 //            $log->info('no new orders');
             return;
         } else {
+            $log->info('-----------------');
             $log->debug('new orders', [$new_orders]);
         }
 
