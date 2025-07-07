@@ -24,6 +24,21 @@ class YmService
             ]);
     }
 
+    public function getNewOrders()
+    {
+        $campaign_id = config('services.ym.campaign_id', 143486522);
+
+        $current_date = now()->format('Y-m-d');
+
+        $response = $this->client->get("campaigns/$campaign_id/orders?status=PROCESSING&substatus=STARTED&fromDate=$current_date&toDate=$current_date");
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json('orders');
+    }
+
     public function getOrder(int $campaignId, int $orderId)
     {
         $response = $this->client->get("campaigns/$campaignId/orders/$orderId");

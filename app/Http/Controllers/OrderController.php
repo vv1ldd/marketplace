@@ -184,6 +184,7 @@ class OrderController extends Controller
             return [
                 'success' => false,
                 'error' => 'order already created',
+                'code' => 1
             ];
         }
 

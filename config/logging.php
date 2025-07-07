@@ -131,7 +131,15 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/ym/notification.log'),
             'level' => env('LOG_LEVEL', 'debug'),
-            'days' => env('LOG_DAILY_DAYS', 31),
+            'days' => env('LOG_DAILY_DAYS', 3),
+            'replace_placeholders' => true,
+        ],
+
+        'ym_check_orders' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ym/check_orders.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
         ],
 
