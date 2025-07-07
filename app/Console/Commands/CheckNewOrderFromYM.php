@@ -80,7 +80,12 @@ class CheckNewOrderFromYM extends Command
 
             $log->debug('ORDER_CREATED request data', [$request->all()]);
 
-            $response = $ym_controller->notification($request);
+            try {
+                $response = $ym_controller->notification($request);
+            } catch (\Exception $e) {
+                $log->error('Error order created from YM', ['response' => $e->getMessage(), 'request' => $request->all()]);
+                continue;
+            }
 
             $log->debug('ORDER_CREATED response', [$response->getData(true)]);
 
@@ -101,7 +106,12 @@ class CheckNewOrderFromYM extends Command
 
             $log->debug('ORDER_STATUS_UPDATED request data', [$request->all()]);
 
-            $response = $ym_controller->notification($request);
+            try {
+                $response = $ym_controller->notification($request);
+            } catch (\Exception $e) {
+                $log->error('Error order status updated from YM', ['response' => $e->getMessage(), 'request' => $request->all()]);
+                continue;
+            }
 
             $log->debug('ORDER_STATUS_UPDATED response', [$response->getData(true)]);
 
