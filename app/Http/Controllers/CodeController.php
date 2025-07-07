@@ -6,6 +6,7 @@ use App\Helpers\SendMessage;
 use App\Http\Services\TelegramService;
 use App\Models\Order;
 use App\Models\OrderItems;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -65,7 +66,11 @@ class CodeController extends Controller
 
         $message = SendMessage::tg(order: $order, status: 'send_form', order_item: $order_item);
 
-        (new TelegramService())->sendMessage($message);
+        try {
+            (new TelegramService())->sendMessage($message);
+        } catch (ConnectionException $e) {
+            \Log::error('Telegram sendMessage error', [$e->getMessage()]);
+        }
 
         return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }
