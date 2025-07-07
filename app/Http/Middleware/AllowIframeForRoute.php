@@ -12,7 +12,7 @@ class AllowIframeForRoute
         $response = $next($request);
 
         $response->headers->remove('X-Frame-Options');
-        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        $response->headers->set('Content-Security-Policy', "frame-ancestors *");
 
         // Альтернатива (современнее): CSP
         // $response->headers->set('Content-Security-Policy', "frame-ancestors 'self' https://example.com");
