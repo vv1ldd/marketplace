@@ -82,10 +82,10 @@ class CheckNewOrderFromYM extends Command
 
             $response = $ym_controller->notification($request);
 
-            $log->debug('ORDER_CREATED response', [$response->body()]);
+            $log->debug('ORDER_CREATED response', [$response->getData(true)]);
 
             if ($response->status() !== 200) {
-                $log->error('Error order created from YM', ['response' => $response->body(), 'request' => $request->all()]);
+                $log->error('Error order created from YM', ['response' => $response->body(true), 'request' => $request->all()]);
                 continue;
             }
 
@@ -103,10 +103,10 @@ class CheckNewOrderFromYM extends Command
 
             $response = $ym_controller->notification($request);
 
-            $log->debug('ORDER_STATUS_UPDATED response', [$response->body()]);
+            $log->debug('ORDER_STATUS_UPDATED response', [$response->getData(true)]);
 
             if ($response->status() !== 200) {
-                $log->error('Error order status updated from YM', ['response' => $response->body(), 'request' => $request->all()]);
+                $log->error('Error order status updated from YM', ['response' => $response->getData(true), 'request' => $request->all()]);
                 continue;
             }
 
