@@ -35,7 +35,8 @@ class OrderController extends Controller
 
         $log->debug('updated data', [$data]);
 
-        $order = Order::where('order_id', $data['orderId'])->first();
+        $order = Order::where('order_id', $data['orderId'])
+            ->first();
 
         if (!$order) {
             $log->error('order not found', [$order]);
@@ -43,6 +44,15 @@ class OrderController extends Controller
             return [
                 'success' => false,
                 'error' => 'order not found',
+            ];
+        }
+
+        if ($order->status !== 'NEW') {
+            $log->error('current order status not NEW', [$order]);
+
+            return [
+                'success' => false,
+                'error' => 'current order status not NEW',
             ];
         }
 
@@ -110,7 +120,7 @@ class OrderController extends Controller
 
                 \DB::rollBack();
 
-                $log->error($e->getMessage());
+                $log->error('provideOrderDigitalCodes', [$e->getMessage()]);
 
                 return [
                     'success' => false,
