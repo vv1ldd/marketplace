@@ -37,7 +37,7 @@ class CheckNewOrderFromYM extends Command
 
         $ym_controller = new MainController();
 
-        $log->info('check new orders');
+//        $log->info('check new orders');
 
         try {
             $new_orders = $ymService->getNewOrders();
@@ -51,7 +51,7 @@ class CheckNewOrderFromYM extends Command
 //        $log->debug('check new orders', [$new_orders, $campaign_id])
 
         if (empty($new_orders)) {
-            $log->info('no new orders');
+//            $log->info('no new orders');
             return;
         } else {
             $log->debug('new orders', [$new_orders]);
@@ -72,7 +72,7 @@ class CheckNewOrderFromYM extends Command
 
             $request = new Request();
 
-            $request->request->add([
+            $request->merge([
                 'notificationType' => 'ORDER_CREATED',
                 'orderId' => $order_id,
                 'campaignId' => $campaign_id,
@@ -91,7 +91,7 @@ class CheckNewOrderFromYM extends Command
 
             $request = new Request();
 
-            $request->request->add([
+            $request->merge([
                 'notificationType' => 'ORDER_STATUS_UPDATED',
                 'orderId' => $order_id,
                 'campaignId' => $campaign_id,
