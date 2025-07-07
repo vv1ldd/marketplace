@@ -31,13 +31,13 @@ class CheckNewOrderFromYM extends Command
      */
     public function handle()
     {
-        $log = \Log::channel('ym_check_orders')->withContext([
-            'log_id' => Str::random(8),
-        ]);
+        $log = \Log::channel('ym_check_orders')->withContext(['log_id' => Str::random(8),]);
 
         $ymService = new YmService();
 
         $ym_controller = new MainController();
+
+        $log->info('check new orders');
 
         try {
             $new_orders = $ymService->getNewOrders();
@@ -48,7 +48,14 @@ class CheckNewOrderFromYM extends Command
 
         $campaign_id = config('services.ym.campaign_id', 143486522);
 
-        $log->debug('new orders', [$new_orders, $campaign_id]);
+//        $log->debug('check new orders', [$new_orders, $campaign_id])
+
+        if (empty($new_orders)) {
+            $log->info('no new orders');
+            return;
+        } else {
+            $log->debug('new orders', [$new_orders]);
+        }
 
         foreach ($new_orders as $order) {
 
