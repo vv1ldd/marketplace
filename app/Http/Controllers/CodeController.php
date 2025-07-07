@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\SendMessage;
+use App\Http\Services\TelegramService;
 use App\Models\Order;
 use App\Models\OrderItems;
 use Illuminate\Http\Request;
@@ -51,10 +53,19 @@ class CodeController extends Controller
             return redirect()->route('redeem')->withErrors(['code' => 'Код уже истек']);
         }
 
+
+        $order = Order::where('id', $order_item->order_id)->first();
+
         $order_item->update([
             'is_activated' => true,
             'client_info' => $data,
         ]);
+
+        $order_item = OrderItems::where('key', $data['code'])->first();
+
+        $message = SendMessage::tg(order: $order, status: 'send_form', order_item: $order_item);
+
+        (new TelegramService())->sendMessage($message);
 
         return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }

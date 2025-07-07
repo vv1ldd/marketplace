@@ -133,7 +133,7 @@ class OrderController extends Controller
 
                 $order = Order::where('order_id', $data['orderId'])->first();
 
-                $message = SendMessage::tg($order);
+                $message = SendMessage::tg(order: $order, status: 'new');
 
                 (new TelegramService())->sendMessage($message);
             } catch (ConnectionException $e) {
