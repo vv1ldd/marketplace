@@ -661,7 +661,7 @@ class MainController extends Controller
                     return response()->json([
                         'error' => [
                             'message' => $result['error'],
-                            'type' => 'UNKNOWN'
+                            'type' => data_get($result, 'code') === 1 ? 'DUPLICATED_EVENT' : 'UNKNOWN'
                         ]
                     ], 400);
                 }

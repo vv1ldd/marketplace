@@ -47,12 +47,13 @@ class OrderController extends Controller
             ];
         }
 
-        if ($order->status !== 'NEW') {
+        if ($order->status === 'DELIVERED') {
             $log->error('current order status not NEW', [$order]);
 
             return [
                 'success' => false,
-                'error' => 'current order status not NEW',
+                'error' => 'current order status not NEW or PROCESSING',
+                'code' => 1
             ];
         }
 
@@ -143,12 +144,12 @@ class OrderController extends Controller
                 'success' => true,
             ];
 
-        } else if ($data['status'] === 'DELIVERED') {
+        } else if ($data['status'] === 'DELIVERY' || $data['status'] === 'DELIVERED') {
 
-            $log->info('status DELIVERED');
+            $log->info('status DELIVERED or DELIVERY');
 
             $order->update([
-                'status' => 'DELIVERED',
+                'status' => $data['status'],
                 'sub_status' => $data['substatus']
             ]);
 
@@ -158,11 +159,11 @@ class OrderController extends Controller
 
         } else {
 
-            $log->error('status not PROCESSING or DELIVERED');
+            $log->error('status not PROCESSING or DELIVERED or DELIVERY');
 
             return [
                 'success' => false,
-                'error' => 'status not PROCESSING',
+                'error' => 'status not PROCESSING or DELIVERED or DELIVERY',
             ];
         }
     }
