@@ -47,5 +47,9 @@ return [
         'chat_id' => env('TG_CHAT_ID'),
     ],
 
+    'google_translate' => [
+        'api_key' => env('GOOGLE_TRANSLATE_API_KEY'),
+    ],
+
     'trusted_hosts' => env('TRUSTED_HOSTS', 'platform.local'),
 ];

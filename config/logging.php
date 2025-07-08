@@ -157,6 +157,14 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
+        ],
+
+        'translate_items' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/translate/translate_items.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 3),
+            'replace_placeholders' => true,
         ]
 
     ],

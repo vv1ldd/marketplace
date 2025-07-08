@@ -10,9 +10,12 @@ class PlayStationAlt extends Model
         'sku',
         'data',
         'base_price',
+        'region_id',
+        'concept_id',
         'price_with_discount',
         'name',
         'updated_at',
+        'is_group',
         'send_to_ym_at',
         'category_id',
     ];

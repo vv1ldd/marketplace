@@ -250,9 +250,6 @@ class MainController extends Controller
                 }
             }
 
-
-            //TODO Asdasda
-
             $params = [];
 
             // Платформа/ы
