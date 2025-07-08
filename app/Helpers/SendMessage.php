@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Models\Order;
 use App\Models\OrderItems;
+use App\Models\PlayStation\PlayStationAlt;
 
 class SendMessage
 {
@@ -23,7 +24,8 @@ class SendMessage
 
             $client_info = $order->client_info;
 
-            $message = "Новый заказ #{$order->id}\n";
+            $message = "Новый заказ № {$order->id}\n";
+            $message .= "Заказ в Яндексе № {$order->order_id}\n";
             $message .= "Статус: {$order->status}\n";
             $message .= "-------\n";
 
@@ -35,7 +37,10 @@ class SendMessage
 
             $message .= "Товары:\n";
             foreach ($items as $item) {
-                $message .= "{$item['sku']} - {$item['count']} шт. \n";
+
+                $price_with_discount = ((PlayStationAlt::where('sku', $item['sku'])->where('region', '063101db-9ac0-4e48-a948-29fe7e3f8dec')->first()->price_with_discount) / 100) * $item['count'];
+
+                $message .= "{$item['sku']} - {$item['count']} шт. - {$price_with_discount} лир. итого \n";
             }
         } else if ($status === 'send_form') {
 
@@ -54,8 +59,7 @@ class SendMessage
             $option = data_get($client_info, 'option');
 
             if (!empty($option)) {
-                $message .= "Опция:\n";
-                $option = $option[0];
+                $message .= "Выбранная опция:\n";
 
                 foreach ($option as $key => $value) {
                     $message .= "{$key}: {$value}\n";

@@ -286,7 +286,7 @@
                 option_0_ps_2fa_code.removeAttribute('disabled');
                 option_1_ps_birthday.setAttribute('disabled', 'disabled');
 
-            } else {
+            } else if (num === 1) {
                 option_0.classList.add('hidden');
                 option_1.classList.remove('hidden');
 
@@ -294,6 +294,14 @@
                 option_0_ps_network_password.setAttribute('disabled', 'disabled');
                 option_0_ps_2fa_code.setAttribute('disabled', 'disabled');
                 option_1_ps_birthday.removeAttribute('disabled');
+            } else {
+                option_0.classList.add('hidden');
+                option_1.classList.add('hidden');
+
+                option_1_ps_birthday.setAttribute('disabled', 'disabled');
+                option_0_ps_2fa_code.setAttribute('disabled', 'disabled');
+                option_0_ps_network_id.setAttribute('disabled', 'disabled');
+                option_0_ps_network_password.setAttribute('disabled', 'disabled');
             }
         }
 
@@ -314,8 +322,7 @@
                     }
 
                 } else {
-                    option_0.classList.add('hidden');
-                    option_1.classList.add('hidden');
+                    toggleOption(2);
                 }
             });
         });

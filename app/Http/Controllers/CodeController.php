@@ -54,8 +54,18 @@ class CodeController extends Controller
             return redirect()->route('redeem')->withErrors(['code' => 'Код уже истек']);
         }
 
-
         $order = Order::where('id', $order_item->order_id)->first();
+
+        $option_0 = data_get($data, 'option.0');
+        $option_1 = data_get($data, 'option.1');
+
+        if($option_0) {
+            $data['option'] = $option_0;
+        } elseif($option_1) {
+            $data['option'] = $option_1;
+        }
+
+        unset($data['code']);
 
         $order_item->update([
             'is_activated' => true,
@@ -64,9 +74,8 @@ class CodeController extends Controller
 
         $order_item = OrderItems::where('key', $data['code'])->first();
 
-        $message = SendMessage::tg(order: $order, status: 'send_form', order_item: $order_item);
-
         try {
+            $message = SendMessage::tg(order: $order, status: 'send_form', order_item: $order_item);
             (new TelegramService())->sendMessage($message);
         } catch (ConnectionException $e) {
             \Log::error('Telegram sendMessage error', [$e->getMessage()]);
