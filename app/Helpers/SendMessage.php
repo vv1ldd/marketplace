@@ -38,7 +38,7 @@ class SendMessage
             $message .= "Товары:\n";
             foreach ($items as $item) {
 
-                $price_with_discount = ((PlayStationAlt::where('sku', $item['sku'])->where('region', '063101db-9ac0-4e48-a948-29fe7e3f8dec')->first()->price_with_discount) / 100) * $item['count'];
+                $price_with_discount = ((PlayStationAlt::where('sku', $item['sku'])->where('region_id', '063101db-9ac0-4e48-a948-29fe7e3f8dec')->first()->price_with_discount) / 100) * $item['count'];
 
                 $message .= "{$item['sku']} - {$item['count']} шт. - {$price_with_discount} лир. итого \n";
             }

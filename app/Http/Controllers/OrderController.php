@@ -129,6 +129,8 @@ class OrderController extends Controller
                 ];
             }
 
+            $log->info('success');
+
             try {
 
                 $order = Order::where('order_id', $data['orderId'])->first();
