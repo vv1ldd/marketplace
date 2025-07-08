@@ -89,8 +89,10 @@ class TranslateItems extends Command
             }
 
             $data['descriptions'] = [
-                'type' => 'LONG',
-                'value' => $translate_desc
+                [
+                    'type' => 'LONG',
+                    'value' => $translate_desc
+                ]
             ];
 
             $result = PlayStationAlt::create([
