@@ -191,6 +191,7 @@ class MainController extends Controller
             })
             ->where('t1.region_id', '=', $data['price_region_id'])
             ->where('t1.price_with_discount', '>', 0)
+            ->where('t2.created_at', '>', '2025-07-08 15:17:26')
             ->whereNotNull('t2.data');
 
         if (!empty($data['skus'])) {

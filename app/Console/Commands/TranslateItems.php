@@ -99,6 +99,7 @@ class TranslateItems extends Command
                 'base_price' => $item->base_price,
                 'price_with_discount' => $item->price_with_discount,
                 'name' => $item->name,
+                'is_group' => $item->is_group,
                 'region_id' => $ru_region,
                 'data' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'created_at' => now(),
