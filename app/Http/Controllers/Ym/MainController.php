@@ -193,7 +193,6 @@ class MainController extends Controller
             ->where('t1.price_with_discount', '>', 0)
             ->whereNotNull('t2.data');
 
-
         if (!empty($data['skus'])) {
             $items = $items->whereIn('t1.sku', $data['skus']);
         }

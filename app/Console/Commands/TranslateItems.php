@@ -48,7 +48,6 @@ class TranslateItems extends Command
                 'tr.*')
             ->where('tr.price_with_discount', '>', 0)
             ->whereNotNull('tr.data')
-            ->limit(10)
             ->get();
 
         $log->info('found ' . count($skusToTranslate) . ' items to translate');
