@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\SendMessage;
 use App\Http\Services\TelegramService;
+use App\Jobs\SendTelegramJob;
 use App\Models\Order;
 use App\Models\OrderItems;
 use Illuminate\Http\Client\ConnectionException;
@@ -74,12 +75,7 @@ class CodeController extends Controller
 
         $order_item = OrderItems::where('key', $data['code'])->first();
 
-        try {
-            $message = SendMessage::tg(order: $order, status: 'send_form', order_item: $order_item);
-            (new TelegramService())->sendMessage($message);
-        } catch (ConnectionException $e) {
-            \Log::error('Telegram sendMessage error', [$e->getMessage()]);
-        }
+        SendTelegramJob::dispatchSync(order: $order, status: 'send_form', order_item_id: $order_item->id);
 
         return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }

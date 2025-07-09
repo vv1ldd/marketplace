@@ -333,7 +333,7 @@ class MainController extends Controller
                     "name" => $name,
                     'marketCategoryId' => config('services.ym.category_id', 70301474),
                     'pictures' => $pictures ?? [],
-                    ...(isset($concept['publisherName']) ? ['vendor' => $concept['publisherName']] : []),
+                    ...(isset($data['publisherName']) ? ['vendor' => $data['publisherName']] : []),
                     "description" => $description,
                     "parameterValues" => [
                         ...(isset($platformName) ? [

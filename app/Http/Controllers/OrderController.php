@@ -6,6 +6,7 @@ use App\Helpers\GenerateSecureCode;
 use App\Helpers\SendMessage;
 use App\Http\Services\TelegramService;
 use App\Http\Services\YmService;
+use App\Jobs\SendTelegramJob;
 use App\Models\Order;
 use App\Models\OrderItems;
 use Illuminate\Http\Client\ConnectionException;
@@ -131,16 +132,7 @@ class OrderController extends Controller
 
             $log->info('success');
 
-            try {
-
-                $order = Order::where('order_id', $data['orderId'])->first();
-
-                $message = SendMessage::tg(order: $order, status: 'new');
-
-                (new TelegramService())->sendMessage($message);
-            } catch (ConnectionException $e) {
-                $log->error('Telegram error', [$e->getMessage()]);
-            }
+            SendTelegramJob::dispatchSync(order_id: $data['orderId'], status: 'new');
 
             return [
                 'success' => true,
