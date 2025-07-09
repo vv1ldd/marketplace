@@ -18,6 +18,7 @@ return new class extends Migration {
             $table->string('sub_status')->nullable();
             $table->json('info');
             $table->json('client_info');
+            $table->integer('chat_id')->nullable();
             $table->timestamps();
         });
     }

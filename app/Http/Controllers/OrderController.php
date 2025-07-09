@@ -130,6 +130,19 @@ class OrderController extends Controller
                 ];
             }
 
+            $order = Order::where('order_id', $data['orderId'])->first();
+
+            if (isset($order->chat_id) && $order->chat_id) {
+                try {
+                    $service->sendMessage($order->chat_id, view('chat.finish_message')->render());
+                    $log->debug('success send YM finish Message');
+                } catch (ConnectionException $e) {
+                    $log->error('sendMessage finish', [
+                        'exception' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             $log->info('success');
 
             SendTelegramJob::dispatchSync(order_id: $data['orderId'], status: 'new');
@@ -214,11 +227,32 @@ class OrderController extends Controller
         }
 
         try {
+            $chat_id = $service->newChat($data['orderId']);
+            $log->debug('chat_id YM', [$chat_id]);
+        } catch (ConnectionException $e) {
+            $log->error('newChat', [
+                'exception' => $e->getMessage(),
+            ]);
+        }
+
+        if (isset($chat_id)) {
+            try {
+                $service->sendMessage($chat_id, view('chat.start_message')->render());
+                $log->debug('success send YM Message');
+            } catch (ConnectionException $e) {
+                $log->error('sendMessage YM', [
+                    'exception' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        try {
             $order_id = Order::create([
                 'order_id' => $data['orderId'],
                 'uuid' => Str::uuid()->toString(),
                 'info' => $order_full_info,
                 'client_info' => $client_info,
+                'chat_id' => $chat_id ?? null
             ])->id;
         } catch (\Exception $e) {
 

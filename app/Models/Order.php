@@ -13,6 +13,7 @@ class Order extends Model
         'sub_status',
         'info',
         'client_info',
+        'chat_id',
     ];
 
     protected $casts = [

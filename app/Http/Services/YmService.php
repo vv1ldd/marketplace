@@ -24,6 +24,39 @@ class YmService
             ]);
     }
 
+    public function sendMessage(int $chatId, string $message)
+    {
+        $business_id = config('services.ym.business_id', 143486522);
+
+        $response = $this->client->post("businesses/$business_id/chats/message?chatId=$chatId", [
+            'message' => $message,
+        ]);
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json();
+    }
+
+    public function newChat(int $orderId)
+    {
+        $business_id = config('services.ym.business_id', 143486522);
+
+        $response = $this->client->post("businesses/$business_id/chats/new", [
+            'context' => [
+                'type' => 'ORDER',
+                'id' => $orderId,
+            ]
+        ]);
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json('result.chatId');
+    }
+
     public function getNewOrders()
     {
         $campaign_id = config('services.ym.campaign_id', 143486522);
