@@ -60,20 +60,18 @@ class CodeController extends Controller
         $option_0 = data_get($data, 'option.0');
         $option_1 = data_get($data, 'option.1');
 
-        if($option_0) {
+        if ($option_0) {
             $data['option'] = $option_0;
-        } elseif($option_1) {
+        } elseif ($option_1) {
             $data['option'] = $option_1;
         }
 
-        unset($data['code']);
+        $order_item = OrderItems::where('key', $data['code'])->first();
 
         $order_item->update([
             'is_activated' => true,
             'client_info' => $data,
         ]);
-
-        $order_item = OrderItems::where('key', $data['code'])->first();
 
         SendTelegramJob::dispatchSync(order: $order, status: 'send_form', order_item_id: $order_item->id);
 
@@ -89,6 +87,10 @@ class CodeController extends Controller
         }
 
         $order_item = OrderItems::where('key', $data['code'])->where('is_activated', false)->first();
+
+        if (!$order_item) {
+            return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
+        }
 
         $order = Order::find($order_item->order_id);
 
