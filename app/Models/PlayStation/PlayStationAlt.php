@@ -18,5 +18,10 @@ class PlayStationAlt extends Model
         'is_group',
         'send_to_ym_at',
         'category_id',
+        'is_manual',
+    ];
+
+    protected $casts = [
+        'is_manual' => 'boolean',
     ];
 }

@@ -132,6 +132,7 @@ class MainController extends Controller
                 $query->whereNotNull('data')
                     ->orWhere('updated_at', '<', now()->subHours(1));
             })
+            ->where('is_manual', false)
             ->get(['sku']);
 
         if (empty($items)) {
