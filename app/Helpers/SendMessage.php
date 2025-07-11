@@ -45,6 +45,7 @@ class SendMessage
         } else if ($status === 'send_form') {
 
             $message .= "Активация по заказу № {$order->id}\n";
+            $message .= "Заказ в Яндексе № {$order->order_id}\n";
             $message .= "Активировано sku: {$order_item->sku}\n";
             $message .= "-------\n";
             $message .= "Данные заполненной формы:\n";
