@@ -7,7 +7,7 @@
         <h2 class="text-2xl font-bold text-white mb-6 text-center">Ваш заказ почти готов, остался один шаг</h2>
         <form class="space-y-5" method="POST" action="{{ route('form-send') }}">
             @csrf
-            <input hidden name="code" value="{{ $code }}">
+            <input hidden name="uuid" value="{{ $uuid }}">
             @if($is_frame)
                 <input hidden name="is_frame" value="1"/>
             @endif

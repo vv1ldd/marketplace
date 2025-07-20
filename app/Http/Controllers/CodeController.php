@@ -25,7 +25,7 @@ class CodeController extends Controller
     public function sendForm(Request $request)
     {
         $data = $request->validate([
-            'code' => 'required|string|regex:/^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/',
+            'uuid' => 'required|uuid',
             'is_frame' => 'nullable|string|in:1,0',
             'first_name' => 'required|string|min:2|max:100',
             'last_name' => 'required|string|min:2|max:100',
@@ -41,7 +41,7 @@ class CodeController extends Controller
             'option.1.ps_birthday' => 'required_if:option.1.check,on|date_format:Y-m-d',
         ]);
 
-        $order_item = OrderItems::where('key', $data['code'])->first();
+        $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
         if ($order_item->is_activated) {
             return redirect()->route('redeem')->withErrors(['code' => 'Код уже активирован']);
@@ -57,44 +57,62 @@ class CodeController extends Controller
 
         $order = Order::where('id', $order_item->order_id)->first();
 
+        if (!$order) {
+            return redirect()->route('redeem')->withErrors(['code' => 'Заказ не найден']);
+        }
+
         $option_0 = data_get($data, 'option.0');
         $option_1 = data_get($data, 'option.1');
 
         if ($option_0) {
             $data['option'] = $option_0;
+            $data['type_id'] = 1;
         } elseif ($option_1) {
             $data['option'] = $option_1;
+            $data['type_id'] = 2;
         }
 
-        $order_item = OrderItems::where('key', $data['code'])->first();
+        $user = UserController::updateOrCreate(phone: $data['phone'], data: $data, ym_user_id: $order->client_info['id']);
+
+        $order->update([
+            'user_id' => $user->id,
+        ]);
+
+        $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
         $order_item->update([
             'is_activated' => true,
             'client_info' => $data,
+            'activated_at' => now(),
+            'type_id' => $data['type_id'] ?? 0,
         ]);
 
-        SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
+//        SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
 
         return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }
 
     public function getViewForm(Request $request)
     {
-        $data = $request->validate(['code' => 'required|string|regex:/^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/', 'is_frame' => 'nullable|string|in:1,0']);
+        $data = $request->validate(['uuid' => 'required|uuid', 'is_frame' => 'nullable|string|in:1,0']);
 
         if (!$request->hasValidSignature()) {
             return redirect()->route('redeem')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
-        $order_item = OrderItems::where('key', $data['code'])->where('is_activated', false)->first();
+        $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
         if (!$order_item) {
-            return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
+            return view('redeem', ['is_frame' => (bool)data_get($data, 'is_frame')])->withErrors(['code' => 'Введен неверный или несуществующий код']);
         }
 
         $order = Order::find($order_item->order_id);
 
-        return view('form', ['code' => data_get($data, 'code'), 'is_frame' => (bool)data_get($data, 'is_frame'), 'client_info' => $order->client_info]);
+        if (!$order) {
+            return view('redeem', ['is_frame' => (bool)data_get($data, 'is_frame')])->withErrors(['code' => 'Заказ не был найден']);
+        }
+
+        return view('form', ['uuid' => $data['uuid'], 'is_frame' => (bool)data_get($data, 'is_frame'), 'client_info' => $order->client_info]);
     }
 
     public function checkCode(Request $request)
@@ -110,15 +128,15 @@ class CodeController extends Controller
             return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
         }
 
-        $order_item->update(['is_redeemed' => true]);
-
         $order = Order::where('id', $order_item->order_id)->first();
 
         if (!$order) {
             return back()->withErrors(['code' => 'Заказ не был найден']);
         }
 
-        return redirect()->temporarySignedRoute('form', now()->addHours(), ['code' => $data['code'], 'is_frame' => (bool)data_get($data, 'is_frame')]);
+        $order_item->update(['is_redeemed' => true]);
+
+        return redirect()->temporarySignedRoute('form', now()->addHours(), ['uuid' => $order_item->uuid, 'is_frame' => (bool)data_get($data, 'is_frame')]);
     }
 
     public function getCodeView(Request $request)

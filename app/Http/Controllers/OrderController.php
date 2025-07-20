@@ -91,6 +91,7 @@ class OrderController extends Controller
 
                 $insert_data[] = [
                     'key' => $key,
+                    'uuid' => Str::uuid()->toString(),
                     'order_id' => $order->id,
                     'activate_till' => now()->addYear()->format('Y-m-d'),
                     'sku' => data_get($item, 'offerId'),
@@ -227,6 +228,25 @@ class OrderController extends Controller
         }
 
         try {
+            $user = UserController::getByYmUserId($client_info['id']);
+            if ($user) {
+                $log->debug('user found by ym_user_id', [$user]);
+            } else {
+                $log->debug('user not found by ym_user_id', [$client_info]);
+            }
+
+        } catch (\Exception $exception) {
+            $log->error('getByYmUserId', [
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $exception->getMessage(),
+            ];
+        }
+
+        try {
             $chat_id = $service->newChat($data['orderId']);
             $log->debug('chat_id YM', [$chat_id]);
         } catch (ConnectionException $e) {
@@ -252,7 +272,8 @@ class OrderController extends Controller
                 'uuid' => Str::uuid()->toString(),
                 'info' => $order_full_info,
                 'client_info' => $client_info,
-                'chat_id' => $chat_id ?? null
+                'chat_id' => $chat_id ?? null,
+                'user_id' => $user->id ?? null
             ])->id;
         } catch (\Exception $e) {
 

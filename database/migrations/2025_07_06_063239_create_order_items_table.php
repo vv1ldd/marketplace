@@ -12,6 +12,7 @@ return new class extends Migration {
     {
         Schema::create('order_items', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique()->nullable();
             $table->string('key', 20)->unique();
             $table->boolean('is_activated')->default(false);
             $table->boolean('is_redeemed')->default(false);
@@ -20,6 +21,7 @@ return new class extends Migration {
             $table->integer('count');
             $table->date('activate_till');
             $table->json('client_info')->nullable();
+            $table->timestamp('activated_at')->nullable();
             $table->timestamps();
 
             $table->unique(['order_id', 'sku']);
