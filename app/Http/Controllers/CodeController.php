@@ -87,7 +87,7 @@ class CodeController extends Controller
             'type_id' => $data['type_id'] ?? 0,
         ]);
 
-//        SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
+        SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
 
         return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
     }
