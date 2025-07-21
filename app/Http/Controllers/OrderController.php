@@ -236,14 +236,9 @@ class OrderController extends Controller
             }
 
         } catch (\Exception $exception) {
-            $log->error('getByYmUserId', [
+            $log->error('getByYmUserId, but continue process', [
                 'exception' => $exception->getMessage(),
             ]);
-
-            return [
-                'success' => false,
-                'error' => $exception->getMessage(),
-            ];
         }
 
         try {
