@@ -32,4 +32,9 @@ class OrderItems extends Model
     {
         return $this->belongsTo(Order::class, 'order_id', 'id');
     }
+
+    public function type(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(OrderItemTypes::class, 'type_id', 'id');
+    }
 }

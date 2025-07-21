@@ -65,9 +65,11 @@ class CodeController extends Controller
         $option_1 = data_get($data, 'option.1');
 
         if ($option_0) {
+            unset($option_0['check']);
             $data['option'] = $option_0;
             $data['type_id'] = 1;
         } elseif ($option_1) {
+            unset($option_1['check']);
             $data['option'] = $option_1;
             $data['type_id'] = 2;
         }
