@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Orders\Schemas;
 
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -26,18 +27,27 @@ class OrderForm
         return $schema
             ->components([
                 Section::make('Заказ')->schema([
-                    TextInput::make('id')
-                        ->label('Номер заказа')
-                        ->disabled($is_update)
-                        ->hidden($is_create)
-                        ->required($is_create),
-                    Select::make('user_id')
-                        ->relationship('user', 'email')
-                        ->required()
-                        ->searchable()
-                        ->preload()
-                        ->optionsLimit(50)
-                        ->label('Юзер')
+                    Grid::make(3)->schema([
+                        TextInput::make('id')
+                            ->label('Номер заказа')
+                            ->disabled($is_update)
+                            ->hidden($is_create)
+                            ->required($is_create),
+                        Select::make('user_id')
+                            ->relationship('user', 'email')
+                            ->required()
+                            ->searchable()
+                            ->preload()
+                            ->optionsLimit(50)
+                            ->label('Юзер'),
+                        Select::make('progress_id')
+                            ->relationship('progress', 'name')
+                            ->required()
+                            ->searchable()
+                            ->label('Прогресс по заказу')
+                            ->preload()
+                    ])
+
                 ])->columnSpanFull(),
 
                 Section::make('YM')->schema([
@@ -65,6 +75,7 @@ class OrderForm
                         ->schema([
                             TextInput::make('client_info.email'),
                             TextInput::make('client_info.phone')
+                                ->mask('+79999999999')
                                 ->label('Телефон'),
                         ])
 
@@ -94,16 +105,21 @@ class OrderForm
                                     ->label('Количество'),
                             ]),
 
-                            Grid::make()->schema([
-                                Toggle::make('is_activated')
-                                    ->inline(false)
-                                    ->default(false)
-                                    ->label('Активирован'),
+                            Grid::make(4)->schema([
                                 Toggle::make('is_redeemed')
                                     ->default(false)
                                     ->inline(false)
                                     ->label('Код введен'),
+                                Toggle::make('is_activated')
+                                    ->inline(false)
+                                    ->default(false)
+                                    ->label('Активирован'),
+                                DateTimePicker::make('activated_at')
+                                    ->label('Дата активации')
+                                    ->required()->columnSpan(2),
+
                             ]),
+
 
                             Grid::make(4)->schema([
                                 TextInput::make('client_info.first_name')
@@ -118,6 +134,7 @@ class OrderForm
                                     ->label('Email'),
                                 TextInput::make('client_info.phone')
                                     ->required()
+                                    ->mask('+79999999999')
                                     ->label('Телефон'),
                             ])->columnSpanFull(),
 

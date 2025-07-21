@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Http\Controllers\Ym\MainController;
 use App\Http\Services\YmService;
-use App\Models\Order;
+use App\Models\Order\Order;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
@@ -19,17 +20,22 @@ class UsersTable
                 TextColumn::make('full_name')
                     ->label('ФИО')
                     ->searchable()
-                    ->getStateUsing(fn ($record) => $record->getFullName()),
+                    ->getStateUsing(fn($record) => $record->getFullName()),
                 TextColumn::make('roles')->label('Роль')->getStateUsing(function ($record) {
                     return $record->roles()->pluck('name')->implode(', ');
                 }),
-                TextColumn::make('email')->searchable()->label('Email'),
+                TextColumn::make('email')->searchable()->copyable()->label('Email'),
+                TextColumn::make('phone')
+                    ->searchable()
+                    ->copyable()
+                    ->label('Телефон'),
                 TextColumn::make('created_at')->label('Создано')->dateTime('d.m.Y H:i:s'),
             ])
             ->filters([
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
+                ViewAction::make(),
                 EditAction::make(),
             ])
             ->paginationPageOptions([

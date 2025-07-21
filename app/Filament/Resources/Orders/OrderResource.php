@@ -7,7 +7,7 @@ use App\Filament\Resources\Orders\Pages\EditOrder;
 use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Filament\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Resources\Orders\Tables\OrdersTable;
-use App\Models\Order;
+use App\Models\Order\Order;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -17,13 +17,24 @@ use Filament\Tables\Table;
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Cake;
     protected static ?string $navigationLabel = 'Заказы';
 
     protected static ?string $label = 'Заказа';
     protected static ?string $pluralLabel = 'Заказы';
     protected static bool $hasTitleCaseModelLabel = false;
+
+    protected static ?string $navigationBadgeTooltip = 'Кол-во не обработанных заказов';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::$model::where('progress_id', '<>', 4)->count();
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'danger';
+    }
 
     public static function form(Schema $schema): Schema
     {

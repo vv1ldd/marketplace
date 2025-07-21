@@ -21,11 +21,21 @@ class OrdersTable
                     ->copyable()
                     ->searchable(),
                 TextColumn::make('status')->label('Статус YM'),
-                TextColumn::make('order_items_count')->label('Кол-во товаров')
+                TextColumn::make('order_items_count')->label('Товаров')
                     ->getStateUsing(fn($record) => $record->items()->count()),
-                TextColumn::make('user.first_name')
-                    ->label('Юзер')
+                TextColumn::make('user.id')
+                    ->label('Юзер ID')
                     ->url(fn($record) => $record->user?->id ? EditUser::getUrl(['record' => $record->user->id]) : null, true),
+                TextColumn::make('progress.name')->label('Прогресс')
+                    ->sortable()
+                    ->color(function ($record) {
+                        return match ($record->progress_id) {
+                            1 => 'warning',
+                            4 => 'success',
+                            default => 'secondary',
+                        };
+                    })
+                    ->badge(),
                 TextColumn::make('created_at')->label('Создано')->dateTime('d.m.Y H:i:s'),
                 TextColumn::make('updated_at')->label('Обновлено')->dateTime('d.m.Y H:i:s'),
             ])

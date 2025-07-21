@@ -2,8 +2,8 @@
 
 namespace App\Helpers;
 
-use App\Models\Order;
-use App\Models\OrderItems;
+use App\Models\Order\Order;
+use App\Models\Order\OrderItems;
 use App\Models\PlayStation\PlayStationAlt;
 
 class SendMessage

@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Order;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
@@ -30,5 +31,10 @@ class Order extends Model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function progress(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(OrderProgress::class, 'progress_id', 'id');
     }
 }

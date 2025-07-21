@@ -3,14 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\GenerateSecureCode;
-use App\Helpers\SendMessage;
-use App\Http\Services\TelegramService;
 use App\Http\Services\YmService;
 use App\Jobs\SendTelegramJob;
-use App\Models\Order;
-use App\Models\OrderItems;
+use App\Models\Order\Order;
+use App\Models\Order\OrderItems;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Random\RandomException;
 

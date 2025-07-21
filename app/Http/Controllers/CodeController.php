@@ -2,14 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Helpers\SendMessage;
-use App\Http\Services\TelegramService;
 use App\Jobs\SendTelegramJob;
-use App\Models\Order;
-use App\Models\OrderItems;
-use Illuminate\Http\Client\ConnectionException;
+use App\Models\Order\Order;
+use App\Models\Order\OrderItems;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CodeController extends Controller
