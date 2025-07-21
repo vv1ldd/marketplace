@@ -67,11 +67,13 @@ class CodeController extends Controller
         if ($option_0) {
             unset($option_0['check']);
             $data['option'] = $option_0;
-            $data['type_id'] = 1;
+            $data['type_id'] = 3;
         } elseif ($option_1) {
             unset($option_1['check']);
             $data['option'] = $option_1;
             $data['type_id'] = 2;
+        } else {
+            $data['type_id'] = 1;
         }
 
         $user = UserController::updateOrCreate(phone: $data['phone'], data: $data, ym_user_id: $order->client_info['id']);
