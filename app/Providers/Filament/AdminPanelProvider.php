@@ -58,6 +58,7 @@ class AdminPanelProvider extends PanelProvider
             ->maxContentWidth('full')
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->spa();
     }
 }
