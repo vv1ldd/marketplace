@@ -88,7 +88,7 @@ class CodeController extends Controller
             'is_activated' => true,
             'client_info' => $data,
             'activated_at' => now(),
-            'type_id' => $data['type_id'] ?? 0,
+            'type_id' => $data['type_id'],
         ]);
 
         SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
