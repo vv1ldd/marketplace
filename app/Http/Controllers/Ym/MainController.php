@@ -9,6 +9,7 @@ use App\Http\Services\YmService;
 use App\Jobs\ItemsYmShow;
 use App\Jobs\UpdateYmPrices;
 use App\Models\PlayStation\PlayStationAlt;
+use App\Models\Settings;
 use App\Models\YmSenderLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
@@ -17,6 +18,13 @@ use Illuminate\Validation\ValidationException;
 
 class MainController extends Controller
 {
+    private int $ps_tax;
+
+    public function __construct()
+    {
+        $this->ps_tax = (int)Settings::get('PS_TAX', 35);
+    }
+
     public function prepareToItemsShow(Request $request)
     {
         $data = $request->validate([
@@ -571,8 +579,8 @@ class MainController extends Controller
      */
     private function pricesCalc($item, $usdt_try, $usdt_rub): array
     {
-        $price_with_discount = round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
-        $base_price = round((($item->base_price / $usdt_try) * $usdt_rub) * (1 + env('PS_TAX', 35) / 100));
+        $price_with_discount = round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + $this->ps_tax / 100));
+        $base_price = round((($item->base_price / $usdt_try) * $usdt_rub) * (1 + $this->ps_tax / 100));
 
         return [$price_with_discount, $base_price];
     }

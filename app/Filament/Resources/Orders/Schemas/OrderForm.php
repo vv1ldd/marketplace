@@ -89,23 +89,21 @@ class OrderForm
                         ->maxItems(100)
                         ->addActionLabel('Добавить товар')
                         ->minItems(1)
-                        ->columns(3)
+                        ->columns(2)
                         ->schema([
-                            Grid::make(4)->schema([
-                                TextInput::make('sku')
-                                    ->label('SKU')
-                                    ->required()
-                                    ->columnSpan(3),
-                                TextInput::make('count')
-                                    ->required()
-                                    ->numeric()
-                                    ->minValue(1)
-                                    ->maxValue(100)
-                                    ->default(1)
-                                    ->label('Количество'),
-                            ]),
 
-                            Grid::make(4)->schema([
+                            TextInput::make('sku')
+                                ->label('SKU')
+                                ->required(),
+                            TextInput::make('count')
+                                ->required()
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(100)
+                                ->default(1)
+                                ->label('Количество'),
+
+                            Grid::make(2)->schema([
                                 Toggle::make('is_redeemed')
                                     ->default(false)
                                     ->inline(false)
@@ -114,11 +112,11 @@ class OrderForm
                                     ->inline(false)
                                     ->default(false)
                                     ->label('Активирован'),
-                                DateTimePicker::make('activated_at')
-                                    ->label('Дата активации')
-                                    ->required()->columnSpan(2),
-
                             ]),
+
+                            DateTimePicker::make('activated_at')
+                                ->label('Дата активации')
+                                ->required(),
 
 
                             Grid::make(4)->schema([
