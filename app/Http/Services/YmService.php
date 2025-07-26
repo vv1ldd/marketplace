@@ -2,6 +2,7 @@
 
 namespace App\Http\Services;
 
+use App\Models\Settings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
@@ -11,10 +12,14 @@ class YmService
     private string $base_url = "https://api.partner.market.yandex.ru/";
     private PendingRequest $client;
 
+    private mixed $ym_business_id;
+
     public function __construct()
     {
+        $this->ym_business_id = (int)Settings::get('YM_BUSINESS_ID', config('services.ym.business_id', 143486522));
+
         $this->client = Http::withHeaders([
-            'Api-Key' => config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683'),
+            'Api-Key' => Settings::get('YM_API_KEY', config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683')),
         ])
             ->baseUrl($this->base_url)
             ->withOptions([
@@ -26,7 +31,7 @@ class YmService
 
     public function sendMessage(int $chatId, string $message)
     {
-        $business_id = config('services.ym.business_id', 143486522);
+        $business_id = $this->ym_business_id;
 
         $response = $this->client->post("businesses/$business_id/chats/message?chatId=$chatId", [
             'message' => $message,
@@ -41,7 +46,7 @@ class YmService
 
     public function newChat(int $orderId)
     {
-        $business_id = config('services.ym.business_id', 143486522);
+        $business_id = $this->ym_business_id;
 
         $response = $this->client->post("businesses/$business_id/chats/new", [
             'context' => [
@@ -132,7 +137,7 @@ class YmService
             throw new \Exception('Too many offerPrices');
         }
 
-        $business_id = config('services.ym.business_id', 198666367);
+        $business_id = $this->ym_business_id;
 
         $response = $this->client->post("businesses/$business_id/offer-prices/updates", [
             'offers' => $offerPrices,
@@ -166,7 +171,7 @@ class YmService
 
     public function offerMappingsUpdate(array $offerMappings)
     {
-        $business_id = config('services.ym.business_id', 198666367);
+        $business_id = $this->ym_business_id;
 
         $response = $this->client->post("businesses/$business_id/offer-mappings/update", [
             'offerMappings' => $offerMappings,

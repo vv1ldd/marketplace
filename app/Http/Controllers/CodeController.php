@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\SendTelegramJob;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
+use App\Models\Settings;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -149,9 +150,13 @@ class CodeController extends Controller
 
         $host = $request->httpHost();
 
-        $trusted_hosts = explode(',', config('services.trusted_hosts'));
+        $app_domain = config('app.domain');
 
-        if (!in_array($host, $trusted_hosts)) {
+        $hosts = $app_domain . ',' . Settings::get('TRUSTED_HOSTS', config('services.trusted_hosts'));
+
+        $trusted_hosts_array = explode(',', $hosts);
+
+        if (!in_array($host, $trusted_hosts_array)) {
             abort(403);
         }
 

@@ -20,5 +20,5 @@ Route::group(['prefix' => 'ps'], function () {
 });
 
 Route::group(['prefix' => 'ym'], function () {
-    Route::any('{token}/notification', [YmMainController::class, 'notification'])->where('token', config('services.ym.notification_token'));
+    Route::any('{token}/notification', [YmMainController::class, 'notification'])->where('token', \App\Models\Settings::get('YM_NOTIFICATION_TOKEN', config('services.ym.notification_token')));
 });

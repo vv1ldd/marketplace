@@ -2,10 +2,9 @@
 
 namespace App\Http\Services;
 
-use App\Models\YmSend;
+use App\Models\Settings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 class TelegramService
@@ -17,7 +16,7 @@ class TelegramService
 
     public function __construct()
     {
-        $this->client = Http::baseUrl($this->base_url . config('services.tg.token'));
+        $this->client = Http::baseUrl($this->base_url . Settings::get('TG_TOKEN', config('services.tg.token')));
     }
 
     /**
@@ -28,7 +27,7 @@ class TelegramService
     public function sendMessage(string $message): int
     {
         $response = $this->client->post('sendMessage', [
-            'chat_id' => config('services.tg.chat_id'),
+            'chat_id' => Settings::get('TG_CHAT_ID', config('services.tg.chat_id')),
             'text' => $message,
             'parse_mode' => 'HTML',
         ]);

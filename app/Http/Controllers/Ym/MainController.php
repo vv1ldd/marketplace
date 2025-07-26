@@ -22,7 +22,7 @@ class MainController extends Controller
 
     public function __construct()
     {
-        $this->ps_tax = (int)Settings::get('PS_TAX', 35);
+        $this->ps_tax = (int) Settings::get('PS_TAX', 35);
     }
 
     public function prepareToItemsShow(Request $request)
@@ -338,7 +338,7 @@ class MainController extends Controller
                 "offer" => [
                     "offerId" => $item->sku,
                     "name" => $name,
-                    'marketCategoryId' => config('services.ym.category_id', 70301474),
+                    'marketCategoryId' => (int) Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474)),
                     'pictures' => $pictures ?? [],
                     ...(isset($data['publisherName']) ? ['vendor' => $data['publisherName']] : []),
                     "description" => $description,

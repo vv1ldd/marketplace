@@ -2,6 +2,7 @@
 
 namespace App\Http\Services;
 
+use App\Models\Settings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
@@ -17,7 +18,7 @@ class GoogleTranslateService
      */
     public static function translate(string $text, string $from = 'en', string $to = 'ru')
     {
-        $apiKey = config('services.google_translate.api_key');
+        $apiKey = Settings::get('GOOGLE_TRANSLATE_API_KEY', config('services.google_translate.api_key'));
 
         $response = Http::withOptions([
             'timeout' => 30,

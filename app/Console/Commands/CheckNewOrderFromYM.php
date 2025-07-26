@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Http\Controllers\Ym\MainController;
 use App\Http\Services\YmService;
 use App\Models\Order\Order;
+use App\Models\Settings;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
@@ -46,7 +47,7 @@ class CheckNewOrderFromYM extends Command
             return;
         }
 
-        $campaign_id = config('services.ym.campaign_id', 143486522);
+        $campaign_id = (int) Settings::get('YM_CAMPAIGN_ID', config('services.ym.campaign_id', 143486522));
 
 //        $log->debug('check new orders', [$new_orders, $campaign_id])
 
