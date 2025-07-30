@@ -8,8 +8,9 @@
         <form class="space-y-5" method="POST" action="{{ route('form-send') }}">
             @csrf
             <input hidden name="uuid" value="{{ $uuid }}">
+            <input hidden name="type_form_id" value="{{ $type_form_id }}">
             @if($is_frame)
-                <input hidden name="is_frame" value="1"/>
+                <input hidden name="is_frame" value="1" />
             @endif
             <div class="flex sm:flex-row justify-between gap-3 flex-col">
                 <div class="w-full">
@@ -54,158 +55,164 @@
                     @enderror
                 </div>
             </div>
-            <div>
-                <div id="checkbox-group" class="space-y-4 mx-auto p-4 bg-zinc-900 rounded-xl">
-                    <div>
-                        <label class="flex items-center gap-3 cursor-pointer select-none mb-1">
-                            <input type="checkbox" name="option[0][check]"
-                                   @checked(old('option.0.check')) class="sr-only peer"/>
-                            <div
-                                class="w-6 min-w-6 h-6 min-h-6 rounded-md border-2 border-zinc-600 bg-zinc-800
+            @if($type_form_id === 2)
+                <div>
+                    <div id="checkbox-group" class="space-y-4 mx-auto p-4 bg-zinc-900 rounded-xl">
+                        <div>
+                            <label class="flex items-center gap-3 cursor-pointer select-none mb-1">
+                                <input type="checkbox" name="option[0][check]"
+                                       @checked(old('option.0.check')) class="sr-only peer" />
+                                <div
+                                    class="w-6 min-w-6 h-6 min-h-6 rounded-md border-2 border-zinc-600 bg-zinc-800
                  peer-checked:bg-blue-600 peer-checked:border-blue-400
                  peer-checked:shadow-[0_0_8px_3px_rgba(59,130,246,0.7)]
                  transition-all duration-300 flex items-center justify-center"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    class="w-4 h-4 text-white opacity-0 scale-75 peer-checked:opacity-100 peer-checked:scale-100
-                   transition-all duration-300 ease-in-out"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="3"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
                                 >
-                                    <path d="M5 13l4 4L19 7"/>
-                                </svg>
-                            </div>
-                            <span class="text-zinc-300 hover:text-white transition-colors">Оформить покупку на имеющийся PlayStation Network ID</span>
-                        </label>
-                        <p class="text-zinc-400 text-sm">Активируйте пункт если желаете оформить покупку на имеющийся
-                            аккаунт PlayStation Network ID.</p>
-                        @error('option.0.check')
-                        <p class="text-red-500 text-sm">{{ $message }}</p>
-                        @enderror
-                    </div>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        class="w-4 h-4 text-white opacity-0 scale-75 peer-checked:opacity-100 peer-checked:scale-100
+                   transition-all duration-300 ease-in-out"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="3"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <path d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="text-zinc-300 hover:text-white transition-colors">Оформить покупку на имеющийся PlayStation Network ID</span>
+                            </label>
+                            <p class="text-zinc-400 text-sm">Активируйте пункт если желаете оформить покупку на
+                                имеющийся
+                                аккаунт PlayStation Network ID.</p>
+                            @error('option.0.check')
+                            <p class="text-red-500 text-sm">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-                    <div>
-                        <label class="flex items-center gap-3 cursor-pointer select-none mb-1">
-                            <input type="checkbox" name="option[1][check]"
-                                   @checked(old('option.1.check')) class="sr-only peer"/>
-                            <div
-                                class="w-6 min-w-6 h-6 min-h-6 rounded-md border-2 border-zinc-600 bg-zinc-800
+                        <div>
+                            <label class="flex items-center gap-3 cursor-pointer select-none mb-1">
+                                <input type="checkbox" name="option[1][check]"
+                                       @checked(old('option.1.check')) class="sr-only peer" />
+                                <div
+                                    class="w-6 min-w-6 h-6 min-h-6 rounded-md border-2 border-zinc-600 bg-zinc-800
              peer-checked:bg-blue-600 peer-checked:border-blue-400
              peer-checked:shadow-[0_0_8px_3px_rgba(59,130,246,0.7)]
              transition-all duration-300 flex items-center justify-center"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    class="w-4 h-4 text-white opacity-0 scale-75 peer-checked:opacity-100 peer-checked:scale-100
-               transition-all duration-300 ease-in-out"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="3"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
                                 >
-                                    <path d="M5 13l4 4L19 7"/>
-                                </svg>
-                            </div>
-                            <span class="text-zinc-300 hover:text-white transition-colors">Сгенерировать аккаунт</span>
-                        </label>
-                        <p class="text-zinc-400 text-sm">Активируйте пункт если желаете создать новый аккаунт
-                            PlayStation
-                            Network ID. Мы создаем исключительно персональный аккаунт, на
-                            основе вашего имени, фамилии и даты рождения.</p>
-                        @error('option[1][check]')
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        class="w-4 h-4 text-white opacity-0 scale-75 peer-checked:opacity-100 peer-checked:scale-100
+               transition-all duration-300 ease-in-out"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="3"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <path d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span
+                                    class="text-zinc-300 hover:text-white transition-colors">Сгенерировать аккаунт</span>
+                            </label>
+                            <p class="text-zinc-400 text-sm">Активируйте пункт если желаете создать новый аккаунт
+                                PlayStation
+                                Network ID. Мы создаем исключительно персональный аккаунт, на
+                                основе вашего имени, фамилии и даты рождения.</p>
+                            @error('option[1][check]')
+                            <p class="text-red-500 text-sm">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+                </div>
+
+                <div id="option[0][check]" class="@if(!old('option.0.check')) hidden @endif space-y-5">
+                    <div>
+                        <label class="block text-sm text-zinc-300 mb-1" for="option[0][ps_network_id]">Идентификатор
+                            PlayStation Network ID</label>
+                        <input
+                            name="option[0][ps_network_id]"
+                            id="option[0][ps_network_id]"
+                            @if(!old('option.0.check')) disabled @endif
+                            type="email"
+                            value="{{ old('option.0.ps_network_id') }}"
+                            placeholder="Введите ваш PSN ID (email)"
+                            class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                        />
+                        @error('option.0.ps_network_id')
+                        <p class="text-red-500 text-sm">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm text-zinc-300 mb-1" for="option[0][ps_network_password]">Пароль
+                            PlayStation Network ID</label>
+                        <input
+                            name="option[0][ps_network_password]"
+                            id="option[0][ps_network_password]"
+                            type="password"
+                            @if(!old('option.0.check')) disabled @endif
+                            value="{{ old('option.0.ps_network_password') }}"
+                            placeholder="Введите ваш пароль"
+                            class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                        />
+                        @error('option.0.ps_network_password')
+                        <p class="text-red-500 text-sm">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm text-zinc-300 mb-1" for="option[0][ps_network_password]">Резервный
+                            код
+                            2fа</label>
+                        <input
+                            name="option[0][ps_2fa_code]"
+                            type="text"
+                            id="option[0][ps_2fa_code]"
+                            @if(!old('option.0.check')) disabled @endif
+                            value="{{ old('option.0.ps_2fa_code') }}"
+                            placeholder="Введите резервный код 2fа"
+                            class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                        />
+                        @error('option.0.ps_2fa_code')
                         <p class="text-red-500 text-sm">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
-            </div>
 
-            <div id="option[0][check]" class="@if(!old('option.0.check')) hidden @endif space-y-5">
-                <div>
-                    <label class="block text-sm text-zinc-300 mb-1" for="option[0][ps_network_id]">Идентификатор
-                        PlayStation Network ID</label>
-                    <input
-                        name="option[0][ps_network_id]"
-                        id="option[0][ps_network_id]"
-                        @if(!old('option.0.check')) disabled @endif
-                        type="email"
-                        value="{{ old('option.0.ps_network_id') }}"
-                        placeholder="Введите ваш PSN ID (email)"
-                        class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
-                    />
-                    @error('option.0.ps_network_id')
-                    <p class="text-red-500 text-sm">{{ $message }}</p>
-                    @enderror
-                </div>
-                <div>
-                    <label class="block text-sm text-zinc-300 mb-1" for="option[0][ps_network_password]">Пароль
-                        PlayStation Network ID</label>
-                    <input
-                        name="option[0][ps_network_password]"
-                        id="option[0][ps_network_password]"
-                        type="password"
-                        @if(!old('option.0.check')) disabled @endif
-                        value="{{ old('option.0.ps_network_password') }}"
-                        placeholder="Введите ваш пароль"
-                        class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
-                    />
-                    @error('option.0.ps_network_password')
-                    <p class="text-red-500 text-sm">{{ $message }}</p>
-                    @enderror
-                </div>
-                <div>
-                    <label class="block text-sm text-zinc-300 mb-1" for="option[0][ps_network_password]">Резервный код
-                        2fа</label>
-                    <input
-                        name="option[0][ps_2fa_code]"
-                        type="text"
-                        id="option[0][ps_2fa_code]"
-                        @if(!old('option.0.check')) disabled @endif
-                        value="{{ old('option.0.ps_2fa_code') }}"
-                        placeholder="Введите резервный код 2fа"
-                        class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
-                    />
-                    @error('option.0.ps_2fa_code')
-                    <p class="text-red-500 text-sm">{{ $message }}</p>
-                    @enderror
-                </div>
-            </div>
+                <div id="option[1][check]" class="@if(!old('option.1.check')) hidden @endif space-y-5">
+                    <div>
+                        <div class="mb-1">
+                            <label class="block text-sm text-zinc-300" for="option[0][ps_network_id]">Дата
+                                рождения</label>
+                            <p class="text-zinc-400 text-sm">Является ответом на секретный вопрос восстановления
+                                аккаунта PlayStation Network. Используйте свою реальную дату
+                                рождения.</p>
+                        </div>
 
-            <div id="option[1][check]" class="@if(!old('option.1.check')) hidden @endif space-y-5">
-                <div>
-                    <div class="mb-1">
-                        <label class="block text-sm text-zinc-300" for="option[0][ps_network_id]">Дата рождения</label>
-                        <p class="text-zinc-400 text-sm">Является ответом на секретный вопрос восстановления
-                            аккаунта PlayStation Network. Используйте свою реальную дату
-                            рождения.</p>
+                        <input
+                            name="option[1][ps_birthday]"
+                            id="option[1][ps_birthday]"
+                            type="date"
+                            value="{{ old('option.1.ps_birthday') }}"
+                            max="{{ date('Y-m-d') }}"
+                            @if(!old('option.1.check')) disabled @endif
+                            min="1950-01-01"
+                            placeholder="дд.мм.гггг"
+                            class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                        />
+                        @error('option.1.ps_birthday')
+                        <p class="text-red-500 text-sm">{{ $message }}</p>
+                        @enderror
                     </div>
-
-                    <input
-                        name="option[1][ps_birthday]"
-                        id="option[1][ps_birthday]"
-                        type="date"
-                        value="{{ old('option.1.ps_birthday') }}"
-                        max="{{ date('Y-m-d') }}"
-                        @if(!old('option.1.check')) disabled @endif
-                        min="1950-01-01"
-                        placeholder="дд.мм.гггг"
-                        class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
-                    />
-                    @error('option.1.ps_birthday')
-                    <p class="text-red-500 text-sm">{{ $message }}</p>
-                    @enderror
+                    <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
+                        Сгенерируем для вас защищенный аккаунт PlayStation Network и отправим идентификационные данные
+                        на ваш указанный Email
+                    </p>
                 </div>
-                <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
-                    Сгенерируем для вас защищенный аккаунт PlayStation Network и отправим идентификационные данные
-                    на ваш указанный Email
-                </p>
-            </div>
+            @endif
 
             <div class="flex sm:flex-row justify-between gap-3 flex-col">
                 <div class="w-full">
@@ -327,31 +334,31 @@
             });
         });
 
-        document.addEventListener("DOMContentLoaded", function () {
-            const phoneInput = document.getElementById("phone");
+        document.addEventListener('DOMContentLoaded', function() {
+            const phoneInput = document.getElementById('phone');
 
-            phoneInput.addEventListener("input", function (e) {
-                let value = phoneInput.value.replace(/\D/g, "");
+            phoneInput.addEventListener('input', function(e) {
+                let value = phoneInput.value.replace(/\D/g, '');
 
-                if (value.startsWith("8")) value = "7" + value.slice(1); // Заменим 8 на 7
+                if (value.startsWith('8')) value = '7' + value.slice(1); // Заменим 8 на 7
 
                 if (value.length > 11) value = value.slice(0, 11);
 
-                let formatted = "+7";
+                let formatted = '+7';
 
-                if (value.length > 1) formatted += " (" + value.slice(1, 4);
-                if (value.length >= 4) formatted += ") " + value.slice(4, 7);
-                if (value.length >= 7) formatted += "-" + value.slice(7, 9);
-                if (value.length >= 9) formatted += "-" + value.slice(9, 11);
+                if (value.length > 1) formatted += ' (' + value.slice(1, 4);
+                if (value.length >= 4) formatted += ') ' + value.slice(4, 7);
+                if (value.length >= 7) formatted += '-' + value.slice(7, 9);
+                if (value.length >= 9) formatted += '-' + value.slice(9, 11);
 
                 phoneInput.value = formatted;
             });
 
-            phoneInput.addEventListener("blur", function () {
+            phoneInput.addEventListener('blur', function() {
                 if (phoneInput.value.length < 18) {
-                    phoneInput.setCustomValidity("Введите номер полностью");
+                    phoneInput.setCustomValidity('Введите номер полностью');
                 } else {
-                    phoneInput.setCustomValidity("");
+                    phoneInput.setCustomValidity('');
                 }
             });
         });

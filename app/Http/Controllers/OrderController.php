@@ -7,6 +7,7 @@ use App\Http\Services\YmService;
 use App\Jobs\SendTelegramJob;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
+use App\Models\PlayStation\PlayStationAlt;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Str;
 use Random\RandomException;
@@ -86,6 +87,8 @@ class OrderController extends Controller
                     'codes' => [$key]
                 ];
 
+                $type_form_id = PlayStationAlt::where("sku", data_get($item, 'offerId'))->value('type_form_id');
+
                 $insert_data[] = [
                     'key' => $key,
                     'uuid' => Str::uuid()->toString(),
@@ -95,6 +98,7 @@ class OrderController extends Controller
                     'count' => data_get($item, 'count'),
                     'created_at' => now(),
                     'updated_at' => now(),
+                    'type_form_id' => $type_form_id
                 ];
             }
 

@@ -7,6 +7,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -36,6 +37,17 @@ class OrdersTable
                         };
                     })
                     ->badge(),
+                IconColumn::make('items.is_redeemed')
+                    ->icon(fn($record) => $record->items()->where('is_redeemed', '<>', true)->exists() ? 'heroicon-s-x-circle' : 'heroicon-s-check-circle')
+                    ->color(fn($record) => $record->items()->where('is_redeemed', '<>', true)->exists() ? 'danger' : 'success')
+                    ->label('Введен')
+                    ->boolean(),
+                IconColumn::make('items.is_activated')
+                    ->icon(fn($record) => $record->items()->where('is_activated', '<>', true)->exists() ? 'heroicon-s-x-circle' : 'heroicon-s-check-circle')
+                    ->color(fn($record) => $record->items()->where('is_activated', '<>', true)->exists() ? 'danger' : 'success')
+                    ->label('Активирован')
+                    ->boolean(),
+                TextColumn::make('items.typeForm.name')->label('Тип')->badge(),
                 TextColumn::make('created_at')->label('Создано')->dateTime('d.m.Y H:i:s'),
                 TextColumn::make('updated_at')->label('Обновлено')->dateTime('d.m.Y H:i:s'),
             ])

@@ -2,6 +2,7 @@
 
 namespace App\Models\Order;
 
+use App\Models\PlayStation\PlayStationTypeForm;
 use Illuminate\Database\Eloquent\Model;
 
 class OrderItems extends Model
@@ -18,6 +19,7 @@ class OrderItems extends Model
         'client_info',
         'activated_at',
         'type_id',
+        'type_form_id'
     ];
 
     protected $casts = [
@@ -36,5 +38,10 @@ class OrderItems extends Model
     public function type(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(OrderItemTypes::class, 'type_id', 'id');
+    }
+
+    public function typeForm(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(PlayStationTypeForm::class, 'type_form_id', 'id');
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\SendTelegramJob;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
+use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -36,6 +37,8 @@ class CodeController extends Controller
 
             'option.1.check' => 'nullable|string|in:on',
             'option.1.ps_birthday' => 'required_if:option.1.check,on|date_format:Y-m-d',
+
+            'type_code_id' => 'nullable|numeric|in:1,2',
         ]);
 
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
@@ -113,7 +116,7 @@ class CodeController extends Controller
             return view('redeem', ['is_frame' => (bool)data_get($data, 'is_frame')])->withErrors(['code' => 'Заказ не был найден']);
         }
 
-        return view('form', ['uuid' => $data['uuid'], 'is_frame' => (bool)data_get($data, 'is_frame'), 'client_info' => $order->client_info]);
+        return view('form', ['uuid' => $data['uuid'], 'is_frame' => (bool)data_get($data, 'is_frame'), 'client_info' => $order->client_info, 'type_form_id' => $order_item->type_form_id]);
     }
 
     public function checkCode(Request $request)
@@ -135,9 +138,19 @@ class CodeController extends Controller
             return back()->withErrors(['code' => 'Заказ не был найден']);
         }
 
+        $product = PlayStationAlt::where('sku', $order_item->sku)->first('type_form_id');
+
+        if (!$product) {
+            return back()->withErrors(['code' => 'Продукт не был найден']);
+        }
+
+        if ($order_item->activate_till < now()) {
+            return back()->withErrors(['code' => 'Код уже истек']);
+        }
+
         $order_item->update(['is_redeemed' => true]);
 
-        return redirect()->temporarySignedRoute('form', now()->addHours(), ['uuid' => $order_item->uuid, 'is_frame' => (bool)data_get($data, 'is_frame')]);
+        return redirect()->temporarySignedRoute('form', now()->addHours(), ['uuid' => $order_item->uuid, 'is_frame' => (bool)data_get($data, 'is_frame'), 'type_form_id' => $order_item->type_form_id]);
     }
 
     public function getCodeView(Request $request)

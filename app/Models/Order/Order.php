@@ -15,7 +15,7 @@ class Order extends Model
         'info',
         'client_info',
         'chat_id',
-        'user_id'
+        'user_id',
     ];
 
     protected $casts = [
