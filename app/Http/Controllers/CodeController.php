@@ -138,12 +138,6 @@ class CodeController extends Controller
             return back()->withErrors(['code' => 'Заказ не был найден']);
         }
 
-        $product = PlayStationAlt::where('sku', $order_item->sku)->first('type_form_id');
-
-        if (!$product) {
-            return back()->withErrors(['code' => 'Продукт не был найден']);
-        }
-
         if ($order_item->activate_till < now()) {
             return back()->withErrors(['code' => 'Код уже истек']);
         }
