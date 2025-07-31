@@ -14,7 +14,7 @@ class SendMessage
      * @param OrderItems|null $order_item
      * @return string
      */
-    public static function tg(Order $order, string $status = 'new', ?OrderItems $order_item = null, string|int $type_form_id = 1): string
+    public static function tg(Order $order, string $status = 'new', ?OrderItems $order_item = null): string
     {
 
         $message = '';
