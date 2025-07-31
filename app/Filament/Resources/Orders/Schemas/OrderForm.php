@@ -6,6 +6,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
@@ -45,7 +46,11 @@ class OrderForm
                             ->required()
                             ->searchable()
                             ->label('Прогресс по заказу')
-                            ->preload()
+                            ->preload(),
+                        Textarea::make('comment')
+                            ->label('Комментарий')
+                            ->rows(2)
+                            ->columnSpanFull(),
                     ])
 
                 ])->columnSpanFull(),
@@ -92,16 +97,21 @@ class OrderForm
                         ->columns(2)
                         ->schema([
 
-                            TextInput::make('sku')
-                                ->label('SKU')
-                                ->required(),
-                            TextInput::make('count')
-                                ->required()
-                                ->numeric()
-                                ->minValue(1)
-                                ->maxValue(100)
-                                ->default(1)
-                                ->label('Количество'),
+                            Grid::make(3)->schema([
+                                TextInput::make('sku')
+                                    ->label('SKU')
+                                    ->required(),
+                                TextInput::make('count')
+                                    ->required()
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->maxValue(100)
+                                    ->default(1)
+                                    ->label('Количество'),
+                                Select::make('typeForm.id')
+                                    ->relationship('typeForm', 'name')
+                                    ->label('Тип формы'),
+                            ]),
 
                             Grid::make(2)->schema([
                                 Toggle::make('is_redeemed')

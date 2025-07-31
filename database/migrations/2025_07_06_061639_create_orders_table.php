@@ -22,6 +22,7 @@ return new class extends Migration {
             $table->json('client_info');
             $table->integer('chat_id')->nullable();
             $table->bigInteger('user_id')->nullable();
+            $table->text('comment')->nullable();
             $table->timestamps();
         });
     }
