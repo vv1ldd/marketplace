@@ -55,7 +55,7 @@
                     @enderror
                 </div>
             </div>
-            @if($type_form_id === 2)
+            @if($type_form_id === 1)
                 <div>
                     <div id="checkbox-group" class="space-y-4 mx-auto p-4 bg-zinc-900 rounded-xl">
                         <div>

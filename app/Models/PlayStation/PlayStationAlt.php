@@ -26,8 +26,8 @@ class PlayStationAlt extends Model
         'is_manual' => 'boolean',
     ];
 
-    public function type_form()
+    public function typeForm()
     {
-        return $this->belongsTo(PlayStationTypeForm::class, 'form_type_id', 'id');
+        return $this->belongsTo(PlayStationTypeForm::class, 'type_form_id', 'id');
     }
 }

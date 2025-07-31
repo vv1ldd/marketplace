@@ -15,7 +15,7 @@ class PlayStationTypeForm extends Model
 
     public function play_station_alts()
     {
-        return $this->hasMany(PlayStationAlt::class, 'form_type_id', 'id');
+        return $this->hasMany(PlayStationAlt::class, 'type_form_id', 'id');
     }
 
     public function order_items()

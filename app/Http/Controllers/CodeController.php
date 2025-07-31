@@ -38,7 +38,7 @@ class CodeController extends Controller
             'option.1.check' => 'nullable|string|in:on',
             'option.1.ps_birthday' => 'required_if:option.1.check,on|date_format:Y-m-d',
 
-            'type_code_id' => 'nullable|numeric|in:1,2',
+            'type_form_id' => 'nullable|numeric|in:1,2',
         ]);
 
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();

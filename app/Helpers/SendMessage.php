@@ -14,7 +14,7 @@ class SendMessage
      * @param OrderItems|null $order_item
      * @return string
      */
-    public static function tg(Order $order, string $status = 'new', ?OrderItems $order_item = null): string
+    public static function tg(Order $order, string $status = 'new', ?OrderItems $order_item = null, string|int $type_form_id = 1): string
     {
 
         $message = '';
@@ -38,9 +38,13 @@ class SendMessage
             $message .= "Товары:\n";
             foreach ($items as $item) {
 
-                $price_with_discount = ((PlayStationAlt::where('sku', $item['sku'])->where('region_id', '063101db-9ac0-4e48-a948-29fe7e3f8dec')->first()->price_with_discount) / 100) * $item['count'];
+                $product = PlayStationAlt::where('sku', $item['sku'])->where('region_id', '063101db-9ac0-4e48-a948-29fe7e3f8dec')->first();
+
+                $price_with_discount = (($product->price_with_discount) / 100) * $item['count'];
 
                 $message .= "{$item['sku']} - {$item['count']} шт. - {$price_with_discount} лир. итого \n";
+
+                $message .= "Тип формы: {$product->typeForm->name} \n";
             }
         } else if ($status === 'send_form') {
 
@@ -69,7 +73,7 @@ class SendMessage
                 $message .= "Опция не выбрана\n";
             }
 
-
+            $message .= "Тип формы: {$order_item->typeForm->name} \n";
         }
 
 

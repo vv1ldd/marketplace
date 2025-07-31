@@ -108,6 +108,7 @@ class MainController extends Controller
                     ->where('t2.region_id', '=', $data['lang_region_id']);
             })
             ->where('t1.region_id', '=', $data['price_region_id'])
+            ->where('is_manual', false)
             ->where('t1.price_with_discount', '>', 0);
 
         if (!empty($data['skus'])) {

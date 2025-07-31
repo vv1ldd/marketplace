@@ -36,7 +36,7 @@ class SendTelegramJob implements ShouldQueue
 
         $order = Order::where('order_id', $order_id)->first();
 
-        $message = SendMessage::tg(order: $order, status: $status, order_item: $order_item);
+        $message = SendMessage::tg(order: $order, status: $status, order_item: $order_item, type_form_id: $order_item->type_form_id);
 
         (new TelegramService())->sendMessage($message);
     }
