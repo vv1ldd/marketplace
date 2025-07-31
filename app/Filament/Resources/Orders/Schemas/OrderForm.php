@@ -128,6 +128,11 @@ class OrderForm
                                 ->label('Дата активации')
                                 ->required(),
 
+                            TextInput::make('key')
+                                ->readOnly()
+                                ->required()
+                                ->unique(ignoreRecord: $is_update)
+                                ->label('Ключ'),
 
                             Grid::make(4)->schema([
                                 TextInput::make('client_info.first_name')
