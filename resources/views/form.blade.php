@@ -272,67 +272,70 @@
 @section('scripts')
     <script>
         const group = document.getElementById('checkbox-group');
-        const checkboxes = group.querySelectorAll('input[type="checkbox"]');
 
-        const option_0 = document.getElementById('option[0][check]');
-        const option_1 = document.getElementById('option[1][check]');
+        if(group) {
+            const checkboxes = group.querySelectorAll('input[type="checkbox"]');
 
-        const option_0_ps_network_id = document.querySelector('[name="option[0][ps_network_id]"]');
-        const option_0_ps_network_password = document.querySelector('[name="option[0][ps_network_password]"]');
-        const option_0_ps_2fa_code = document.querySelector('[name="option[0][ps_2fa_code]"]');
+            const option_0 = document.getElementById('option[0][check]');
+            const option_1 = document.getElementById('option[1][check]');
 
-        const option_1_ps_birthday = document.querySelector('[name="option[1][ps_birthday]"]');
+            const option_0_ps_network_id = document.querySelector('[name="option[0][ps_network_id]"]');
+            const option_0_ps_network_password = document.querySelector('[name="option[0][ps_network_password]"]');
+            const option_0_ps_2fa_code = document.querySelector('[name="option[0][ps_2fa_code]"]');
 
-        function toggleOption(num) {
-            if (num === 0) {
-                option_0.classList.remove('hidden');
-                option_1.classList.add('hidden');
+            const option_1_ps_birthday = document.querySelector('[name="option[1][ps_birthday]"]');
 
-                option_0_ps_network_id.removeAttribute('disabled');
-                option_0_ps_network_password.removeAttribute('disabled');
-                option_0_ps_2fa_code.removeAttribute('disabled');
-                option_1_ps_birthday.setAttribute('disabled', 'disabled');
+            function toggleOption(num) {
+                if (num === 0) {
+                    option_0.classList.remove('hidden');
+                    option_1.classList.add('hidden');
 
-            } else if (num === 1) {
-                option_0.classList.add('hidden');
-                option_1.classList.remove('hidden');
+                    option_0_ps_network_id.removeAttribute('disabled');
+                    option_0_ps_network_password.removeAttribute('disabled');
+                    option_0_ps_2fa_code.removeAttribute('disabled');
+                    option_1_ps_birthday.setAttribute('disabled', 'disabled');
 
-                option_0_ps_network_id.setAttribute('disabled', 'disabled');
-                option_0_ps_network_password.setAttribute('disabled', 'disabled');
-                option_0_ps_2fa_code.setAttribute('disabled', 'disabled');
-                option_1_ps_birthday.removeAttribute('disabled');
-            } else {
-                option_0.classList.add('hidden');
-                option_1.classList.add('hidden');
+                } else if (num === 1) {
+                    option_0.classList.add('hidden');
+                    option_1.classList.remove('hidden');
 
-                option_1_ps_birthday.setAttribute('disabled', 'disabled');
-                option_0_ps_2fa_code.setAttribute('disabled', 'disabled');
-                option_0_ps_network_id.setAttribute('disabled', 'disabled');
-                option_0_ps_network_password.setAttribute('disabled', 'disabled');
-            }
-        }
-
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('click', () => {
-                if (checkbox.checked) {
-                    checkboxes.forEach(cb => {
-                        if (cb !== checkbox) {
-                            cb.checked = false;
-                            cb.dispatchEvent(new Event('change'));
-                        }
-                    });
-
-                    if (checkbox.getAttribute('name') === 'option[0][check]') {
-                        toggleOption(0);
-                    } else {
-                        toggleOption(1);
-                    }
-
+                    option_0_ps_network_id.setAttribute('disabled', 'disabled');
+                    option_0_ps_network_password.setAttribute('disabled', 'disabled');
+                    option_0_ps_2fa_code.setAttribute('disabled', 'disabled');
+                    option_1_ps_birthday.removeAttribute('disabled');
                 } else {
-                    toggleOption(2);
+                    option_0.classList.add('hidden');
+                    option_1.classList.add('hidden');
+
+                    option_1_ps_birthday.setAttribute('disabled', 'disabled');
+                    option_0_ps_2fa_code.setAttribute('disabled', 'disabled');
+                    option_0_ps_network_id.setAttribute('disabled', 'disabled');
+                    option_0_ps_network_password.setAttribute('disabled', 'disabled');
                 }
+            }
+
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('click', () => {
+                    if (checkbox.checked) {
+                        checkboxes.forEach(cb => {
+                            if (cb !== checkbox) {
+                                cb.checked = false;
+                                cb.dispatchEvent(new Event('change'));
+                            }
+                        });
+
+                        if (checkbox.getAttribute('name') === 'option[0][check]') {
+                            toggleOption(0);
+                        } else {
+                            toggleOption(1);
+                        }
+
+                    } else {
+                        toggleOption(2);
+                    }
+                });
             });
-        });
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
             const phoneInput = document.getElementById('phone');
