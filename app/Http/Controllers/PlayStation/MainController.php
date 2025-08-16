@@ -34,6 +34,35 @@ class MainController extends Controller
     public string $API_GRAPHQL = 'https://web.np.playstation.com/api/graphql/v1/';
     public string $API_REST = 'https://store.playstation.com/store/api/chihiro/00_09_000/container/';
 
+    public function prices(Request $request)
+    {
+        $items = PlayStationAlt::where('price_with_discount', '>', 0)
+            ->where('region_id', '063101db-9ac0-4e48-a948-29fe7e3f8dec')
+            ->get(['id', 'sku', 'price_with_discount', 'base_price']);
+
+        $binance_service = new BinanceService();
+
+        $usdt_try = $binance_service->tickerPrice('USDTTRY');
+        $usdt_rub = $binance_service->tickerPrice('USDTRUB');
+
+        $ym = new YmMainController();
+
+        $return_data = [];
+
+        foreach ($items as $item) {
+            [$price_with_discount, $base_price] = $ym->pricesCalc($item, $usdt_try, $usdt_rub);
+
+            $return_data[] = [
+                'id' => $item->id,
+                'sku' => $item->sku,
+                'price_with_discount' => $price_with_discount,
+                'base_price' => $base_price,
+            ];
+        }
+
+        return response()->json($return_data);
+    }
+
     /**
      * @param Request $request
      * @return JsonResponse

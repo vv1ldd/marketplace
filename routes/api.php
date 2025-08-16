@@ -17,6 +17,8 @@ Route::group(['prefix' => 'ps'], function () {
         Route::post('send-stock-items', [YmMainController::class, 'prepareSendStockItems']);
         Route::post('items-show', [YmMainController::class, 'prepareToItemsShow']);
     });
+
+    Route::get('prices', [MainController::class, 'prices']);
 });
 
 Route::group(['prefix' => 'ym'], function () {

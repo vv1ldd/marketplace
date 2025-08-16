@@ -578,7 +578,7 @@ class MainController extends Controller
      * @param $usdt_rub
      * @return array
      */
-    private function pricesCalc($item, $usdt_try, $usdt_rub): array
+    public function pricesCalc($item, $usdt_try, $usdt_rub): array
     {
         $price_with_discount = round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + $this->ps_tax / 100));
         $base_price = round((($item->base_price / $usdt_try) * $usdt_rub) * (1 + $this->ps_tax / 100));
