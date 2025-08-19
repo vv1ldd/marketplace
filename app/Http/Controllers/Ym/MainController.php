@@ -20,9 +20,9 @@ class MainController extends Controller
 {
     private int $ps_tax;
 
-    public function __construct()
+    public function __construct(int $tax = null)
     {
-        $this->ps_tax = (int) Settings::get('PS_TAX', 35);
+        $this->ps_tax = $tax ?? (int) Settings::get('PS_TAX', 35);
     }
 
     public function prepareToItemsShow(Request $request)

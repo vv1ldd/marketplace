@@ -12,6 +12,7 @@ use App\Models\PlayStation\PlayStationAlt;
 use App\Models\PlayStation\PlayStationCategory;
 use App\Models\PlayStation\PlayStationRegion;
 use App\Models\PlayStation\PlayStationRegionCategory;
+use App\Models\Settings;
 use App\Models\YmSenderLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -45,7 +46,7 @@ class MainController extends Controller
         $usdt_try = $binance_service->tickerPrice('USDTTRY');
         $usdt_rub = $binance_service->tickerPrice('USDTRUB');
 
-        $ym = new YmMainController();
+        $ym = new YmMainController((int) Settings::get('PS_TAX_FOR_SITES', 35));
 
         $return_data = [];
 
