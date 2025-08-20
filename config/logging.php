@@ -165,6 +165,14 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
+        ],
+
+        'update_woo_prices' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/woo/update_woo_prices.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 3),
+            'replace_placeholders' => true,
         ]
 
     ],

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\WooPriceUpdateController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PlayStation\MainController;
@@ -25,11 +26,4 @@ Route::group(['prefix' => 'ym'], function () {
     Route::any('{token}/notification', [YmMainController::class, 'notification'])->where('token', \App\Models\Settings::get('YM_NOTIFICATION_TOKEN', config('services.ym.notification_token')));
 });
 
-Route::get('test', function (Request $request) {
-    $data = \DB::connection('ps_plus')
-        ->table('wp_posts')
-        ->limit(10)
-        ->get();
-
-    return response()->json($data);
-});
+Route::get('update-woo-prices', [WooPriceUpdateController::class, 'update']);

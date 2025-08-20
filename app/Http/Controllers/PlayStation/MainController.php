@@ -35,7 +35,7 @@ class MainController extends Controller
     public string $API_GRAPHQL = 'https://web.np.playstation.com/api/graphql/v1/';
     public string $API_REST = 'https://store.playstation.com/store/api/chihiro/00_09_000/container/';
 
-    public function prices(Request $request)
+    public function prices()
     {
         $items = PlayStationAlt::where('price_with_discount', '>', 0)
             ->where('region_id', '063101db-9ac0-4e48-a948-29fe7e3f8dec')
