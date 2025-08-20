@@ -45,7 +45,7 @@ class WooPriceUpdateController extends Controller
 
                 $sku = $item['sku'];
                 $price = $item['base_price'] / 100;
-                $salePrice = $item['price_with_discount'] ? $item['price_with_discount'] / 100 : null;
+                $salePrice = $item['price_with_discount'] < $price ? $item['price_with_discount'] / 100 : null;
 
                 $newPrice = $salePrice && $salePrice < $price ? $salePrice : $price;
 
@@ -83,12 +83,6 @@ class WooPriceUpdateController extends Controller
                 if ($oldRegular != $price || $oldPrice != $newPrice) {
                     $needUpdate = true;
                 }
-                if ($salePrice && $oldSale != $salePrice) {
-                    $needUpdate = true;
-                }
-                if (!$salePrice && !empty($oldSale)) {
-                    $needUpdate = true;
-                }
 
                 if (!$needUpdate) {
                     $log->debug('Цена не изменилась, пропуск', [
@@ -110,6 +104,9 @@ class WooPriceUpdateController extends Controller
                 );
 
                 if ($salePrice && $salePrice < $price) {
+
+                    $log->debug('Цена со скидкой', [$salePrice]);
+
                     $db_connection->table('wp_postmeta')->updateOrInsert(
                         ['post_id' => $productId, 'meta_key' => '_sale_price'],
                         ['meta_value' => $salePrice]
