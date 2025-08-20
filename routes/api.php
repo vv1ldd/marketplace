@@ -28,6 +28,7 @@ Route::group(['prefix' => 'ym'], function () {
 Route::get('test', function (Request $request) {
     $data = \DB::connection('ps_plus')
         ->table('wp_posts')
+        ->limit(10)
         ->get();
 
     return response()->json($data);
