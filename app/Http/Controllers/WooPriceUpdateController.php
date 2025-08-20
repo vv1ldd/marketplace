@@ -146,6 +146,7 @@ class WooPriceUpdateController extends Controller
         return response()->json([
             'status' => 'ok',
             'updated' => $updated,
+            'message' => 'Полное обновление цен завершено'
         ]);
     }
 }
