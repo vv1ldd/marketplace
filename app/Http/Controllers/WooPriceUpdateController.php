@@ -32,6 +32,8 @@ class WooPriceUpdateController extends Controller
 
         $updated = 0;
 
+        $db_connection = DB::connection('ps_plus');
+
         DB::beginTransaction();
 
         try {
@@ -54,7 +56,7 @@ class WooPriceUpdateController extends Controller
                 ]);
 
                 // Находим товар по SKU
-                $productId = DB::table('wp_postmeta')
+                $productId = $db_connection->table('wp_postmeta')
                     ->where('meta_key', '_sku')
                     ->where('meta_value', $sku)
                     ->value('post_id');
@@ -67,7 +69,7 @@ class WooPriceUpdateController extends Controller
                 $log->debug('Товар найден', ['product_id' => $productId]);
 
                 // Получаем текущие значения
-                $meta = DB::table('wp_postmeta')
+                $meta = $db_connection->table('wp_postmeta')
                     ->where('post_id', $productId)
                     ->whereIn('meta_key', ['_regular_price', '_price', '_sale_price'])
                     ->pluck('meta_value', 'meta_key');
@@ -97,23 +99,23 @@ class WooPriceUpdateController extends Controller
                 }
 
                 // --- Обновляем только если изменилось ---
-                DB::table('wp_postmeta')->updateOrInsert(
+                $db_connection->table('wp_postmeta')->updateOrInsert(
                     ['post_id' => $productId, 'meta_key' => '_regular_price'],
                     ['meta_value' => $price]
                 );
 
-                DB::table('wp_postmeta')->updateOrInsert(
+                $db_connection->table('wp_postmeta')->updateOrInsert(
                     ['post_id' => $productId, 'meta_key' => '_price'],
                     ['meta_value' => $newPrice]
                 );
 
                 if ($salePrice && $salePrice < $price) {
-                    DB::table('wp_postmeta')->updateOrInsert(
+                    $db_connection->table('wp_postmeta')->updateOrInsert(
                         ['post_id' => $productId, 'meta_key' => '_sale_price'],
                         ['meta_value' => $salePrice]
                     );
                 } else {
-                    DB::table('wp_postmeta')
+                    $db_connection->table('wp_postmeta')
                         ->where('post_id', $productId)
                         ->where('meta_key', '_sale_price')
                         ->delete();
