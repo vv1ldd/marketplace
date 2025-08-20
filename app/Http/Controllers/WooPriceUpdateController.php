@@ -12,6 +12,8 @@ class WooPriceUpdateController extends Controller
 {
     public function update()
     {
+        ini_set('max_execution_time', 1200);
+
         $log = Log::channel('update_woo_prices')->withContext([
             'log_id' => Str::random(8),
         ]);
@@ -39,7 +41,7 @@ class WooPriceUpdateController extends Controller
         try {
             foreach ($products as $item) {
                 if (empty($item['sku']) || empty($item['base_price'])) {
-                    $log->debug('Нет sku или пустая цена', [$item]);
+//                    $log->debug('Нет sku или пустая цена', [$item]);
                     continue;
                 }
 
@@ -53,11 +55,11 @@ class WooPriceUpdateController extends Controller
 
                 $newPrice = $salePrice && $salePrice < $price ? $salePrice : $price;
 
-                $log->debug('Обновление цены', [
-                    'sku' => $sku,
-                    'price' => $price,
-                    'sale_price' => $salePrice,
-                ]);
+//                $log->debug('Обновление цены', [
+//                    'sku' => $sku,
+//                    'price' => $price,
+//                    'sale_price' => $salePrice,
+//                ]);
 
                 // Находим товар по SKU
                 $productId = $db_connection->table('wp_postmeta')
@@ -66,11 +68,11 @@ class WooPriceUpdateController extends Controller
                     ->value('post_id');
 
                 if (!$productId) {
-                    $log->debug('Товар не найден по SKU', ['sku' => $sku]);
+//                    $log->debug('Товар не найден по SKU', ['sku' => $sku]);
                     continue;
                 }
 
-                $log->debug('Товар найден', ['product_id' => $productId]);
+//                $log->debug('Товар найден', ['product_id' => $productId]);
 
                 // Получаем текущие значения
                 $meta = $db_connection->table('wp_postmeta')
@@ -89,10 +91,10 @@ class WooPriceUpdateController extends Controller
                 }
 
                 if (!$needUpdate) {
-                    $log->debug('Цена не изменилась, пропуск', [
-                        'product_id' => $productId,
-                        'sku' => $sku,
-                    ]);
+//                    $log->debug('Цена не изменилась, пропуск', [
+//                        'product_id' => $productId,
+//                        'sku' => $sku,
+//                    ]);
                     continue;
                 }
 
