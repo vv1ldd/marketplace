@@ -62,6 +62,26 @@ return [
             ]) : [],
         ],
 
+        'ps_plus' => [
+            'driver' => 'mysql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST_PS_PLUS', '127.0.0.1'),
+            'port' => env('DB_PORT_PS_PLUS', '3306'),
+            'database' => env('DB_DATABASE_PS_PLUS', 'laravel'),
+            'username' => env('DB_USERNAME_PS_PLUS', 'root'),
+            'password' => env('DB_PASSWORD_PS_PLUS', ''),
+            'unix_socket' => env('DB_SOCKET_PS_PLUS', ''),
+            'charset' => env('DB_CHARSET_PS_PLUS', 'utf8mb4'),
+            'collation' => env('DB_COLLATION_PS_PLUS', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
