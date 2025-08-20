@@ -45,7 +45,7 @@ class WooPriceUpdateController extends Controller
 
                 $sku = $item['sku'];
                 $price = $item['base_price'] / 100;
-                $salePrice = $item['price_with_discount'] < $price ? $item['price_with_discount'] / 100 : null;
+                $salePrice = ($item['price_with_discount'] / 100) < $price ? $item['price_with_discount'] / 100 : null;
 
                 $newPrice = $salePrice && $salePrice < $price ? $salePrice : $price;
 
