@@ -36,10 +36,11 @@ class WooPriceUpdateController extends Controller
 
         $db_connection = DB::connection('ps_plus');
 
-        DB::beginTransaction();
-
         try {
             foreach ($products as $item) {
+
+                DB::beginTransaction();
+
                 if (empty($item['sku']) || empty($item['base_price'])) {
 //                    $log->debug('Нет sku или пустая цена', [$item]);
                     continue;
@@ -49,7 +50,7 @@ class WooPriceUpdateController extends Controller
                 $price = round($item['base_price'] / 100);
                 $salePrice = ($item['price_with_discount'] / 100) < $price ? $item['price_with_discount'] / 100 : null;
 
-                if($salePrice) {
+                if ($salePrice) {
                     $salePrice = round($salePrice);
                 }
 
@@ -81,8 +82,8 @@ class WooPriceUpdateController extends Controller
                     ->pluck('meta_value', 'meta_key');
 
                 $oldRegular = $meta['_regular_price'] ?? null;
-                $oldPrice   = $meta['_price'] ?? null;
-                $oldSale    = $meta['_sale_price'] ?? null;
+                $oldPrice = $meta['_price'] ?? null;
+                $oldSale = $meta['_sale_price'] ?? null;
 
                 // Проверяем изменения
                 $needUpdate = false;
@@ -132,14 +133,12 @@ class WooPriceUpdateController extends Controller
                     'new' => compact('price', 'newPrice', 'salePrice'),
                 ]);
 
-                break;
+                DB::commit();
             }
-
-            DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
             $log->error('Ошибка обновления цен', ['exception' => $e->getMessage()]);
-            return response()->json(['error' => 'Ошибка обновления'], 500);
+            return response()->json(['error' => 'Ошибка обновления', 'message' => $e->getMessage()], 500);
         }
 
         $log->info('Полное обновление цен завершено', ['updated' => $updated]);
