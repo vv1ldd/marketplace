@@ -14,9 +14,12 @@ class YmService
 
     private mixed $ym_business_id;
 
+    private mixed $campaign_id;
+
     public function __construct()
     {
         $this->ym_business_id = (int)Settings::get('YM_BUSINESS_ID', config('services.ym.business_id', 143486522));
+        $this->campaign_id = config('services.ym.campaign_id', 143486522);
 
         $this->client = Http::withHeaders([
             'Api-Key' => Settings::get('YM_API_KEY', config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683')),
@@ -64,7 +67,7 @@ class YmService
 
     public function getNewOrders()
     {
-        $campaign_id = config('services.ym.campaign_id', 143486522);
+        $campaign_id = $this->campaign_id;
 
         $current_date = now()->format('Y-m-d');
 
@@ -107,7 +110,7 @@ class YmService
             throw new \Exception('Too many offerIds');
         }
 
-        $campaign_id = config('services.ym.campaign_id', 143486522);
+        $campaign_id = $this->campaign_id;
 
         $response = $this->client->post("campaigns/$campaign_id/hidden-offers/delete", [
             'hiddenOffers' => $offerIds,
@@ -156,7 +159,7 @@ class YmService
             throw new \Exception('Too many offerStocks');
         }
 
-        $campaign_id = config('services.ym.campaign_id', 143486522);
+        $campaign_id = $this->campaign_id;
 
         $response = $this->client->put("campaigns/$campaign_id/offers/stocks", [
             'skus' => $offerStocks,
@@ -175,6 +178,25 @@ class YmService
 
         $response = $this->client->post("businesses/$business_id/offer-mappings/update", [
             'offerMappings' => $offerMappings,
+        ]);
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json();
+    }
+
+    public function quarantineRemove(array $offerIds)
+    {
+        if (count($offerIds) > 200) {
+            throw new \Exception('Too many offerIds');
+        }
+
+        $campaign_id = $this->campaign_id;
+
+        $response = $this->client->post("campaigns/$campaign_id/price-quarantine/confirm", [
+            'offerIds' => $offerIds,
         ]);
 
         if ($response->failed()) {

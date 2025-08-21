@@ -7,11 +7,10 @@ use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class UpdateYmPrices implements ShouldQueue
+class QuarantineRemove implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, Batchable;
 
@@ -29,6 +28,6 @@ class UpdateYmPrices implements ShouldQueue
     public function handle(): void
     {
         $ym_service = new YmService();
-        $ym_service->offerPriceUpdate($this->chunk);
+        $ym_service->quarantineRemove($this->chunk);
     }
 }

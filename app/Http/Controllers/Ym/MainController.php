@@ -7,12 +7,15 @@ use App\Http\Controllers\OrderController;
 use App\Http\Services\BinanceService;
 use App\Http\Services\YmService;
 use App\Jobs\ItemsYmShow;
+use App\Jobs\QuarantineRemove;
 use App\Jobs\UpdateYmPrices;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use App\Models\YmSenderLog;
+use Illuminate\Bus\Batch;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -22,7 +25,14 @@ class MainController extends Controller
 
     public function __construct(int $tax = null)
     {
-        $this->ps_tax = $tax ?? (int) Settings::get('PS_TAX', 35);
+        $this->ps_tax = $tax ?? (int)Settings::get('PS_TAX', 35);
+    }
+
+    public function quarantineRemove(Request $request)
+    {
+        $data = $request->validate([
+
+        ]);
     }
 
     public function prepareToItemsShow(Request $request)
@@ -153,11 +163,37 @@ class MainController extends Controller
 
         $finished_data_chunks = array_chunk($finished_data, 500);
 
+        $jobs_update_price = [];
+
         foreach ($finished_data_chunks as $key => $chunk) {
-            UpdateYmPrices::dispatch($chunk)
+            $jobs_update_price[] = (new UpdateYmPrices($chunk))
                 ->delay(now()->addSeconds(1200 + $key * 10))
                 ->onQueue('low');
         }
+
+        $finished_data_quarantine = [];
+
+        foreach ($finished_data as $item) {
+            $finished_data_quarantine[] = $item['offerId'];
+        }
+
+        $finished_data_chunks = array_chunk($finished_data_quarantine, 200);
+
+        Bus::batch($jobs_update_price)
+            ->then(function () use ($finished_data_chunks) {
+                $jobs_quarantine = [];
+
+                foreach ($finished_data_chunks as $key => $chunk) {
+                    $jobs_quarantine[] = (new QuarantineRemove($chunk))
+                        ->delay(now()->addSeconds($key * 5))
+                        ->onQueue('low');
+                }
+
+                Bus::batch($jobs_quarantine)->onQueue('low')->dispatch();
+            })
+            ->onQueue('low')
+            ->dispatch();
+
 
         return response()->json([
             'success' => true,
@@ -339,7 +375,7 @@ class MainController extends Controller
                 "offer" => [
                     "offerId" => $item->sku,
                     "name" => $name,
-                    'marketCategoryId' => (int) Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474)),
+                    'marketCategoryId' => (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474)),
                     'pictures' => $pictures ?? [],
                     ...(isset($data['publisherName']) ? ['vendor' => $data['publisherName']] : []),
                     "description" => $description,
