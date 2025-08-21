@@ -12,7 +12,7 @@ class WooPriceUpdateController extends Controller
 {
     public function update()
     {
-        ini_set('max_execution_time', 1200);
+        ini_set('max_execution_time', 2400);
 
         $log = Log::channel('update_woo_prices')->withContext([
             'log_id' => Str::random(8),
@@ -32,10 +32,35 @@ class WooPriceUpdateController extends Controller
             return response()->json(['error' => 'Пустые данные'], 404);
         }
 
-        $updated = 0;
-
         $db_connection = DB::connection('ps_plus');
 
+        $this->updater($products, $db_connection, $log);
+
+        $log->info('Обновление цен для ps_plus завершено');
+
+        $db_connection = DB::connection('ps_store');
+
+        $this->updater($products, $db_connection, $log);
+
+        $log->info('Обновление цен для ps_store завершено');
+
+        $db_connection = DB::connection('1gros_prod');
+
+        $updated = $this->updater($products, $db_connection, $log);
+
+        $log->info('Обновление цен для ps_store завершено');
+
+        $log->info('Полное обновление цен всех магазинов завершено', ['updated' => $updated]);
+
+        return response()->json([
+            'status' => 'ok',
+            'updated' => $updated,
+            'message' => 'Полное обновление цен завершено'
+        ]);
+    }
+
+    private function updater($products, $connection, $log)
+    {
         try {
             foreach ($products as $item) {
 
@@ -63,7 +88,7 @@ class WooPriceUpdateController extends Controller
 //                ]);
 
                 // Находим товар по SKU
-                $productId = $db_connection->table('wp_postmeta')
+                $productId = $connection->table('wp_postmeta')
                     ->where('meta_key', '_sku')
                     ->where('meta_value', $sku)
                     ->value('post_id');
@@ -76,7 +101,7 @@ class WooPriceUpdateController extends Controller
 //                $log->debug('Товар найден', ['product_id' => $productId]);
 
                 // Получаем текущие значения
-                $meta = $db_connection->table('wp_postmeta')
+                $meta = $connection->table('wp_postmeta')
                     ->where('post_id', $productId)
                     ->whereIn('meta_key', ['_regular_price', '_price', '_sale_price'])
                     ->pluck('meta_value', 'meta_key');
@@ -100,12 +125,12 @@ class WooPriceUpdateController extends Controller
                 }
 
                 // --- Обновляем только если изменилось ---
-                $db_connection->table('wp_postmeta')->updateOrInsert(
+                $connection->table('wp_postmeta')->updateOrInsert(
                     ['post_id' => $productId, 'meta_key' => '_regular_price'],
                     ['meta_value' => $price]
                 );
 
-                $db_connection->table('wp_postmeta')->updateOrInsert(
+                $connection->table('wp_postmeta')->updateOrInsert(
                     ['post_id' => $productId, 'meta_key' => '_price'],
                     ['meta_value' => $newPrice]
                 );
@@ -114,18 +139,17 @@ class WooPriceUpdateController extends Controller
 
                     $log->debug('Цена со скидкой', [$salePrice]);
 
-                    $db_connection->table('wp_postmeta')->updateOrInsert(
+                    $connection->table('wp_postmeta')->updateOrInsert(
                         ['post_id' => $productId, 'meta_key' => '_sale_price'],
                         ['meta_value' => $salePrice]
                     );
                 } else {
-                    $db_connection->table('wp_postmeta')
+                    $connection->table('wp_postmeta')
                         ->where('post_id', $productId)
                         ->where('meta_key', '_sale_price')
                         ->delete();
                 }
 
-                $updated++;
                 $log->info('Цена изменена', [
                     'product_id' => $productId,
                     'sku' => $sku,
@@ -138,15 +162,9 @@ class WooPriceUpdateController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
             $log->error('Ошибка обновления цен', ['exception' => $e->getMessage()]);
-            return response()->json(['error' => 'Ошибка обновления', 'message' => $e->getMessage()], 500);
+            return ['success' => false, 'message' => $e->getMessage()];
         }
 
-        $log->info('Полное обновление цен завершено', ['updated' => $updated]);
-
-        return response()->json([
-            'status' => 'ok',
-            'updated' => $updated,
-            'message' => 'Полное обновление цен завершено'
-        ]);
+        return ['success' => true];
     }
 }

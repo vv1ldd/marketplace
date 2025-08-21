@@ -82,6 +82,46 @@ return [
             ]) : [],
         ],
 
+        'ps_store' => [
+            'driver' => 'mysql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_PORT_PS_STORE', '127.0.0.1'),
+            'port' => env('DB_PORT_PS_STORE', '3306'),
+            'database' => env('DB_DATABASE_PS_STORE', 'laravel'),
+            'username' => env('DB_USERNAME_PS_STORE', 'root'),
+            'password' => env('DB_PASSWORD_PS_STORE', ''),
+            'unix_socket' => env('DB_SOCKET_PS_STORE', ''),
+            'charset' => env('DB_CHARSET_PS_STORE', 'utf8mb4'),
+            'collation' => env('DB_COLLATION_PS_STORE', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        '1gros_prod' => [
+            'driver' => 'mysql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_PORT_1GROS_PROD', '127.0.0.1'),
+            'port' => env('DB_PORT_1GROS_PROD', '3306'),
+            'database' => env('DB_DATABASE_1GROS_PROD', 'laravel'),
+            'username' => env('DB_USERNAME_1GROS_PROD', 'root'),
+            'password' => env('DB_PASSWORD_1GROS_PROD', ''),
+            'unix_socket' => env('DB_SOCKET_1GROS_PROD', ''),
+            'charset' => env('DB_CHARSET_1GROS_PROD', 'utf8mb4'),
+            'collation' => env('DB_COLLATION_1GROS_PROD', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
