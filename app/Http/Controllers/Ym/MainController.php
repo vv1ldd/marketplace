@@ -167,7 +167,7 @@ class MainController extends Controller
 
         foreach ($finished_data_chunks as $key => $chunk) {
             $jobs_update_price[] = (new UpdateYmPrices($chunk))
-                ->delay(now()->addSeconds(1200 + $key * 10))
+                ->delay(now()->addSeconds(1200 + $key * 5))
                 ->onQueue('low');
         }
 
