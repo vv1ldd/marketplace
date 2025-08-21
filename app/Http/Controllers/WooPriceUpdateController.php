@@ -32,23 +32,17 @@ class WooPriceUpdateController extends Controller
             return response()->json(['error' => 'Пустые данные'], 404);
         }
 
-        $db_connection = DB::connection('ps_plus');
+        $db_connection = [
+            'ps_plus',
+            'ps_store',
+            '1gros_prod'
+        ];
 
-        $this->updater($products, $db_connection, $log);
-
-        $log->info('Обновление цен для ps_plus завершено');
-
-        $db_connection = DB::connection('ps_store');
-
-        $this->updater($products, $db_connection, $log);
-
-        $log->info('Обновление цен для ps_store завершено');
-
-        $db_connection = DB::connection('1gros_prod');
-
-        $updated = $this->updater($products, $db_connection, $log);
-
-        $log->info('Обновление цен для ps_store завершено');
+        foreach ($db_connection as $connection) {
+            $db_connection = DB::connection($connection);
+            $this->updater($products, $db_connection, $log);
+            $log->info('Обновление цен для ' . $connection . ' завершено');
+        }
 
         $log->info('Полное обновление цен всех магазинов завершено', ['updated' => $updated]);
 
