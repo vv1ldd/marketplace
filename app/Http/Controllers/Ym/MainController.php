@@ -171,21 +171,17 @@ class MainController extends Controller
                 ->onQueue('low');
         }
 
-        $finished_data_quarantine = [];
-
-        foreach ($finished_data as $item) {
-            $finished_data_quarantine[] = $item['offerId'];
-        }
-
-        $finished_data_chunks = array_chunk($finished_data_quarantine, 200);
-
         Bus::batch($jobs_update_price)
-            ->then(function () use ($finished_data_chunks) {
+            ->then(function () use ($finished_data) {
+
+                $finished_data_quarantine = array_column($finished_data, 'offerId');
+                $finished_data_chunks = array_chunk($finished_data_quarantine, 200);
+
                 $jobs_quarantine = [];
 
                 foreach ($finished_data_chunks as $key => $chunk) {
                     $jobs_quarantine[] = (new QuarantineRemove($chunk))
-                        ->delay(now()->addSeconds($key * 5))
+                        ->delay(now()->addSeconds(300 + $key * 5))
                         ->onQueue('low');
                 }
 
