@@ -44,11 +44,10 @@ class WooPriceUpdateController extends Controller
             $log->info('Обновление цен для ' . $connection . ' завершено');
         }
 
-        $log->info('Полное обновление цен всех магазинов завершено', ['updated' => $updated]);
+        $log->info('Полное обновление цен всех магазинов завершено');
 
         return response()->json([
             'status' => 'ok',
-            'updated' => $updated,
             'message' => 'Полное обновление цен завершено'
         ]);
     }
