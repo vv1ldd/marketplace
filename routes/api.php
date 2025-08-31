@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\OutOrder;
 use App\Http\Controllers\WooPriceUpdateController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -27,3 +28,5 @@ Route::group(['prefix' => 'ym'], function () {
 });
 
 Route::get('update-woo-prices', [WooPriceUpdateController::class, 'update']);
+
+Route::post('create-out-order/{connection}', [OutOrder::class, 'create'])->where('connection', 'ps_plus|ps_store|1gros_prod');
