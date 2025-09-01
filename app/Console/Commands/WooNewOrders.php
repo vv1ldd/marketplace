@@ -63,16 +63,14 @@ class WooNewOrders extends Command
 
             foreach ($orders as $order) {
 
-                dd($order);
-
                 $alreadyProcessed = WooSyncedOrder::where('woo_order_id', $order->ID)->where('connection', $connection)->exists();
 
                 if ($alreadyProcessed) {
-                    $log->info("Пропущен заказ #{$order->ID} (уже обработан)");
+                    $log->info("Пропущен заказ #{$order->order_id} (уже обработан)");
                     continue;
                 }
 
-                $log->info("Новый заказ: #{$order->ID}");
+                $log->info("Новый заказ: #{$order->order_id}");
 
                 // товары заказа
                 $items = $db_connection->table('wp_woocommerce_order_items as oi')
@@ -84,7 +82,7 @@ class WooNewOrders extends Command
                         DB::raw("MAX(CASE WHEN oim.meta_key = '_line_total' THEN oim.meta_value END) as total_price")
                     )
                     ->join('wp_woocommerce_order_itemmeta as oim', 'oi.order_item_id', '=', 'oim.order_item_id')
-                    ->where('oi.order_id', $order->ID)
+                    ->where('oi.order_id', $order->order_id)
                     ->groupBy('oi.order_item_id', 'oi.order_item_name')
                     ->get();
 
