@@ -50,21 +50,19 @@ class WooNewOrders extends Command
                 ->get();
 
             foreach ($orders as $order) {
-                // Проверяем — был ли заказ уже обработан
-                $alreadyProcessed = WooSyncedOrder::where('woo_order_id', $order->ID)->exists();
+                $alreadyProcessed = WooSyncedOrder::where('woo_order_id', $order->ID)->where('connection', $connection)->exists();
 
                 if ($alreadyProcessed) {
                     $log->info("Пропущен заказ #{$order->ID} (уже обработан)");
                     continue;
                 }
 
-                // --- тут твоя логика обработки ---
                 $log->info("Новый заказ: #{$order->ID}");
                 $log->debug("Тело заказа", ['order' => $order]);
 
-                // Записываем, что заказ обработан
                 WooSyncedOrder::create([
                     'woo_order_id' => $order->ID,
+                    'connection' => $connection
                 ]);
             }
         }
