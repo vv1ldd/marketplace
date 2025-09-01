@@ -87,7 +87,7 @@ class WooNewOrders extends Command
 
                     $item->meta = $meta;
 
-                    if($meta) {
+                    if($meta && isset($meta['_product_id'])) {
                         $item->product = $db_connection->table('wp_postmeta')
                             ->where('post_id', $item->meta['_product_id'])
                             ->first();
