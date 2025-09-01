@@ -73,7 +73,7 @@ class WooNewOrders extends Command
                 $log->info("Новый заказ: #{$order->order_id}");
 
                 // товары заказа
-                $items = DB::connection('wordpress')
+                $items = $db_connection
                     ->table('wp_woocommerce_order_items')
                     ->where('order_id', $order->order_id)
                     ->get();
