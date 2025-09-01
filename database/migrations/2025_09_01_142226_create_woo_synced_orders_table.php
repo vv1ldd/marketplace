@@ -13,8 +13,11 @@ return new class extends Migration
     {
         Schema::create('woo_synced_orders', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('woo_order_id')->unique();
+            $table->unsignedBigInteger('woo_order_id');
+            $table->string('connection');
             $table->timestamps();
+
+            $table->unique(['woo_order_id', 'connection']);
         });
     }
 
