@@ -87,9 +87,13 @@ class WooNewOrders extends Command
 
                     $item->meta = $meta;
 
-                    $item->product = $db_connection->table('wp_postmeta')
-                        ->where('post_id', $item->meta['_product_id'])
-                        ->first();
+                    if($meta) {
+                        $item->product = $db_connection->table('wp_postmeta')
+                            ->where('post_id', $item->meta['_product_id'])
+                            ->first();
+                    }
+
+
                 }
 
                 $log->debug("Тело заказа", ['order' => $order, 'items' => $items]);
