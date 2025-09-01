@@ -67,13 +67,12 @@ class WooNewOrders extends Command
                     $meta = $db_connection
                         ->table('wp_woocommerce_order_itemmeta')
                         ->where('order_item_id', $item->order_item_id)
-                        ->pluck('meta_value', 'meta_key'); // сразу key => value
+                        ->pluck('meta_value', 'meta_key');
 
                     $item->meta = $meta;
 
                     $item->product = $db_connection->table('wp_postmeta')
                         ->where('post_id', $item->meta['_product_id'])
-                        ->where('meta_key', '_product_id')
                         ->first();
 
                 }
