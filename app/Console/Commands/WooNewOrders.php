@@ -62,6 +62,9 @@ class WooNewOrders extends Command
                 ->get();
 
             foreach ($orders as $order) {
+
+                dd($order);
+
                 $alreadyProcessed = WooSyncedOrder::where('woo_order_id', $order->ID)->where('connection', $connection)->exists();
 
                 if ($alreadyProcessed) {
