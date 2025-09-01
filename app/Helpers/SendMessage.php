@@ -40,7 +40,7 @@ class SendMessage
 
                 $product = PlayStationAlt::where('sku', $item['sku'])->where('region_id', '063101db-9ac0-4e48-a948-29fe7e3f8dec')->first();
 
-                $price_with_discount = (($product->price_with_discount) / 100) * $item['count'];
+                $price_with_discount = (($product?->price_with_discount ?? 0) / 100) * $item['count'];
 
                 $message .= "{$item['sku']} - {$item['count']} шт. - {$price_with_discount} лир. итого \n";
 
@@ -73,7 +73,7 @@ class SendMessage
                 $message .= "Опция не выбрана\n";
             }
 
-            $message .= "Тип формы: {$order_item->typeForm->name} \n";
+            $message .= "Тип формы: {$order_item?->typeForm?->name} \n";
         }
 
 
