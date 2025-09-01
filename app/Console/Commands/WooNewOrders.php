@@ -35,8 +35,8 @@ class WooNewOrders extends Command
         ]);
 
         $db_connection = [
-            'ps_plus',
             'ps_store',
+            'ps_plus',
             '1gros_prod'
         ];
 
