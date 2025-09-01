@@ -58,7 +58,13 @@ class WooNewOrders extends Command
                 }
 
                 $log->info("Новый заказ: #{$order->ID}");
-                $log->debug("Тело заказа", ['order' => $order]);
+
+                $items = DB::connection('wordpress')
+                    ->table('wp_woocommerce_order_items')
+                    ->where('order_id', $order->ID)
+                    ->get();
+
+                $log->debug("Тело заказа", ['order' => $order, 'items' => $items]);
 
                 WooSyncedOrder::create([
                     'woo_order_id' => $order->ID,
