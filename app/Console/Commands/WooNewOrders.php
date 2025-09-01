@@ -70,6 +70,12 @@ class WooNewOrders extends Command
                         ->pluck('meta_value', 'meta_key'); // сразу key => value
 
                     $item->meta = $meta;
+
+                    $item->product = $db_connection->table('wp_postmeta')
+                        ->where('post_id', $item->meta['_product_id'])
+                        ->where('meta_key', '_product_id')
+                        ->first();
+
                 }
 
                 $log->debug("Тело заказа", ['order' => $order, 'items' => $items]);
