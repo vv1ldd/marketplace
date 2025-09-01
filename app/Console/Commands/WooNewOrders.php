@@ -35,8 +35,8 @@ class WooNewOrders extends Command
         ]);
 
         $db_connection = [
-            'ps_store',
             'ps_plus',
+            'ps_store',
             '1gros_prod'
         ];
 
@@ -87,9 +87,9 @@ class WooNewOrders extends Command
 
                     $item->meta = $meta;
 
-//                    $item->product = $db_connection->table('wp_postmeta')
-//                        ->where('post_id', $item->meta['_product_id'])
-//                        ->first();
+                    $item->product = $db_connection->table('wp_postmeta')
+                        ->where('post_id', $item->meta['_product_id'])
+                        ->first();
                 }
 
                 $log->debug("Тело заказа", ['order' => $order, 'items' => $items]);
