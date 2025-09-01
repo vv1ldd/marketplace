@@ -2,26 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\WooSyncedOrder;
+use Illuminate\Console\Command;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class OutOrder extends Controller
 {
-    public function create(Request $request, string $connection)
+    public function monitor()
     {
-        $log = \Log::channel("{$connection}_notification")->withContext([
-            'log_id' => Str::random(8),
-        ]);
-
-        $log->info('-------------');
-
-        $log->debug('Пришло уведомление', [
-            'connection' => $connection,
-            'body' => $request->all(),
-            'headers' => $request->headers->all(),
-            'ip' => $request->ip()
-        ]);
-
 
     }
 }

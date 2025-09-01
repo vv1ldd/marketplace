@@ -29,4 +29,3 @@ Route::group(['prefix' => 'ym'], function () {
 
 Route::get('update-woo-prices', [WooPriceUpdateController::class, 'update']);
 
-Route::post('create-out-order/{connection}', [OutOrder::class, 'create'])->where('connection', 'ps_plus|ps_store|1gros_prod');
