@@ -559,35 +559,35 @@ class MainController extends Controller
      */
     private function sendItems(string $lang_region_id, string $price_region_id, array $chunk, string $send_id): array
     {
-        $ym_sender_log = YmSenderLog::create([
-            'lang_region_id' => $lang_region_id,
-            'price_region_id' => $price_region_id,
-            'send_id' => $send_id,
-            'request' => json_encode($chunk, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'status' => 'pending',
-            'created_at' => now()
-        ]);
+//        $ym_sender_log = YmSenderLog::create([
+//            'lang_region_id' => $lang_region_id,
+//            'price_region_id' => $price_region_id,
+//            'send_id' => $send_id,
+//            'request' => json_encode($chunk, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+//            'status' => 'pending',
+//            'created_at' => now()
+//        ]);
 
         $service = new YmService();
 
         try {
             $response = $service->offerMappingsUpdate($chunk);
 
-            $ym_sender_log->update([
-                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                'updated_at' => now(),
-                'status' => 'success'
-            ]);
+//            $ym_sender_log->update([
+//                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+//                'updated_at' => now(),
+//                'status' => 'success'
+//            ]);
 
             PlayStationAlt::whereIn('sku', array_column($chunk, 'sku'))->update(['send_to_ym_at' => now()]);
 
         } catch (\Exception $e) {
 
-            $ym_sender_log->update([
-                'response' => json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                'updated_at' => now(),
-                'status' => 'error'
-            ]);
+//            $ym_sender_log->update([
+//                'response' => json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+//                'updated_at' => now(),
+//                'status' => 'error'
+//            ]);
 
             return [
                 'success' => false,
