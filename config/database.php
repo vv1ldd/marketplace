@@ -85,7 +85,7 @@ return [
         'ps_store' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
-            'host' => env('DB_PORT_PS_STORE', '127.0.0.1'),
+            'host' => env('DB_HOST_PS_STORE', '127.0.0.1'),
             'port' => env('DB_PORT_PS_STORE', '3306'),
             'database' => env('DB_DATABASE_PS_STORE', 'laravel'),
             'username' => env('DB_USERNAME_PS_STORE', 'root'),
@@ -105,7 +105,7 @@ return [
         '1gros_prod' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
-            'host' => env('DB_PORT_1GROS_PROD', '127.0.0.1'),
+            'host' => env('DB_HOST_1GROS_PROD', '127.0.0.1'),
             'port' => env('DB_PORT_1GROS_PROD', '3306'),
             'database' => env('DB_DATABASE_1GROS_PROD', 'laravel'),
             'username' => env('DB_USERNAME_1GROS_PROD', 'root'),
