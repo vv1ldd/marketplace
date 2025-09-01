@@ -55,13 +55,11 @@ class WooNewOrders extends Command
                     DB::raw("MAX(CASE WHEN pm.meta_key = '_billing_phone' THEN pm.meta_value END) as billing_phone"),
                     DB::raw("MAX(CASE WHEN pm.meta_key = '_order_total' THEN pm.meta_value END) as order_total")
                 )
-                ->join('wp_postmeta as pm', 'pm.post_id', '=', 'p.ID')
+                ->leftJoin('wp_postmeta as pm', 'pm.post_id', '=', 'p.ID')
                 ->where('p.post_type', 'shop_order')
                 ->where('p.post_date', '>=', now()->subHours(12))
                 ->groupBy('p.ID')
                 ->get();
-
-            dd($orders);
 
             foreach ($orders as $order) {
 
