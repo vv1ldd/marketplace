@@ -63,7 +63,7 @@ class WooNewOrders extends Command
 
             foreach ($orders as $order) {
 
-                $alreadyProcessed = WooSyncedOrder::where('woo_order_id', $order->ID)->where('connection', $connection)->exists();
+                $alreadyProcessed = WooSyncedOrder::where('woo_order_id', $order->order_id)->where('connection', $connection)->exists();
 
                 if ($alreadyProcessed) {
                     $log->info("Пропущен заказ #{$order->order_id} (уже обработан)");
