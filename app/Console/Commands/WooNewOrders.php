@@ -45,7 +45,7 @@ class WooNewOrders extends Command
 
             $log->info("Проверка новых заказов в базе {$connection}");
 
-            $orders = DB::table('wp_posts as p')
+            $orders = $db_connection->table('wp_posts as p')
                 ->select(
                     'p.ID as order_id',
                     'p.post_date as order_date',
@@ -72,7 +72,7 @@ class WooNewOrders extends Command
                 $log->info("Новый заказ: #{$order->ID}");
 
                 // товары заказа
-                $items = DB::table('wp_woocommerce_order_items as oi')
+                $items = $db_connection->table('wp_woocommerce_order_items as oi')
                     ->select(
                         'oi.order_item_id',
                         'oi.order_item_name as product_name',
