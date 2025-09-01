@@ -73,17 +73,9 @@ class WooNewOrders extends Command
                 $log->info("Новый заказ: #{$order->order_id}");
 
                 // товары заказа
-                $items = $db_connection->table('wp_woocommerce_order_items as oi')
-                    ->select(
-                        'oi.order_item_id',
-                        'oi.order_item_name as product_name',
-                        DB::raw("MAX(CASE WHEN oim.meta_key = '_product_id' THEN oim.meta_value END) as product_id"),
-                        DB::raw("MAX(CASE WHEN oim.meta_key = '_qty' THEN oim.meta_value END) as quantity"),
-                        DB::raw("MAX(CASE WHEN oim.meta_key = '_line_total' THEN oim.meta_value END) as total_price")
-                    )
-                    ->join('wp_woocommerce_order_itemmeta as oim', 'oi.order_item_id', '=', 'oim.order_item_id')
-                    ->where('oi.order_id', $order->order_id)
-                    ->groupBy('oi.order_item_id', 'oi.order_item_name')
+                $items = DB::connection('wordpress')
+                    ->table('wp_woocommerce_order_items')
+                    ->where('order_id', $order->order_id)
                     ->get();
 
 
@@ -104,7 +96,7 @@ class WooNewOrders extends Command
                 $log->debug("Тело заказа", ['order' => $order, 'items' => $items]);
 
                 WooSyncedOrder::create([
-                    'woo_order_id' => $order->ID,
+                    'woo_order_id' => $order->order_id,
                     'connection' => $connection
                 ]);
             }
