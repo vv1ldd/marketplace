@@ -57,7 +57,7 @@ class WooNewOrders extends Command
                 )
                 ->join('wp_postmeta as pm', 'pm.post_id', '=', 'p.ID')
                 ->where('p.post_type', 'shop_order')
-                ->where('p.post_date', '>=', now()->subHours(2))
+                ->where('p.post_date', '>=', now()->subHours(12))
                 ->groupBy('p.ID')
                 ->get();
 
