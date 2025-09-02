@@ -99,8 +99,6 @@ class WooNewOrders extends Command
 
                         $item->product = $query->first();
                     }
-
-
                 }
 
                 $log->debug("Тело заказа", ['order' => $order, 'items' => $items]);
