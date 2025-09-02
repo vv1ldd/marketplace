@@ -87,10 +87,17 @@ class WooNewOrders extends Command
 
                     $item->meta = $meta;
 
-                    if($meta && isset($meta['_product_id'])) {
-                        $item->product = $db_connection->table('wp_postmeta')
-                            ->where('post_id', $item->meta['_product_id'])
-                            ->first();
+                    if($meta && isset($meta['_product_id'], $meta['_variation_id'])) {
+
+                        $query = $db_connection->table('wp_postmeta');
+
+                        if(isset($meta['_variation_id']) && $meta['_variation_id'] != '0') {
+                            $query->where('post_id', $meta['_variation_id']);
+                        } else {
+                            $query->where('post_id', $meta['_product_id']);
+                        }
+
+                        $item->product = $query->first();
                     }
 
 
