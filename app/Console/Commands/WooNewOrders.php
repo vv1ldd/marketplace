@@ -61,6 +61,11 @@ class WooNewOrders extends Command
                 ->groupBy('p.ID')
                 ->get();
 
+            if($orders->isEmpty()) {
+                $log->info("Новых заказов не найдено");
+                continue;
+            }
+
             foreach ($orders as $order) {
 
                 $alreadyProcessed = WooSyncedOrder::where('woo_order_id', $order->order_id)->where('connection', $connection)->exists();
@@ -87,17 +92,22 @@ class WooNewOrders extends Command
 
                     $item->product = $product;
 
-                    if($product && isset($product['_product_id'], $product['_variation_id'])) {
+                    if ($product && isset($product['_product_id'], $product['_variation_id'])) {
 
                         $query = $db_connection->table('wp_postmeta');
 
-                        if(isset($product['_variation_id']) && $product['_variation_id'] != '0') {
+                        if (isset($product['_variation_id']) && $product['_variation_id'] != '0') {
                             $query->where('post_id', $product['_variation_id']);
                         } else {
                             $query->where('post_id', $product['_product_id']);
                         }
 
-                        $item->meta = $query->first();
+                        $item->meta = $query
+                            ->where('meta_key', '_sku')
+                            ->select([
+                                'meta_value as sku'
+                            ])
+                            ->first();
                     }
                 }
 
