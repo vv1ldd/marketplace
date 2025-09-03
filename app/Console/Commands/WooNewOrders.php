@@ -118,7 +118,7 @@ class WooNewOrders extends Command
 
                 $order_controller = new OrderController('CREATED_FROM_WOO');
 
-                $result = $order_controller->createdFromWoo($order, $items->toArray());
+                $result = $order_controller->createdFromWoo((array)$order, $items->toArray());
 
                 WooSyncedOrder::create([
                     'woo_order_id' => $order->order_id,
