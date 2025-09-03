@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Http\Controllers\OrderController;
 use App\Models\WooSyncedOrder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,7 @@ class WooNewOrders extends Command
                 )
                 ->leftJoin('wp_postmeta as pm', 'pm.post_id', '=', 'p.ID')
                 ->where('p.post_type', 'shop_order')
+                ->whereIn('p.post_status', ['wc-processing', 'wc-completed'])
                 ->where('p.post_date', '>=', now()->subHours(12))
                 ->groupBy('p.ID')
                 ->get();
@@ -115,9 +117,14 @@ class WooNewOrders extends Command
 
                 $log->debug("Тело заказа", ['order' => $order, 'items' => $items]);
 
+                $order_controller = new OrderController('CREATED_FROM_WOO');
+
+                $result = $order_controller->createdFromWoo($order->toArray(), $items->toArray());
+
                 WooSyncedOrder::create([
                     'woo_order_id' => $order->order_id,
-                    'connection' => $connection
+                    'connection' => $connection,
+                    'created_result' => $result
                 ]);
             }
         }

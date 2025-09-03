@@ -24,6 +24,36 @@ class OrderController extends Controller
         ]);
     }
 
+    public function createdFromWoo(array $order, array $items)
+    {
+        $log = $this->log;
+
+        $log->debug('createFromWoo data', ['order' => $order, 'items' => $items]);
+
+        dd($order, $items);
+
+        try {
+            $order_id = Order::create([
+                'order_id' => $data['orderId'],
+                'uuid' => Str::uuid()->toString(),
+                'info' => $order_full_info,
+                'client_info' => $client_info,
+                'chat_id' => $chat_id ?? null,
+                'user_id' => $user->id ?? null
+            ])->id;
+        } catch (\Exception $e) {
+
+            $log->error('create order error', [
+                'exception' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
     /**
      * @param array $data
      * @return array|true[]
