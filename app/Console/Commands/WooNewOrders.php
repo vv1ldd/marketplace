@@ -80,24 +80,24 @@ class WooNewOrders extends Command
 
 
                 foreach ($items as $item) {
-                    $meta = $db_connection
+                    $product = $db_connection
                         ->table('wp_woocommerce_order_itemmeta')
                         ->where('order_item_id', $item->order_item_id)
                         ->pluck('meta_value', 'meta_key');
 
-                    $item->meta = $meta;
+                    $item->product = $product;
 
-                    if($meta && isset($meta['_product_id'], $meta['_variation_id'])) {
+                    if($product && isset($product['_product_id'], $product['_variation_id'])) {
 
                         $query = $db_connection->table('wp_postmeta');
 
-                        if(isset($meta['_variation_id']) && $meta['_variation_id'] != '0') {
-                            $query->where('post_id', $meta['_variation_id']);
+                        if(isset($product['_variation_id']) && $product['_variation_id'] != '0') {
+                            $query->where('post_id', $product['_variation_id']);
                         } else {
-                            $query->where('post_id', $meta['_product_id']);
+                            $query->where('post_id', $product['_product_id']);
                         }
 
-                        $item->product = $query->first();
+                        $item->meta = $query->first();
                     }
                 }
 
