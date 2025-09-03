@@ -87,7 +87,6 @@ class WooNewOrders extends Command
                     ->where('order_id', $order->order_id)
                     ->get();
 
-
                 foreach ($items as $item) {
                     $product = $db_connection
                         ->table('wp_woocommerce_order_itemmeta')
@@ -119,7 +118,7 @@ class WooNewOrders extends Command
 
                 $order_controller = new OrderController('CREATED_FROM_WOO');
 
-                $result = $order_controller->createdFromWoo((array)$order, (array)$items);
+                $result = $order_controller->createdFromWoo($order, $items->toArray());
 
                 WooSyncedOrder::create([
                     'woo_order_id' => $order->order_id,
