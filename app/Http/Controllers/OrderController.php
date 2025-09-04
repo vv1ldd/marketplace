@@ -43,7 +43,7 @@ class OrderController extends Controller
         try {
             $user = UserController::getByPhone($order["billing_phone"]);
             if ($user) {
-                $log->debug('user found by ym_user_id', [$user]);
+                $log->debug('user found by phone', [$user]);
             } else {
                 $log->debug('user not found by phone', [$client_info]);
             }
@@ -60,9 +60,11 @@ class OrderController extends Controller
             'connection' => $connection
         ];
 
+        $woo_order_id = $order['order_id'] . '-' . $connection;
+
         try {
             $order_id = Order::create([
-                'order_id' => $order['order_id'] . '-' . $connection,
+                'order_id' => $woo_order_id,
                 'uuid' => Str::uuid()->toString(),
                 'info' => $order_full_info,
                 'client_info' => $client_info,
@@ -219,7 +221,7 @@ class OrderController extends Controller
 
         $log->info('success');
 
-        SendTelegramJob::dispatchSync(order_id: $order_id, status: 'new');
+        SendTelegramJob::dispatchSync(order_id: $woo_order_id, status: 'new');
 
         return [
             'success' => true,
