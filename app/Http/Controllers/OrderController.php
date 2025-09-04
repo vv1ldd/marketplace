@@ -84,6 +84,16 @@ class OrderController extends Controller
 
         $log->info('order items creating');
 
+        if(empty($items)) {
+
+            $log->error('items is empty');
+
+            return [
+                'success' => false,
+                'error' => 'items is empty',
+            ];
+        }
+
         foreach ($items as $item) {
 
             try {
@@ -98,9 +108,8 @@ class OrderController extends Controller
             }
 
             $keys_data[] = [
-                'activate_till' => now()->addYear()->format('Y-m-d'),
-                'slip' => view('instruction')->render(),
-                'codes' => [$key]
+                'key' => $key,
+                'name' => data_get($item, "order_item_name"),
             ];
 
             $sku = data_get($item, 'meta.sku');
