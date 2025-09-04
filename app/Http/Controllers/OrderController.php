@@ -24,21 +24,45 @@ class OrderController extends Controller
         ]);
     }
 
-    public function createdFromWoo(array $order, array $items)
+    public function createdFromWoo(array $order, array $items, string $connection)
     {
         $log = $this->log;
 
-        $log->debug('createFromWoo data', ['order' => $order, 'items' => $items]);
+        $log->debug('createFromWoo data', ['order' => $order, 'items' => $items, 'connection' => $connection]);
 
-        dd($order, $items);
+        $client_info = [
+            'email' => $order['billing_email'],
+            'phone' => $order['billing_phone'],
+            'lastName' => $order['billing_last_name'],
+            'firstName' => $order['billing_first_name'],
+        ];
+
+        try {
+            $user = UserController::getByPhone($order["billing_phone"]);
+            if ($user) {
+                $log->debug('user found by ym_user_id', [$user]);
+            } else {
+                $log->debug('user not found by ym_user_id', [$client_info]);
+            }
+
+        } catch (\Exception $exception) {
+            $log->error('getByPhone, but continue process', [
+                'exception' => $exception->getMessage(),
+            ]);
+        }
+
+        $order_full_info = [
+            'order' => $order,
+            'items' => $items,
+            'connection' => $connection
+        ];
 
         try {
             $order_id = Order::create([
-                'order_id' => $data['orderId'],
+                'order_id' => $order['order_id'] . '-' . $connection,
                 'uuid' => Str::uuid()->toString(),
-                'info' => $order_full_info,
-                'client_info' => $client_info,
-                'chat_id' => $chat_id ?? null,
+                'info' => json_encode($order_full_info, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                'client_info' => json_encode($client_info, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
                 'user_id' => $user->id ?? null
             ])->id;
         } catch (\Exception $e) {
@@ -46,6 +70,113 @@ class OrderController extends Controller
             $log->error('create order error', [
                 'exception' => $e->getMessage(),
             ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+
+        $log->debug('order created', [$order_id]);
+
+        $log->info('order items creating');
+
+        foreach ($items as $item) {
+
+            try {
+                $key = GenerateSecureCode::generate();
+            } catch (RandomException $e) {
+                $log->error($e->getMessage());
+
+                return [
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ];
+            }
+
+            $keys_data[] = [
+                'activate_till' => now()->addYear()->format('Y-m-d'),
+                'slip' => view('instruction')->render(),
+                'codes' => [$key]
+            ];
+
+            $sku = data_get($item, 'meta.sku');
+
+            if (!$sku) {
+
+                $log->info('create TEMP sku');
+
+                $sku = 'temp' . '-' . Str::random(10) . '-' . $connection;
+
+                PlayStationAlt::create([
+                    'sku' => $sku,
+                    'region_id' => '063101db-9ac0-4e48-a948-29fe7e3f8dec',
+                    'base_price' => data_get($item, 'product.items.0._line_subtotal') * 100,
+                    'price_with_discount' => data_get($item, 'product.items.0._line_total') * 100,
+                    'name' => data_get($item, "order_item_name"),
+                    'is_manual' => 1,
+                ]);
+
+            } else {
+
+                $log->info('search product by sku');
+
+                $product_exist = PlayStationAlt::where('sku', $sku)->first();
+
+                if (!$product_exist) {
+                    $log->info('product not found by sku');
+
+                    PlayStationAlt::create([
+                        'sku' => $sku,
+                        'region_id' => '063101db-9ac0-4e48-a948-29fe7e3f8dec',
+                        'base_price' => data_get($item, 'product.items.0._line_subtotal') * 100,
+                        'price_with_discount' => data_get($item, 'product.items.0._line_total') * 100,
+                        'name' => data_get($item, "order_item_name"),
+                        'is_manual' => 1,
+                    ]);
+
+                    $log->debug('product created by sku', [$sku]);
+                }
+            }
+
+            $insert_data[] = [
+                'key' => $key,
+                'uuid' => Str::uuid()->toString(),
+                'order_id' => $order_id,
+                'activate_till' => now()->addYear()->format('Y-m-d'),
+                'sku' => $sku,
+                'count' => data_get($item, 'count'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+        }
+
+        $log->debug('keys', [$keys_data]);
+        $log->debug('insert_data', [$insert_data]);
+
+//        $order = Order::where('order_id', $order_id)->first();
+
+        try {
+
+            \DB::beginTransaction();
+
+            OrderItems::insert($insert_data);
+
+//            $service->provideOrderDigitalCodes(keys: $keys_data, campaignId: $data['campaignId'], orderId: $data['orderId']);
+
+//            $order->update([
+//                'status' => 'PROCESSING',
+//                'sub_status' => $data['substatus']
+//            ]);
+
+            \DB::commit();
+
+        } catch (\Exception $e) {
+
+            \DB::rollBack();
+
+            $log->error('provideOrderDigitalCodes', [$e->getMessage()]);
 
             return [
                 'success' => false,

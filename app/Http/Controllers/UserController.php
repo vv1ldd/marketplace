@@ -47,4 +47,11 @@ class UserController extends Controller
     {
         return User::where('ym_user_id', $ym_user_id)->first();
     }
+
+    public static function getByPhone(string $phone): ?User
+    {
+        $phone = NormalizePhone::normalize($phone);
+
+        return User::where('phone', $phone)->first();
+    }
 }
