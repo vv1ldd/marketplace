@@ -123,7 +123,8 @@ class WooNewOrders extends Command
                 WooSyncedOrder::create([
                     'woo_order_id' => $order->order_id,
                     'connection' => $connection,
-                    'created_result' => json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+                    'created_result' => json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+                    'status' => $result['status']
                 ]);
             }
         }

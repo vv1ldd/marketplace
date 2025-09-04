@@ -110,9 +110,9 @@ class OrderController extends Controller
 
                 PlayStationAlt::create([
                     'sku' => $sku,
-                    'region_id' => '063101db-9ac0-4e48-a948-29fe7e3f8dec',
-                    'base_price' => data_get($item, 'product.items.0._line_subtotal') * 100,
-                    'price_with_discount' => data_get($item, 'product.items.0._line_total') * 100,
+                    'region_id' => '0f63f19f-fb73-4e9f-8f77-5a51d0d70009',
+                    'base_price' => data_get($item, 'product._line_subtotal') * 100,
+                    'price_with_discount' => data_get($item, 'product._line_total') * 100,
                     'name' => data_get($item, "order_item_name"),
                     'is_manual' => 1,
                 ]);
@@ -121,21 +121,23 @@ class OrderController extends Controller
 
                 $log->info('search product by sku');
 
-                $product_exist = PlayStationAlt::where('sku', $sku)->first();
+                $product = PlayStationAlt::where('sku', $sku)->first();
 
-                if (!$product_exist) {
+                if (!$product) {
                     $log->info('product not found by sku');
 
                     PlayStationAlt::create([
                         'sku' => $sku,
-                        'region_id' => '063101db-9ac0-4e48-a948-29fe7e3f8dec',
-                        'base_price' => data_get($item, 'product.items.0._line_subtotal') * 100,
-                        'price_with_discount' => data_get($item, 'product.items.0._line_total') * 100,
+                        'region_id' => '0f63f19f-fb73-4e9f-8f77-5a51d0d70009',
+                        'base_price' => data_get($item, 'product._line_subtotal') * 100,
+                        'price_with_discount' => data_get($item, 'product._line_total') * 100,
                         'name' => data_get($item, "order_item_name"),
                         'is_manual' => 1,
                     ]);
 
                     $log->debug('product created by sku', [$sku]);
+                } else {
+                    $log->debug('product found by sku', [$product]);
                 }
             }
 
@@ -145,7 +147,7 @@ class OrderController extends Controller
                 'order_id' => $order_id,
                 'activate_till' => now()->addYear()->format('Y-m-d'),
                 'sku' => $sku,
-                'count' => data_get($item, 'count'),
+                'count' => data_get($item, 'product._line_subtotal'),
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
