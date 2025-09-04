@@ -15,7 +15,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('woo_order_id');
             $table->string('connection');
             $table->json('created_result');
-            $table->string('status');
+            $table->boolean('created_success');
             $table->timestamps();
 
             $table->unique(['woo_order_id', 'connection']);

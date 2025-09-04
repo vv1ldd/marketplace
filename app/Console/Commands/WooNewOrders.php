@@ -124,7 +124,7 @@ class WooNewOrders extends Command
                     'woo_order_id' => $order->order_id,
                     'connection' => $connection,
                     'created_result' => json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-                    'status' => $result['status']
+                    'created_success' => $result['success']
                 ]);
             }
         }
