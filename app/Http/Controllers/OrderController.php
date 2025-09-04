@@ -205,7 +205,7 @@ class OrderController extends Controller
             $log->info('send instruction to smtp');
 
             Mail::send('instruction_with_code', ['keys_data' => $keys_data], function ($message) use ($order) {
-                $message->to(['nick.iv.dev@gmail.com', $order['billing_email']])
+                $message->to($order['billing_email'])
                     ->subject('Ваш код активации');
             });
 
