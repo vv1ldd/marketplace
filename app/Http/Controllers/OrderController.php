@@ -22,6 +22,8 @@ class OrderController extends Controller
             'method' => $method,
             'log_id' => Str::random(8),
         ]);
+
+        $this->log->info('/-----------------------/');
     }
 
     public function createdFromWoo(array $order, array $items, string $connection): array
@@ -147,7 +149,7 @@ class OrderController extends Controller
                 'order_id' => $order_id,
                 'activate_till' => now()->addYear()->format('Y-m-d'),
                 'sku' => $sku,
-                'count' => data_get($item, 'product._line_subtotal'),
+                'count' => data_get($item, 'product._qty'),
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -185,6 +187,11 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ];
         }
+
+        return [
+            'success' => true,
+            'order_id' => $order_id,
+        ];
     }
 
     /**
