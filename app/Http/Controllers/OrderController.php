@@ -24,7 +24,7 @@ class OrderController extends Controller
         ]);
     }
 
-    public function createdFromWoo(array $order, array $items, string $connection)
+    public function createdFromWoo(array $order, array $items, string $connection): array
     {
         $log = $this->log;
 
