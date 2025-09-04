@@ -9,6 +9,7 @@ use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\PlayStation\PlayStationAlt;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Random\RandomException;
 
@@ -187,6 +188,29 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ];
         }
+
+        try {
+
+            $log->info('send instruction to smtp');
+
+            Mail::send('instruction_with_code', ['keys_data' => $keys_data], function ($message) use ($order) {
+                $message->to(['nick.iv.dev@gmail.com', $order['billing_email']])
+                    ->subject('Ваш код активации');
+            });
+
+        } catch (\Exception $e) {
+
+            $log->error('send instruction to smtp error', [$e->getMessage()]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+
+        $log->info('success');
+
+        SendTelegramJob::dispatchSync(order_id: $order_id, status: 'new');
 
         return [
             'success' => true,
