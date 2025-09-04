@@ -42,7 +42,7 @@ class OrderController extends Controller
             if ($user) {
                 $log->debug('user found by ym_user_id', [$user]);
             } else {
-                $log->debug('user not found by ym_user_id', [$client_info]);
+                $log->debug('user not found by phone', [$client_info]);
             }
 
         } catch (\Exception $exception) {
@@ -61,8 +61,8 @@ class OrderController extends Controller
             $order_id = Order::create([
                 'order_id' => $order['order_id'] . '-' . $connection,
                 'uuid' => Str::uuid()->toString(),
-                'info' => json_encode($order_full_info, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-                'client_info' => json_encode($client_info, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                'info' => $order_full_info,
+                'client_info' => $client_info,
                 'user_id' => $user->id ?? null
             ])->id;
         } catch (\Exception $e) {
