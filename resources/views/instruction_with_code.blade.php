@@ -1,6 +1,13 @@
 <div
     style="font-family:Arial,sans-serif;background:#fff5f5;color:#333;padding:20px;border-radius:12px;max-width:800px;margin:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);line-height:1.6">
-    <h1 style="color:red;font-size:22px">Код активации: {{$code}}</h1>
+    <h2 style="color:red;font-size:22px">Код активации:</h2>
+    <ul>
+        @foreach ($keys_data as $key_data)
+            <li>
+                <strong style="color:red">{{$key_data['name']}}: {{$key_data['key']}}</strong>
+            </li>
+        @endforeach
+    </ul>
     <h2 style="color:red;font-size:22px">Как активировать ваш код?</h2>
     <p><strong style="color:red">Инструкция:</strong><br>1. Перейдите по ссылке <a href="https://1gros.ru/redeem"
                                                                                    style="color:#d32f2f;font-weight:bold">1gros.ru/redeem</a>
