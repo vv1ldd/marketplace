@@ -211,7 +211,7 @@ class OrderController extends Controller
                 $subject = Settings::get('SMTP_SUBJECT', 'Ваш код активации');
 
                 $message->to($order['billing_email'])
-                    ->from($from_name)
+                    ->from(name: $from_name)
                     ->subject($subject);
             });
 
