@@ -8,6 +8,7 @@ use App\Jobs\SendTelegramJob;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\PlayStation\PlayStationAlt;
+use App\Models\Settings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -205,8 +206,13 @@ class OrderController extends Controller
             $log->info('send instruction to smtp');
 
             Mail::send('instruction_with_code', ['keys_data' => $keys_data], function ($message) use ($order) {
+
+                $from_name = Settings::get('SMTP_FROM_NAME', 'Магазин 1GROS');
+                $subject = Settings::get('SMTP_SUBJECT', 'Ваш код активации');
+
                 $message->to($order['billing_email'])
-                    ->subject('Ваш код активации');
+                    ->from($from_name)
+                    ->subject($subject);
             });
 
         } catch (\Exception $e) {
