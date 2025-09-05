@@ -75,7 +75,7 @@ class WooNewOrders extends Command
                 $alreadyProcessed = WooSyncedOrder::where('woo_order_id', $order->order_id)->where('connection', $connection)->exists();
 
                 if ($alreadyProcessed) {
-                    $log->info("Пропущен заказ #{$order->order_id} (уже обработан)");
+//                    $log->info("Пропущен заказ #{$order->order_id} (уже обработан)");
                     continue;
                 }
 
@@ -120,12 +120,32 @@ class WooNewOrders extends Command
 
                 $result = $order_controller->createdFromWoo(order: (array)$order, items: $items->toArray(), connection: $connection);
 
+                $log->debug("Результат создания заказа", ['result' => $result]);
+
+                if($result['success']) {
+                    $db_connection->table('wp_posts as p')
+                        ->where('ID', $order->order_id)
+                        ->update([
+                            'post_status' => 'wc-completed',
+                            'post_modified' => now()->format('Y-m-d H:i:s'),
+                            'post_modified_gmt' => now()->format('Y-m-d H:i:s'),
+                        ]);
+
+                    $log->debug("Заказ в Woo обновлен", ['order_id' => $order->order_id]);
+
+                    $log->debug("Заказа {$order->order_id} успешно обработан");
+                } else {
+                    $log->debug("Заказа {$order->order_id} не успешно обработан");
+                }
+
                 WooSyncedOrder::create([
                     'woo_order_id' => $order->order_id,
                     'connection' => $connection,
                     'created_result' => json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
                     'created_success' => $result['success']
                 ]);
+
+
             }
         }
 

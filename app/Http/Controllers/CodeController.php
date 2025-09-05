@@ -126,10 +126,14 @@ class CodeController extends Controller
             'is_frame' => 'nullable|string|in:1,0',
         ]);
 
-        $order_item = OrderItems::where('key', $data['code'])->where('is_activated', false)->first();
+        $order_item = OrderItems::where('key', $data['code'])->first();
 
         if (!$order_item) {
             return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
+        }
+
+        if($order_item->is_activated) {
+            return redirect()->route('redeem')->withErrors(['code' => 'Код уже успешно активирован. Мы свяжемся с Вами.']);
         }
 
         $order = Order::where('id', $order_item->order_id)->first();
