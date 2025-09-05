@@ -85,13 +85,13 @@ class WooNewOrders extends Command
                 $items = $db_connection
                     ->table('wp_woocommerce_order_items')
                     ->where('order_id', $order->order_id)
+                    ->where('order_item_type', 'line_item')
                     ->get();
 
                 foreach ($items as $item) {
                     $product = $db_connection
                         ->table('wp_woocommerce_order_itemmeta')
                         ->where('order_item_id', $item->order_item_id)
-                        ->where('order_item_type', 'line_item')
                         ->pluck('meta_value', 'meta_key');
 
                     $item->product = $product;
