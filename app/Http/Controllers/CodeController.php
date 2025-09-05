@@ -76,7 +76,7 @@ class CodeController extends Controller
             $data['type_id'] = 1;
         }
 
-        $user = UserController::updateOrCreate(phone: $data['phone'], data: $data, ym_user_id: $order->client_info['id']);
+        $user = UserController::updateOrCreate(phone: $data['phone'], data: $data, ym_user_id: data_get($data, 'ym_user_id'));
 
         $order->update([
             'user_id' => $user->id,

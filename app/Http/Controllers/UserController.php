@@ -12,10 +12,10 @@ class UserController extends Controller
     /**
      * @param string $phone
      * @param array $data
-     * @param string $ym_user_id
+     * @param string|null $ym_user_id
      * @return mixed
      */
-    public static function updateOrCreate(string $phone, array $data, string $ym_user_id): mixed
+    public static function updateOrCreate(string $phone, array $data, string $ym_user_id = null): mixed
     {
         unset($data['phone']);
 
