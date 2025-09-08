@@ -42,8 +42,6 @@ class WooNewOrders extends Command
             '1gros_prod'
         ];
 
-        $log->info("-------------------");
-
         foreach ($db_connection as $connection) {
             $db_connection = DB::connection($connection);
 
@@ -79,6 +77,8 @@ class WooNewOrders extends Command
 //                    $log->info("Пропущен заказ #{$order->order_id} (уже обработан)");
                     continue;
                 }
+
+                $log->info("-------------------");
 
                 $log->info("Новый заказ: #{$order->order_id} в {$connection}");
 
