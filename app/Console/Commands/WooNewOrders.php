@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Http\Controllers\OrderController;
+use App\Models\Order\Order;
 use App\Models\WooSyncedOrder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -61,12 +62,12 @@ class WooNewOrders extends Command
                 ->leftJoin('wp_postmeta as pm', 'pm.post_id', '=', 'p.ID')
                 ->where('p.post_type', 'shop_order')
                 ->whereIn('p.post_status', ['wc-processing', 'wc-completed'])
-                ->where('p.post_date', '>=', now()->subHours(2))
+                ->where('p.post_date', '>=', now()->subHours(1))
                 ->groupBy('p.ID')
                 ->get();
 
             if ($orders->isEmpty()) {
-                $log->info("Новых заказов не найдено");
+//                $log->info("Новых заказов не найдено");
                 continue;
             }
 
@@ -124,6 +125,9 @@ class WooNewOrders extends Command
                 $log->debug("Результат создания заказа", ['result' => $result]);
 
                 if($result['success']) {
+
+                    $log->info("Заказ успешно создан");
+
                     $db_connection->table('wp_posts as p')
                         ->where('ID', $order->order_id)
                         ->update([
@@ -132,11 +136,18 @@ class WooNewOrders extends Command
                             'post_modified_gmt' => now()->format('Y-m-d H:i:s'),
                         ]);
 
-                    $log->debug("Заказ в Woo обновлен", ['order_id' => $order->order_id]);
+                    $log->info("Заказ в Woo обновлен");
+
+                    Order::where('id', $result['order_id'])->update([
+                        'status' => 'wc-completed',
+                        'sub_status' => 'wc-completed',
+                    ]);
+
+                    $log->info("Заказ в системе обновлен");
 
                     $log->debug("Заказа {$order->order_id} успешно обработан");
                 } else {
-                    $log->debug("Заказа {$order->order_id} не успешно обработан");
+                    $log->error("Заказа {$order->order_id} не успешно обработан");
                 }
 
                 WooSyncedOrder::create([
@@ -145,7 +156,6 @@ class WooNewOrders extends Command
                     'created_result' => json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
                     'created_success' => $result['success']
                 ]);
-
 
             }
         }

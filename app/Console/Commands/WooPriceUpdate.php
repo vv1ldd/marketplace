@@ -31,7 +31,7 @@ class WooPriceUpdate extends Command
 
         $res = $controller->update()->original;
 
-        if ($res['error']) {
+        if (!empty($res['error'])) {
             $this->error($res['error']);
 
             return 1;

@@ -67,6 +67,8 @@ class OrderController extends Controller
             $order_id = Order::create([
                 'order_id' => $woo_order_id,
                 'uuid' => Str::uuid()->toString(),
+                'status' => 'wc-processing',
+                'sub_status' => 'wc-processing',
                 'info' => $order_full_info,
                 'client_info' => $client_info,
                 'user_id' => $user->id ?? null
@@ -162,7 +164,7 @@ class OrderController extends Controller
                 'order_id' => $order_id,
                 'activate_till' => now()->addYear()->format('Y-m-d'),
                 'sku' => $sku,
-                'count' => data_get($item, 'product._qty'),
+                'count' => data_get($item, 'product._qty', 1),
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -205,7 +207,11 @@ class OrderController extends Controller
 
             $log->info('send instruction to smtp');
 
-            Mail::send('instruction_with_code', ['keys_data' => $keys_data], function ($message) use ($order) {
+            Mail::send('instruction_with_code', [
+                'keys_data' => $keys_data,
+                'first_name' => $order['billing_first_name'],
+                'order_id' => $order_id,
+            ], function ($message) use ($order) {
 
                 $from_name = Settings::get('SMTP_FROM_NAME', 'Магазин 1GROS');
                 $subject = Settings::get('SMTP_SUBJECT', 'Ваш код активации');

@@ -55,16 +55,14 @@ class OrderForm
 
                 ])->columnSpanFull(),
 
-                Section::make('YM')->schema([
+                Section::make('Заказ')->schema([
                     TextInput::make('order_id')
-                        ->label('Заказ YM')
+                        ->label('Номер')
                         ->required(),
                     TextInput::make('status')
-                        ->label('Статус YM')
-                        ->required(),
+                        ->label('Статус'),
                     TextInput::make('sub_status')
-                        ->label('Подстатус YM')
-                        ->required(),
+                        ->label('Подстатус'),
 
                     Grid::make(3)
                         ->schema([

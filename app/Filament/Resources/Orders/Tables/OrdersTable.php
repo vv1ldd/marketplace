@@ -18,14 +18,14 @@ class OrdersTable
         return $table
             ->columns([
                 TextColumn::make('id')->label('Номер заказа')->sortable(),
-                TextColumn::make('order_id')->label('Заказ YM')
+                TextColumn::make('order_id')->label('Номер источника')
                     ->copyable()
                     ->searchable(),
-                TextColumn::make('status')->label('Статус YM'),
+                TextColumn::make('status')->label('Статус источника'),
                 TextColumn::make('order_items_count')->label('Товаров')
                     ->getStateUsing(fn($record) => $record->items()->count()),
                 TextColumn::make('user.id')
-                    ->label('Юзер ID')
+                    ->label('Юзер')
                     ->url(fn($record) => $record->user?->id ? EditUser::getUrl(['record' => $record->user->id]) : null, true),
                 TextColumn::make('progress.name')->label('Прогресс')
                     ->sortable()
@@ -47,7 +47,9 @@ class OrdersTable
                     ->color(fn($record) => $record->items()->where('is_activated', '<>', true)->exists() ? 'danger' : 'success')
                     ->label('Активирован')
                     ->boolean(),
-                TextColumn::make('items.typeForm.name')->label('Тип')->badge(),
+                TextColumn::make('items.typeForm.name')->label('Тип')
+                    ->limitList(1)
+                    ->badge(),
                 TextColumn::make('created_at')->label('Создано')->dateTime('d.m.Y H:i:s'),
                 TextColumn::make('updated_at')->label('Обновлено')->dateTime('d.m.Y H:i:s'),
             ])

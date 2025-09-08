@@ -25,11 +25,11 @@ class SendMessage
             $client_info = $order->client_info;
 
             $message = "Новый заказ № {$order->id}\n";
-            $message .= "Заказ в Яндексе № {$order->order_id}\n";
+            $message .= "Заказ № {$order->order_id}\n";
             $message .= "Статус: {$order->status}\n";
             $message .= "-------\n";
 
-            $message .= "Данные покупателя от Яндекса:\n";
+            $message .= "Данные покупателя:\n";
             $message .= "ФИО: " . data_get($client_info, 'lastName', '-') . " " . data_get($client_info, 'firstName', '-') . " " . data_get($client_info, 'middleName', '-') . "\n";
             $message .= "Телефон: " . data_get($client_info, 'phone', '-') . "\n";
             $message .= "Почта: " . data_get($client_info, 'email', '-') . "\n";
@@ -49,7 +49,7 @@ class SendMessage
         } else if ($status === 'send_form') {
 
             $message .= "Активация по заказу № {$order->id}\n";
-            $message .= "Заказ в Яндексе № {$order->order_id}\n";
+            $message .= "Заказ № {$order->order_id}\n";
             $message .= "Активировано sku: {$order_item->sku}\n";
             $message .= "-------\n";
             $message .= "Данные заполненной формы:\n";

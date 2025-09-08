@@ -28,13 +28,6 @@ class MainController extends Controller
         $this->ps_tax = $tax ?? (int)Settings::get('PS_TAX', 35);
     }
 
-    public function quarantineRemove(Request $request)
-    {
-        $data = $request->validate([
-
-        ]);
-    }
-
     public function prepareToItemsShow(Request $request)
     {
         $data = $request->validate([
