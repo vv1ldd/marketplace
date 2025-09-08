@@ -47,7 +47,7 @@ class WooNewOrders extends Command
         foreach ($db_connection as $connection) {
             $db_connection = DB::connection($connection);
 
-            $log->info("Проверка новых заказов в базе {$connection}");
+//            $log->info("Проверка новых заказов в базе {$connection}");
 
             $orders = $db_connection->table('wp_posts as p')
                 ->select(
@@ -80,7 +80,7 @@ class WooNewOrders extends Command
                     continue;
                 }
 
-                $log->info("Новый заказ: #{$order->order_id}");
+                $log->info("Новый заказ: #{$order->order_id} в {$connection}");
 
                 // товары заказа
                 $items = $db_connection
