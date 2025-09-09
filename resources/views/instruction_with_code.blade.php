@@ -32,7 +32,7 @@
                     @foreach($keys_data as $key_data)
                         <tr>
                             <td style="color:#212121;font-family:Helvetica,Arial,sans-serif;font-size:20px;line-height:28px;padding-top:40px;text-align:left">
-                                <strong>Игра {{$keys_data['name']}}, электронный ключ активации, TR</strong>
+                                <strong>Игра {{$key_data['name']}}, электронный ключ активации, TR</strong>
                             </td>
                         </tr>
 
