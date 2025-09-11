@@ -44,7 +44,7 @@ class SendMessage
 
                 $message .= "{$item['sku']} - {$item['count']} шт. - {$price_with_discount} лир. итого \n";
 
-                $message .= "Тип формы: {$product->typeForm->name} \n";
+                $message .= "Тип формы: {$product?->typeForm?->name} \n";
             }
         } else if ($status === 'send_form') {
 
