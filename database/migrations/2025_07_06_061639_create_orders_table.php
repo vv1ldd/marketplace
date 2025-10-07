@@ -23,6 +23,9 @@ return new class extends Migration {
             $table->integer('chat_id')->nullable();
             $table->bigInteger('user_id')->nullable();
             $table->text('comment')->nullable();
+            $table->boolean('is_problem')->default(false);
+            $table->bigInteger('assigned_user_id')->nullable();
+            $table->boolean('code_activated')->default(false);
             $table->timestamps();
         });
     }
