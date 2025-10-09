@@ -20,7 +20,7 @@ class ListOrders extends ListRecords
     {
         $user_id = auth()->user()->id;
 
-        $is_executor = auth()->user()->hasRole('Исполнитель');
+        $is_executor = auth()->user()->hasRole('executor');
 
         if ($is_executor) {
             return $table->modifyQueryUsing(fn($query) => $query->where('assigned_user_id', $user_id));
@@ -31,7 +31,7 @@ class ListOrders extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        $is_executor = auth()->user()->hasRole('Исполнитель');
+        $is_executor = auth()->user()->hasRole('executor');
 
 
         return [
@@ -66,7 +66,7 @@ class ListOrders extends ListRecords
                             ->send();
 
                         // Используем Livewire redirect, если это действие в Widget или Page
-                        return redirect()->to('/orders');
+                        return redirect()->to("/orders/{$order->id}/edit");
                     })
             ] : [CreateAction::make()])
         ];

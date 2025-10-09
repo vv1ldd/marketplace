@@ -16,4 +16,15 @@ class EditOrder extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    public static function canAccess(array $parameters = []): bool
+    {
+        $is_executor = auth()->user()->hasRole('executor');
+
+        if($is_executor) {
+            return $parameters['record']->assigned_user_id === auth()->user()->id;
+        }
+
+        return true;
+    }
 }

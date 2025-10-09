@@ -2,14 +2,17 @@
 
 namespace App\Filament\Resources\Orders\Schemas;
 
+use App\Models\PlayStation\PlayStationAlt;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -24,6 +27,7 @@ class OrderForm
         $order = $schema->getRecord();
         $is_create = !$order;
         $is_update = !$is_create;
+        $is_executor = auth()->user()->hasRole('executor');
 
         return $schema
             ->components([
@@ -40,6 +44,7 @@ class OrderForm
                             ->searchable()
                             ->preload()
                             ->optionsLimit(50)
+                            ->hidden($is_executor)
                             ->label('Юзер'),
                         Select::make('progress_id')
                             ->relationship('progress', 'name')
@@ -83,7 +88,9 @@ class OrderForm
                         ])
 
 
-                ])->columnSpanFull(),
+                ])
+                    ->hidden($is_executor)
+                    ->columnSpanFull(),
 
                 Section::make('Товары в заказе')->schema([
                     Repeater::make('Товары в заказе')
@@ -91,21 +98,36 @@ class OrderForm
                         ->collapsible()
                         ->maxItems(100)
                         ->addActionLabel('Добавить товар')
+                        ->addable(!$is_executor)
                         ->minItems(1)
                         ->columns(2)
                         ->schema([
-
                             Grid::make(3)->schema([
                                 TextInput::make('sku')
                                     ->label('SKU')
+                                    ->readOnly($is_executor)
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $gameTitle = PlayStationAlt::where('sku', $state)
+                                            ->value('name');
+                                        $set('game_name', $gameTitle);
+                                    })
                                     ->required(),
+
+                                TextEntry::make('Название')
+                                    ->state(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
+//                                    ->label(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
+
                                 TextInput::make('count')
                                     ->required()
+                                    ->readOnly($is_executor)
                                     ->numeric()
                                     ->minValue(1)
                                     ->maxValue(100)
                                     ->default(1)
                                     ->label('Количество'),
+
+
+
                                 Select::make('typeForm.id')
                                     ->relationship('typeForm', 'name')
                                     ->label('Тип формы'),
@@ -120,13 +142,15 @@ class OrderForm
                                     ->inline(false)
                                     ->default(false)
                                     ->label('Активирован'),
-                            ]),
+                            ])->hidden($is_executor),
 
                             DateTimePicker::make('activated_at')
                                 ->label('Дата активации')
+                                ->hidden($is_executor)
                                 ->required(),
 
                             TextInput::make('key')
+                                ->hidden($is_executor)
                                 ->readOnly()
                                 ->required()
                                 ->unique(ignoreRecord: $is_update)
@@ -147,7 +171,7 @@ class OrderForm
                                     ->required()
                                     ->mask('+79999999999')
                                     ->label('Телефон'),
-                            ])->columnSpanFull(),
+                            ])->columnSpanFull()->hidden($is_executor),
 
                             Section::make('Опция')
                                 ->compact()

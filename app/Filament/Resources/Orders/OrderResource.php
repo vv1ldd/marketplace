@@ -18,10 +18,10 @@ class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Cake;
-    protected static ?string $navigationLabel = 'Мои заказы';
+    protected static ?string $navigationLabel = 'Заказы';
 
     protected static ?string $label = 'Заказа';
-    protected static ?string $pluralLabel = 'Мои заказы';
+    protected static ?string $pluralLabel = 'Заказы';
     protected static bool $hasTitleCaseModelLabel = false;
 
     protected static ?string $navigationBadgeTooltip = 'Кол-во не обработанных заказов';
