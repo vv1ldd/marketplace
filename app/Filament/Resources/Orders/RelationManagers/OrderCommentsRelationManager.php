@@ -25,6 +25,10 @@ class OrderCommentsRelationManager extends RelationManager
 
     protected static ?string $title = 'Комментарии по заказу';
 
+    protected static ?string $relationshipTitle = 'Комментарии по заказу';
+
+    protected static ?string $recordTitleAttribute = 'Комментарий';
+
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -79,6 +83,11 @@ class OrderCommentsRelationManager extends RelationManager
                 EditAction::make()->visible($is_admin),
                 DeleteAction::make()->visible($is_admin)
 //                DissociateAction::make(),
+            ])
+            ->emptyStateDescription('Комментарии по заказу отсутствуют')
+            ->emptyStateIcon('heroicon-s-user-group')
+            ->emptyStateActions([
+                CreateAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

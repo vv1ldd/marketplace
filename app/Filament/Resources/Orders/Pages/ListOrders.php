@@ -23,7 +23,7 @@ class ListOrders extends ListRecords
         $is_executor = auth()->user()->hasRole('executor');
 
         if ($is_executor) {
-            return $table->modifyQueryUsing(fn($query) => $query->where('assigned_user_id', $user_id));
+            return $table->modifyQueryUsing(fn($query) => $query->where('assigned_user_id', $user_id)->where('is_problem', false));
         } else {
             return $table;
         }

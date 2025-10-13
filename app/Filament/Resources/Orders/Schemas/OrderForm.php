@@ -31,7 +31,7 @@ class OrderForm
 
         return $schema
             ->components([
-                Section::make('Заказ')->schema([
+                Section::make('Заказ') ->collapsible()->schema([
                     Grid::make(3)->schema([
                         TextInput::make('id')
                             ->label('Номер заказа')
@@ -52,6 +52,10 @@ class OrderForm
                             ->searchable()
                             ->label('Прогресс по заказу')
                             ->preload(),
+                        Toggle::make('is_problem')
+                            ->inline(false)
+                            ->label('Проблемный заказ')
+                            ->default(false)
 //                        Textarea::make('comment')
 //                            ->label('Комментарий')
 //                            ->rows(2)
@@ -60,7 +64,7 @@ class OrderForm
 
                 ])->columnSpanFull(),
 
-                Section::make('Заказ')->schema([
+                Section::make('Заказ') ->collapsible()->schema([
                     TextInput::make('order_id')
                         ->label('Номер')
                         ->required(),
@@ -92,7 +96,9 @@ class OrderForm
                     ->hidden($is_executor)
                     ->columnSpanFull(),
 
-                Section::make('Товары в заказе')->disabled($is_executor)->schema([
+                Section::make('Товары в заказе')
+                    ->collapsible()
+                    ->disabled($is_executor)->schema([
                     Repeater::make('Товары в заказе')
                         ->relationship('items')
                         ->collapsible()
@@ -100,11 +106,16 @@ class OrderForm
                         ->addActionLabel('Добавить товар')
                         ->addable(!$is_executor)
                         ->minItems(1)
+                        ->truncateItemLabel()
+                        ->itemLabel(fn (array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
+                            ->value('name') ?? null)
                         ->columns(1)
                         ->schema([
                             Grid::make(3)->schema([
                                 TextInput::make('sku')
                                     ->label('SKU')
+                                    ->copyable()
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, callable $set) {
                                         $gameTitle = PlayStationAlt::where('sku', $state)
                                             ->value('name');
@@ -112,7 +123,9 @@ class OrderForm
                                     })
                                     ->required(),
 
-                                TextEntry::make('Название')
+                                TextEntry::make('game_name')
+                                    ->copyable()
+                                    ->label('Название игры')
                                     ->state(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
 //                                    ->label(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
 
@@ -195,16 +208,19 @@ class OrderForm
                                         ->disabled(fn(Get $get) => $get('type_id') != 3)
                                         ->live()
                                         ->hidden(fn(Get $get) => $get('type_id') != 3)
+                                        ->copyable()
                                         ->required(fn(Get $get) => $get('type_id') == 3)
                                         ->label('PS Network ID'),
                                     TextInput::make('client_info.option.ps_network_password')
                                         ->disabled(fn(Get $get) => $get('type_id') != 3)
                                         ->live(onBlur: true)
+                                        ->copyable()
                                         ->hidden(fn(Get $get) => $get('type_id') != 3)
                                         ->required(fn(Get $get) => $get('type_id') == 3)
                                         ->label('PS Network Password'),
                                     TextInput::make('client_info.option.ps_2fa_code')
                                         ->live()
+                                        ->copyable()
                                         ->disabled(fn(Get $get) => $get('type_id') != 3)
                                         ->hidden(fn(Get $get) => $get('type_id') != 3)
                                         ->label('Код 2FA'),
