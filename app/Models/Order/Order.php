@@ -57,4 +57,9 @@ class Order extends Model
             ->where('is_problem', false)
             ->orderBy('created_at', 'asc');
     }
+
+    public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(OrderComment::class);
+    }
 }

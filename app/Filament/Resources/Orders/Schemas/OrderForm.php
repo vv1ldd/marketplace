@@ -52,10 +52,10 @@ class OrderForm
                             ->searchable()
                             ->label('Прогресс по заказу')
                             ->preload(),
-                        Textarea::make('comment')
-                            ->label('Комментарий')
-                            ->rows(2)
-                            ->columnSpanFull(),
+//                        Textarea::make('comment')
+//                            ->label('Комментарий')
+//                            ->rows(2)
+//                            ->columnSpanFull(),
                     ])
 
                 ])->columnSpanFull(),
@@ -92,7 +92,7 @@ class OrderForm
                     ->hidden($is_executor)
                     ->columnSpanFull(),
 
-                Section::make('Товары в заказе')->schema([
+                Section::make('Товары в заказе')->disabled($is_executor)->schema([
                     Repeater::make('Товары в заказе')
                         ->relationship('items')
                         ->collapsible()
@@ -100,12 +100,11 @@ class OrderForm
                         ->addActionLabel('Добавить товар')
                         ->addable(!$is_executor)
                         ->minItems(1)
-                        ->columns(2)
+                        ->columns(1)
                         ->schema([
                             Grid::make(3)->schema([
                                 TextInput::make('sku')
                                     ->label('SKU')
-                                    ->readOnly($is_executor)
                                     ->afterStateUpdated(function ($state, callable $set) {
                                         $gameTitle = PlayStationAlt::where('sku', $state)
                                             ->value('name');
@@ -119,7 +118,6 @@ class OrderForm
 
                                 TextInput::make('count')
                                     ->required()
-                                    ->readOnly($is_executor)
                                     ->numeric()
                                     ->minValue(1)
                                     ->maxValue(100)

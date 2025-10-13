@@ -10,6 +10,10 @@ return new class extends Migration {
      */
     public function up(): void
     {
+        if(Schema::hasTable('play_station_type_forms')) {
+            return;
+        }
+
         Schema::create('woo_synced_orders', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('woo_order_id');

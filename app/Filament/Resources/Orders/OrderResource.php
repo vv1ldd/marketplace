@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Orders;
 use App\Filament\Resources\Orders\Pages\CreateOrder;
 use App\Filament\Resources\Orders\Pages\EditOrder;
 use App\Filament\Resources\Orders\Pages\ListOrders;
+use App\Filament\Resources\Orders\RelationManagers\OrderCommentsRelationManager;
 use App\Filament\Resources\Orders\Schemas\OrderForm;
 use App\Filament\Resources\Orders\Tables\OrdersTable;
 use App\Models\Order\Order;
@@ -28,7 +29,15 @@ class OrderResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return static::$model::where('progress_id', '<>', 4)->count();
+        $is_executor = auth()->user()->hasRole('executor');
+
+        $query = static::$model::where('progress_id', '<>', 4);
+
+        if ($is_executor) {
+            $query->where('assigned_user_id', auth()->user()->id);
+        }
+
+        return $query->count();
     }
 
     public static function getNavigationBadgeColor(): string|array|null
@@ -49,7 +58,7 @@ class OrderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            'comments' => OrderCommentsRelationManager::class
         ];
     }
 
