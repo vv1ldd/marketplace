@@ -57,8 +57,9 @@ class OrdersTable
                 TextColumn::make('items.typeForm.name')->label('Тип')
                     ->limitList(1)
                     ->badge(),
-                TextColumn::make('created_at')->label('Создано')->dateTime('d.m.Y H:i:s'),
-                TextColumn::make('updated_at')->label('Обновлено')->dateTime('d.m.Y H:i:s')
+                TextColumn::make('created_at')->label('Создан')->dateTime('d.m.Y H:i:s'),
+                TextColumn::make('assigned_at')->label('Взят')->dateTime('d.m.Y H:i:s'),
+                TextColumn::make('updated_at')->label('Обновлен')->dateTime('d.m.Y H:i:s')
                     ->hidden($is_executor),
             ])
             ->filters([

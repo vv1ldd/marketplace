@@ -25,6 +25,7 @@ return new class extends Migration {
             $table->text('comment')->nullable();
             $table->boolean('is_problem')->default(false);
             $table->bigInteger('assigned_user_id')->nullable();
+            $table->timestamp('assigned_at')->nullable();
             $table->boolean('code_activated')->default(false);
             $table->timestamps();
         });

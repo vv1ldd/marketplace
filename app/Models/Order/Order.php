@@ -19,6 +19,7 @@ class Order extends Model
         'comment',
         'is_problem',
         'assigned_user_id',
+        'assigned_at',
         'code_activated',
     ];
 

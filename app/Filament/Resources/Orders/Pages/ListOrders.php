@@ -58,6 +58,7 @@ class ListOrders extends ListRecords
 
                         $order->update([
                             'assigned_user_id' => auth()->id(),
+                            'assigned_at' => now()
                         ]);
 
                         Notification::make()
