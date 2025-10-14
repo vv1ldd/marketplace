@@ -4,6 +4,7 @@ namespace App\Models\Order;
 
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\PlayStation\PlayStationTypeForm;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class OrderItems extends Model
@@ -51,4 +52,15 @@ class OrderItems extends Model
     {
         return $this->belongsTo(PlayStationAlt::class, 'sku', 'sku');
     }
+
+
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id')
+            ->whereColumn('orders.user_id', 'users.id')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->select('users.*');
+    }
+
+
 }

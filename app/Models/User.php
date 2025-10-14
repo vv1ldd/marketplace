@@ -29,6 +29,7 @@ class User extends Authenticatable implements FilamentUser, HasName
         'email',
         'password',
         'ym_user_id',
+        'meta',
     ];
 
     /**
@@ -51,6 +52,7 @@ class User extends Authenticatable implements FilamentUser, HasName
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'meta' => 'array',
         ];
     }
 
