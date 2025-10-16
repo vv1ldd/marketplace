@@ -25,7 +25,7 @@ class OrderResource extends Resource
     protected static ?string $pluralLabel = 'Заказы';
     protected static bool $hasTitleCaseModelLabel = false;
 
-    protected static ?string $navigationBadgeTooltip = 'Кол-во не обработанных заказов';
+//    protected static ?string $navigationBadgeTooltip = 'Кол-во не обработанных заказов';
 
     public static function getNavigationBadge(): ?string
     {
