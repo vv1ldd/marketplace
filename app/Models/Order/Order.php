@@ -21,6 +21,7 @@ class Order extends Model
         'assigned_user_id',
         'assigned_at',
         'code_activated',
+        'account_data_on_send',
     ];
 
     protected $casts = [

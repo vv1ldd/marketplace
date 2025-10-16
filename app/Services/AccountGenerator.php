@@ -11,7 +11,7 @@ class AccountGenerator
     {
         $clientEmail = $user->email ?? ('user' . $user->id . '@example.com');
 
-        $login = preg_replace('/@.*/', '', $clientEmail) . '1gros@gmailess.com';
+        $login = preg_replace('/@.*/', '', $clientEmail) . '@gmailess.com';
         $password = Str::password(12);
 
         $meta = $user->meta ?? [];

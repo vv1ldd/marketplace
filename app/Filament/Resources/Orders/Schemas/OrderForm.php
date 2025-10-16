@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders\Schemas;
 
+use App\Mail\SendAccountDataMail;
 use App\Models\Order\Order;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\User;
@@ -23,7 +24,9 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\ToggleColumn;
+use Illuminate\Support\Facades\Mail;
 
 class OrderForm
 {
@@ -238,12 +241,16 @@ class OrderForm
                     ])->columnSpanFull(),
 
                 Section::make('Данные для создания аккаунта')
+                    ->collapsible()
+                    ->description(fn(Get $get) => $order->account_data_on_send ? 'Данные по аккаунту отправлены' : 'Данные по аккаунту не отправлены')
                     ->columnSpanFull()
                     ->id('generate_account_section')
                     ->headerActions([
                         Action::make('generate_account_data')
                             ->label('Генерация')
                             ->requiresConfirmation()
+                            ->color('warning')
+                            ->icon(Heroicon::ArrowPath)
                             ->modalHeading('Подтвердите действие')
                             ->modalDescription('При создании новых данных, старые будут затерты')
                             ->modalSubmitActionLabel('Подтвердить')
@@ -254,7 +261,6 @@ class OrderForm
                                 $accountGenerator = new AccountGenerator();
                                 $res = $accountGenerator->generateForOrder($user);
 
-                                // Пример: обновим поля
                                 $set('meta.generated_account.login', $res['login']);
                                 $set('meta.generated_account.password', $res['password']);
 
@@ -263,6 +269,44 @@ class OrderForm
                                     ->success()
                                     ->send();
                             })
+                            ->disabled($order->account_data_on_send)
+                            ->hidden(fn (Get $get) => (bool)$get('meta.generated_account.login')),
+                         Action::make('send_account_data')
+                             ->label('Отправить данные')
+                             ->color('success')
+                             ->requiresConfirmation()
+                             ->modalHeading('Подтвердите действие')
+                             ->icon(Heroicon::Envelope)
+                             ->modalDescription('Отправить клиенту на почту сгенерированные данные?')
+                             ->modalSubmitActionLabel('Подтвердить')
+                             ->action(function (Get $get) use ($order) {
+
+                                 $user = $order->user;
+                                 $email = $user->email;
+
+                                 $login = $get('meta.generated_account.login');
+                                 $password = $get('meta.generated_account.password');
+
+                                 if (!$email || !$login || !$password) {
+                                     Notification::make()
+                                         ->title('Ошибка')
+                                         ->body('Не хватает данных для отправки письма')
+                                         ->danger()
+                                         ->send();
+                                     return;
+                                 }
+
+                                 Mail::to($email)->send(new SendAccountDataMail($login, $password));
+
+                                 Notification::make()
+                                     ->title('Успешно отправлено')
+                                     ->success()
+                                     ->send();
+
+                                 $order->update(['account_data_on_send' => true]);
+                             })
+                             ->disabled($order->account_data_on_send)
+                             ->hidden(fn (Get $get) => !$get('meta.generated_account.login')),
                     ])
                     ->schema([
                         TextInput::make('meta.generated_account.login')
@@ -282,7 +326,7 @@ class OrderForm
                             })
                             ->revealable()
                             ->copyable(),
-                    ])->visible(fn($record) => $record->items->contains(fn($item) => $item->type_id === 2))
+                    ])->columns(2)->visible(fn($record) => $record->items->contains(fn($item) => $item->type_id === 2))
             ]);
     }
 }
