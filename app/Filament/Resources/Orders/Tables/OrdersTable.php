@@ -16,21 +16,22 @@ class OrdersTable
     public static function configure(Table $table): Table
     {
         $is_executor = auth()->user()->hasRole('executor');
+        $is_support = auth()->user()->hasRole('support');
 
         return $table
             ->columns([
                 TextColumn::make('id')->label('Номер заказа')->sortable(),
                 TextColumn::make('order_id')->label('Номер источника')
-                    ->hidden($is_executor)
+                    ->hidden($is_executor || $is_support)
                     ->copyable()
                     ->searchable(),
                 TextColumn::make('status')->label('Статус источника')
-                    ->hidden($is_executor),
+                    ->hidden($is_executor || $is_support),
                 TextColumn::make('order_items_count')->label('Товаров')
                     ->getStateUsing(fn($record) => $record->items()->count()),
                 TextColumn::make('user.id')
                     ->label('Юзер')
-                    ->hidden($is_executor)
+                    ->hidden($is_executor || $is_support)
                     ->url(fn($record) => $record->user?->id ? EditUser::getUrl(['record' => $record->user->id]) : null, true),
                 TextColumn::make('progress.name')->label('Прогресс')
                     ->sortable()
@@ -43,13 +44,13 @@ class OrdersTable
                     })
                     ->badge(),
                 IconColumn::make('items.is_redeemed')
-                    ->hidden($is_executor)
+                    ->hidden($is_executor || $is_support)
                     ->icon(fn($record) => $record->items()->where('is_redeemed', '<>', true)->exists() ? 'heroicon-s-x-circle' : 'heroicon-s-check-circle')
                     ->color(fn($record) => $record->items()->where('is_redeemed', '<>', true)->exists() ? 'danger' : 'success')
                     ->label('Введен')
                     ->boolean(),
                 IconColumn::make('items.is_activated')
-                    ->hidden($is_executor)
+                    ->hidden($is_executor || $is_support)
                     ->icon(fn($record) => $record->items()->where('is_activated', '<>', true)->exists() ? 'heroicon-s-x-circle' : 'heroicon-s-check-circle')
                     ->color(fn($record) => $record->items()->where('is_activated', '<>', true)->exists() ? 'danger' : 'success')
                     ->label('Активирован')
@@ -60,7 +61,7 @@ class OrdersTable
                 TextColumn::make('created_at')->label('Создан')->dateTime('d.m.Y H:i:s'),
                 TextColumn::make('assigned_at')->label('Взят')->dateTime('d.m.Y H:i:s'),
                 TextColumn::make('updated_at')->label('Обновлен')->dateTime('d.m.Y H:i:s')
-                    ->hidden($is_executor),
+                    ->hidden($is_executor || $is_support),
             ])
             ->filters([
                 //

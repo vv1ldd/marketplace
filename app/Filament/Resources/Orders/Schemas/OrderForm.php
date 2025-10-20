@@ -10,6 +10,7 @@ use App\Services\AccountGenerator;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -39,6 +40,7 @@ class OrderForm
         $is_create = !$order;
         $is_update = !$is_create;
         $is_executor = auth()->user()->hasRole('executor');
+        $is_support = auth()->user()->hasRole('support');
 
         return $schema
             ->components([
@@ -46,7 +48,8 @@ class OrderForm
                     Grid::make(3)->schema([
                         TextInput::make('id')
                             ->label('Номер заказа')
-                            ->disabled($is_update)
+                            ->readOnly($is_update)
+                            ->copyable()
                             ->hidden($is_create)
                             ->required($is_create),
                         Select::make('user_id')
@@ -55,7 +58,7 @@ class OrderForm
                             ->searchable()
                             ->preload()
                             ->optionsLimit(50)
-                            ->hidden($is_executor)
+                            ->hidden($is_executor || $is_support)
                             ->label('Юзер'),
                         Select::make('progress_id')
                             ->relationship('progress', 'name')
@@ -107,12 +110,12 @@ class OrderForm
 
 
                 ])
-                    ->hidden($is_executor)
+                    ->hidden($is_executor || $is_support)
                     ->columnSpanFull(),
 
                 Section::make('Товары в заказе')
                     ->collapsible()
-                    ->disabled($is_executor)->schema([
+                    ->disabled($is_executor || $is_support)->schema([
                         Repeater::make('Товары в заказе')
                             ->relationship('items')
                             ->collapsible()
@@ -166,15 +169,15 @@ class OrderForm
                                         ->inline(false)
                                         ->default(false)
                                         ->label('Активирован'),
-                                ])->hidden($is_executor),
+                                ])->hidden($is_executor || $is_support),
 
                                 DateTimePicker::make('activated_at')
                                     ->label('Дата активации')
-                                    ->hidden($is_executor)
+                                    ->hidden($is_executor || $is_support)
                                     ->required(),
 
                                 TextInput::make('key')
-                                    ->hidden($is_executor)
+                                    ->hidden($is_executor || $is_support)
                                     ->readOnly()
                                     ->required()
                                     ->unique(ignoreRecord: $is_update)
@@ -195,7 +198,7 @@ class OrderForm
                                         ->required()
                                         ->mask('+79999999999')
                                         ->label('Телефон'),
-                                ])->columnSpanFull()->hidden($is_executor),
+                                ])->columnSpanFull()->hidden($is_executor || $is_support),
 
                                 Section::make('Опция')
                                     ->compact()
@@ -273,43 +276,43 @@ class OrderForm
                                     ->send();
                             })
                             ->disabled($order->account_data_on_send)
-                            ->hidden(fn (Get $get) => (bool)$get('meta.generated_account.login')),
-                         Action::make('send_account_data')
-                             ->label('Отправить данные')
-                             ->color('success')
-                             ->requiresConfirmation()
-                             ->modalHeading('Подтвердите действие')
-                             ->icon(Heroicon::Envelope)
-                             ->modalDescription('Отправить клиенту на почту сгенерированные данные?')
-                             ->modalSubmitActionLabel('Подтвердить')
-                             ->action(function (Get $get) use ($order) {
+                            ->hidden(fn(Get $get) => (bool)$get('meta.generated_account.login')),
+                        Action::make('send_account_data')
+                            ->label('Отправить данные')
+                            ->color('success')
+                            ->requiresConfirmation()
+                            ->modalHeading('Подтвердите действие')
+                            ->icon(Heroicon::Envelope)
+                            ->modalDescription('Отправить клиенту на почту сгенерированные данные?')
+                            ->modalSubmitActionLabel('Подтвердить')
+                            ->action(function (Get $get) use ($order) {
 
-                                 $user = $order->user;
-                                 $email = $user->email;
+                                $user = $order->user;
+                                $email = $user->email;
 
-                                 $login = $get('meta.generated_account.login');
-                                 $password = $get('meta.generated_account.password');
+                                $login = $get('meta.generated_account.login');
+                                $password = $get('meta.generated_account.password');
 
-                                 if (!$email || !$login || !$password) {
-                                     Notification::make()
-                                         ->title('Ошибка')
-                                         ->body('Не хватает данных для отправки письма')
-                                         ->danger()
-                                         ->send();
-                                     return;
-                                 }
+                                if (!$email || !$login || !$password) {
+                                    Notification::make()
+                                        ->title('Ошибка')
+                                        ->body('Не хватает данных для отправки письма')
+                                        ->danger()
+                                        ->send();
+                                    return;
+                                }
 
-                                 Mail::to($email)->send(new SendAccountDataMail($login, $password));
+                                Mail::to($email)->send(new SendAccountDataMail($login, $password));
 
-                                 Notification::make()
-                                     ->title('Успешно отправлено')
-                                     ->success()
-                                     ->send();
+                                Notification::make()
+                                    ->title('Успешно отправлено')
+                                    ->success()
+                                    ->send();
 
-                                 $order->update(['account_data_on_send' => true]);
-                             })
-                             ->disabled($order->account_data_on_send)
-                             ->hidden(fn (Get $get) => !$get('meta.generated_account.login')),
+                                $order->update(['account_data_on_send' => true]);
+                            })
+                            ->disabled($order->account_data_on_send)
+                            ->hidden(fn(Get $get) => !$get('meta.generated_account.login')),
                     ])
                     ->schema([
                         TextInput::make('meta.generated_account.login')

@@ -62,6 +62,15 @@ class Order extends Model
             ->orderBy('created_at', 'asc');
     }
 
+    public function scopeAvailableForSupport($query)
+    {
+        return $query->where('is_problem', true)
+            ->whereNull('assigned_user_id')
+            ->where('progress_id', '<>', 4)
+            ->whereDate('created_at', '>=', '2025-10-01')
+            ->orderBy('created_at', 'asc');
+    }
+
     public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(OrderComment::class);

@@ -19,7 +19,6 @@ class UsersTable
             ->columns([
                 TextColumn::make('full_name')
                     ->label('ФИО')
-                    ->searchable()
                     ->getStateUsing(fn($record) => $record->getFullName()),
                 TextColumn::make('roles')->label('Роль')->getStateUsing(function ($record) {
                     return $record->roles()->pluck('name')->implode(', ');

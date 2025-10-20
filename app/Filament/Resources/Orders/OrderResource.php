@@ -30,10 +30,11 @@ class OrderResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $is_executor = auth()->user()->hasRole('executor');
+        $is_support = auth()->user()->hasRole('support');
 
         $query = static::$model::where('progress_id', '<>', 4);
 
-        if ($is_executor) {
+        if ($is_executor || $is_support) {
             $query->where('assigned_user_id', auth()->user()->id);
         }
 
