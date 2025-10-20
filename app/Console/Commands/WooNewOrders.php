@@ -124,7 +124,7 @@ class WooNewOrders extends Command
 
                 $log->debug("Результат создания заказа", ['result' => $result]);
 
-                if($result['success']) {
+                if ($result['success']) {
 
                     $log->info("Заказ успешно создан");
 
@@ -141,6 +141,7 @@ class WooNewOrders extends Command
                     Order::where('id', $result['order_id'])->update([
                         'status' => 'wc-completed',
                         'sub_status' => 'wc-completed',
+                        'code_activated' => true
                     ]);
 
                     $log->info("Заказ в системе обновлен");

@@ -78,10 +78,6 @@ class CodeController extends Controller
 
         $user = UserController::updateOrCreate(phone: $data['phone'], data: $data, ym_user_id: data_get($data, 'ym_user_id'));
 
-        $order->update([
-            'user_id' => $user->id,
-        ]);
-
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
         $order_item->update([
@@ -89,6 +85,24 @@ class CodeController extends Controller
             'client_info' => $data,
             'activated_at' => now(),
             'type_id' => $data['type_id'],
+        ]);
+
+        $order_items = OrderItems::where('order_id', $order->id)->get();
+
+        $activated_all = false;
+
+        foreach ($order_items as $item) {
+            if ($item->is_activated) {
+                $activated_all = true;
+            } else {
+                $activated_all = false;
+                break;
+            }
+        }
+
+        $order->update([
+            'user_id' => $user->id,
+            'code_activated' => $activated_all,
         ]);
 
         SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
