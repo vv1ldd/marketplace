@@ -60,7 +60,7 @@ class WooNewOrders extends Command
                 ->leftJoin('wp_postmeta as pm', 'pm.post_id', '=', 'p.ID')
                 ->where('p.post_type', 'shop_order')
                 ->whereIn('p.post_status', ['wc-processing', 'wc-completed'])
-                ->where('p.post_date', '>=', now()->subHours())
+                ->where('p.post_date', '>=', now()->subWeek())
                 ->groupBy('p.ID')
                 ->get();
 
