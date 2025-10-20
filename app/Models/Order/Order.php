@@ -58,6 +58,7 @@ class Order extends Model
             ->whereNull('assigned_user_id')
             ->where('is_problem', false)
             ->where('progress_id', 1)
+            ->whereDate('created_at', '>=', '2025-10-01')
             ->orderBy('created_at', 'asc');
     }
 
