@@ -35,7 +35,7 @@ class OrderForm
     {
         $order = $schema->getRecord();
 
-        $order_user_meta = $order->user->meta;
+        $order_user_meta = $order->user?->meta ?? null;
 
         $is_create = !$order;
         $is_update = !$is_create;
@@ -332,7 +332,7 @@ class OrderForm
                             })
                             ->revealable()
                             ->copyable(),
-                    ])->columns(2)->visible(fn($record) => $record->items->contains(fn($item) => $item->type_id === 2))
+                    ])->columns(2)->visible(fn($record) => $record->items->contains(fn($item) => $item->type_id === 2))->disabled(!$order_user_meta)
             ]);
     }
 }
