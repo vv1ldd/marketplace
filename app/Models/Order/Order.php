@@ -57,6 +57,7 @@ class Order extends Model
         return $query->where('code_activated', true)
             ->whereNull('assigned_user_id')
             ->where('is_problem', false)
+            ->where('progress_id', 1)
             ->orderBy('created_at', 'asc');
     }
 
