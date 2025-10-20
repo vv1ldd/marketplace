@@ -66,7 +66,10 @@ class OrderForm
                         Toggle::make('is_problem')
                             ->inline(false)
                             ->label('Проблемный заказ')
-                            ->default(false)
+                            ->default(false),
+                        DateTimePicker::make('created_at')
+                            ->label('Дата создания')
+                            ->disabled(),
 //                        Textarea::make('comment')
 //                            ->label('Комментарий')
 //                            ->rows(2)
