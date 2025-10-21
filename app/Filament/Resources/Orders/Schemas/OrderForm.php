@@ -55,6 +55,7 @@ class OrderForm
                         Select::make('user_id')
                             ->relationship('user', 'email')
                             ->required()
+                            ->lazy()
                             ->searchable()
                             ->preload()
                             ->optionsLimit(50)
@@ -63,6 +64,7 @@ class OrderForm
                         Select::make('progress_id')
                             ->relationship('progress', 'name')
                             ->required()
+                            ->lazy()
                             ->searchable()
                             ->label('Прогресс по заказу')
                             ->preload(),
@@ -123,7 +125,6 @@ class OrderForm
                             ->addActionLabel('Добавить товар')
                             ->addable(!$is_executor)
                             ->minItems(1)
-                            ->lazy()
                             ->truncateItemLabel()
                             ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
                                 ->value('name') ?? null)
