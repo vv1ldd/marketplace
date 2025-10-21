@@ -55,9 +55,6 @@ class OrderForm
                         Select::make('user_id')
                             ->relationship('user', 'email')
                             ->required()
-                            ->preload()
-                            ->optionsLimit(10)
-                            ->searchable()
                             ->optionsLimit(50)
                             ->hidden($is_executor || $is_support)
                             ->label('Юзер'),
@@ -125,8 +122,8 @@ class OrderForm
                             ->addable(!$is_executor)
                             ->minItems(1)
                             ->truncateItemLabel()
-//                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
-//                                ->value('name') ?? null)
+                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
+                                ->value('name') ?? null)
                             ->columns(1)
                             ->schema([
                                 Grid::make(3)->schema([
