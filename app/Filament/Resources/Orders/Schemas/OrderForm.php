@@ -123,6 +123,7 @@ class OrderForm
                             ->addActionLabel('Добавить товар')
                             ->addable(!$is_executor)
                             ->minItems(1)
+                            ->lazy()
                             ->truncateItemLabel()
                             ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
                                 ->value('name') ?? null)
