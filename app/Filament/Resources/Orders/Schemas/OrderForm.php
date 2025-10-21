@@ -56,6 +56,7 @@ class OrderForm
                             ->relationship('user', 'email')
                             ->required()
                             ->searchable(['email'])
+                            ->searchDebounce(500)
                             ->preload()
                             ->optionsLimit(5)
                             ->hidden($is_executor || $is_support)
@@ -64,6 +65,7 @@ class OrderForm
                             ->relationship('progress', 'name')
                             ->required()
                             ->searchable(['name'])
+                            ->searchDebounce(500)
                             ->optionsLimit(5)
                             ->preload()
                             ->label('Прогресс по заказу'),
