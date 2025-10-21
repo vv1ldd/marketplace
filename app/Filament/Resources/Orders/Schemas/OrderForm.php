@@ -55,7 +55,7 @@ class OrderForm
                         Select::make('user_id')
                             ->relationship('user', 'email')
                             ->required()
-                            ->searchable()
+                            ->searchable(['email'])
                             ->preload()
                             ->optionsLimit(5)
                             ->hidden($is_executor || $is_support)
@@ -63,7 +63,7 @@ class OrderForm
                         Select::make('progress_id')
                             ->relationship('progress', 'name')
                             ->required()
-                            ->searchable()
+                            ->searchable(['name'])
                             ->optionsLimit(5)
                             ->preload()
                             ->label('Прогресс по заказу'),
