@@ -55,12 +55,16 @@ class OrderForm
                         Select::make('user_id')
                             ->relationship('user', 'email')
                             ->required()
-                            ->optionsLimit(50)
+                            ->searchable()
+                            ->preload()
+                            ->optionsLimit(5)
                             ->hidden($is_executor || $is_support)
                             ->label('Юзер'),
                         Select::make('progress_id')
                             ->relationship('progress', 'name')
                             ->required()
+                            ->searchable()
+                            ->optionsLimit(5)
                             ->preload()
                             ->label('Прогресс по заказу'),
                         Toggle::make('is_problem')
