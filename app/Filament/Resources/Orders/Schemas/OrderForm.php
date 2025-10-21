@@ -118,7 +118,7 @@ class OrderForm
                 Section::make('Товары в заказе')
                     ->collapsible()
                     ->disabled($is_executor || $is_support)->schema([
-                        Repeater::make('Товары в заказе')
+                        Repeater::make('items_in_order')
                             ->relationship('items')
                             ->collapsible()
                             ->maxItems(100)
