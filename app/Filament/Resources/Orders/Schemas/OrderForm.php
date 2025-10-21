@@ -117,7 +117,8 @@ class OrderForm
 
                 Section::make('Товары в заказе')
                     ->collapsible()
-                    ->disabled($is_executor || $is_support)->schema([
+                    ->disabled($is_executor || $is_support)
+                    ->schema([
                         Repeater::make('items_in_order')
                             ->relationship('items')
                             ->collapsible()
@@ -126,8 +127,8 @@ class OrderForm
                             ->addable(!$is_executor)
                             ->minItems(1)
                             ->truncateItemLabel()
-                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
-                                ->value('name') ?? null)
+//                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
+//                                ->value('name') ?? null)
                             ->columns(1)
                             ->schema([
                                 Grid::make(3)->schema([
