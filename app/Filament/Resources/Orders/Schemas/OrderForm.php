@@ -336,7 +336,7 @@ class OrderForm
                             ->revealable()
                             ->copyable(),
 
-                        Textarea::make('meta.codes')
+                        Textarea::make('meta.generated_account.codes')
                             ->columnSpanFull()
                             ->label('2FA-коды')
                             ->required()
