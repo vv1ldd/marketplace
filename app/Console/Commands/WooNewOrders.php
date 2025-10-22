@@ -110,7 +110,8 @@ class WooNewOrders extends Command
                         $item->meta = $query
                             ->where('meta_key', '_sku')
                             ->select([
-                                'meta_value as sku'
+                                'meta_value as sku',
+                                '_price_try as price_try'
                             ])
                             ->first();
                     }

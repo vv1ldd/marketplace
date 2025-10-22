@@ -41,6 +41,7 @@ class OrderForm
         $is_update = !$is_create;
         $is_executor = auth()->user()->hasRole('executor');
         $is_support = auth()->user()->hasRole('support');
+        $super_admin = auth()->user()->hasRole('super_admin');
 
         return $schema
             ->components([
@@ -140,7 +141,18 @@ class OrderForm
                                         ->copyable()
                                         ->label('Название игры')
                                         ->state(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
-//                                    ->label(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
+
+                                    Grid::make()->schema([
+                                        TextEntry::make('price_rub')
+                                            ->label('Цена, руб')
+                                            ->visible($super_admin)
+                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_rub')),
+                                        TextEntry::make('price_try')
+                                            ->label('Цена, лир')
+                                            ->visible($super_admin || $is_executor)
+                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_try')),
+
+                                    ])->columns(),
 
                                     TextInput::make('count')
                                         ->required()

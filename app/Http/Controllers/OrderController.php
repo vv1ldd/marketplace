@@ -132,6 +132,8 @@ class OrderController extends Controller
                     'price_with_discount' => data_get($item, 'product._line_total') * 100,
                     'name' => data_get($item, "order_item_name"),
                     'is_manual' => 1,
+                    'woo_price_rub' => data_get($item, 'product._line_total') * 100,
+                    'woo_price_try' => data_get($item, 'meta.price_try') * 100,
                 ]);
 
             } else {
@@ -150,11 +152,18 @@ class OrderController extends Controller
                         'price_with_discount' => data_get($item, 'product._line_total') * 100,
                         'name' => data_get($item, "order_item_name"),
                         'is_manual' => 1,
+                        'woo_price_rub' => data_get($item, 'product._line_total') * 100,
+                        'woo_price_try' => data_get($item, 'meta.price_try') * 100,
                     ]);
 
                     $log->debug('product created by sku', [$sku]);
                 } else {
                     $log->debug('product found by sku', [$product]);
+
+                    $product->update([
+                        'woo_price_rub' => data_get($item, 'product._line_total') * 100,
+                        'woo_price_try' => data_get($item, 'meta.price_try') * 100,
+                    ]);
                 }
             }
 

@@ -19,7 +19,9 @@ class PlayStationAlt extends Model
         'send_to_ym_at',
         'category_id',
         'is_manual',
-        'type_form_id'
+        'type_form_id',
+        'woo_price_rub',
+        'woo_price_try',
     ];
 
     protected $casts = [
@@ -29,5 +31,10 @@ class PlayStationAlt extends Model
     public function typeForm()
     {
         return $this->belongsTo(PlayStationTypeForm::class, 'type_form_id', 'id');
+    }
+
+    public static function getPrice(string $sku, string $value): float|int
+    {
+        return static::where('sku', $sku)->value('woo_price_rub') / 100;
     }
 }
