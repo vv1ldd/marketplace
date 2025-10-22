@@ -288,17 +288,18 @@ class OrderForm
 
                                 $login = $get('meta.generated_account.login');
                                 $password = $get('meta.generated_account.password');
+                                $codes = $get('meta.generated_account.codes');
 
-                                if (!$email || !$login || !$password) {
+                                if (!$email || !$login || !$password || !$codes) {
                                     Notification::make()
                                         ->title('Ошибка')
-                                        ->body('Не хватает данных для отправки письма')
+                                        ->body('Не хватает данных для отправки письма, проверьте заполнены ли все поля для отправки данных')
                                         ->danger()
                                         ->send();
                                     return;
                                 }
 
-                                Mail::to($email)->send(new SendAccountDataMail($login, $password));
+                                Mail::to($email)->send(new SendAccountDataMail($login, $password, $codes));
 
                                 Notification::make()
                                     ->title('Успешно отправлено')
@@ -306,6 +307,10 @@ class OrderForm
                                     ->send();
 
                                 $order->update(['account_data_on_send' => true]);
+
+                                $user->update([
+                                    'meta->codes' => $codes
+                                ]);
                             })
                             ->disabled($order->account_data_on_send)
                             ->hidden(fn(Get $get) => !$get('meta.generated_account.login')),
@@ -313,7 +318,8 @@ class OrderForm
                     ->schema([
                         TextInput::make('meta.generated_account.login')
                             ->label('Логин')
-                            ->disabled()
+                            ->readOnly()
+                            ->required()
                             ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
                                 $component->state(data_get($order_user_meta, 'generated_account.login', ''));
                             })
@@ -322,13 +328,23 @@ class OrderForm
                         TextInput::make('meta.generated_account.password')
                             ->label('Пароль')
                             ->password()
-                            ->disabled()
+                            ->required()
+                            ->readOnly()
                             ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
                                 $component->state(data_get($order_user_meta, 'generated_account.password', ''));
                             })
                             ->revealable()
                             ->copyable(),
-                    ])->columns(2)->visible(fn($record) => $record->items->contains(fn($item) => $item->type_id === 2))->disabled(!$order_user_meta)
+
+                        Textarea::make('meta.codes')
+                            ->columnSpanFull()
+                            ->label('2FA-коды')
+                            ->required()
+                            ->trim()
+                            ->disabled(fn(Get $get) => !$get('meta.generated_account.login') || !$get('meta.generated_account.password'))
+                            ->rows(6)
+
+                    ])->columns()->visible(fn($record) => $record->items->contains(fn($item) => $item->type_id === 2))
             ]);
     }
 }

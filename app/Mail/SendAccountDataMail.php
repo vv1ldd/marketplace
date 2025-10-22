@@ -10,16 +10,12 @@ class SendAccountDataMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public string $login;
-    public string $password;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(string $login, string $password)
+    public function __construct(public string $login, public string $password, public string $codes)
     {
-        $this->login = $login;
-        $this->password = $password;
     }
 
     /**
@@ -27,7 +23,7 @@ class SendAccountDataMail extends Mailable
      */
     public function build(): self
     {
-        return $this->subject('Ваши данные для входа')
+        return $this->subject('Ваш аккаунт PSN готов')
             ->view('emails.account-data');
     }
 }
