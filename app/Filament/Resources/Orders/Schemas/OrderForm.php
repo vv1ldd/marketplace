@@ -340,7 +340,6 @@ class OrderForm
                             ->columnSpanFull()
                             ->label('2FA-коды')
                             ->required()
-                            ->trim()
                             ->disabled(fn(Get $get) => !$get('meta.generated_account.login') || !$get('meta.generated_account.password'))
                             ->rows(6)
 
