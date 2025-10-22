@@ -285,6 +285,7 @@ class OrderForm
 
                                 $user = $order->user;
                                 $email = $user->email;
+                                $meta = $user->meta;
 
                                 $login = $get('meta.generated_account.login');
                                 $password = $get('meta.generated_account.password');
@@ -308,9 +309,9 @@ class OrderForm
 
                                 $order->update(['account_data_on_send' => true]);
 
-                                $user->update([
-                                    'meta->generated_account->codes' => $codes
-                                ]);
+                                $meta['generated_account']['codes'] = $codes;
+
+                                $user->update(['meta' => $meta]);
                             })
                             ->disabled($order->account_data_on_send)
                             ->hidden(fn(Get $get) => !$get('meta.generated_account.login')),
@@ -337,11 +338,14 @@ class OrderForm
                             ->copyable(),
 
                         Textarea::make('meta.generated_account.codes')
-                            ->columnSpanFull()
                             ->label('2FA-коды')
+                            ->columnSpanFull()
                             ->required()
                             ->disabled(fn(Get $get) => !$get('meta.generated_account.login') || !$get('meta.generated_account.password'))
-                            ->rows(6)
+                            ->afterStateHydrated(function (Textarea $component) use ($order_user_meta) {
+                                $component->state(data_get($order_user_meta, 'generated_account.codes'));
+                            })
+                            ->rows(10)
 
                     ])->columns()->visible(fn($record) => $record->items->contains(fn($item) => $item->type_id === 2))
             ]);
