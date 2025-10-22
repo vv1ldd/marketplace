@@ -105,7 +105,7 @@ class OrderForm
 
 
                 ])
-                    ->hidden($is_executor || $is_support)
+                    ->hidden($is_executor)
                     ->columnSpanFull(),
 
                 Section::make('Товары в заказе')
