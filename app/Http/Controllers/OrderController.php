@@ -50,9 +50,23 @@ class OrderController extends Controller
             }
 
         } catch (\Exception $exception) {
-            $log->error('getByPhone, but continue process', [
+            $log->error('error getByPhone, but continue process', [
                 'exception' => $exception->getMessage(),
             ]);
+        }
+
+        if(!isset($user)) {
+            try {
+                $user = UserController::updateOrCreate($order["billing_phone"], [
+                    'email' => $order["billing_email"],
+                    'last_name' => $order["billing_last_name"],
+                    'first_name' => $order["billing_first_name"],
+                ]);
+            } catch (\Exception $exception) {
+                $log->error('error updateOrCreate user, but continue process', [
+                    'exception' => $exception->getMessage(),
+                ]);
+            }
         }
 
         $order_full_info = [
