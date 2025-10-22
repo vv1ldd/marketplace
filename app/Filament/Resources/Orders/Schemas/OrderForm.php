@@ -309,7 +309,7 @@ class OrderForm
                                 $order->update(['account_data_on_send' => true]);
 
                                 $user->update([
-                                    'meta->codes' => $codes
+                                    'meta->generated_account->codes' => $codes
                                 ]);
                             })
                             ->disabled($order->account_data_on_send)
