@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Orders\Schemas;
 
 use App\Mail\SendAccountDataMail;
 use App\Models\PlayStation\PlayStationAlt;
-use App\Models\PlayStation\PlayStationTypeForm;
 use App\Services\AccountGenerator;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -127,12 +126,10 @@ class OrderForm
                             ->columns(1)
                             ->schema([
                                 Grid::make(3)->schema([
-                                    Select::make('sku')
-                                        ->options(PlayStationAlt::all()->pluck('name', 'sku')->toArray())
-                                        ->searchable()
+                                    TextInput::make('sku')
                                         ->label('SKU')
-                                        ->reactive()
-                                        ->afterStateUpdated(fn($state, callable $set) => $set('game_name', $alts[$state]->name ?? '')),
+                                        ->copyable()
+                                        ->required(),
 
                                     TextEntry::make('game_name')
                                         ->copyable()
