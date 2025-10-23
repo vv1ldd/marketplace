@@ -35,6 +35,6 @@ class PlayStationAlt extends Model
 
     public static function getPrice(string $sku, string $value): float|int
     {
-        return static::where('sku', $sku)->value('woo_price_rub') / 100;
+        return static::where('sku', $sku)->value($value) / 100;
     }
 }
