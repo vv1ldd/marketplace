@@ -131,7 +131,7 @@ class OrderController extends Controller
                 'name' => data_get($item, "order_item_name"),
             ];
 
-            $sku = data_get($item, 'meta.sku');
+            $sku = data_get($item, 'meta._sku');
 
             if (!$sku) {
 
@@ -147,7 +147,7 @@ class OrderController extends Controller
                     'name' => data_get($item, "order_item_name"),
                     'is_manual' => 1,
                     'woo_price_rub' => data_get($item, 'product._line_total') * 100,
-                    'woo_price_try' => data_get($item, 'meta.price_try') * 100,
+                    'woo_price_try' => data_get($item, 'meta._price_try') * 100,
                 ]);
 
             } else {
@@ -167,7 +167,7 @@ class OrderController extends Controller
                         'name' => data_get($item, "order_item_name"),
                         'is_manual' => 1,
                         'woo_price_rub' => data_get($item, 'product._line_total') * 100,
-                        'woo_price_try' => data_get($item, 'meta.price_try') * 100,
+                        'woo_price_try' => data_get($item, 'meta._price_try') * 100,
                     ]);
 
                     $log->debug('product created by sku', [$sku]);
@@ -176,7 +176,7 @@ class OrderController extends Controller
 
                     $product->update([
                         'woo_price_rub' => data_get($item, 'product._line_total') * 100,
-                        'woo_price_try' => data_get($item, 'meta.price_try') * 100,
+                        'woo_price_try' => data_get($item, 'meta._price_try') * 100,
                     ]);
                 }
             }
