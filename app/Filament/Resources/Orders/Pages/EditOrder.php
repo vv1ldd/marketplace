@@ -25,6 +25,12 @@ class EditOrder extends EditRecord
             }
         }
 
+        if ($data['progress_id'] === 4) {
+            $data['assigned_user_id'] = null;
+            $data['assigned_at'] = null;
+            $data['is_problem'] = false;
+        }
+
         return $data;
     }
 

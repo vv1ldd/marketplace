@@ -12,7 +12,7 @@ class AccountGenerator
         $clientEmail = $user->email ?? ('user' . $user->id . '@example.com');
 
         $login = preg_replace('/@.*/', '', $clientEmail) . '@gmailess.com';
-        $password = Str::password(12);
+        $password = $this->generatePassword();
 
         $meta = $user->meta ?? [];
         $meta['generated_account'] = [
@@ -24,5 +24,12 @@ class AccountGenerator
         $user->save();
 
         return $meta['generated_account'];
+    }
+
+    private function generatePassword(): string
+    {
+        $letters = substr(str_shuffle(str_repeat('abcdefghijklmnopqrstuvwxyz', 6)), 0, 6);
+        $numbers = substr(str_shuffle(str_repeat('0123456789', 4)), 0, 4);
+        return $letters . $numbers . '!';
     }
 }

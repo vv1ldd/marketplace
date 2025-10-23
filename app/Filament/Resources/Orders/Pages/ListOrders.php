@@ -23,19 +23,19 @@ class ListOrders extends ListRecords
     {
         $super_admin = auth()->user()->hasRole('super_admin');
 
-        if($super_admin) {
+        if ($super_admin) {
             return [
                 'all' => Tab::make('Все')->badge(fn() => Order::count()),
                 'Не обработаны' => Tab::make()
                     ->badge(fn() => Order::where('progress_id', '<>', 4)->count())
-                    ->modifyQueryUsing(fn (Builder $query) => $query->where('progress_id', '<>', 4)),
+                    ->modifyQueryUsing(fn(Builder $query) => $query->where('progress_id', '<>', 4)),
                 'Проблемные' => Tab::make()
                     ->badge(fn() => Order::where('is_problem', true)->count())
                     ->badgeColor('danger')
-                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_problem', true))
+                    ->modifyQueryUsing(fn(Builder $query) => $query->where('is_problem', true))
             ];
         } else {
-            return  [];
+            return [];
         }
     }
 
@@ -48,7 +48,7 @@ class ListOrders extends ListRecords
 
         if ($is_executor) {
             return $table->modifyQueryUsing(fn($query) => $query->where('assigned_user_id', $user_id)->where('is_problem', false)->where('progress_id', '<>', 4));
-        } else if($is_support){
+        } else if ($is_support) {
             return $table->modifyQueryUsing(fn($query) => $query->where('assigned_user_id', $user_id)->where('is_problem', true)->where('progress_id', '<>', 4));
         } else {
             return $table;
@@ -71,7 +71,20 @@ class ListOrders extends ListRecords
 //                    })
                     ->action(function () use ($is_support, $is_executor) {
 
-                        if($is_executor) {
+                        if ($is_executor) {
+
+                            $check_limit = Order::checkLimit()->count();
+
+                            if ($check_limit >= 1) {
+
+                                Notification::make()
+                                    ->warning()
+                                    ->title('Завершите обработку уже взятых заказов, чтобы взять новый.')
+                                    ->send();
+
+                                return;
+                            }
+
                             $order = Order::availableForExecutor()->first();
                         } else if ($is_support) {
                             $order = Order::availableForSupport()->first();

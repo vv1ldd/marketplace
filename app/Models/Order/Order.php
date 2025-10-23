@@ -71,6 +71,11 @@ class Order extends Model
             ->orderBy('created_at', 'asc');
     }
 
+    public function scopeCheckLimit($query)
+    {
+        return $query->where('assigned_user_id', auth()->user()->id);
+    }
+
     public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(OrderComment::class);
