@@ -139,8 +139,8 @@ class OrderForm
 
                                     TextEntry::make('game_name')
                                         ->copyable()
-                                        ->label('Название игры')
-                                        ->state(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
+                                        ->label('Название игры'),
+//                                        ->state(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
 
                                     Grid::make()->schema([
                                         TextEntry::make('price_rub')
