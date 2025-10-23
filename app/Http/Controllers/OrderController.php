@@ -55,13 +55,14 @@ class OrderController extends Controller
             ]);
         }
 
-        if(!isset($user)) {
+        if(empty($user)) {
             try {
                 $user = UserController::updateOrCreate($order["billing_phone"], [
                     'email' => $order["billing_email"],
                     'last_name' => $order["billing_last_name"],
                     'first_name' => $order["billing_first_name"],
                 ]);
+                $log->debug('user created', [$user]);
             } catch (\Exception $exception) {
                 $log->error('error updateOrCreate user, but continue process', [
                     'exception' => $exception->getMessage(),
