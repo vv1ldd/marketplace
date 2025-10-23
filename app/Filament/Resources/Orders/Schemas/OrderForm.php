@@ -128,7 +128,7 @@ class OrderForm
                             ->schema([
                                 Grid::make(3)->schema([
                                     Select::make('sku')
-                                        ->options(PlayStationAlt::all()->pluck('name', 'sku'))
+                                        ->options(PlayStationAlt::all()->pluck('name', 'sku')->toArray())
                                         ->searchable()
                                         ->label('SKU')
                                         ->reactive()
