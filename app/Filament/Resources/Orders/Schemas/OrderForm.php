@@ -145,12 +145,12 @@ class OrderForm
                                     Grid::make()->schema([
                                         TextEntry::make('price_rub')
                                             ->label('Цена, руб')
-                                            ->visible($super_admin)
-                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_rub')),
+                                            ->visible($super_admin),
+//                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_rub')),
                                         TextEntry::make('price_try')
                                             ->label('Цена, лир')
-                                            ->visible($super_admin || $is_executor)
-                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_try')),
+                                            ->visible($super_admin || $is_executor),
+//                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_try')),
 
                                     ])->columns(),
 
