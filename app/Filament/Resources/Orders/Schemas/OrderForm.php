@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Orders\Schemas;
 
 use App\Mail\SendAccountDataMail;
 use App\Models\PlayStation\PlayStationAlt;
+use App\Models\PlayStation\PlayStationTypeForm;
 use App\Services\AccountGenerator;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -36,6 +37,12 @@ class OrderForm
         $is_executor = auth()->user()->hasRole('executor');
         $is_support = auth()->user()->hasRole('support');
         $super_admin = auth()->user()->hasRole('super_admin');
+
+        $skus = $order?->items?->pluck('sku')->filter()->unique()->toArray() ?? [];
+        $alts = PlayStationAlt::whereIn('sku', $skus)
+            ->get(['sku', 'name', 'woo_price_rub', 'woo_price_try'])
+            ->keyBy('sku');
+
 
         return $schema
             ->components([
@@ -103,150 +110,148 @@ class OrderForm
                     ->hidden($is_executor)
                     ->columnSpanFull(),
 
-//                Section::make('Товары в заказе')
-//                    ->collapsible()
-//                    ->disabled($is_executor || $is_support)
-//                    ->schema([
-//                        Repeater::make('items_in_order')
-//                            ->relationship('items')
-//                            ->collapsible()
-//                            ->maxItems(100)
-//                            ->addActionLabel('Добавить товар')
-//                            ->addable(!$is_executor)
-//                            ->minItems(1)
-//                            ->truncateItemLabel()
-//                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
-//                                ->value('name') ?? null)
-//                            ->columns(1)
-//                            ->schema([
-//                                Grid::make(3)->schema([
-//                                    TextInput::make('sku')
-//                                        ->label('SKU')
-//                                        ->copyable()
-//                                        ->live(onBlur: true)
-//                                        ->afterStateUpdated(function ($state, callable $set) {
-//                                            $gameTitle = PlayStationAlt::where('sku', $state)
-//                                                ->value('name');
-//                                            $set('game_name', $gameTitle);
-//                                        })
-//                                        ->required(),
-//
-//                                    TextEntry::make('game_name')
-//                                        ->copyable()
-//                                        ->label('Название игры')
-//                                        ->state(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
-//
-//                                    Grid::make()->schema([
-//                                        TextEntry::make('price_rub')
-//                                            ->label('Цена, руб')
-//                                            ->visible($super_admin)
-//                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_rub')),
-//                                        TextEntry::make('price_try')
-//                                            ->label('Цена, лир')
-//                                            ->visible($super_admin || $is_executor)
-//                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_try')),
-//
-//                                    ])->columns(),
-//
-//                                    TextInput::make('count')
-//                                        ->required()
-//                                        ->numeric()
-//                                        ->minValue(1)
-//                                        ->maxValue(100)
-//                                        ->default(1)
-//                                        ->label('Количество'),
-//
-//
-//                                    Select::make('typeForm.id')
-//                                        ->relationship('typeForm', 'name')
-//                                        ->label('Тип формы'),
-//                                ]),
-//
-//                                Grid::make(2)->schema([
-//                                    Toggle::make('is_redeemed')
-//                                        ->default(false)
-//                                        ->inline(false)
-//                                        ->label('Код введен'),
-//                                    Toggle::make('is_activated')
-//                                        ->inline(false)
-//                                        ->default(false)
-//                                        ->label('Активирован'),
-//                                ])->hidden($is_executor || $is_support),
-//
-//                                DateTimePicker::make('activated_at')
-//                                    ->label('Дата активации')
-//                                    ->hidden($is_executor || $is_support)
-//                                    ->required(),
-//
-//                                TextInput::make('key')
-//                                    ->hidden($is_executor || $is_support)
-//                                    ->readOnly()
-//                                    ->required()
-//                                    ->unique(ignoreRecord: $is_update)
-//                                    ->label('Ключ'),
-//
-//                                Grid::make(4)->schema([
-//                                    TextInput::make('client_info.first_name')
-//                                        ->required()
-//                                        ->label('Имя'),
-//                                    TextInput::make('client_info.last_name')
-//                                        ->required()
-//                                        ->label('Фамилия'),
-//                                    TextInput::make('client_info.email')
-//                                        ->required()
-//                                        ->email()
-//                                        ->label('Email'),
-//                                    TextInput::make('client_info.phone')
-//                                        ->required()
-//                                        ->mask('+79999999999')
-//                                        ->label('Телефон'),
-//                                ])->columnSpanFull()->hidden($is_executor || $is_support),
-//
-//                                Section::make('Опция')
-//                                    ->compact()
-//                                    ->schema([
-//                                        Select::make('type_id')
-//                                            ->relationship('type', 'name')
-//                                            ->label('Тип заказа')
-//                                            ->live()
-//                                            ->required()
-//                                            ->afterStateUpdated(function (Get $get, Set $set) {
-//                                                $set('client_info.option.type_id', $get('type_id'));
-//                                            })
-//                                            ->default(1)
-//                                            ->preload()
-//                                            ->searchable(),
-//                                        DatePicker::make('client_info.option.ps_birthday')
-//                                            ->disabled(fn(Get $get) => $get('type_id') != 2)
-//                                            ->hidden(fn(Get $get) => $get('type_id') != 2)
-//                                            ->required(fn(Get $get) => $get('type_id') == 2)
-//                                            ->label('Дата рождения'),
-//
-//                                        TextInput::make('client_info.option.ps_network_id')
-//                                            ->disabled(fn(Get $get) => $get('type_id') != 3)
-//                                            ->live()
-//                                            ->hidden(fn(Get $get) => $get('type_id') != 3)
-//                                            ->copyable()
-//                                            ->required(fn(Get $get) => $get('type_id') == 3)
-//                                            ->label('PS Network ID'),
-//                                        TextInput::make('client_info.option.ps_network_password')
-//                                            ->disabled(fn(Get $get) => $get('type_id') != 3)
-//                                            ->live(onBlur: true)
-//                                            ->copyable()
-//                                            ->hidden(fn(Get $get) => $get('type_id') != 3)
-//                                            ->required(fn(Get $get) => $get('type_id') == 3)
-//                                            ->label('PS Network Password'),
-//                                        TextInput::make('client_info.option.ps_2fa_code')
-//                                            ->live()
-//                                            ->copyable()
-//                                            ->disabled(fn(Get $get) => $get('type_id') != 3)
-//                                            ->hidden(fn(Get $get) => $get('type_id') != 3)
-//                                            ->label('Код 2FA'),
-//
-//                                    ])->columnSpanFull(),
-//                            ])
-//                            ->hiddenLabel()
-//                    ])->columnSpanFull(),
+                Section::make('Товары в заказе')
+                    ->collapsible()
+                    ->disabled($is_executor || $is_support)
+                    ->schema([
+                        Repeater::make('items_in_order')
+                            ->relationship('items')
+                            ->collapsible()
+                            ->maxItems(100)
+                            ->addActionLabel('Добавить товар')
+                            ->addable(!$is_executor)
+                            ->minItems(1)
+                            ->truncateItemLabel()
+                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
+                                ->value('name') ?? null)
+                            ->columns(1)
+                            ->schema([
+                                Grid::make(3)->schema([
+                                    Select::make('sku')
+                                        ->options(PlayStationAlt::query()->pluck('name', 'sku'))
+                                        ->searchable()
+                                        ->preload()
+                                        ->label('SKU')
+                                        ->reactive()
+                                        ->afterStateUpdated(fn($state, callable $set) => $set('game_name', $alts[$state]->name ?? '')),
+
+                                    TextEntry::make('game_name')
+                                        ->copyable()
+                                        ->label('Название игры')
+                                        ->state(fn(Get $get) => $alts[$get('sku')]->name ?? null),
+
+                                    Grid::make()->schema([
+                                        TextEntry::make('price_rub')
+                                            ->label('Цена, руб')
+                                            ->visible($super_admin)
+                                            ->state(fn(Get $get) => $alts[$get('sku')]->woo_price_rub ?? null),
+                                        TextEntry::make('price_try')
+                                            ->label('Цена, лир')
+                                            ->visible($super_admin || $is_executor)
+                                            ->state(fn(Get $get) => $alts[$get('sku')]->woo_price_try ?? null),
+
+                                    ])->columns(),
+
+                                    TextInput::make('count')
+                                        ->required()
+                                        ->numeric()
+                                        ->minValue(1)
+                                        ->maxValue(100)
+                                        ->default(1)
+                                        ->label('Количество'),
+
+
+                                    Select::make('typeForm.id')
+                                        ->relationship('typeForm', 'name')
+                                        ->options(PlayStationTypeForm::pluck('name', 'id'))
+                                        ->label('Тип формы'),
+                                ]),
+
+                                Grid::make(2)->schema([
+                                    Toggle::make('is_redeemed')
+                                        ->default(false)
+                                        ->inline(false)
+                                        ->label('Код введен'),
+                                    Toggle::make('is_activated')
+                                        ->inline(false)
+                                        ->default(false)
+                                        ->label('Активирован'),
+                                ])->hidden($is_executor || $is_support),
+
+                                DateTimePicker::make('activated_at')
+                                    ->label('Дата активации')
+                                    ->hidden($is_executor || $is_support)
+                                    ->required(),
+
+                                TextInput::make('key')
+                                    ->hidden($is_executor || $is_support)
+                                    ->readOnly()
+                                    ->required()
+                                    ->unique(ignoreRecord: $is_update)
+                                    ->label('Ключ'),
+
+                                Grid::make(4)->schema([
+                                    TextInput::make('client_info.first_name')
+                                        ->required()
+                                        ->label('Имя'),
+                                    TextInput::make('client_info.last_name')
+                                        ->required()
+                                        ->label('Фамилия'),
+                                    TextInput::make('client_info.email')
+                                        ->required()
+                                        ->email()
+                                        ->label('Email'),
+                                    TextInput::make('client_info.phone')
+                                        ->required()
+                                        ->mask('+79999999999')
+                                        ->label('Телефон'),
+                                ])->columnSpanFull()->hidden($is_executor || $is_support),
+
+                                Section::make('Опция')
+                                    ->compact()
+                                    ->schema([
+                                        Select::make('type_id')
+                                            ->relationship('type', 'name')
+                                            ->label('Тип заказа')
+                                            ->live()
+                                            ->required()
+                                            ->afterStateUpdated(function (Get $get, Set $set) {
+                                                $set('client_info.option.type_id', $get('type_id'));
+                                            })
+                                            ->default(1)
+                                            ->preload()
+                                            ->searchable(),
+                                        DatePicker::make('client_info.option.ps_birthday')
+                                            ->disabled(fn(Get $get) => $get('type_id') != 2)
+                                            ->hidden(fn(Get $get) => $get('type_id') != 2)
+                                            ->required(fn(Get $get) => $get('type_id') == 2)
+                                            ->label('Дата рождения'),
+
+                                        TextInput::make('client_info.option.ps_network_id')
+                                            ->disabled(fn(Get $get) => $get('type_id') != 3)
+                                            ->live()
+                                            ->hidden(fn(Get $get) => $get('type_id') != 3)
+                                            ->copyable()
+                                            ->required(fn(Get $get) => $get('type_id') == 3)
+                                            ->label('PS Network ID'),
+                                        TextInput::make('client_info.option.ps_network_password')
+                                            ->disabled(fn(Get $get) => $get('type_id') != 3)
+                                            ->live(onBlur: true)
+                                            ->copyable()
+                                            ->hidden(fn(Get $get) => $get('type_id') != 3)
+                                            ->required(fn(Get $get) => $get('type_id') == 3)
+                                            ->label('PS Network Password'),
+                                        TextInput::make('client_info.option.ps_2fa_code')
+                                            ->live()
+                                            ->copyable()
+                                            ->disabled(fn(Get $get) => $get('type_id') != 3)
+                                            ->hidden(fn(Get $get) => $get('type_id') != 3)
+                                            ->label('Код 2FA'),
+
+                                    ])->columnSpanFull(),
+                            ])
+                            ->hiddenLabel()
+                    ])->columnSpanFull(),
 
                 Section::make('Данные для создания аккаунта')
                     ->collapsible()
