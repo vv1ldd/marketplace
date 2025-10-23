@@ -56,12 +56,12 @@ class OrderResource extends Resource
         return OrdersTable::configure($table);
     }
 
-//    public static function getRelations(): array
-//    {
-//        return [
-//            'comments' => OrderCommentsRelationManager::class
-//        ];
-//    }
+    public static function getRelations(): array
+    {
+        return [
+            'comments' => OrderCommentsRelationManager::class
+        ];
+    }
 
     public static function getPages(): array
     {
