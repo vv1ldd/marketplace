@@ -20,11 +20,13 @@ class OrdersTable
 
         return $table
             ->columns([
-                TextColumn::make('id')->label('Номер заказа')->sortable(),
+                TextColumn::make('id')
+                    ->label('Номер заказа')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('order_id')->label('Номер источника')
                     ->hidden($is_executor || $is_support)
-                    ->copyable()
-                    ->searchable(),
+                    ->copyable(),
                 TextColumn::make('status')->label('Статус источника')
                     ->hidden($is_executor || $is_support),
                 TextColumn::make('order_items_count')->label('Товаров')
