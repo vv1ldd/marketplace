@@ -129,12 +129,12 @@ class OrderForm
                                     TextInput::make('sku')
                                         ->label('SKU')
                                         ->copyable()
-                                        ->live(onBlur: true)
-                                        ->afterStateUpdated(function ($state, callable $set) {
-                                            $gameTitle = PlayStationAlt::where('sku', $state)
-                                                ->value('name');
-                                            $set('game_name', $gameTitle);
-                                        })
+//                                        ->live(onBlur: true)
+//                                        ->afterStateUpdated(function ($state, callable $set) {
+//                                            $gameTitle = PlayStationAlt::where('sku', $state)
+//                                                ->value('name');
+//                                            $set('game_name', $gameTitle);
+//                                        })
                                         ->required(),
 
                                     TextEntry::make('game_name')
