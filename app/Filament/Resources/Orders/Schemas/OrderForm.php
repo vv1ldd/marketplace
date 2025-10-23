@@ -162,7 +162,7 @@ class OrderForm
 
 
                                     Select::make('typeForm.id')
-                                        ->options(fn() => PlayStationTypeForm::pluck('name', 'id'))
+                                        ->relationship('typeForm', 'name')
                                         ->label('Тип формы'),
                                 ]),
 
