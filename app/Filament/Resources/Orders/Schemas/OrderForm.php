@@ -130,11 +130,11 @@ class OrderForm
                                         ->label('SKU')
                                         ->copyable()
                                         ->live(onBlur: true)
-//                                        ->afterStateUpdated(function ($state, callable $set) {
-//                                            $gameTitle = PlayStationAlt::where('sku', $state)
-//                                                ->value('name');
-//                                            $set('game_name', $gameTitle);
-//                                        })
+                                        ->afterStateUpdated(function ($state, callable $set) {
+                                            $gameTitle = PlayStationAlt::where('sku', $state)
+                                                ->value('name');
+                                            $set('game_name', $gameTitle);
+                                        })
                                         ->required(),
 
                                     TextEntry::make('game_name')
@@ -216,9 +216,9 @@ class OrderForm
                                             ->label('Тип заказа')
                                             ->live()
                                             ->required()
-//                                            ->afterStateUpdated(function (Get $get, Set $set) {
-//                                                $set('client_info.option.type_id', $get('type_id'));
-//                                            })
+                                            ->afterStateUpdated(function (Get $get, Set $set) {
+                                                $set('client_info.option.type_id', $get('type_id'));
+                                            })
                                             ->default(1)
                                             ->preload()
                                             ->searchable(),
@@ -332,18 +332,18 @@ class OrderForm
                         TextInput::make('meta.generated_account.login')
                             ->label('Логин')
                             ->readOnly()
-//                            ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
-//                                $component->state(data_get($order_user_meta, 'generated_account.login', ''));
-//                            })
+                            ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
+                                $component->state(data_get($order_user_meta, 'generated_account.login', ''));
+                            })
                             ->copyable(),
 
                         TextInput::make('meta.generated_account.password')
                             ->label('Пароль')
                             ->password()
                             ->readOnly()
-//                            ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
-//                                $component->state(data_get($order_user_meta, 'generated_account.password', ''));
-//                            })
+                            ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
+                                $component->state(data_get($order_user_meta, 'generated_account.password', ''));
+                            })
                             ->revealable()
                             ->copyable(),
 
@@ -351,9 +351,9 @@ class OrderForm
                             ->label('2FA-коды')
                             ->columnSpanFull()
                             ->disabled(fn(Get $get) => !$get('meta.generated_account.login') || !$get('meta.generated_account.password'))
-//                            ->afterStateHydrated(function (Textarea $component) use ($order_user_meta) {
-//                                $component->state(data_get($order_user_meta, 'generated_account.codes'));
-//                            })
+                            ->afterStateHydrated(function (Textarea $component) use ($order_user_meta) {
+                                $component->state(data_get($order_user_meta, 'generated_account.codes'));
+                            })
                             ->rows(10)
 
                     ])->columns()->visible(fn($record) => $record->items->contains(fn($item) => $item->type_id === 2))
