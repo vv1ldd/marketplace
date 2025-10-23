@@ -128,9 +128,8 @@ class OrderForm
                             ->schema([
                                 Grid::make(3)->schema([
                                     Select::make('sku')
-                                        ->options(PlayStationAlt::query()->pluck('name', 'sku'))
+                                        ->options(PlayStationAlt::all()->pluck('name', 'sku'))
                                         ->searchable()
-                                        ->preload()
                                         ->label('SKU')
                                         ->reactive()
                                         ->afterStateUpdated(fn($state, callable $set) => $set('game_name', $alts[$state]->name ?? '')),
