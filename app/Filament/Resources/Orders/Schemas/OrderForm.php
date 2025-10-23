@@ -77,37 +77,37 @@ class OrderForm
 
                 ])->columnSpanFull(),
 
-//                Section::make('Информация')->collapsible()->schema([
-//                    TextInput::make('order_id')
-//                        ->label('Номер')
-//                        ->required(),
-//                    TextInput::make('status')
-//                        ->label('Статус'),
-//                    TextInput::make('sub_status')
-//                        ->label('Подстатус'),
-//
-//                    Grid::make(3)
-//                        ->schema([
-//                            TextInput::make('client_info.lastName')
-//                                ->label('Фамилия'),
-//                            TextInput::make('client_info.firstName')
-//                                ->label('Имя'),
-//                            TextInput::make('client_info.middleName')
-//                                ->label('Отчество'),
-//                        ]),
-//
-//                    Grid::make(2)
-//                        ->schema([
-//                            TextInput::make('client_info.email'),
-//                            TextInput::make('client_info.phone')
-//                                ->mask('+79999999999')
-//                                ->label('Телефон'),
-//                        ])
-//
-//
-//                ])
-//                    ->hidden($is_executor)
-//                    ->columnSpanFull(),
+                Section::make('Информация')->collapsible()->schema([
+                    TextInput::make('order_id')
+                        ->label('Номер')
+                        ->required(),
+                    TextInput::make('status')
+                        ->label('Статус'),
+                    TextInput::make('sub_status')
+                        ->label('Подстатус'),
+
+                    Grid::make(3)
+                        ->schema([
+                            TextInput::make('client_info.lastName')
+                                ->label('Фамилия'),
+                            TextInput::make('client_info.firstName')
+                                ->label('Имя'),
+                            TextInput::make('client_info.middleName')
+                                ->label('Отчество'),
+                        ]),
+
+                    Grid::make(2)
+                        ->schema([
+                            TextInput::make('client_info.email'),
+                            TextInput::make('client_info.phone')
+                                ->mask('+79999999999')
+                                ->label('Телефон'),
+                        ])
+
+
+                ])
+                    ->hidden($is_executor)
+                    ->columnSpanFull(),
 
                 Section::make('Товары в заказе')
                     ->collapsible()
@@ -121,8 +121,8 @@ class OrderForm
                             ->addable(!$is_executor)
                             ->minItems(1)
                             ->truncateItemLabel()
-                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
-                                ->value('name') ?? null)
+//                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
+//                                ->value('name') ?? null)
                             ->columns(1)
                             ->schema([
                                 Grid::make(3)->schema([
