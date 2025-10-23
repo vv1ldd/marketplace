@@ -3,21 +3,16 @@
 namespace App\Filament\Resources\Orders\Schemas;
 
 use App\Mail\SendAccountDataMail;
-use App\Models\Order\Order;
 use App\Models\PlayStation\PlayStationAlt;
-use App\Models\User;
 use App\Services\AccountGenerator;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\DateTimePicker;;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\ToggleButtons;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
@@ -26,7 +21,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\ToggleColumn;
 use Illuminate\Support\Facades\Mail;
 
 class OrderForm
@@ -42,6 +36,12 @@ class OrderForm
         $is_executor = auth()->user()->hasRole('executor');
         $is_support = auth()->user()->hasRole('support');
         $super_admin = auth()->user()->hasRole('super_admin');
+
+        $skus = $order?->items?->pluck('sku')->filter()->unique()->toArray() ?? [];
+        $alts = PlayStationAlt::whereIn('sku', $skus)
+            ->get(['sku', 'name', 'woo_price_rub', 'woo_price_try'])
+            ->keyBy('sku');
+
 
         return $schema
             ->components([
@@ -77,7 +77,7 @@ class OrderForm
 
                 ])->columnSpanFull(),
 
-                Section::make('Заказ')->collapsible()->schema([
+                Section::make('Информация')->collapsible()->schema([
                     TextInput::make('order_id')
                         ->label('Номер')
                         ->required(),
@@ -129,28 +129,22 @@ class OrderForm
                                     TextInput::make('sku')
                                         ->label('SKU')
                                         ->copyable()
-                                        ->live(onBlur: true)
-                                        ->afterStateUpdated(function ($state, callable $set) {
-                                            $gameTitle = PlayStationAlt::where('sku', $state)
-                                                ->value('name');
-                                            $set('game_name', $gameTitle);
-                                        })
                                         ->required(),
 
                                     TextEntry::make('game_name')
                                         ->copyable()
                                         ->label('Название игры')
-                                        ->state(fn(Get $get) => PlayStationAlt::where('sku', $get('sku'))->value('name')),
+                                        ->state(fn(Get $get) => $alts[$get('sku')]->name ?? null),
 
                                     Grid::make()->schema([
                                         TextEntry::make('price_rub')
                                             ->label('Цена, руб')
                                             ->visible($super_admin)
-                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_rub')),
+                                            ->state(fn(Get $get) => $alts[$get('sku')]->woo_price_rub ?? null),
                                         TextEntry::make('price_try')
                                             ->label('Цена, лир')
                                             ->visible($super_admin || $is_executor)
-                                            ->state(fn(Get $get) => PlayStationAlt::getPrice($get('sku'), 'woo_price_try')),
+                                            ->state(fn(Get $get) => $alts[$get('sku')]->woo_price_try ?? null),
 
                                     ])->columns(),
 
