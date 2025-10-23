@@ -40,9 +40,9 @@ class SendMessage
 
                 $product = PlayStationAlt::where('sku', $item['sku'])->where('region_id', '063101db-9ac0-4e48-a948-29fe7e3f8dec')->first();
 
-                $price_with_discount = (($product?->price_with_discount ?? 0) / 100) * $item['count'];
+                $woo_price_try = (($product?->woo_price_try ?? 0) / 100) * $item['count'];
 
-                $message .= "{$item['sku']} - {$item['count']} шт. - {$price_with_discount} лир. итого \n";
+                $message .= "{$item['sku']} - {$item['count']} шт. - {$woo_price_try} лир. итого \n";
 
                 $message .= "Тип формы: {$product?->typeForm?->name} \n";
             }
