@@ -325,7 +325,7 @@ class OrderForm
                     ->schema([
                         TextInput::make('meta.generated_account.login')
                             ->label('Логин')
-                            ->readOnly()
+//                            ->readOnly()
                             ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
                                 $component->state(data_get($order_user_meta, 'generated_account.login', ''));
                             })
@@ -334,7 +334,7 @@ class OrderForm
                         TextInput::make('meta.generated_account.password')
                             ->label('Пароль')
                             ->password()
-                            ->readOnly()
+//                            ->readOnly()
                             ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
                                 $component->state(data_get($order_user_meta, 'generated_account.password', ''));
                             })
