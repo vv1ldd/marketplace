@@ -325,7 +325,7 @@ class OrderForm
                     ->schema([
                         TextInput::make('meta.generated_account.login')
                             ->label('Логин')
-//                            ->readOnly()
+                            ->readOnly($order->account_data_on_send)
                             ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
                                 $component->state(data_get($order_user_meta, 'generated_account.login', ''));
                             })
@@ -334,7 +334,7 @@ class OrderForm
                         TextInput::make('meta.generated_account.password')
                             ->label('Пароль')
                             ->password()
-//                            ->readOnly()
+                            ->readOnly($order->account_data_on_send)
                             ->afterStateHydrated(function (TextInput $component) use ($order_user_meta) {
                                 $component->state(data_get($order_user_meta, 'generated_account.password', ''));
                             })
@@ -344,6 +344,7 @@ class OrderForm
                         Textarea::make('meta.generated_account.codes')
                             ->label('2FA-коды')
                             ->columnSpanFull()
+                            ->readOnly($order->account_data_on_send)
                             ->disabled(fn(Get $get) => !$get('meta.generated_account.login') || !$get('meta.generated_account.password'))
                             ->afterStateHydrated(function (Textarea $component) use ($order_user_meta) {
                                 $component->state(data_get($order_user_meta, 'generated_account.codes'));
