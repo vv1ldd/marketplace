@@ -4,27 +4,42 @@ namespace App\Helpers;
 
 class NormalizePhone
 {
-    public static function normalize(string $phone): string
+    /**
+     * Преобразует любой номер в формат +79000000000
+     *
+     * @param string $phone
+     * @return string|null Возвращает нормализованный номер или null, если не удалось определить
+     */
+    public static function normalize(string $phone): ?string
     {
-        $phone = preg_replace('/\D+/', '', trim($phone));
+        // Удаляем все нецифровые символы
+        $digits = preg_replace('/\D+/', '', $phone);
 
-        // 11 цифр, начинается с 8 или 7 → Россия
-        if (strlen($phone) === 11 && preg_match('/^[78]/', $phone)) {
-            $phone = '7' . substr($phone, 1);
-            return '+' . $phone;
+        if (!$digits) {
+            return null;
         }
 
-        // 10 цифр → добавляем +7
-        if (strlen($phone) === 10) {
-            return '+7' . $phone;
+        // Если номер длиннее 11, берём только последние 11 цифр (например, при вводе с кодом страны 007)
+        if (strlen($digits) > 11) {
+            $digits = substr($digits, -11);
         }
 
-        // Уже начинается с 7 и длина 11 → просто добавляем +
-        if (strlen($phone) === 11 && str_starts_with($phone, '7')) {
-            return '+' . $phone;
+        // Если номер начинается с 8 и имеет длину 11 — заменяем 8 на 7
+        if (strlen($digits) === 11 && $digits[0] === '8') {
+            $digits[0] = '7';
         }
 
-        // Все остальные — просто добавляем +
-        return '+' . $phone;
+        // Если номер из 10 цифр (например, 9000000000) — добавляем 7 в начало
+        if (strlen($digits) === 10) {
+            $digits = '7' . $digits;
+        }
+
+        // Проверяем, что номер теперь имеет корректный формат (11 цифр и начинается с 7)
+        if (strlen($digits) === 11 && $digits[0] === '7') {
+            return '+' . $digits;
+        }
+
+        // Если не удалось привести к корректному виду — возвращаем null
+        return null;
     }
 }
