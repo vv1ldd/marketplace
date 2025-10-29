@@ -19,20 +19,28 @@ class UserController extends Controller
     {
         unset($data['phone']);
 
-        $user = User::where('phone', NormalizePhone::normalize($phone))->first();
+        $normalizedPhone = NormalizePhone::normalize($phone);
+        $user = User::where('phone', $normalizedPhone)->first();
+
+        if (isset($data['email'])) {
+            $exists = User::where('email', $data['email'])
+                ->when($user, fn($q) => $q->where('id', '!=', $user->id))
+                ->exists();
+
+            if ($exists) {
+                unset($data['email']);
+            }
+        }
 
         if ($user) {
             $user->update($data);
-
             return $user->refresh();
         }
 
         $rand_pass = Str::random(12);
 
-        //TODO send $rand_pass to email maybe
-
         return User::create([
-            'phone' => NormalizePhone::normalize($phone),
+            'phone' => $normalizedPhone,
             'ym_user_id' => $ym_user_id,
             ...$data,
             'password' => bcrypt($rand_pass),
