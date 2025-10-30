@@ -9,42 +9,32 @@ use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
-    /**
-     * @param string $phone
-     * @param array $data
-     * @param string|null $ym_user_id
-     * @return mixed
-     */
-    public static function updateOrCreate(string $phone, array $data, string $ym_user_id = null): mixed
+    public static function updateOrCreate(string $phone, array $data, ?string $ym_user_id = null): \App\Models\User
     {
-        unset($data['phone']);
-
         $normalizedPhone = NormalizePhone::normalize($phone);
-        $user = User::where('phone', $normalizedPhone)->first();
 
-        if (isset($data['email'])) {
-            $exists = User::where('email', $data['email'])
-                ->when($user, fn($q) => $q->where('id', '!=', $user->id))
-                ->exists();
-
-            if ($exists) {
-                unset($data['email']);
+        // Сначала попробуем найти по email
+        if (!empty($data['email'])) {
+            $existingByEmail = User::where('email', $data['email'])->first();
+            if ($existingByEmail) {
+                // Принудительно обновляем этого пользователя
+                $existingByEmail->update(array_merge($data, [
+                    'phone' => $normalizedPhone,
+                    'ym_user_id' => $ym_user_id,
+                ]));
+                return $existingByEmail->refresh();
             }
         }
 
-        if ($user) {
-            $user->update($data);
-            return $user->refresh();
-        }
-
-        $rand_pass = Str::random(12);
-
-        return User::create([
-            'phone' => $normalizedPhone,
-            'ym_user_id' => $ym_user_id,
-            ...$data,
-            'password' => bcrypt($rand_pass),
-        ]);
+        // Иначе — стандартный updateOrCreate по телефону
+        return User::updateOrCreate(
+            ['phone' => $normalizedPhone],
+            array_merge($data, [
+                'phone' => $normalizedPhone,
+                'ym_user_id' => $ym_user_id,
+                'password' => bcrypt(Str::random(12)),
+            ])
+        );
     }
 
     /**
