@@ -209,7 +209,6 @@ class OrderForm
                                             ->relationship('type', 'name')
                                             ->label('Тип заказа')
                                             ->live()
-                                            ->required()
                                             ->afterStateUpdated(function (Get $get, Set $set) {
                                                 $set('client_info.option.type_id', $get('type_id'));
                                             })
