@@ -175,8 +175,7 @@ class OrderForm
 
                                 DateTimePicker::make('activated_at')
                                     ->label('Дата активации')
-                                    ->hidden($is_executor || $is_support)
-                                    ->required(),
+                                    ->hidden($is_executor || $is_support),
 
                                 TextInput::make('key')
                                     ->hidden($is_executor || $is_support)
@@ -187,17 +186,13 @@ class OrderForm
 
                                 Grid::make(4)->schema([
                                     TextInput::make('client_info.first_name')
-                                        ->required()
                                         ->label('Имя'),
                                     TextInput::make('client_info.last_name')
-                                        ->required()
                                         ->label('Фамилия'),
                                     TextInput::make('client_info.email')
-                                        ->required()
                                         ->email()
                                         ->label('Email'),
                                     TextInput::make('client_info.phone')
-                                        ->required()
                                         ->mask('+79999999999')
                                         ->label('Телефон'),
                                 ])->columnSpanFull()->hidden($is_executor || $is_support),
