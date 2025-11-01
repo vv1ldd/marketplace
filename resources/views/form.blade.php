@@ -348,25 +348,31 @@
             function formatPhone(raw) {
                 let digits = onlyDigits(raw);
 
-                // Если начинается с 8 — заменяем на 7
-                if (digits.startsWith('8')) digits = '7' + digits.slice(1);
+                // Если первая цифра — 8, заменяем её на 7
+                if (digits.startsWith('8')) {
+                    digits = '7' + digits.slice(1);
+                }
 
-                // Если начинается с 9 или другой цифры — добавляем 7
-                if (!digits.startsWith('7')) digits = '7' + digits;
+                // Если начинается с 9 — добавляем 7 в начало
+                else if (digits.startsWith('9')) {
+                    digits = '7' + digits;
+                }
+
+                // Если начинается с чего-то другого, но не 7, добавляем 7 (чтобы было +7)
+                else if (!digits.startsWith('7')) {
+                    digits = '7' + digits;
+                }
 
                 digits = digits.slice(0, 11); // максимум 11 цифр
 
-                const national = digits.slice(1);
+                const national = digits.slice(1); // 10 цифр после 7
                 const nLen = national.length;
 
                 let res = '+7';
-
                 if (nLen > 0) {
                     res += ' (' + national.slice(0, Math.min(3, nLen));
-                    // закрывающая скобка появляется только если ввели все 3 цифры
-                    if (nLen >= 3) res += ')';
+                    if (nLen >= 3) res += ')'; // закрывающая скобка только после 3 цифр
                 }
-
                 if (nLen > 3) res += ' ' + national.slice(3, Math.min(6, nLen));
                 if (nLen > 6) res += '-' + national.slice(6, Math.min(8, nLen));
                 if (nLen > 8) res += '-' + national.slice(8, Math.min(10, nLen));
@@ -375,13 +381,13 @@
             }
 
             function onInput(e) {
-                const start = input.selectionStart;
-                const oldValue = input.value;
-                input.value = formatPhone(oldValue);
+                const cursor = input.selectionStart;
+                const formatted = formatPhone(input.value);
+                input.value = formatted;
 
-                // при удалении не двигаем курсор
+                // При удалении — не двигаем курсор
                 if (e.inputType === 'deleteContentBackward') {
-                    input.setSelectionRange(start, start);
+                    input.setSelectionRange(cursor, cursor);
                 } else {
                     input.setSelectionRange(input.value.length, input.value.length);
                 }
@@ -393,13 +399,11 @@
             }
 
             function onFocus() {
-                // не добавляем ничего автоматически
-                // пусть пользователь начнёт с 9 — маска подставит +7 (9...
+                // ничего не добавляем, поле пустое при начале ввода
             }
 
             function onBlur() {
                 const digits = onlyDigits(input.value);
-                // если ввели меньше 4 цифр (примерно +7 (9) ) — очищаем поле
                 if (digits.length <= 3) {
                     input.value = '';
                 } else {
