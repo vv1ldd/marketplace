@@ -348,25 +348,31 @@
             function formatPhone(raw) {
                 let digits = onlyDigits(raw);
 
-                // Если начинается с 8 — заменяем на 7
+                // Если начинается с 8 → заменяем на 7
                 if (digits.startsWith('8')) digits = '7' + digits.slice(1);
 
-                // Если начинается с 9 или другой цифры — добавляем 7
+                // Если нет 7 в начале → добавляем
                 if (!digits.startsWith('7')) digits = '7' + digits;
+
+                // После 7 обязательно должна идти 9 (мобильный)
+                if (digits.length >= 2 && digits[1] !== '9') {
+                    digits = '79' + digits.slice(2);
+                }
 
                 digits = digits.slice(0, 11); // максимум 11 цифр
 
-                const national = digits.slice(1);
+                const national = digits.slice(1); // 10 цифр (после 7)
                 const nLen = national.length;
 
                 let res = '+7';
                 if (nLen > 0) {
-                    res += ' (' + national.slice(0, Math.min(4, nLen));
-                    if (nLen >= 4) res += ')';
+                    // первые 3 цифры — код оператора (обязательно 9XX)
+                    res += ' (' + national.slice(0, Math.min(3, nLen));
+                    if (nLen >= 3) res += ')';
                 }
-                if (nLen > 4) res += ' ' + national.slice(4, Math.min(7, nLen));
-                if (nLen > 7) res += '-' + national.slice(7, Math.min(9, nLen));
-                if (nLen > 9) res += '-' + national.slice(9, Math.min(11, nLen));
+                if (nLen > 3) res += ' ' + national.slice(3, Math.min(6, nLen));
+                if (nLen > 6) res += '-' + national.slice(6, Math.min(8, nLen));
+                if (nLen > 8) res += '-' + national.slice(8, Math.min(10, nLen));
 
                 return res;
             }
@@ -383,14 +389,15 @@
 
             function onFocus() {
                 if (!input.value.trim()) {
-                    input.value = '+7 (';
+                    input.value = '+7 (9';
                     input.setSelectionRange(input.value.length, input.value.length);
                 }
             }
 
             function onBlur() {
                 const digits = onlyDigits(input.value);
-                if (digits.length <= 1) input.value = '';
+                // Если пользователь не набрал ничего кроме "+7 (9", очищаем
+                if (digits.length <= 2) input.value = '';
             }
 
             input.addEventListener('input', onInput);
