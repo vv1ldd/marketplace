@@ -337,39 +337,66 @@
             });
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const phoneInput = document.getElementById('phone');
-            let previousValue = '';
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('phone');
+            if (!input) return;
 
-            phoneInput.addEventListener('input', function(e) {
-                let value = phoneInput.value.replace(/\D/g, '');
+            function onlyDigits(str) {
+                return str.replace(/\D/g, '');
+            }
 
-                // Если просто удаление — не форматируем заново
-                if (value.length < previousValue.replace(/\D/g, '').length) {
-                    previousValue = phoneInput.value;
-                    return;
+            function formatPhone(raw) {
+                let digits = onlyDigits(raw);
+
+                // Если начинается с 8 — заменяем на 7
+                if (digits.startsWith('8')) digits = '7' + digits.slice(1);
+
+                // Если начинается с 9 или другой цифры — добавляем 7
+                if (!digits.startsWith('7')) digits = '7' + digits;
+
+                digits = digits.slice(0, 11); // максимум 11 цифр
+
+                const national = digits.slice(1);
+                const nLen = national.length;
+
+                let res = '+7';
+                if (nLen > 0) {
+                    res += ' (' + national.slice(0, Math.min(4, nLen));
+                    if (nLen >= 4) res += ')';
                 }
+                if (nLen > 4) res += ' ' + national.slice(4, Math.min(7, nLen));
+                if (nLen > 7) res += '-' + national.slice(7, Math.min(9, nLen));
+                if (nLen > 9) res += '-' + national.slice(9, Math.min(11, nLen));
 
-                if (value.startsWith('8')) value = '7' + value.slice(1);
-                if (value.length > 11) value = value.slice(0, 11);
+                return res;
+            }
 
-                let formatted = '+7';
-                if (value.length > 1) formatted += ' (' + value.slice(1, 4);
-                if (value.length >= 4) formatted += ') ' + value.slice(4, 7);
-                if (value.length >= 7) formatted += '-' + value.slice(7, 9);
-                if (value.length >= 9) formatted += '-' + value.slice(9, 11);
+            function onInput() {
+                input.value = formatPhone(input.value);
+                input.setSelectionRange(input.value.length, input.value.length);
+            }
 
-                phoneInput.value = formatted;
-                previousValue = formatted;
-            });
+            function onPaste(e) {
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                if (!/\d/.test(text)) e.preventDefault();
+            }
 
-            phoneInput.addEventListener('blur', function() {
-                if (phoneInput.value.length < 18) {
-                    phoneInput.setCustomValidity('Введите номер полностью');
-                } else {
-                    phoneInput.setCustomValidity('');
+            function onFocus() {
+                if (!input.value.trim()) {
+                    input.value = '+7 (';
+                    input.setSelectionRange(input.value.length, input.value.length);
                 }
-            });
+            }
+
+            function onBlur() {
+                const digits = onlyDigits(input.value);
+                if (digits.length <= 1) input.value = '';
+            }
+
+            input.addEventListener('input', onInput);
+            input.addEventListener('paste', onPaste);
+            input.addEventListener('focus', onFocus);
+            input.addEventListener('blur', onBlur);
         });
     </script>
 @endsection
