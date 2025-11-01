@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\GenerateSecureCode;
+use App\Helpers\NormalizePhone;
 use App\Http\Services\YmService;
 use App\Jobs\SendTelegramJob;
 use App\Models\Order\Order;
@@ -36,7 +37,7 @@ class OrderController extends Controller
 
         $client_info = [
             'email' => $order['billing_email'],
-            'phone' => $order['billing_phone'],
+            'phone' => NormalizePhone::normalize($order['billing_phone']),
             'lastName' => $order['billing_last_name'],
             'firstName' => $order['billing_first_name'],
         ];
