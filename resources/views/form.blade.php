@@ -348,16 +348,11 @@
             function formatPhone(raw) {
                 let digits = onlyDigits(raw);
 
-                // Если начинается с 8 → заменяем на 7
+                // Если начинается с 8 — заменяем на 7
                 if (digits.startsWith('8')) digits = '7' + digits.slice(1);
 
-                // Если нет 7 в начале → добавляем
+                // Если начинается с 9 или другой цифры — добавляем 7
                 if (!digits.startsWith('7')) digits = '7' + digits;
-
-                // После 7 обязательно должна идти 9 (мобильный)
-                if (digits.length >= 2 && digits[1] !== '9') {
-                    digits = '79' + digits.slice(2);
-                }
 
                 digits = digits.slice(0, 11); // максимум 11 цифр
 
@@ -366,7 +361,7 @@
 
                 let res = '+7';
                 if (nLen > 0) {
-                    // первые 3 цифры — код оператора (обязательно 9XX)
+                    // первые 3 цифры — код (в скобках)
                     res += ' (' + national.slice(0, Math.min(3, nLen));
                     if (nLen >= 3) res += ')';
                 }
@@ -378,7 +373,8 @@
             }
 
             function onInput() {
-                input.value = formatPhone(input.value);
+                const formatted = formatPhone(input.value);
+                input.value = formatted;
                 input.setSelectionRange(input.value.length, input.value.length);
             }
 
@@ -389,15 +385,14 @@
 
             function onFocus() {
                 if (!input.value.trim()) {
-                    input.value = '+7 (9';
+                    input.value = '+7 (';
                     input.setSelectionRange(input.value.length, input.value.length);
                 }
             }
 
             function onBlur() {
                 const digits = onlyDigits(input.value);
-                // Если пользователь не набрал ничего кроме "+7 (9", очищаем
-                if (digits.length <= 2) input.value = '';
+                if (digits.length <= 1) input.value = '';
             }
 
             input.addEventListener('input', onInput);
