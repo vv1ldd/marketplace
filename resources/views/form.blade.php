@@ -356,15 +356,17 @@
 
                 digits = digits.slice(0, 11); // максимум 11 цифр
 
-                const national = digits.slice(1); // 10 цифр (после 7)
+                const national = digits.slice(1);
                 const nLen = national.length;
 
                 let res = '+7';
+
                 if (nLen > 0) {
-                    // первые 3 цифры — код (в скобках)
                     res += ' (' + national.slice(0, Math.min(3, nLen));
+                    // закрывающая скобка появляется только если ввели все 3 цифры
                     if (nLen >= 3) res += ')';
                 }
+
                 if (nLen > 3) res += ' ' + national.slice(3, Math.min(6, nLen));
                 if (nLen > 6) res += '-' + national.slice(6, Math.min(8, nLen));
                 if (nLen > 8) res += '-' + national.slice(8, Math.min(10, nLen));
@@ -372,10 +374,17 @@
                 return res;
             }
 
-            function onInput() {
-                const formatted = formatPhone(input.value);
-                input.value = formatted;
-                input.setSelectionRange(input.value.length, input.value.length);
+            function onInput(e) {
+                const start = input.selectionStart;
+                const oldValue = input.value;
+                input.value = formatPhone(oldValue);
+
+                // при удалении не двигаем курсор
+                if (e.inputType === 'deleteContentBackward') {
+                    input.setSelectionRange(start, start);
+                } else {
+                    input.setSelectionRange(input.value.length, input.value.length);
+                }
             }
 
             function onPaste(e) {
@@ -384,15 +393,18 @@
             }
 
             function onFocus() {
-                if (!input.value.trim()) {
-                    input.value = '+7 (';
-                    input.setSelectionRange(input.value.length, input.value.length);
-                }
+                // не добавляем ничего автоматически
+                // пусть пользователь начнёт с 9 — маска подставит +7 (9...
             }
 
             function onBlur() {
                 const digits = onlyDigits(input.value);
-                if (digits.length <= 1) input.value = '';
+                // если ввели меньше 4 цифр (примерно +7 (9) ) — очищаем поле
+                if (digits.length <= 3) {
+                    input.value = '';
+                } else {
+                    input.value = formatPhone(input.value);
+                }
             }
 
             input.addEventListener('input', onInput);
