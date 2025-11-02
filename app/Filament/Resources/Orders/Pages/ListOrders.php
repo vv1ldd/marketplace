@@ -28,7 +28,7 @@ class ListOrders extends ListRecords
                 'all' => Tab::make('Все')->badge(fn() => Order::count()),
                 'Не обработаны' => Tab::make()
                     ->badge(fn() => Order::where('progress_id', '<>', 4)->count())
-                    ->modifyQueryUsing(fn(Builder $query) => $query->where('progress_id', '<>', 4)),
+                    ->modifyQueryUsing(fn(Builder $query) => $query->where('progress_id', '<>', 4)->where('is_problem', false)),
                 'Проблемные' => Tab::make()
                     ->badge(fn() => Order::where('is_problem', true)->count())
                     ->badgeColor('danger')

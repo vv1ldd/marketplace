@@ -41,10 +41,10 @@ class EditOrder extends EditRecord
         ];
     }
 
-//    protected function getRedirectUrl(): string
-//    {
-//        return $this->getResource()::getUrl('index');
-//    }
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 
     public static function canAccess(array $parameters = []): bool
     {
