@@ -7,8 +7,11 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class OrdersTable
@@ -17,6 +20,7 @@ class OrdersTable
     {
         $is_executor = auth()->user()->hasRole('executor');
         $is_support = auth()->user()->hasRole('support');
+        $is_super_admin = auth()->user()->hasRole('super_admin');
 
         return $table
             ->columns([
@@ -25,12 +29,13 @@ class OrdersTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('order_id')->label('Номер источника')
+                    ->searchable()
                     ->hidden($is_executor || $is_support)
                     ->copyable(),
                 TextColumn::make('status')->label('Статус источника')
                     ->hidden($is_executor || $is_support),
-                TextColumn::make('order_items_count')->label('Товаров')
-                    ->getStateUsing(fn($record) => $record->items()->count()),
+//                TextColumn::make('order_items_count')->label('Товаров')
+//                    ->getStateUsing(fn($record) => $record->items()->count()),
                 TextColumn::make('user.id')
                     ->label('Юзер')
                     ->hidden($is_executor || $is_support)
@@ -61,25 +66,35 @@ class OrdersTable
                     ->limitList(1)
                     ->badge(),
                 TextColumn::make('created_at')->label('Создан')->dateTime('d.m.Y H:i:s'),
-                TextColumn::make('assigned_at')->label('Взят')->dateTime('d.m.Y H:i:s'),
+                TextColumn::make('assigned_at')->label('Взят')
+                    ->visible($is_super_admin)
+                    ->dateTime('d.m.Y H:i:s'),
                 TextColumn::make('updated_at')->label('Обновлен')->dateTime('d.m.Y H:i:s')
                     ->hidden($is_executor || $is_support),
             ])
             ->filters([
-                //
-            ])
+                SelectFilter::make('progress')
+                    ->label('Прогресс')
+                    ->multiple()
+                    ->relationship('progress', 'name')
+                    ->attribute('progress_id')
+                    ->visible($is_super_admin),
+            ], layout: FiltersLayout::AboveContent)
+            ->persistFiltersInSession()
             ->recordActions([
                 EditAction::make(),
                 ViewAction::make(),
             ])
+            ->deferFilters(false)
             ->defaultSort('id', 'desc')
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->poll('10s')
             ->paginationPageOptions([
-                25, 50, 100
+                20, 25, 50, 100,
             ]);
     }
 }

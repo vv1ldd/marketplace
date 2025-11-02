@@ -27,7 +27,7 @@ class ListOrders extends ListRecords
             return [
                 'all' => Tab::make('Все')->badge(fn() => Order::count()),
                 'Не обработаны' => Tab::make()
-                    ->badge(fn() => Order::where('progress_id', '<>', 4)->count())
+                    ->badge(fn() => Order::where('progress_id', '<>', 4)->where('is_problem', false)->count())
                     ->modifyQueryUsing(fn(Builder $query) => $query->where('progress_id', '<>', 4)->where('is_problem', false)),
                 'Проблемные' => Tab::make()
                     ->badge(fn() => Order::where('is_problem', true)->count())
@@ -49,7 +49,7 @@ class ListOrders extends ListRecords
         if ($is_executor) {
             return $table->modifyQueryUsing(fn($query) => $query->where('assigned_user_id', $user_id)->where('is_problem', false)->where('progress_id', '<>', 4));
         } else if ($is_support) {
-            return $table->modifyQueryUsing(fn($query) => $query->where('assigned_user_id', $user_id)->where('is_problem', true)->where('progress_id', '<>', 4));
+            return $table->modifyQueryUsing(fn($query) => $query->where('is_problem', true)->where('progress_id', '<>', 4));
         } else {
             return $table;
         }
@@ -60,59 +60,63 @@ class ListOrders extends ListRecords
         $is_executor = auth()->user()->hasRole('executor');
         $is_support = auth()->user()->hasRole('support');
 
-        return [
-            ...($is_executor || $is_support ? [
-                Action::make('takeOrder')
-                    ->label('Взять заказ')
+        $action = CreateAction::make();
+
+        if ($is_executor) {
+            $action = Action::make('takeOrder')
+                ->label('Взять заказ')
 //                    ->form(function () {
 //                        return [
 //                            TextInput::make('comment')
 //                        ];
 //                    })
-                    ->action(function () use ($is_support, $is_executor) {
+                ->action(function () use ($is_support, $is_executor) {
 
-                        if ($is_executor) {
+                    if ($is_executor) {
 
-                            $check_limit = Order::checkLimit()->count();
+                        $check_limit = Order::checkLimit()->count();
 
-                            if ($check_limit >= 1) {
+                        if ($check_limit >= 1) {
 
-                                Notification::make()
-                                    ->warning()
-                                    ->title('Завершите обработку уже взятых заказов, чтобы взять новый.')
-                                    ->send();
-
-                                return;
-                            }
-
-                            $order = Order::availableForExecutor()->first();
-                        } else if ($is_support) {
-                            $order = Order::availableForSupport()->first();
-                        }
-
-                        if (!$order) {
                             Notification::make()
                                 ->warning()
-                                ->title('Нет доступных заказов')
+                                ->title('Завершите обработку уже взятых заказов, чтобы взять новый.')
                                 ->send();
 
                             return;
                         }
 
-                        $order->update([
-                            'assigned_user_id' => auth()->id(),
-                            'assigned_at' => now()
-                        ]);
+                        $order = Order::availableForExecutor()->first();
+                    } else if ($is_support) {
+                        $order = Order::availableForSupport()->first();
+                    }
 
+                    if (!$order) {
                         Notification::make()
-                            ->success()
-                            ->title("Заказ #{$order->id} взят")
+                            ->warning()
+                            ->title('Нет доступных заказов')
                             ->send();
 
-                        // Используем Livewire redirect, если это действие в Widget или Page
-                        return redirect()->to("/orders/{$order->id}/edit");
-                    })
-            ] : [CreateAction::make()])
-        ];
+                        return;
+                    }
+
+                    $order->update([
+                        'assigned_user_id' => auth()->id(),
+                        'assigned_at' => now()
+                    ]);
+
+                    Notification::make()
+                        ->success()
+                        ->title("Заказ #{$order->id} взят")
+                        ->send();
+
+                    // Используем Livewire redirect, если это действие в Widget или Page
+                    return redirect()->to("/orders/{$order->id}/edit");
+                });
+        } else if ($is_support) {
+            $action = Action::make('takeOrder')->hidden();
+        }
+
+        return [$action];
     }
 }

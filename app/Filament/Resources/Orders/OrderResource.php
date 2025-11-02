@@ -34,8 +34,12 @@ class OrderResource extends Resource
 
         $query = static::$model::where('progress_id', '<>', 4);
 
-        if ($is_executor || $is_support) {
+        if ($is_executor) {
             $query->where('assigned_user_id', auth()->user()->id);
+        }
+
+        if($is_support) {
+            $query->where('is_problem', true)->where('progress_id', '<>', 4);
         }
 
         return $query->count();
