@@ -142,7 +142,6 @@ class WooNewOrders extends Command
                     Order::where('id', $result['order_id'])->update([
                         'status' => 'wc-completed',
                         'sub_status' => 'wc-completed',
-                        'code_activated' => true
                     ]);
 
                     $log->info("Заказ в системе обновлен");
