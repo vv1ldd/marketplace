@@ -119,7 +119,6 @@ class OrderForm
                             ->maxItems(100)
                             ->addActionLabel('Добавить товар')
                             ->addable(!$is_executor)
-                            ->minItems(1)
                             ->truncateItemLabel()
                             ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
                                 ->value('name') ?? null)
