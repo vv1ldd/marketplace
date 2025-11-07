@@ -55,7 +55,6 @@ class OrderForm
                             ->required($is_create),
                         Select::make('user_id')
                             ->relationship('user', 'email')
-                            ->required()
                             ->hidden($is_executor || $is_support)
                             ->label('Юзер'),
                         Select::make('progress_id')
