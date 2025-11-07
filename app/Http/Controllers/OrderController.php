@@ -176,7 +176,7 @@ class OrderController extends Controller
                 } else {
                     $log->debug('product found by sku', [$product]);
 
-                    $product->update([
+                    PlayStationAlt::where('sku', $sku)->update([
                         'woo_price_rub' => data_get($item, 'product._line_total') * 100,
                         'woo_price_try' => data_get($item, 'meta._price_try') * 100,
                     ]);
