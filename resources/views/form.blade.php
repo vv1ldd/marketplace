@@ -258,7 +258,7 @@
                         </div>
                     </div>
                 </div>
-                @if($type_form_id === 1)
+                @if($type_form_id !== 1)
                     <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
                         Отправим подарочную карту для PlayStation Network на ваш указанный Email
                     </p>
