@@ -215,7 +215,7 @@
             @endif
 
             <div>
-                <div class="flex sm:flex-row justify-between gap-3 flex-col">
+                <div class="flex sm:flex-row justify-between gap-3 flex-col mb-3">
                     <div class="w-full">
                         <div>
                             <label class="block text-sm text-zinc-300 mb-1" for="phone">Телефон<span
