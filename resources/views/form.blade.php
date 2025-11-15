@@ -214,51 +214,53 @@
                 </div>
             @endif
 
-            <div class="flex sm:flex-row justify-between gap-3 flex-col">
-                <div class="w-full">
-                    <div>
-                        <label class="block text-sm text-zinc-300 mb-1" for="phone">Телефон<span
-                                class="text-red-500">*</span></label>
-                        <input
-                            id="phone"
-                            type="tel"
-                            placeholder="+7 (___) ___-__-__"
-                            pattern="^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$"
-                            autocomplete="tel"
-                            name="phone"
-                            value="{{ old('phone') }}"
-                            tabindex="3"
-                            required
-                            class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
-                        />
-                        @error('phone')
-                        <p class="text-red-500 text-sm">{{ $message }}</p>
-                        @enderror
+            <div>
+                <div class="flex sm:flex-row justify-between gap-3 flex-col">
+                    <div class="w-full">
+                        <div>
+                            <label class="block text-sm text-zinc-300 mb-1" for="phone">Телефон<span
+                                    class="text-red-500">*</span></label>
+                            <input
+                                id="phone"
+                                type="tel"
+                                placeholder="+7 (___) ___-__-__"
+                                pattern="^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$"
+                                autocomplete="tel"
+                                name="phone"
+                                value="{{ old('phone') }}"
+                                tabindex="3"
+                                required
+                                class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                            />
+                            @error('phone')
+                            <p class="text-red-500 text-sm">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="w-full">
+                        <div>
+                            <label class="block text-sm text-zinc-300 mb-1" for="email">Email<span
+                                    class="text-red-500">*</span></label>
+                            <input
+                                id="email"
+                                type="email"
+                                name="email"
+                                placeholder="you@example.com"
+                                autocomplete="email"
+                                tabindex="4"
+                                value="{{ old('email') }}"
+                                required
+                                class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                            />
+                            @error('email')
+                            <p class="text-red-500 text-sm">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
                 </div>
-                <div class="w-full">
-                    <div>
-                        <label class="block text-sm text-zinc-300 mb-1" for="email">Email<span
-                                class="text-red-500">*</span></label>
-                        <input
-                            id="email"
-                            type="email"
-                            name="email"
-                            placeholder="you@example.com"
-                            autocomplete="email"
-                            tabindex="4"
-                            value="{{ old('email') }}"
-                            required
-                            class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
-                        />
-                        @error('email')
-                        <p class="text-red-500 text-sm">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
-                        Отправим подарочную карту для PlayStation Network на ваш указанный Email
-                    </p>
-                </div>
+                <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
+                    Отправим подарочную карту для PlayStation Network на ваш указанный Email
+                </p>
             </div>
             <button
                 type="submit"
