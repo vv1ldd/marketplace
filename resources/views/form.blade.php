@@ -255,10 +255,10 @@
                         <p class="text-red-500 text-sm">{{ $message }}</p>
                         @enderror
                     </div>
+                    <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
+                        Отправим подарочную карту для PlayStation Network на ваш указанный Email
+                    </p>
                 </div>
-                <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
-                    Отправим подарочную карту для PlayStation Network на ваш указанный Email
-                </p>
             </div>
             <button
                 type="submit"
