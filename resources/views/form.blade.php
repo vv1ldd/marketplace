@@ -258,9 +258,11 @@
                         </div>
                     </div>
                 </div>
-                <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
-                    Отправим подарочную карту для PlayStation Network на ваш указанный Email
-                </p>
+                @if($type_form_id === 1)
+                    <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
+                        Отправим подарочную карту для PlayStation Network на ваш указанный Email
+                    </p>
+                @endif
             </div>
             <button
                 type="submit"
