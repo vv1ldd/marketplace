@@ -65,7 +65,7 @@ class ListOrders extends ListRecords
         if ($is_executor) {
             $action = Action::make('takeOrder')
                 ->label('Взять заказ')
-//                    ->form(function () {
+//                    ->redeem(function () {
 //                        return [
 //                            TextInput::make('comment')
 //                        ];

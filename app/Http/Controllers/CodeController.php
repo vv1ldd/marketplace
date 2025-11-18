@@ -7,24 +7,45 @@ use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\Factory;
+use Illuminate\View\View;
 
 class CodeController extends Controller
 {
-
-    public function getFinishView(Request $request)
+    public function checkEmail(Request $request): View|Factory|RedirectResponse
     {
-        $data = $request->validate(['is_frame' => 'nullable|string|in:1,0',]);
+        $data = $request->validate(['email' => 'required|email']);
 
-        return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
+        if (!session()->has('order_item_info')) {
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
+        }
+
+        session()->put('user_exists', User::where('email', $data['email'])->exists());
+
+        return redirect()->temporarySignedRoute('redeem.step3', now()->addHours());
+    }
+
+    public function getEmailView(Request $request): View|Factory|RedirectResponse
+    {
+        if (!$request->hasValidSignature()) {
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
+        }
+
+        return view('redeem.step2');
+    }
+
+    public function getFinishView(Request $request): Factory|View
+    {
+        return view('redeem.finish');
     }
 
     public function sendForm(Request $request)
     {
         $data = $request->validate([
-            'uuid' => 'required|uuid',
-            'is_frame' => 'nullable|string|in:1,0',
             'first_name' => 'required|string|min:2|max:100',
             'last_name' => 'required|string|min:2|max:100',
             'email' => 'required|email',
@@ -33,32 +54,36 @@ class CodeController extends Controller
             'option.0.check' => 'nullable|string|in:on',
             'option.0.ps_network_id' => 'required_if:option.0.check,on|email',
             'option.0.ps_network_password' => 'required_if:option.0.check,on|string|min:6|max:32',
-            'option.0.ps_2fa_code' => 'nullable|string|min:6|max:32',
+            'option.0.ps_2fa_code' => 'required_if:option.0.check,on|string|min:6|max:32',
 
             'option.1.check' => 'nullable|string|in:on',
             'option.1.ps_birthday' => 'required_if:option.1.check,on|date_format:Y-m-d',
-
-            'type_form_id' => 'nullable|numeric|in:1,2',
         ]);
+
+        if (!session()->has('order_item_info')) {
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
+        }
+
+        $data['uuid'] = session('order_item_info')['uuid'];
 
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
         if ($order_item->is_activated) {
-            return redirect()->route('redeem')->withErrors(['code' => 'Код уже активирован']);
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Код уже активирован']);
         }
 
         if (!$order_item->is_redeemed) {
-            return redirect()->route('redeem')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
         if ($order_item->activate_till < now()) {
-            return redirect()->route('redeem')->withErrors(['code' => 'Код уже истек']);
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Код уже истек']);
         }
 
         $order = Order::where('id', $order_item->order_id)->first();
 
         if (!$order) {
-            return redirect()->route('redeem')->withErrors(['code' => 'Заказ не найден']);
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Заказ не найден']);
         }
 
         $option_0 = data_get($data, 'option.0');
@@ -107,37 +132,38 @@ class CodeController extends Controller
 
         SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
 
-        return view('finish', ['is_frame' => (bool)data_get($data, 'is_frame')]);
+        return view('finish');
     }
 
     public function getViewForm(Request $request)
     {
-        $data = $request->validate(['uuid' => 'required|uuid', 'is_frame' => 'nullable|string|in:1,0']);
-
-        if (!$request->hasValidSignature()) {
-            return redirect()->route('redeem')->withErrors(['code' => 'Необходимо заново ввести код']);
+        if (!$request->hasValidSignature() || !session()->has('order_item_info')) {
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
+
+        $data = [
+            'uuid' => session('order_item_info')['uuid'],
+        ];
 
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
         if (!$order_item) {
-            return view('redeem', ['is_frame' => (bool)data_get($data, 'is_frame')])->withErrors(['code' => 'Введен неверный или несуществующий код']);
+            return view('redeem')->withErrors(['code' => 'Введен неверный или несуществующий код']);
         }
 
         $order = Order::find($order_item->order_id);
 
         if (!$order) {
-            return view('redeem', ['is_frame' => (bool)data_get($data, 'is_frame')])->withErrors(['code' => 'Заказ не был найден']);
+            return view('redeem')->withErrors(['code' => 'Заказ не был найден']);
         }
 
-        return view('form', ['uuid' => $data['uuid'], 'is_frame' => (bool)data_get($data, 'is_frame'), 'client_info' => $order->client_info, 'type_form_id' => $order_item->type_form_id]);
+        return view('redeem.step3', ['client_info' => $order->client_info]);
     }
 
     public function checkCode(Request $request)
     {
         $data = $request->validate([
             'code' => 'required|string|regex:/^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/',
-            'is_frame' => 'nullable|string|in:1,0',
         ]);
 
         $order_item = OrderItems::where('key', $data['code'])->first();
@@ -146,7 +172,7 @@ class CodeController extends Controller
             return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
         }
 
-        if($order_item->is_activated) {
+        if ($order_item->is_activated) {
             return redirect()->route('redeem')->withErrors(['code' => 'Код уже успешно активирован. Мы свяжемся с Вами.']);
         }
 
@@ -162,10 +188,15 @@ class CodeController extends Controller
 
         $order_item->update(['is_redeemed' => true]);
 
-        return redirect()->temporarySignedRoute('form', now()->addHours(), ['uuid' => $order_item->uuid, 'is_frame' => (bool)data_get($data, 'is_frame'), 'type_form_id' => $order_item->type_form_id]);
+        session()->put('order_item_info', [
+            'uuid' => $order_item->uuid,
+            'type_form_id' => $order_item->type_form_id,
+        ]);
+
+        return redirect()->temporarySignedRoute('redeem.step2', now()->addHours());
     }
 
-    public function getCodeView(Request $request)
+    public function getCodeView(Request $request): \Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
     {
         try {
             $data = $request->validate(['is_frame' => 'nullable|string|in:1,0']);
@@ -185,6 +216,8 @@ class CodeController extends Controller
             abort(403);
         }
 
-        return view('redeem', ['is_frame' => (bool)data_get($data, 'is_frame')]);
+        session()->put('is_frame', (bool)data_get($data, 'is_frame'));
+
+        return view('redeem.step1');
     }
 }

@@ -1,15 +1,15 @@
 @extends('layouts.app')
 
-@section('title', 'Проверка и активация кода')
+@section('title', 'Шаг 1. Введите полученный код')
 
 @section('content')
     <div
-        class="w-full bg-zinc-800 border border-zinc-700 @if(!$is_frame) max-w-xl rounded-2xl @endif shadow-xl sm:p-8 p-4">
-        <h2 class="text-2xl font-bold text-white mb-6 text-center">Введите полученный код</h2>
-        <form class="space-y-5" method="POST" action="{{ route('redeem-send') }}">
+        class="w-full bg-zinc-800 border border-zinc-700 @if(!session('is_frame')) max-w-xl rounded-2xl @endif shadow-xl sm:p-8 p-4">
+        <h2 class="text-2xl font-bold text-white mb-6 text-center">Шаг 1. Введите полученный код</h2>
+        <form class="space-y-5" method="POST" action="{{ route('redeem.step1') }}">
             @csrf
             <div class="w-full">
-                @if($is_frame)
+                @if(session('is_frame'))
                     <input hidden name="is_frame" value="1"/>
                 @endif
                     <label class="block text-sm text-zinc-300 mb-1" for="first_name">В формате 1GROS-XXXX-XXXX-XXXX<span
@@ -49,6 +49,20 @@
         const input = document.getElementById('code');
         const staticPrefix = '1GROS-';
 
+        function formatCode(raw) {
+            raw = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+            // убираем префикс, если случайно вставлен
+            raw = raw.replace(/^1GROS/i, '');
+
+            let parts = [];
+            for (let i = 0; i < 12 && i < raw.length; i += 4) {
+                parts.push(raw.substring(i, i + 4));
+            }
+
+            return staticPrefix + parts.join('-');
+        }
+
         input.addEventListener('focus', () => {
             if (!input.value.startsWith(staticPrefix)) {
                 input.value = staticPrefix;
@@ -57,30 +71,19 @@
 
         input.addEventListener('paste', (e) => {
             e.preventDefault();
-
-            const pastedData = (e.clipboardData || window.clipboardData).getData('text').toUpperCase();
-
-            let value = pastedData.replace(/^1GROS-?/i, '').replace(/[^A-Z0-9]/g, '');
-
-            const parts = [];
-            for (let i = 0; i < 12 && i < value.length; i += 4) {
-                parts.push(value.substring(i, i + 4));
-            }
-
-            input.value = staticPrefix + parts.join('-');
+            const pasted = (e.clipboardData || window.clipboardData).getData('text');
+            input.value = formatCode(pasted);
         });
 
         input.addEventListener('input', () => {
-            let value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const caretPos = input.selectionStart;
+            const before = input.value;
 
-            value = value.replace(/^1GROS/, '');
+            input.value = formatCode(before);
 
-            const parts = [];
-            for (let i = 0; i < 12 && i < value.length; i += 4) {
-                parts.push(value.substring(i, i + 4));
-            }
-
-            input.value = staticPrefix + parts.join('-');
+            // Мягкий возврат курсора
+            const diff = input.value.length - before.length;
+            input.selectionEnd = input.selectionStart = caretPos + diff;
         });
     </script>
 @endSection
