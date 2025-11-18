@@ -132,7 +132,7 @@ class CodeController extends Controller
 
         SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
 
-        return view('finish');
+        return view('redeem.finish');
     }
 
     public function getViewForm(Request $request)
