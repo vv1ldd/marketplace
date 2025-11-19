@@ -6,7 +6,7 @@
     <div
         class="w-full bg-zinc-800 border border-zinc-700 @if(!session('is_frame')) max-w-xl rounded-2xl @endif shadow-xl sm:p-8 p-4">
         <h2 class="text-2xl font-bold text-white mb-6 text-center">Шаг 1. Введите полученный код</h2>
-        <form class="space-y-5" method="POST" action="{{ route('redeem.step1') }}">
+        <form class="space-y-5" method="POST" action="{{ route('redeem.step1.submit') }}">
             @csrf
             <div class="w-full">
                 @if(session('is_frame'))

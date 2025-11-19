@@ -10,13 +10,13 @@ Route::group(['middleware' => [AllowIframeForRoute::class]], function () {
         Route::get('/', fn() => redirect()->route('redeem.step1'));
 
         Route::get('step1', [CodeController::class, 'getCodeView'])->name('redeem.step1');
-        Route::post('step1', [CodeController::class, 'checkCode'])->name('redeem.step1')->middleware('throttle:30,1');
+        Route::post('step1', [CodeController::class, 'checkCode'])->name('redeem.step1.submit')->middleware('throttle:30,1');
 
         Route::get('step2', [CodeController::class, 'getEmailView'])->name('redeem.step2');
-        Route::post('step2', [CodeController::class, 'checkEmail'])->name('redeem.step2')->middleware('throttle:5,1');
+        Route::post('step2', [CodeController::class, 'checkEmail'])->name('redeem.step2.submit')->middleware('throttle:5,1');
 
         Route::get('step3', [CodeController::class, 'getViewForm'])->name('redeem.step3');
-        Route::post('step3', [CodeController::class, 'sendForm'])->name('redeem.step3')->middleware('throttle:30,1');
+        Route::post('step3', [CodeController::class, 'sendForm'])->name('redeem.step3.submit')->middleware('throttle:30,1');
 
         Route::get('finish', [CodeController::class, 'getFinishView'])->name('redeem.finish');
     });
