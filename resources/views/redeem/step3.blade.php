@@ -57,41 +57,44 @@
             @if(session('order_item_info')['type_form_id'] === 1)
                 <div>
                     <div id="checkbox-group" class="space-y-4 mx-auto p-4 bg-zinc-900 rounded-xl">
-                        @if(session('user_exists'))
-                            <div>
-                                <label class="flex items-center gap-3 cursor-pointer select-none mb-1">
-                                    <input type="checkbox" name="option[0][check]"
-                                           @checked(old('option.0.check')) class="sr-only peer"/>
-                                    <div
-                                        class="w-6 min-w-6 h-6 min-h-6 rounded-md border-2 border-zinc-600 bg-zinc-800
+                        <div>
+                            <label class="flex items-center gap-3 cursor-pointer select-none mb-1">
+                                <input type="checkbox" name="option[0][check]" @if(!session('user_exists')) disabled
+                                       @endif
+                                       @checked(old('option.0.check')) class="sr-only peer"/>
+                                <div
+                                    class="w-6 min-w-6 h-6 min-h-6 rounded-md border-2 border-zinc-600 bg-zinc-800
                  peer-checked:bg-blue-600 peer-checked:border-blue-400
                  peer-checked:shadow-[0_0_8px_3px_rgba(59,130,246,0.7)]
                  transition-all duration-300 flex items-center justify-center"
-                                    >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            class="w-4 h-4 text-white opacity-0 scale-75 peer-checked:opacity-100 peer-checked:scale-100
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        class="w-4 h-4 text-white opacity-0 scale-75 peer-checked:opacity-100 peer-checked:scale-100
                    transition-all duration-300 ease-in-out"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="3"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        >
-                                            <path d="M5 13l4 4L19 7"/>
-                                        </svg>
-                                    </div>
-                                    <span class="text-zinc-300 hover:text-white transition-colors">Оформить покупку на имеющийся PlayStation Network ID</span>
-                                </label>
-                                <p class="text-zinc-400 text-sm">Активируйте пункт если желаете оформить покупку на
-                                    имеющийся
-                                    аккаунт PlayStation Network ID.</p>
-                                @error('option.0.check')
-                                <p class="text-red-500 text-sm">{{ $message }}</p>
-                                @enderror
-                            </div>
-                        @endif
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="3"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <path d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                                <span class="text-zinc-300 hover:text-white transition-colors @if(!session('user_exist')) line-through @endif">Оформить покупку на имеющийся PlayStation Network ID</span>
+                            </label>
+                            <p class="text-zinc-400 text-sm">
+                                @if(session('user_exist'))
+                                    Активируйте пункт если желаете оформить покупку на имеющийся аккаунт PlayStation Network ID.
+                                @else
+                                    Активация этим способом возможна только на созданный аккаунт
+                                @endif
+                            </p>
+                            @error('option.0.check')
+                            <p class="text-red-500 text-sm">{{ $message }}</p>
+                            @enderror
+                        </div>
 
                         <div>
                             <label class="flex items-center gap-3 cursor-pointer select-none mb-1">
@@ -185,7 +188,8 @@
                         </div>
                     </div>
                 @endif
-                <div id="option[1][check]" class="@if(!old('option.1.check') && session('user_exists')) hidden @endif space-y-5">
+                <div id="option[1][check]"
+                     class="@if(!old('option.1.check') && session('user_exists')) hidden @endif space-y-5">
                     <div>
                         <div class="mb-1">
                             <label class="block text-sm text-zinc-300" for="option[0][ps_network_id]">Дата
