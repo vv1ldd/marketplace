@@ -9,6 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 use PlaystationStoreApi\Client;
 use PlaystationStoreApi\Enum\RegionEnum;
 use GuzzleHttp\Client as HTTPClient;
@@ -61,6 +62,7 @@ class UpdatePlayStationSkuDataJob implements ShouldQueue
                         'concept_id' => $concept_id,
                         'base_price' => data_get($product, 'price.basePriceValue', 0),
                         'price_with_discount' => data_get($product, 'price.discountedValue', 0),
+                        'end_discount_stamp' => data_get($product, 'price.endTime') ? Carbon::parse(data_get($product, 'price.endTime'))->format('Y-m-d H:i:s') : null,
                         'name' => $product['name'] ?? data_get($product, 'concept.name'),
                         'updated_at' => now()
                     ]);

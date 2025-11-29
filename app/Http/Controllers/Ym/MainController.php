@@ -12,6 +12,7 @@ use App\Jobs\UpdateYmPrices;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use App\Models\YmSenderLog;
+use Carbon\Carbon;
 use Illuminate\Bus\Batch;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
@@ -102,6 +103,7 @@ class MainController extends Controller
         $items = \DB::table('play_station_alts as t1')
             ->select([
                 't1.sku',
+                't1.end_discount_stamp',
                 \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
                 \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
                 't2.name as name'
@@ -138,8 +140,16 @@ class MainController extends Controller
 
             [$price_with_discount, $base_price] = $this->pricesCalc($item, $usdt_try, $usdt_rub);
 
-            if ($price_with_discount < 300) {
-                continue;
+            if ($price_with_discount < (Settings::get('YM_MIN_SUM_FOR_UPDATE') * 100)) {
+                $price_with_discount = Settings::get('YM_MIN_SUM_FOR_UPDATE') * 100;
+                $base_price = $price_with_discount;
+            }
+
+            if ($price_with_discount !== $base_price &&
+                $item->end_discount_stamp &&
+                now()->diffInHours($item->end_discount_stamp) < (float)Settings::get('YM_DIFF_IN_HOURS_FOR_SALE')
+            ) {
+                $price_with_discount = $base_price;
             }
 
             $finished_data[] = [
