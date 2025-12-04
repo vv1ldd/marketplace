@@ -148,13 +148,13 @@ class CodeController extends Controller
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
         if (!$order_item) {
-            return view('redeem')->withErrors(['code' => 'Введен неверный или несуществующий код']);
+            return view('redeem.step1')->withErrors(['code' => 'Введен неверный или несуществующий код']);
         }
 
         $order = Order::find($order_item->order_id);
 
         if (!$order) {
-            return view('redeem')->withErrors(['code' => 'Заказ не был найден']);
+            return view('redeem.step1')->withErrors(['code' => 'Заказ не был найден']);
         }
 
         return view('redeem.step3', ['client_info' => $order->client_info]);
@@ -173,7 +173,7 @@ class CodeController extends Controller
         }
 
         if ($order_item->is_activated) {
-            return redirect()->route('redeem')->withErrors(['code' => 'Код уже успешно активирован. Мы свяжемся с Вами.']);
+            return redirect()->route('redeem.step1')->withErrors(['code' => 'Код уже успешно активирован. Мы свяжемся с Вами.']);
         }
 
         $order = Order::where('id', $order_item->order_id)->first();
