@@ -35,17 +35,28 @@ class ImportWooUsers extends Command
 
             $log->info("Импорт из: {$connection}");
 
-            $users = DB::connection($connection)->table('wp_users')->get();
+            // Берём только тех, кто еще НЕ был импортирован
+            $users = $db_connection->table('wp_users')
+                ->leftJoin('wp_usermeta', function($join) {
+                    $join->on('wp_usermeta.user_id', '=', 'wp_users.ID')
+                        ->where('wp_usermeta.meta_key', '=', 'imported_to_laravel');
+                })
+                ->whereNull('wp_usermeta.meta_value')
+                ->select('wp_users.*')
+                ->get();
 
             foreach ($users as $wpUser) {
 
-                if (empty($wpUser->user_email)) {
-                    continue;
-                }
+                // Проверяем, есть ли уже такой email
+                if (User::where('email', $wpUser->user_email)->exists()) {
 
-                $exists = User::where('email', $wpUser->user_email)->exists();
+                    // Даже если email есть — ставим метку, чтобы не тянуть снова
+                    $db_connection->table('wp_usermeta')->insert([
+                        'user_id'   => $wpUser->ID,
+                        'meta_key'  => 'imported_to_laravel',
+                        'meta_value'=> 1,
+                    ]);
 
-                if ($exists) {
                     continue;
                 }
 
@@ -55,7 +66,7 @@ class ImportWooUsers extends Command
                     ->where('user_id', $wpUser->ID)
                     ->pluck('meta_value', 'meta_key');
 
-                $log->debug("Мета", [$meta]);
+//                $log->debug("Мета", [$meta]);
 
                 User::create([
                     'email' => $wpUser->user_email,
@@ -66,6 +77,13 @@ class ImportWooUsers extends Command
                     'source_site' => $connection,
                     'source_user_id' => $wpUser->ID,
                     'created_at' => $wpUser->user_registered,
+                ]);
+
+                // Ставим отметку в WordPress
+                $db_connection->table('wp_usermeta')->insert([
+                    'user_id'   => $wpUser->ID,
+                    'meta_key'  => 'imported_to_laravel',
+                    'meta_value'=> 1,
                 ]);
             }
 
