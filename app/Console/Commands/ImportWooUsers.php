@@ -89,6 +89,6 @@ class ImportWooUsers extends Command
 
         }
 
-        $this->info("Импорт завершён.");
+        $log->info("Импорт завершён.");
     }
 }
