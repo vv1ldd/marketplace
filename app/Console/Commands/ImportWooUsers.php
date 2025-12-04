@@ -33,7 +33,7 @@ class ImportWooUsers extends Command
 
             $db_connection = DB::connection($connection);
 
-            $log->info("Импорт из: {$connection}");
+//            $log->info("Импорт из: {$connection}");
 
             // Берём только тех, кто еще НЕ был импортирован
             $users = $db_connection->table('wp_users')
@@ -89,6 +89,6 @@ class ImportWooUsers extends Command
 
         }
 
-        $log->info("Импорт завершён.");
+//        $log->info("Импорт завершён.");
     }
 }
