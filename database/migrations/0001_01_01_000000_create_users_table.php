@@ -24,6 +24,8 @@ return new class extends Migration {
             $table->json('meta')->nullable();
             $table->timestamps();
             $table->string('ym_user_id')->unique()->nullable();
+            $table->string('source_site')->nullable();
+            $table->bigInteger('source_user_id')->nullable();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
