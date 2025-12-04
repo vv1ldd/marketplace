@@ -55,6 +55,8 @@ class ImportWooUsers extends Command
                     ->where('user_id', $wpUser->ID)
                     ->pluck('meta_value', 'meta_key');
 
+                $log->debug("Мета", [$meta]);
+
                 User::create([
                     'email' => $wpUser->user_email,
                     'first_name' => data_get($meta, 'first_name') ?? $wpUser->display_name,
