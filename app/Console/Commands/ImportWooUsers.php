@@ -60,7 +60,7 @@ class ImportWooUsers extends Command
                     continue;
                 }
 
-                $log->debug("Новый юзер", [$wpUser]);
+                $log->debug("Новый юзер", ['user' => $wpUser, 'connection' => $db_connection]);
 
                 $meta = $db_connection->table('wp_usermeta')
                     ->where('user_id', $wpUser->ID)
