@@ -57,9 +57,9 @@ class ImportWooUsers extends Command
 
                 User::create([
                     'email' => $wpUser->user_email,
-                    'first_name' => $meta['first_name'] ?? $wpUser->display_name,
+                    'first_name' => data_get($meta, 'first_name') ?? $wpUser->display_name,
                     'password' => $wpUser->user_pass,
-                    'phone' => $meta['billing_phone'] ? NormalizePhone::normalize($meta['billing_phone']) : null,
+                    'phone' => isset($meta['billing_phone']) ? NormalizePhone::normalize($meta['billing_phone']) : null,
                     'source_site' => $connection,
                     'source_user_id' => $wpUser->ID,
                     'created_at' => $wpUser->user_registered,
