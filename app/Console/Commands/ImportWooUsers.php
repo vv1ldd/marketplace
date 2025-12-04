@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Helpers\NormalizePhone;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -58,7 +59,7 @@ class ImportWooUsers extends Command
                     'email' => $wpUser->user_email,
                     'first_name' => $meta['first_name'] ?? $wpUser->display_name,
                     'password' => $wpUser->user_pass,
-                    'phone' => $meta['billing_phone'] ?? null,
+                    'phone' => $meta['billing_phone'] ? NormalizePhone::normalize($meta['billing_phone']) : null,
                     'source_site' => $connection,
                     'source_user_id' => $wpUser->ID,
                     'created_at' => $wpUser->user_registered,
