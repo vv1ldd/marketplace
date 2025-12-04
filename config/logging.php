@@ -181,6 +181,14 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
+        ],
+
+        'monitor_import_woo_users' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/woo/monitor_import_woo_users.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 3),
+            'replace_placeholders' => true,
         ]
 
     ],
