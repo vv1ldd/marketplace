@@ -1,4 +1,4 @@
-FROM serversideup/php:8.2-fpm-nginx
+FROM serversideup/php:8.3-fpm-nginx
 
 # 1. Run as root to install system packages and extensions
 USER root
