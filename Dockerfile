@@ -4,11 +4,11 @@ FROM serversideup/php:8.3-fpm-nginx
 USER root
 
 # Install PHP extensions (compilation might take a while)
-RUN install-php-extensions bcmath intl gd
+RUN install-php-extensions bcmath intl gd zip
 
-# Install Node.js (LTS)
+# Install Node.js (LTS) and system dependencies required for Composer
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs
+    apt-get install -y nodejs git unzip
 
 # 2. Switch to 'www-data' for the rest of the build
 # This ensures files created by composer/npm are owned by the correct user,
