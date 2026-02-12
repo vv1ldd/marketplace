@@ -10,14 +10,14 @@ RUN install-php-extensions bcmath intl gd
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs
 
-# 2. Switch to 'webuser' for the rest of the build
+# 2. Switch to 'www-data' for the rest of the build
 # This ensures files created by composer/npm are owned by the correct user,
 # preventing "Permission denied" errors at runtime.
-USER webuser
+USER www-data
 WORKDIR /var/www/html
 
 # Copy application code from host
-COPY --chown=webuser:webgroup . .
+COPY --chown=www-data:www-data . .
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
