@@ -20,7 +20,7 @@ WORKDIR /var/www/html
 COPY --chown=www-data:www-data . .
 
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader --no-scripts --ignore-platform-reqs
 
 # Install JS dependencies and build assets
 RUN npm ci && \
