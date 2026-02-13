@@ -22,6 +22,12 @@ COPY --chown=www-data:www-data . .
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-scripts --ignore-platform-reqs
 
+# Generate key (needed for some commands) and publish assets
+# We set a dummy key for build time if not present, though artisan usually needs valid config.
+# Ideally we set APP_KEY in build args, but here we can just try to run commands that don't need DB.
+RUN php artisan package:discover --ansi || true
+RUN php artisan filament:upgrade --no-interaction --quiet || true
+
 # Install JS dependencies and build assets
 RUN npm ci && \
     npm run build && \
