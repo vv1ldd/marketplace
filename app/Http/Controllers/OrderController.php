@@ -56,7 +56,7 @@ class OrderController extends Controller
             ]);
         }
 
-        if(empty($user)) {
+        if (empty($user)) {
             try {
                 $user = UserController::updateOrCreate($order["billing_phone"], [
                     'email' => $order["billing_email"],
@@ -105,7 +105,7 @@ class OrderController extends Controller
 
         $log->info('order items creating');
 
-        if(empty($items)) {
+        if (empty($items)) {
 
             $log->error('items is empty');
 
@@ -444,6 +444,7 @@ class OrderController extends Controller
 
         try {
             $order_full_info = $service->getOrder(campaignId: $data['campaignId'], orderId: $data['orderId']);
+            $items = data_get($order_full_info, 'items');
             $log->debug('order_full_info', [$order_full_info]);
         } catch (ConnectionException $e) {
             $log->error('order_full_info', [
@@ -523,6 +524,36 @@ class OrderController extends Controller
                 'success' => false,
                 'error' => $e->getMessage(),
             ];
+        }
+
+        foreach ($items as $item) {
+
+            $sku = data_get($item, 'offerId');
+
+            if(!$sku) {
+                continue;
+            }
+
+            try {
+                PlayStationAlt::updateOrCreate([
+                    'sku' => $sku,
+                ], [
+                    'region_id' => '0f63f19f-fb73-4e9f-8f77-5a51d0d70009',
+                    'base_price' => data_get($item, 'price') * 100,
+                    'price_with_discount' => data_get($item, 'buyerPrice') * 100,
+                    'name' => data_get($item, "order_item_name"),
+                    'is_manual' => 1,
+                    'type_form_id' => str_starts_with($sku, 'GIFTCARD_') ? 2 : 1
+                ]);
+            } catch (\Exception  $e) {
+
+                $log->error('update product error, but continue', [
+                    'exception' => $e->getMessage(),
+                    'item' => $item
+                ]);
+
+                continue;
+            }
         }
 
         $log->debug('created', [

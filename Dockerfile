@@ -27,6 +27,8 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts --ignore-platfo
 # Ideally we set APP_KEY in build args, but here we can just try to run commands that don't need DB.
 RUN php artisan package:discover --ansi || true
 RUN php artisan filament:upgrade --no-interaction --quiet || true
+RUN php artisan optimize:clear || true
+RUN php artisan optimize || true
 
 # Install JS dependencies and build assets
 RUN npm ci && \
