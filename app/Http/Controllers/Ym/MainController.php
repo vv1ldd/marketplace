@@ -621,7 +621,7 @@ class MainController extends Controller
         return [$price_with_discount, $base_price];
     }
 
-    public function notification(Request $request): \Illuminate\Http\JsonResponse
+    public function notification($token, Request $request): \Illuminate\Http\JsonResponse
     {
         $log = \Log::channel('ym_notification')->withContext([
             'log_id' => Str::random(8),
@@ -634,6 +634,23 @@ class MainController extends Controller
             'headers' => $request->headers->all(),
             'ip' => $request->ip()
         ]);
+
+        $realToken = Settings::get('YM_NOTIFICATION_TOKEN', config('services.ym.notification_token'));
+
+        if ($token !== $realToken) {
+
+            $log->error("Невалидные токен", [
+                'exception' => 'Unauthorized token',
+                'token' => $token
+            ]);
+
+            return response()->json([
+                'error' => [
+                    'message' => 'Unauthorized token',
+                    'type' => 'UNKNOWN'
+                ]
+            ], 400);
+        }
 
         try {
             $data = $request->validate([

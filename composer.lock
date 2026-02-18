@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3e12a3ce0e9a8c40836a449679626289",
+    "content-hash": "a093da5f4c7f787b10b983e2a516c8b3",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -861,6 +861,40 @@
                 "source": "https://github.com/dflydev/dflydev-dot-access-data/tree/v3.0.3"
             },
             "time": "2024-07-08T12:26:09+00:00"
+        },
+        {
+            "name": "dllpl/ezpin-sdk",
+            "version": "0.0.1",
+            "source": {
+                "type": "git",
+                "url": "git@github.com:dllpl/ezpin-sdk.git",
+                "reference": "a2ff4d879fd523575ff6c13e2e3cce93a1f73c78"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/dllpl/ezpin-sdk/zipball/a2ff4d879fd523575ff6c13e2e3cce93a1f73c78",
+                "reference": "a2ff4d879fd523575ff6c13e2e3cce93a1f73c78",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^7.8",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "EzPin\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "EZPin API PHP SDK",
+            "support": {
+                "source": "https://github.com/dllpl/ezpin-sdk/tree/0.0.1",
+                "issues": "https://github.com/dllpl/ezpin-sdk/issues"
+            },
+            "time": "2026-02-18T12:57:15+00:00"
         },
         {
             "name": "doctrine/inflector",
