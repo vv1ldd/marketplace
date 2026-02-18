@@ -12,7 +12,7 @@ style="background:#1f9d55;color:#fff;text-decoration:none;padding:7px 16px;borde
 </a>, или перейдите по ссылке 
 <a href="https://meanly.ru/redeem" target="_blank" style="color:#111;">meanly.ru/redeem</a><br>
 
-3. Введите код и следуйте инструкциям.<br><br>
+3. Введите код и следуйте инструкциям.<br>
 
 <div style="text-align:center;margin-top:14px;">
 Нужна помощь?<br>👇
