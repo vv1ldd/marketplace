@@ -37,6 +37,21 @@ class CodeController extends Controller
         return redirect()->temporarySignedRoute('redeem.activation', now()->addHours());
     }
 
+    public function resendCode(Request $request): RedirectResponse
+    {
+        if (!session()->has('order_item_info') || !session()->has('client_email')) {
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
+        }
+
+        $email = session('client_email');
+        $verificationCode = rand(100000, 999999);
+        session()->put('verification_code', $verificationCode);
+
+        Mail::to($email)->send(new VerificationCodeMail($verificationCode));
+
+        return back()->with('success', 'Код отправлен повторно');
+    }
+
     public function getEmailView(Request $request): View|Factory|RedirectResponse
     {
         if (!$request->hasValidSignature()) {

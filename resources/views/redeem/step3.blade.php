@@ -275,23 +275,44 @@
                     <div>
                         <label class="block text-sm text-zinc-300 mb-1" for="verification_code">Код подтверждения<span
                                 class="text-red-500">*</span></label>
-                        <input
-                            id="verification_code"
-                            type="text"
-                            name="verification_code"
-                            placeholder="123456"
-                            autocomplete="off"
-                            tabindex="6"
-                            value="{{ old('verification_code') }}"
-                            required
-                            class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
-                        />
-                        <p class="text-zinc-400 text-xs mt-1">
-                            Мы отправили код подтверждения на ваш email. Введите его для продолжения.
-                        </p>
+                        <div class="flex gap-2">
+                             <input
+                                id="verification_code"
+                                type="text"
+                                name="verification_code"
+                                placeholder="123456"
+                                autocomplete="off"
+                                tabindex="6"
+                                value="{{ old('verification_code') }}"
+                                required
+                                class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                            />
+                        </div>
+                       
+                        <div class="flex flex-col gap-1 mt-2">
+                            <div class="flex justify-between items-center">
+                                <p class="text-zinc-400 text-xs">
+                                    Мы отправили код на {{ session('client_email') }}.
+                                </p>
+                                <a href="{{ route('redeem.email') }}" class="text-zinc-500 hover:text-zinc-400 text-xs transition-colors">
+                                    Изменить email
+                                </a>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-zinc-400 text-xs">Не получили код?</span>
+                                <button type="submit" form="resend-form" class="text-blue-400 hover:text-blue-300 text-xs transition-colors cursor-pointer bg-transparent border-0 p-0">
+                                    Отправить еще раз
+                                </button>
+                            </div>
+                        </div>
+                        
                         @error('verification_code')
-                        <p class="text-red-500 text-sm">{{ $message }}</p>
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                         @enderror
+
+                        @if(session('success'))
+                            <p class="text-green-500 text-sm mt-1">{{ session('success') }}</p>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -302,6 +323,9 @@
             >
                 Отправить
             </button>
+        </form>
+        <form id="resend-form" method="POST" action="{{ route('redeem.resend') }}" class="hidden">
+            @csrf
         </form>
     </div>
 
