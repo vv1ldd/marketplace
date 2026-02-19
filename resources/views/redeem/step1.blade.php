@@ -10,34 +10,21 @@
             @csrf
             <div class="w-full">
                 @if(session('is_frame'))
-                    <input hidden name="is_frame" value="1"/>
+                    <input hidden name="is_frame" value="1" />
                 @endif
-                    <label class="block text-sm text-zinc-300 mb-1" for="first_name">В формате 1GROS-XXXX-XXXX-XXXX<span
-                            class="text-red-500">*</span></label>
-                <input
-                    id="code"
-                    type="text"
-                    maxlength="20"
-                    minlength="20"
-                    spellcheck="false"
-                    autocomplete="off"
-                    pattern="^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$"
-                    placeholder="Код"
-                    name="code"
-                    value="{{ old('code') }}"
-                    autofocus
-                    required
-                    class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
-                />
+                <label class="block text-sm text-zinc-300 mb-1" for="first_name">В формате W1C-XXXX-XXXX-XXXX<span
+                        class="text-red-500">*</span></label>
+                <input id="code" type="text" maxlength="18" minlength="18" spellcheck="false" autocomplete="off"
+                    pattern="^W1C-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$" placeholder="Код" name="code"
+                    value="{{ old('code') }}" autofocus required
+                    class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2" />
                 @error('code')
-                <p class="text-red-500 text-sm">{{ $message }}</p>
+                    <p class="text-red-500 text-sm">{{ $message }}</p>
                 @enderror
             </div>
-            <button
-                type="submit"
+            <button type="submit"
                 class="cursor-pointer w-full bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-white font-semibold py-2 px-4 rounded-xl shadow-md focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                tabindex="5"
-            >
+                tabindex="5">
                 Далее
             </button>
         </form>
@@ -45,45 +32,45 @@
 @endsection
 
 @section('scripts')
-    <script>
-        const input = document.getElementById('code');
-        const staticPrefix = '1GROS-';
+<script>
+    const input = document.getElementById('code');
+    const staticPrefix = 'W1C-';
 
-        function formatCode(raw) {
-            raw = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    function formatCode(raw) {
+        raw = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-            // убираем префикс, если случайно вставлен
-            raw = raw.replace(/^1GROS/i, '');
+        // убираем префикс, если случайно вставлен
+        raw = raw.replace(/^W1C/i, '');
 
-            let parts = [];
-            for (let i = 0; i < 12 && i < raw.length; i += 4) {
-                parts.push(raw.substring(i, i + 4));
-            }
-
-            return staticPrefix + parts.join('-');
+        let parts = [];
+        for (let i = 0; i < 12 && i < raw.length; i += 4) {
+            parts.push(raw.substring(i, i + 4));
         }
 
-        input.addEventListener('focus', () => {
-            if (!input.value.startsWith(staticPrefix)) {
-                input.value = staticPrefix;
-            }
-        });
+        return staticPrefix + parts.join('-');
+    }
 
-        input.addEventListener('paste', (e) => {
-            e.preventDefault();
-            const pasted = (e.clipboardData || window.clipboardData).getData('text');
-            input.value = formatCode(pasted);
-        });
+    input.addEventListener('focus', () => {
+        if (!input.value.startsWith(staticPrefix)) {
+            input.value = staticPrefix;
+        }
+    });
 
-        input.addEventListener('input', () => {
-            const caretPos = input.selectionStart;
-            const before = input.value;
+    input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const pasted = (e.clipboardData || window.clipboardData).getData('text');
+        input.value = formatCode(pasted);
+    });
 
-            input.value = formatCode(before);
+    input.addEventListener('input', () => {
+        const caretPos = input.selectionStart;
+        const before = input.value;
 
-            // Мягкий возврат курсора
-            const diff = input.value.length - before.length;
-            input.selectionEnd = input.selectionStart = caretPos + diff;
-        });
-    </script>
+        input.value = formatCode(before);
+
+        // Мягкий возврат курсора
+        const diff = input.value.length - before.length;
+        input.selectionEnd = input.selectionStart = caretPos + diff;
+    });
+</script>
 @endSection

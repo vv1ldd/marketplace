@@ -181,7 +181,7 @@ class CodeController extends Controller
     public function checkCode(Request $request)
     {
         $data = $request->validate([
-            'code' => 'required|string|regex:/^1GROS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/',
+            'code' => 'required|string|regex:/^W1C-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/',
         ]);
 
         $order_item = OrderItems::where('key', $data['code'])->first();

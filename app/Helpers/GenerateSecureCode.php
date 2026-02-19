@@ -10,7 +10,7 @@ class GenerateSecureCode
      */
     public static function generate(): string
     {
-        return '1GROS-' . self::generateUniqueSegment() . '-' . self::generateUniqueSegment() . '-' . self::generateUniqueSegment();
+        return 'W1C-' . self::generateUniqueSegment() . '-' . self::generateUniqueSegment() . '-' . self::generateUniqueSegment();
 
     }
 
