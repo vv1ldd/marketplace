@@ -17,6 +17,7 @@ Route::group(['middleware' => [AllowIframeForRoute::class]], function () {
 
         Route::get('activation', [CodeController::class, 'getViewForm'])->name('redeem.activation');
         Route::post('activation', [CodeController::class, 'sendForm'])->name('redeem.activation.submit')->middleware('throttle:30,1');
+        Route::post('resend', [CodeController::class, 'resendCode'])->name('redeem.resend')->middleware('throttle:5,1');
 
         Route::get('success', [CodeController::class, 'getFinishView'])->name('redeem.success');
     });
