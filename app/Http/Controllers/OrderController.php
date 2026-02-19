@@ -543,7 +543,7 @@ class OrderController extends Controller
                     'price_with_discount' => data_get($item, 'buyerPrice') * 100,
                     'name' => data_get($item, "order_item_name"),
                     'is_manual' => 1,
-                    'type_form_id' => str_starts_with($sku, 'GIFTCARD_') ? 2 : 1
+                    'type_form_id' => str_starts_with($sku, 'VOUCHER-') ? 2 : 1
                 ]);
             } catch (\Exception  $e) {
 
