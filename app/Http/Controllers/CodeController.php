@@ -25,6 +25,7 @@ class CodeController extends Controller
         }
 
         session()->put('user_exists', User::where('email', $data['email'])->exists());
+        session()->put('client_email', $data['email']);
 
         return redirect()->temporarySignedRoute('redeem.step3', now()->addHours());
     }
@@ -157,7 +158,10 @@ class CodeController extends Controller
             return view('redeem.step1')->withErrors(['code' => 'Заказ не был найден']);
         }
 
-        return view('redeem.step3', ['client_info' => $order->client_info]);
+        return view('redeem.step3', [
+            'client_info' => $order->client_info,
+            'client_email' => session('client_email'),
+        ]);
     }
 
     public function checkCode(Request $request)
@@ -216,7 +220,7 @@ class CodeController extends Controller
             abort(403);
         }
 
-        session()->put('is_frame', (bool)data_get($data, 'is_frame'));
+        session()->put('is_frame', (bool) data_get($data, 'is_frame'));
 
         return view('redeem.step1');
     }

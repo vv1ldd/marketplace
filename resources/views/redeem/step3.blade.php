@@ -255,9 +255,10 @@
                                 placeholder="you@example.com"
                                 autocomplete="email"
                                 tabindex="4"
-                                value="{{ old('email') }}"
+                                value="{{ $client_email ?? old('email') }}"
                                 required
-                                class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                                @if(isset($client_email)) readonly @endif
+                                class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2 @if(isset($client_email)) opacity-60 cursor-not-allowed @endif"
                             />
                             @error('email')
                             <p class="text-red-500 text-sm">{{ $message }}</p>
