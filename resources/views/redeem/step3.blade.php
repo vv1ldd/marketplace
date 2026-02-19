@@ -268,7 +268,7 @@
                 </div>
                 @if(session('order_item_info')['type_form_id'] !== 1)
                     <p class="text-zinc-400 text-sm border-1 border-zinc-500 rounded-xl px-4 py-2">
-                        Отправим подарочную карту для PlayStation Network на ваш указанный Email
+                        Отправим подарочную карту на ваш указанный Email
                     </p>
                 @endif
                 <div class="w-full">
@@ -292,7 +292,7 @@
                         <div class="flex flex-col gap-1 mt-2">
                             <div class="flex justify-between items-center">
                                 <p class="text-zinc-400 text-xs">
-                                    Мы отправили код на {{ session('client_email') }}.
+                                    Мы отправили код подтверждения на {{ session('client_email') }}.
                                 </p>
                                 <a href="{{ route('redeem.email') }}" class="text-zinc-500 hover:text-zinc-400 text-xs transition-colors">
                                     Изменить email

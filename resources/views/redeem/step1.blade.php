@@ -1,18 +1,18 @@
 @extends('layouts.app')
 
-@section('title', 'Шаг 1. Введите полученный код')
+@section('title', 'Введите полученный код')
 
 @section('content')
     <div
         class="w-full bg-zinc-800 border border-zinc-700 @if(!session('is_frame')) max-w-xl rounded-2xl @endif shadow-xl sm:p-8 p-4">
-        <h2 class="text-2xl font-bold text-white mb-6 text-center">Шаг 1. Введите полученный код</h2>
+        <h2 class="text-2xl font-bold text-white mb-6 text-center">Введите полученный код</h2>
         <form class="space-y-5" method="POST" action="{{ route('redeem.code.submit') }}">
             @csrf
             <div class="w-full">
                 @if(session('is_frame'))
                     <input hidden name="is_frame" value="1" />
                 @endif
-                <label class="block text-sm text-zinc-300 mb-1" for="first_name">В формате W1C-XXXX-XXXX-XXXX<span
+                <label class="block text-sm text-zinc-300 mb-1" for="first_name">Пример: W1C-XXXX-XXXX-XXXX<span
                         class="text-red-500">*</span></label>
                 <input id="code" type="text" maxlength="18" minlength="18" spellcheck="false" autocomplete="off"
                     pattern="^W1C-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$" placeholder="Код" name="code"
