@@ -6,7 +6,7 @@
     <div
         class="w-full @if(!session('is_frame')) max-w-xl rounded-2xl @endif bg-zinc-800 border border-zinc-700 shadow-xl p-8">
         <h2 class="text-2xl font-bold text-white mb-6 text-center">Ваш заказ почти готов, остался один шаг</h2>
-        <form class="space-y-5" method="POST" action="{{ route('redeem.step3.submit') }}">
+        <form class="space-y-5" method="POST" action="{{ route('redeem.activation.submit') }}">
             @csrf
             @if(session('is_frame'))
                 <input hidden name="is_frame" value="1"/>
@@ -279,7 +279,7 @@
                             id="verification_code"
                             type="text"
                             name="verification_code"
-                            placeholder="12345"
+                            placeholder="123456"
                             autocomplete="off"
                             tabindex="6"
                             value="{{ old('verification_code') }}"

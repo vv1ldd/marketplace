@@ -7,18 +7,18 @@ use Illuminate\Support\Facades\Route;
 Route::group(['middleware' => [AllowIframeForRoute::class]], function () {
     Route::group(['prefix' => 'redeem'], function () {
 
-        Route::get('/', fn() => redirect()->route('redeem.step1'));
+        Route::get('/', fn() => redirect()->route('redeem.code'));
 
-        Route::get('step1', [CodeController::class, 'getCodeView'])->name('redeem.step1');
-        Route::post('step1', [CodeController::class, 'checkCode'])->name('redeem.step1.submit')->middleware('throttle:30,1');
+        Route::get('code', [CodeController::class, 'getCodeView'])->name('redeem.code');
+        Route::post('code', [CodeController::class, 'checkCode'])->name('redeem.code.submit')->middleware('throttle:30,1');
 
-        Route::get('step2', [CodeController::class, 'getEmailView'])->name('redeem.step2');
-        Route::post('step2', [CodeController::class, 'checkEmail'])->name('redeem.step2.submit')->middleware('throttle:5,1');
+        Route::get('email', [CodeController::class, 'getEmailView'])->name('redeem.email');
+        Route::post('email', [CodeController::class, 'checkEmail'])->name('redeem.email.submit')->middleware('throttle:5,1');
 
-        Route::get('step3', [CodeController::class, 'getViewForm'])->name('redeem.step3');
-        Route::post('step3', [CodeController::class, 'sendForm'])->name('redeem.step3.submit')->middleware('throttle:30,1');
+        Route::get('activation', [CodeController::class, 'getViewForm'])->name('redeem.activation');
+        Route::post('activation', [CodeController::class, 'sendForm'])->name('redeem.activation.submit')->middleware('throttle:30,1');
 
-        Route::get('finish', [CodeController::class, 'getFinishView'])->name('redeem.finish');
+        Route::get('success', [CodeController::class, 'getFinishView'])->name('redeem.success');
     });
 });
 

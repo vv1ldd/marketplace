@@ -23,24 +23,24 @@ class CodeController extends Controller
         $data = $request->validate(['email' => 'required|email']);
 
         if (!session()->has('order_item_info')) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
         session()->put('user_exists', User::where('email', $data['email'])->exists());
         session()->put('client_email', $data['email']);
 
-        $verificationCode = rand(10000, 99999);
+        $verificationCode = rand(100000, 999999);
         session()->put('verification_code', $verificationCode);
 
         Mail::to($data['email'])->send(new VerificationCodeMail($verificationCode));
 
-        return redirect()->temporarySignedRoute('redeem.step3', now()->addHours());
+        return redirect()->temporarySignedRoute('redeem.activation', now()->addHours());
     }
 
     public function getEmailView(Request $request): View|Factory|RedirectResponse
     {
         if (!$request->hasValidSignature()) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
         return view('redeem.step2');
@@ -76,7 +76,7 @@ class CodeController extends Controller
         session()->forget('verification_code');
 
         if (!session()->has('order_item_info')) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
         $data['uuid'] = session('order_item_info')['uuid'];
@@ -84,21 +84,21 @@ class CodeController extends Controller
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
         if ($order_item->is_activated) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Код уже активирован']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Код уже активирован']);
         }
 
         if (!$order_item->is_redeemed) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
         if ($order_item->activate_till < now()) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Код уже истек']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Код уже истек']);
         }
 
         $order = Order::where('id', $order_item->order_id)->first();
 
         if (!$order) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Заказ не найден']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Заказ не найден']);
         }
 
         $option_0 = data_get($data, 'option.0');
@@ -147,13 +147,13 @@ class CodeController extends Controller
 
         SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
 
-        return view('redeem.finish');
+        return redirect()->route('redeem.success');
     }
 
     public function getViewForm(Request $request)
     {
         if (!$request->hasValidSignature() || !session()->has('order_item_info')) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
         $data = [
@@ -191,7 +191,7 @@ class CodeController extends Controller
         }
 
         if ($order_item->is_activated) {
-            return redirect()->route('redeem.step1')->withErrors(['code' => 'Код уже успешно активирован. Мы свяжемся с Вами.']);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Код уже успешно активирован. Мы свяжемся с Вами.']);
         }
 
         $order = Order::where('id', $order_item->order_id)->first();
@@ -211,7 +211,7 @@ class CodeController extends Controller
             'type_form_id' => $order_item->type_form_id,
         ]);
 
-        return redirect()->temporarySignedRoute('redeem.step2', now()->addHours());
+        return redirect()->temporarySignedRoute('redeem.email', now()->addHours());
     }
 
     public function getCodeView(Request $request): \Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
