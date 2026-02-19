@@ -271,6 +271,29 @@
                         Отправим подарочную карту для PlayStation Network на ваш указанный Email
                     </p>
                 @endif
+                <div class="w-full">
+                    <div>
+                        <label class="block text-sm text-zinc-300 mb-1" for="verification_code">Код подтверждения<span
+                                class="text-red-500">*</span></label>
+                        <input
+                            id="verification_code"
+                            type="text"
+                            name="verification_code"
+                            placeholder="12345"
+                            autocomplete="off"
+                            tabindex="6"
+                            value="{{ old('verification_code') }}"
+                            required
+                            class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2"
+                        />
+                        <p class="text-zinc-400 text-xs mt-1">
+                            Мы отправили код подтверждения на ваш email. Введите его для продолжения.
+                        </p>
+                        @error('verification_code')
+                        <p class="text-red-500 text-sm">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
             </div>
             <button
                 type="submit"

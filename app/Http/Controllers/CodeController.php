@@ -13,6 +13,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\Factory;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\VerificationCodeMail;
 
 class CodeController extends Controller
 {
@@ -26,6 +28,11 @@ class CodeController extends Controller
 
         session()->put('user_exists', User::where('email', $data['email'])->exists());
         session()->put('client_email', $data['email']);
+
+        $verificationCode = rand(10000, 99999);
+        session()->put('verification_code', $verificationCode);
+
+        Mail::to($data['email'])->send(new VerificationCodeMail($verificationCode));
 
         return redirect()->temporarySignedRoute('redeem.step3', now()->addHours());
     }
@@ -59,7 +66,14 @@ class CodeController extends Controller
 
             'option.1.check' => 'nullable|string|in:on',
             'option.1.ps_birthday' => 'required_if:option.1.check,on|date_format:Y-m-d',
+            'verification_code' => 'required|integer',
         ]);
+
+        if ($data['verification_code'] != session('verification_code')) {
+            return back()->withErrors(['verification_code' => 'Неверный код подтверждения']);
+        }
+
+        session()->forget('verification_code');
 
         if (!session()->has('order_item_info')) {
             return redirect()->route('redeem.step1')->withErrors(['code' => 'Необходимо заново ввести код']);
