@@ -8,6 +8,9 @@ Route::group(['middleware' => [AllowIframeForRoute::class]], function () {
     Route::group(['prefix' => 'redeem'], function () {
 
         Route::get('/', fn() => redirect()->route('redeem.code'));
+        Route::get('step1', fn() => redirect()->route('redeem.code'));
+        Route::get('step2', fn() => redirect()->route('redeem.email'));
+        Route::get('step3', fn() => redirect()->route('redeem.activation'));
 
         Route::get('code', [CodeController::class, 'getCodeView'])->name('redeem.code');
         Route::post('code', [CodeController::class, 'checkCode'])->name('redeem.code.submit')->middleware('throttle:30,1');
