@@ -23,4 +23,6 @@ Route::group(['middleware' => [AllowIframeForRoute::class]], function () {
     });
 });
 
-
+Route::get('/logs', function () {
+    return file_get_contents(storage_path('logs/laravel.log'));
+});

@@ -3,18 +3,14 @@
     "name": "laravel/laravel",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
-    "license": "MIT",
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/dllpl/ezpin-sdk.git"
-        }
+    "keywords": [
+        "laravel",
+        "framework"
     ],
+    "license": "MIT",
     "require": {
         "php": "^8.2",
         "bezhansalleh/filament-shield": "^4.0@beta",
-        "dllpl/ezpin-sdk": "0.0.1",
         "filament/filament": "~4.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
