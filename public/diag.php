@@ -9,10 +9,22 @@ $basePath = realpath(__DIR__ . '/..');
 echo "Base path: $basePath\n\n";
 
 echo "--- Environment Variables (from PHP) ---\n";
-$vars = ['APP_NAME', 'APP_ENV', 'APP_DEBUG', 'APP_URL', 'APP_DOMAIN', 'DB_HOST', 'DB_DATABASE', 'DB_USERNAME'];
+$vars = ['APP_NAME', 'APP_ENV', 'APP_DEBUG', 'APP_URL', 'APP_DOMAIN', 'DB_HOST', 'DB_DATABASE', 'DB_USERNAME', 'TRUSTED_HOSTS'];
 foreach ($vars as $var) {
     $val = getenv($var);
     echo "$var: " . ($val !== false ? "'$val'" : "NOT SET") . "\n";
+}
+
+echo "\n--- Domain Check ---\n";
+$host = $_SERVER['HTTP_HOST'] ?? 'unknown';
+$trusted = getenv('TRUSTED_HOSTS');
+$trusted_array = explode(',', $trusted);
+echo "Current HTTP_HOST: '$host'\n";
+echo "TRUSTED_HOSTS: '$trusted'\n";
+if (in_array($host, $trusted_array)) {
+    echo "SUCCESS: Host is in trusted list.\n";
+} else {
+    echo "WARNING: Host '$host' is NOT in TRUSTED_HOSTS. This will cause 403 or 500 errors.\n";
 }
 
 echo "\n--- Key Check ---\n";
