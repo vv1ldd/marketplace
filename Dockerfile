@@ -3,8 +3,9 @@ FROM serversideup/php:8.3-fpm-nginx
 # 1. Run as root to install system packages and extensions
 USER root
 
-# Install PHP extensions (compilation might take a while)
-RUN install-php-extensions bcmath intl gd zip
+# Install PHP extensions
+RUN install-php-extensions bcmath intl && \
+    install-php-extensions gd
 
 # Install Node.js (LTS) and system dependencies required for Composer
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
