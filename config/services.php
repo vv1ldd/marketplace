@@ -51,5 +51,5 @@ return [
         'api_key' => env('GOOGLE_TRANSLATE_API_KEY'),
     ],
 
-    'trusted_hosts' => env('TRUSTED_HOSTS', 'platform.local'),
+    'trusted_hosts' => env('TRUSTED_HOSTS', 'marketplace.wildcloud.ru,1gros.local,platform.local'),
 ];

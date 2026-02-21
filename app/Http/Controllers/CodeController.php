@@ -246,7 +246,8 @@ class CodeController extends Controller
         $trusted_hosts_array = explode(',', $hosts);
 
         if (!in_array($host, $trusted_hosts_array)) {
-            abort(403);
+            \Illuminate\Support\Facades\Log::warning("Domain mismatch in getCodeView: '$host' not in trusted list [" . implode(',', $trusted_hosts_array) . "]");
+            abort(403, "Domain $host is not allowed");
         }
 
         session()->put('is_frame', (bool) data_get($data, 'is_frame'));
