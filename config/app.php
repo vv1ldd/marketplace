@@ -125,4 +125,5 @@ return [
 
     'domain' => env('APP_DOMAIN', '1gros.local'),
 
+    'wildflow_token' => env('APP_WILDFLOW_TOKEN'),
 ];
