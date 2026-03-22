@@ -19,7 +19,7 @@ class YmService
     public function __construct()
     {
         $this->ym_business_id = (int)Settings::get('YM_BUSINESS_ID', config('services.ym.business_id', 143486522));
-        $this->campaign_id = config('services.ym.campaign_id', 143486522);
+        $this->campaign_id = (int) Settings::get('YM_CAMPAIGN_ID', config('services.ym.campaign_id', 143486522));
 
         $this->client = Http::withHeaders([
             'Api-Key' => Settings::get('YM_API_KEY', config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683')),

@@ -11,6 +11,7 @@ use App\Jobs\QuarantineRemove;
 use App\Jobs\UpdateYmPrices;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
+use App\Models\WildflowCatalog;
 use App\Models\YmSenderLog;
 use Carbon\Carbon;
 use Illuminate\Bus\Batch;
@@ -198,6 +199,145 @@ class MainController extends Controller
             'success' => true,
             'queued' => count($finished_data_chunks),
         ]);
+    }
+
+    public function sendItemsWildflow(Request $request)
+    {
+        ini_set('max_execution_time', 12000);
+
+        $start = time();
+
+        $items = WildflowCatalog::whereNotNull('bussiness_id')
+            ->get();
+
+
+        $binance_service = new BinanceService();
+
+        $usdt_rub = $binance_service->tickerPrice('USDTRUB');
+
+        $tax = Settings::get('YM_TAX', 30);
+
+        $category_id =  (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474));
+
+        $finished_data = [];
+
+        foreach ($items as $item) {
+
+            $sku = $item->sku;
+            $data = $item->data['data'];
+            $product = $data['product'];
+
+            $name = '';
+
+            if ($product['reward_type_text'] === 'Gift-Card') {
+                $name .= 'Подарочная карта ';
+            }
+
+            $name .= $product['title'] . ' ' . $data['price'] . $product['currency']['code'];
+
+            $postfix = \DB::table('conformity')->where('tag', strtok($product['title'], " "))->value('postfix');
+
+            if ($postfix) {
+                $name .= ' ' . $postfix;
+            }
+
+            $price = $data['buying_price'];
+            $price = $usdt_rub * $price;
+            $price = round($price * (1 + $tax / 100), 2);
+
+            $media = $product['image'];
+
+            $description = json_decode($product['description']);
+            $text = data_get($description, 'content.0.description');
+            $terms = data_get($description, 'content.2.description');
+            $description = $text . $terms;
+
+            $finished_data[] = [
+                "offer" => [
+                    "offerId" => $sku,
+                    "name" => $name,
+                    'marketCategoryId' => $category_id,
+                    'pictures' => [$media],
+//                    ...(isset($data['publisherName']) ? ['vendor' => $data['publisherName']] : []),
+                    "description" => $description,
+                    "parameterValues" => [
+//                        ...(isset($platformName) ? [
+//                            [
+//                                "parameterId" => 45128695,
+//                                "value" => $platformName,
+//                            ]
+//                        ] : []),
+                        [
+                            "parameterId" => 37693330,
+                            "value" => "электронный ключ",
+                        ],
+                        [
+                            "parameterId" => 37972050,
+                            "value" => "без сервиса активации",
+                        ],
+                        [
+                            "parameterId" => 45132091,
+                            "value" => "цифровое",
+                        ],
+                        [
+                            "parameterId" => 45130810,
+                            "value" => $name,
+                        ],
+                        [
+                            "parameterId" => 16382542,
+                            "value" => "Ключ предназначен для активации на сервисе активации ИГРОС. Инструкция по активации будет отправлена вам на электронную почту вместе с кодом в течение 10 минут после покупки.",
+                        ],
+//                        ...($is_group ? [
+//                            [
+//                                "parameterId" => 200,
+//                                "value" => $item->concept_id
+//                            ]
+//                        ] : []),
+                        [
+                            "parameterId" => 37919810,
+                            "value" => data_get($product, 'regions.0.name'),
+                        ],
+                    ],
+                    "downloadable" => true,
+                    'basicPrice' => [
+                        "value" => $price,
+                        "currencyId" => "RUR",
+//                        ...($base_price > $price_with_discount ? [
+//                            "discountBase" => $base_price
+//                        ] : [])
+                    ],
+//                    ...(!empty($tags) ? ['tags' => $tags] : []),
+//                    'params' => $params ?? [],
+//                    ...(!empty($videos) ? ['videos' => $videos] : [])
+                ]
+            ];
+        }
+
+        $error_bag = [];
+
+        $send_id = Str::random();
+
+        $finished_data_chunks = array_chunk($finished_data, 20);
+
+        foreach ($finished_data_chunks as $chunk) {
+            $res = $this->sendItems(
+                chunk: $chunk,
+                send_id: $send_id
+            );
+
+            if (!$res['success']) {
+                $error_bag[] = $res['error'];
+            }
+        }
+
+        return response()->json([
+            'success' => empty($error_bag),
+            'error_bag' => $error_bag,
+            'send_id' => $send_id,
+            'total' => count($finished_data),
+            'on_sent' => count($finished_data) - count($error_bag) * 100,
+            'seconds_spent' => time() - $start
+        ], empty($error_bag) ? 200 : 400);
     }
 
     /**
@@ -560,7 +700,7 @@ class MainController extends Controller
      * @param string $send_id
      * @return array
      */
-    private function sendItems(string $lang_region_id, string $price_region_id, array $chunk, string $send_id): array
+    private function sendItems(array $chunk, string $send_id, string $lang_region_id = null, string $price_region_id = null): array
     {
 //        $ym_sender_log = YmSenderLog::create([
 //            'lang_region_id' => $lang_region_id,
@@ -582,7 +722,7 @@ class MainController extends Controller
 //                'status' => 'success'
 //            ]);
 
-            PlayStationAlt::whereIn('sku', array_column($chunk, 'sku'))->update(['send_to_ym_at' => now()]);
+//            PlayStationAlt::whereIn('sku', array_column($chunk, 'sku'))->update(['send_to_ym_at' => now()]);
 
         } catch (\Exception $e) {
 

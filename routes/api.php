@@ -18,6 +18,8 @@ Route::group(['prefix' => 'ps'], function () {
         Route::post('update-price-items', [YmMainController::class, 'prepareToUpdatePriceItems']);
         Route::post('send-stock-items', [YmMainController::class, 'prepareSendStockItems']);
         Route::post('items-show', [YmMainController::class, 'prepareToItemsShow']);
+
+
     });
 
     Route::get('prices', [MainController::class, 'prices']);
@@ -25,6 +27,8 @@ Route::group(['prefix' => 'ps'], function () {
 
 Route::group(['prefix' => 'ym'], function () {
     Route::any('{token}/notification', [YmMainController::class, 'notification']);
+
+    Route::post('send-items-wildflow', [YmMainController::class, 'sendItemsWildflow']);
 });
 
 Route::get('update-woo-prices', [WooPriceUpdateController::class, 'update']);
