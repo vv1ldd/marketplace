@@ -15,7 +15,7 @@ border-radius:12px;font-weight:bold;letter-spacing:1px;">
 2. Нажмите:<br>
 
 
-<a href="https://meanly.ru/page/redeem" target="_blank"
+<a href="https://meanly.ru/redeem" target="_blank"
 style="background:#1f9d55;color:#fff;padding:11px 22px;border-radius:22px;
 text-decoration:none;display:inline-block;font-weight:bold;
 box-shadow:0 4px 12px rgba(31,157,85,0.25);">
@@ -23,7 +23,7 @@ box-shadow:0 4px 12px rgba(31,157,85,0.25);">
 </a>
 <br>
 <br>
-<a href="https://meanly.ru/page/support" target="_blank"
+<a href="https://meanly.ru/support" target="_blank"
 style="background:#ffd84d;color:#111;padding:10px 20px;border-radius:22px;
 text-decoration:none;display:inline-block;font-weight:bold;">
 Поддержка
