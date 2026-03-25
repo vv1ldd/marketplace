@@ -134,6 +134,25 @@ class YmService
         return $response->json('result');
     }
 
+    public function offerDelete(array $offerIds)
+    {
+        if (count($offerIds) > 10000) {
+            throw new \Exception('Too many offerIds');
+        }
+
+        $business_id = $this->ym_business_id;
+
+        $response = $this->client->post("businesses/$business_id/offer-prices/delete", [
+            'offerIds' => $offerIds,
+        ]);
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json();
+    }
+
     public function offerPriceUpdate(array $offerPrices)
     {
         if (count($offerPrices) > 500) {

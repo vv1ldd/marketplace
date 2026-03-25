@@ -13,6 +13,7 @@ use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use App\Models\WildflowCatalog;
 use App\Models\YmSenderLog;
+use App\Services\WildflowService;
 use Carbon\Carbon;
 use Illuminate\Bus\Batch;
 use Illuminate\Http\Client\ConnectionException;
@@ -28,6 +29,31 @@ class MainController extends Controller
     public function __construct(int $tax = null)
     {
         $this->ps_tax = $tax ?? (int)Settings::get('PS_TAX', 35);
+    }
+
+    /**
+     * @throws ConnectionException
+     */
+    public function prepareToDeleteItems(Request $request)
+    {
+        $data = $request->validate([
+            'skus' => 'nullable|array',
+        ]);
+
+        $query = WildflowCatalog::query();
+
+        if (!empty($data['skus'])) {
+            $query->whereIn('id', $data['skus']);
+        }
+
+        $skus = $query
+            ->whereNotNull('bussiness_id')
+            ->pluck('sku')
+            ->toArray();
+
+        $service = new YmService();
+
+        return $service->offerDelete($skus);
     }
 
     public function prepareToItemsShow(Request $request)
@@ -210,16 +236,31 @@ class MainController extends Controller
         $items = WildflowCatalog::whereNotNull('bussiness_id')
             ->get();
 
-
         $binance_service = new BinanceService();
 
         $usdt_rub = $binance_service->tickerPrice('USDTRUB');
 
         $tax = Settings::get('YM_TAX', 30);
 
-        $category_id =  (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474));
+        $category_id = (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474));
 
         $finished_data = [];
+
+        $postfixes = \DB::table('mapping')
+            ->pluck('postfix', 'tag');
+        $vendors = \DB::table('mapping')
+            ->pluck('vendor', 'tag');
+
+        $wildflow_service = new WildflowService();
+
+        $exchange_rates = $wildflow_service->getExchangeRates();
+
+        $ratesMap = collect($exchange_rates)
+            ->mapWithKeys(function ($item) {
+                return [
+                    $item['to_currency']['code'] => $item['rate']
+                ];
+            });
 
         foreach ($items as $item) {
 
@@ -235,20 +276,33 @@ class MainController extends Controller
 
             $name .= $product['title'] . ' ' . $data['price'] . $product['currency']['code'];
 
-            $postfix = \DB::table('conformity')->where('tag', strtok($product['title'], " "))->value('postfix');
+            $tag = explode(' ', $product['title'], 2)[0];
+            $postfix = $postfixes[$tag] ?? null;
+            $vendor = $vendors[$tag] ?? 'Нет бренда';
 
             if ($postfix) {
                 $name .= ' ' . $postfix;
             }
 
+            $currency = $product['currency']['code'];
             $price = $data['buying_price'];
-            $price = $usdt_rub * $price;
+
+            if ($currency !== 'USD') {
+                if (isset($ratesMap[$currency])) {
+                    $price = $price / $ratesMap[$currency];
+                } else {
+                    continue;
+                }
+            }
+
+            $price = $price * $usdt_rub;
             $price = round($price * (1 + $tax / 100), 2);
 
             $media = $product['image'];
 
-            $description = json_decode($product['description']);
-            $text = data_get($description, 'content.0.description');
+            $description = $product['description'] ? json_decode($product['description'], true) : [];
+            $text = $desc['content'][0]['description'] ?? '';
+
             $terms = data_get($description, 'content.2.description');
             $description = $text . $terms;
 
@@ -258,7 +312,7 @@ class MainController extends Controller
                     "name" => $name,
                     'marketCategoryId' => $category_id,
                     'pictures' => [$media],
-//                    ...(isset($data['publisherName']) ? ['vendor' => $data['publisherName']] : []),
+                    'vendor' => $vendor,
                     "description" => $description,
                     "parameterValues" => [
 //                        ...(isset($platformName) ? [
@@ -268,24 +322,28 @@ class MainController extends Controller
 //                            ]
 //                        ] : []),
                         [
+                            "parameterId" => 37821410,
+                            "value" => (int)$data['price'],
+                        ],
+                        [
+                            "parameterId" => 37919770,
+                            "value" => "в течение 1 месяца",
+                        ],
+                        [
+                            "parameterId" => 37978250,
+                            "value" => "пополнение счета",
+                        ],
+//                        [
+//                            "parameterId" => 37972050,
+//                            "value" => $name,
+//                        ],
+                        [
                             "parameterId" => 37693330,
                             "value" => "электронный ключ",
                         ],
                         [
-                            "parameterId" => 37972050,
-                            "value" => "без сервиса активации",
-                        ],
-                        [
-                            "parameterId" => 45132091,
-                            "value" => "цифровое",
-                        ],
-                        [
-                            "parameterId" => 45130810,
-                            "value" => $name,
-                        ],
-                        [
                             "parameterId" => 16382542,
-                            "value" => "Ключ предназначен для активации на сервисе активации ИГРОС. Инструкция по активации будет отправлена вам на электронную почту вместе с кодом в течение 10 минут после покупки.",
+                            "value" => "Ключ предназначен для активации на сервисе активации MEANLY. Инструкция по активации будет отправлена вам на электронную почту вместе с кодом в течение 10 минут после покупки.",
                         ],
 //                        ...($is_group ? [
 //                            [
