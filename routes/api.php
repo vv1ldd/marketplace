@@ -32,3 +32,9 @@ Route::group(['prefix' => 'ym'], function () {
 
 Route::get('update-woo-prices', [WooPriceUpdateController::class, 'update']);
 
+Route::group(['prefix' => 'redeem', 'middleware' => 'api.redeem.auth'], function () {
+    Route::post('verify-code', [\App\Http\Controllers\Api\RedeemApiController::class, 'verifyCode']);
+    Route::post('send-verification', [\App\Http\Controllers\Api\RedeemApiController::class, 'sendVerification']);
+    Route::post('activate', [\App\Http\Controllers\Api\RedeemApiController::class, 'activate']);
+});
+
