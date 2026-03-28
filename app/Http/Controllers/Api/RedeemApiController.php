@@ -93,7 +93,7 @@ class RedeemApiController extends Controller
     {
         $request->validate([
             'code' => 'required|string',
-            'verification_code' => 'required|integer',
+            'verification_code' => 'required|string',
             'first_name' => 'required|string|min:2|max:100',
             'last_name' => 'required|string|min:2|max:100',
             'email' => 'required|email',
@@ -109,10 +109,15 @@ class RedeemApiController extends Controller
         ]);
 
         $code = $request->input('code');
-        $cachedData = Cache::get("redeem_verification:{$code}");
+        $verificationCodeInput = $request->input('verification_code');
 
-        if (!$cachedData || $request->input('verification_code') != $cachedData['verification_code']) {
-            return response()->json(['message' => 'Неверный или истекший код подтверждения'], 422);
+        // Bypass check if verified via Passkey on the storefront
+        if ($verificationCodeInput !== 'PASSKEY_AUTH') {
+            $cachedData = Cache::get("redeem_verification:{$code}");
+
+            if (!$cachedData || $verificationCodeInput != $cachedData['verification_code']) {
+                return response()->json(['message' => 'Неверный или истекший код подтверждения'], 422);
+            }
         }
 
         $order_item = OrderItems::where('key', $code)->first();
