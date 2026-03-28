@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\ApiApplicationResource\Schemas;
 
+use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
@@ -29,9 +31,9 @@ class ApiApplicationForm
                             ->maxLength(64)
                             ->label('API Токен')
                             ->suffixAction(
-                                \Filament\Forms\Components\Actions\Action::make('generateToken')
+                                Action::make('generateToken')
                                     ->icon('heroicon-m-arrow-path')
-                                    ->action(function ($set) {
+                                    ->action(function (Set $set) {
                                         $set('token', Str::random(64));
                                     })
                             )
