@@ -18,7 +18,7 @@ class ApiApplicationResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-key';
 
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static string | \UnitEnum | null $navigationGroup = 'Настройки';
 
     protected static ?string $label = 'API Приложение';
     protected static ?string $pluralLabel = 'API Приложения';
