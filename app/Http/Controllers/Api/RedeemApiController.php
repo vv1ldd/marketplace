@@ -111,8 +111,8 @@ class RedeemApiController extends Controller
         $code = $request->input('code');
         $verificationCodeInput = $request->input('verification_code');
 
-        // Bypass check if verified via Passkey on the storefront
-        if ($verificationCodeInput !== 'PASSKEY_AUTH') {
+        // Bypass check if verified via Passkey or trusted by storefront
+        if (! in_array($verificationCodeInput, ['PASSKEY_AUTH', 'TRUSTED_USER'])) {
             $cachedData = Cache::get("redeem_verification:{$code}");
 
             if (!$cachedData || $verificationCodeInput != $cachedData['verification_code']) {
