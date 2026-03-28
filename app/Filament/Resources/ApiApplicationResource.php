@@ -16,11 +16,12 @@ class ApiApplicationResource extends Resource
 {
     protected static ?string $model = ApiApplication::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-key';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-key';
 
     protected static string | \UnitEnum | null $navigationGroup = 'Настройки';
 
     protected static ?string $label = 'API Приложение';
+
     protected static ?string $pluralLabel = 'API Приложения';
 
     public static function form(Schema $schema): Schema
