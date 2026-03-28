@@ -4,16 +4,15 @@ namespace App\Filament\Resources\ApiApplicationResource\Schemas;
 
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Form;
 use Illuminate\Support\Str;
-use Filament\Schemas\Components\Utilities\Set;
 
 class ApiApplicationForm
 {
-    public static function configure(Schema $schema): Schema
+    public static function configure(Form $form): Form
     {
-        return $schema
+        return $form
             ->components([
                 Section::make()
                     ->schema([
