@@ -8,17 +8,19 @@ use App\Filament\Resources\ApiApplicationResource\Pages\ListApiApplications;
 use App\Filament\Resources\ApiApplicationResource\Schemas\ApiApplicationForm;
 use App\Filament\Resources\ApiApplicationResource\Tables\ApiApplicationsTable;
 use App\Models\ApiApplication;
+use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class ApiApplicationResource extends Resource
 {
     protected static ?string $model = ApiApplication::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-key';
+    protected static string | BackedEnum | null $navigationIcon = Heroicon::Key;
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Настройки';
+    protected static string | null | \UnitEnum $navigationGroup = 'Настройки';
 
     protected static ?string $label = 'API Приложение';
 
