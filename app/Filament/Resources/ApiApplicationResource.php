@@ -8,8 +8,8 @@ use App\Filament\Resources\ApiApplicationResource\Pages\ListApiApplications;
 use App\Filament\Resources\ApiApplicationResource\Schemas\ApiApplicationForm;
 use App\Filament\Resources\ApiApplicationResource\Tables\ApiApplicationsTable;
 use App\Models\ApiApplication;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 
 class ApiApplicationResource extends Resource
@@ -24,9 +24,9 @@ class ApiApplicationResource extends Resource
 
     protected static ?string $pluralLabel = 'API Приложения';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return ApiApplicationForm::configure($form);
+        return ApiApplicationForm::configure($schema);
     }
 
     public static function table(Table $table): Table
