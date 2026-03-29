@@ -137,10 +137,18 @@ class RedeemApiController extends Controller
 
         $data = $request->all();
 
-        // Provide defaults if name is missing for frictionless activation
-        $data['first_name'] = $data['first_name'] ?: 'Пользователь';
-        $data['last_name']  = $data['last_name'] ?: 'Meanly';
-        $data['phone']      = $data['phone'] ?: null;
+        // Forced override: Use contact info from the API Application (the shop)
+        $apiApplication = $request->attributes->get('api_application');
+        if ($apiApplication && $apiApplication->first_name && $apiApplication->last_name) {
+            $data['first_name'] = $apiApplication->first_name;
+            $data['last_name']  = $apiApplication->last_name;
+            $data['phone']      = $apiApplication->phone ?: $data['phone'];
+        } else {
+            // Global defaults if no application context
+            $data['first_name'] = $data['first_name'] ?: 'Пользователь';
+            $data['last_name']  = $data['last_name'] ?: 'Meanly';
+            $data['phone']      = $data['phone'] ?: null;
+        }
 
         $option_0 = data_get($data, 'option.0');
         $option_1 = data_get($data, 'option.1');

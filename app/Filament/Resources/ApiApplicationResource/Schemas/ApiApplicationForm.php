@@ -21,7 +21,16 @@ class ApiApplicationForm
                         TextInput::make('name')
                             ->required()
                             ->maxLength(255)
-                            ->label('Название'),
+                            ->label('Название магазина'),
+                        TextInput::make('first_name')
+                            ->maxLength(255)
+                            ->label('Имя отв. лица'),
+                        TextInput::make('last_name')
+                            ->maxLength(255)
+                            ->label('Фамилия отв. лица'),
+                        TextInput::make('phone')
+                            ->maxLength(255)
+                            ->label('Телефон отв. лица (для Marketplace)'),
                         TextInput::make('domain')
                             ->maxLength(255)
                             ->label('Домен (optional)')
