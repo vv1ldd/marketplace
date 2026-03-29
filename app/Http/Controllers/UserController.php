@@ -26,9 +26,11 @@ class UserController extends Controller
             }
         }
 
-        // Иначе — стандартный updateOrCreate по телефону
+        // Иначе — стандартный updateOrCreate по телефону или почте
+        $matchCriteria = $normalizedPhone ? ['phone' => $normalizedPhone] : ['email' => $data['email']];
+
         return User::updateOrCreate(
-            ['phone' => $normalizedPhone],
+            $matchCriteria,
             array_merge($data, [
                 'phone' => $normalizedPhone,
                 'ym_user_id' => $ym_user_id,
