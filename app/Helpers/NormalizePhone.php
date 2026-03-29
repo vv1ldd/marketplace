@@ -10,7 +10,7 @@ class NormalizePhone
      * @param string $phone
      * @return string|null Возвращает нормализованный номер или null, если не удалось определить
      */
-    public static function normalize(string $phone): ?string
+    public static function normalize(?string $phone): ?string
     {
         // Удаляем все нецифровые символы
         $digits = preg_replace('/\D+/', '', $phone);

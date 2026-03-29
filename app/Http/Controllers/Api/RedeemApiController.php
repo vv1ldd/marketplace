@@ -94,10 +94,10 @@ class RedeemApiController extends Controller
         $request->validate([
             'code' => 'required|string',
             'verification_code' => 'required|string',
-            'first_name' => 'required|string|min:2|max:100',
-            'last_name' => 'required|string|min:2|max:100',
+            'first_name' => 'nullable|string|max:100',
+            'last_name' => 'nullable|string|max:100',
             'email' => 'required|email',
-            'phone' => 'required|regex:/^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$/',
+            'phone' => 'nullable|string',
 
             'option.0.check' => 'nullable|string|in:on,1',
             'option.0.ps_network_id' => 'required_if:option.0.check,on,1|email',
@@ -136,6 +136,12 @@ class RedeemApiController extends Controller
         }
 
         $data = $request->all();
+
+        // Provide defaults if name is missing for frictionless activation
+        $data['first_name'] = $data['first_name'] ?: 'Пользователь';
+        $data['last_name']  = $data['last_name'] ?: 'Meanly';
+        $data['phone']      = $data['phone'] ?: null;
+
         $option_0 = data_get($data, 'option.0');
         $option_1 = data_get($data, 'option.1');
 
@@ -151,7 +157,7 @@ class RedeemApiController extends Controller
             $data['type_id'] = 1;
         }
 
-        $user = UserController::updateOrCreate(phone: $data['phone'], data: $data);
+        $user = UserController::updateOrCreate(phone: $data['phone'] ?? null, data: $data);
 
         $order_item->update([
             'is_activated' => true,

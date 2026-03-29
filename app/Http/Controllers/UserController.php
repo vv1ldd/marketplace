@@ -9,9 +9,9 @@ use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
-    public static function updateOrCreate(string $phone, array $data, ?string $ym_user_id = null): \App\Models\User
+    public static function updateOrCreate(?string $phone, array $data, ?string $ym_user_id = null): \App\Models\User
     {
-        $normalizedPhone = NormalizePhone::normalize($phone);
+        $normalizedPhone = $phone ? NormalizePhone::normalize($phone) : null;
 
         // Сначала попробуем найти по email
         if (!empty($data['email'])) {
