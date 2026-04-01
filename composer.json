@@ -12,6 +12,7 @@
         "php": "^8.2",
         "bezhansalleh/filament-shield": "^4.0@beta",
         "filament/filament": "~4.0",
+        "intervention/image": "^4.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "mrt1m/playstation-store-api": "^2.2",
