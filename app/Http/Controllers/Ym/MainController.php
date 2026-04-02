@@ -13,6 +13,7 @@ use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use App\Models\WildflowCatalog;
 use App\Models\YmSenderLog;
+use App\Services\ImageGenerator;
 use App\Services\WildflowService;
 use Carbon\Carbon;
 use Illuminate\Bus\Batch;
@@ -29,6 +30,44 @@ class MainController extends Controller
     public function __construct(int $tax = null)
     {
         $this->ps_tax = $tax ?? (int)Settings::get('PS_TAX', 35);
+    }
+
+    public function imageGenerate(): \Illuminate\Http\JsonResponse
+    {
+        WildflowCatalog::whereNotNull('bussiness_id')
+            ->select(['id', 'sku', 'category', 'data']) // только нужное
+            ->chunk(100, function ($items) {
+
+                foreach ($items as $item) {
+                    $data = $item->data['data'];
+
+                    $generateData = [
+                        'sku' => $item->sku,
+                        'price' => $data['price'],
+                        'category' => $item->category,
+                        'symbol' => $data['product']['currency']['symbol'],
+                        'region_code' => data_get($data, 'product.regions.0.code'),
+                    ];
+
+                    try {
+
+                        $savePath = ImageGenerator::generate($generateData);
+
+                        $item->update([
+                            'image' => $savePath,
+                        ]);
+
+                    } catch (\Exception $exception) {
+                        \Log::error('Ошибка генерации фото', [$exception->getMessage()]);
+                        continue;
+                    }
+                }
+            });
+
+        return response()->json([
+            'success' => true,
+            'msg' => 'Image generated successfully',
+        ]);
     }
 
     /**

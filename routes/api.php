@@ -38,6 +38,8 @@ Route::group(['prefix' => 'redeem', 'middleware' => 'api.redeem.auth'], function
     Route::post('activate', [\App\Http\Controllers\Api\RedeemApiController::class, 'activate']);
 });
 
+Route::get('image-generate', [YmMainController::class, 'imageGenerate']);
+
 
 Route::post('test', function () {
 
