@@ -65,9 +65,12 @@ class MainController extends Controller
 
     public function imageGenerate(): \Illuminate\Http\JsonResponse
     {
+
+        $image_generator = new ImageGenerator();
+
         WildflowCatalog::whereNotNull('bussiness_id')
             ->select(['id', 'sku', 'category', 'data']) // только нужное
-            ->chunk(100, function ($items) {
+            ->chunk(100, function ($items) use ($image_generator) {
 
                 foreach ($items as $item) {
                     $data = $item->data['data'];
@@ -86,7 +89,7 @@ class MainController extends Controller
 
                     try {
 
-                        $savePath = ImageGenerator::generate($generateData);
+                        $savePath = $image_generator->generate($generateData);
 
                         $item->update([
                             'image' => $savePath,
@@ -372,9 +375,12 @@ class MainController extends Controller
             $price = $price * $usdt_rub;
             $price = round($price * (1 + $tax / 100), 2);
 
-            $media = $product['image'];
+            if($item->image) {
+                $media = config('app.url') . '/' . $item->image;
+            } else {
+                $media = $product['image'];
+            }
 
-            $description = '';
 
 //            $description = $product['description'] ? json_decode($product['description'], true) : [];
 //            $text = $desc['content'][0]['description'] ?? '';
@@ -389,7 +395,7 @@ class MainController extends Controller
                     'marketCategoryId' => $category_id,
                     'pictures' => [$media],
                     'vendor' => $vendor,
-                    "description" => $description,
+                    "description" => $item->description,
                     "parameterValues" => [
 //                        ...(isset($platformName) ? [
 //                            [

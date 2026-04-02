@@ -13,7 +13,6 @@ class DescriptionGenerator
             ->pluck('description', 'tag')->toArray();
         $this->countries = \DB::table('mapping_countries')
             ->pluck('name_ru', 'code')->toArray();
-//        dd($this->descriptions);
     }
 
     public function generate(string $country_code, string $currency, string $category): string
