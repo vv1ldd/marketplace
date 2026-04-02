@@ -13,6 +13,7 @@ use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use App\Models\WildflowCatalog;
 use App\Models\YmSenderLog;
+use App\Services\DescriptionGenerator;
 use App\Services\ImageGenerator;
 use App\Services\WildflowService;
 use Carbon\Carbon;
@@ -32,6 +33,36 @@ class MainController extends Controller
         $this->ps_tax = $tax ?? (int)Settings::get('PS_TAX', 35);
     }
 
+    public function descriptionGenerate()
+    {
+        $generator = new DescriptionGenerator();
+        WildflowCatalog::whereNotNull('bussiness_id')
+            ->select(['id', 'sku', 'category', 'data']) // только нужное
+            ->chunk(100, function ($items) use ($generator) {
+
+                foreach ($items as $item) {
+                    $data = $item->data['data'];
+                    $category = $item->category;
+
+                    if (!isset($data['product']['regions'][0]['code'])) {
+                        continue;
+                    }
+
+                    $item->update([
+                        'description' => $generator->generate(
+                            country_code: $data['product']['regions'][0]['code'],
+                            currency: $data['product']['currency']['code'],
+                            category: $category
+                        )
+                    ]);
+                }
+            });
+
+        return response()->json([
+            'success' => true,
+        ]);
+    }
+
     public function imageGenerate(): \Illuminate\Http\JsonResponse
     {
         WildflowCatalog::whereNotNull('bussiness_id')
@@ -41,12 +72,16 @@ class MainController extends Controller
                 foreach ($items as $item) {
                     $data = $item->data['data'];
 
+                    if(!isset($data['product']['regions'][0]['code'])){
+                        continue;
+                    }
+
                     $generateData = [
                         'sku' => $item->sku,
                         'price' => $data['price'],
                         'category' => $item->category,
                         'symbol' => $data['product']['currency']['symbol'],
-                        'region_code' => data_get($data, 'product.regions.0.code'),
+                        'region_code' => $data['product']['regions'][0]['code'],
                     ];
 
                     try {
@@ -315,7 +350,7 @@ class MainController extends Controller
 
             $name .= $product['title'] . ' ' . $data['price'] . $product['currency']['code'];
 
-            $tag = explode(' ', $product['title'], 2)[0];
+            $tag = $item->category;
             $postfix = $postfixes[$tag] ?? null;
             $vendor = $vendors[$tag] ?? 'Нет бренда';
 
@@ -339,11 +374,13 @@ class MainController extends Controller
 
             $media = $product['image'];
 
-            $description = $product['description'] ? json_decode($product['description'], true) : [];
-            $text = $desc['content'][0]['description'] ?? '';
+            $description = '';
 
-            $terms = data_get($description, 'content.2.description');
-            $description = $text . $terms;
+//            $description = $product['description'] ? json_decode($product['description'], true) : [];
+//            $text = $desc['content'][0]['description'] ?? '';
+//
+//            $terms = data_get($description, 'content.2.description');
+//            $description = $text . $terms;
 
             $finished_data[] = [
                 "offer" => [
