@@ -15,6 +15,7 @@ use App\Models\WildflowCatalog;
 use App\Models\YmSenderLog;
 use App\Services\DescriptionGenerator;
 use App\Services\ImageGenerator;
+use App\Services\MeanlyService;
 use App\Services\WildflowService;
 use Carbon\Carbon;
 use Illuminate\Bus\Batch;
@@ -853,8 +854,12 @@ class MainController extends Controller
 
         $service = new YmService();
 
+        $meanly_service = new MeanlyService();
+
         try {
-            $response = $service->offerMappingsUpdate($chunk);
+            $service->offerMappingsUpdate($chunk);
+
+            $res = $meanly_service->sendOffers($chunk);
 
 //            $ym_sender_log->update([
 //                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -865,6 +870,8 @@ class MainController extends Controller
 //            PlayStationAlt::whereIn('sku', array_column($chunk, 'sku'))->update(['send_to_ym_at' => now()]);
 
         } catch (\Exception $e) {
+
+            \Log::error("send items error", [$e->getMessage()]);
 
 //            $ym_sender_log->update([
 //                'response' => json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
