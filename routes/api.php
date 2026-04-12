@@ -28,6 +28,7 @@ Route::group(['prefix' => 'ym'], function () {
     Route::any('{token}/notification', [YmMainController::class, 'notification']);
 
     Route::post('send-items-wildflow', [YmMainController::class, 'sendItemsWildflow']);
+    Route::post('send-stock-items-wildflow', [YmMainController::class, 'prepareSendStockItemsWildflow']);
 });
 
 Route::get('update-woo-prices', [WooPriceUpdateController::class, 'update']);

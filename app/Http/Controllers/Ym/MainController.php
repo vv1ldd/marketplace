@@ -758,6 +758,41 @@ class MainController extends Controller
 
     }
 
+    public function prepareSendStockItemsWildflow(Request $request)
+    {
+        ini_set('max_execution_time', 12000);
+
+        $start = time();
+
+        $items = WildflowCatalog::whereNotNull('bussiness_id')
+            ->get();
+
+        $finished_data = [];
+
+        $stock = Settings::get('YM_STOCK', 10);
+
+        foreach ($items as $item) {
+
+            $finished_data[] = [
+                'sku' => $item->sku,
+                'items' => [
+                    [
+                        'count' => $stock,
+                    ]
+                ]
+            ];
+        }
+
+        $service = new YmService();
+
+        $service->offerStocks($finished_data);
+
+        return response()->json([
+            'success' => true,
+            'seconds_spent' => time() - $start
+        ]);
+    }
+
     public function prepareSendStockItems(Request $request)
     {
         $data = $request->validate([
