@@ -859,7 +859,7 @@ class MainController extends Controller
         try {
             $service->offerMappingsUpdate($chunk);
 
-            $res = $meanly_service->sendOffers($chunk);
+//            $res = $meanly_service->sendOffers($chunk);
 
 //            $ym_sender_log->update([
 //                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
