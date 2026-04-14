@@ -66,6 +66,7 @@ class MainController extends Controller
 
     public function imageGenerate(): \Illuminate\Http\JsonResponse
     {
+        set_time_limit(480);
 
         $image_generator = new ImageGenerator();
 
