@@ -21,7 +21,7 @@ class ImageGenerator
         $manager = new ImageManager(Driver::class);
 
         $image = $manager->decodePath(
-            storage_path('app/private/base-card.png')
+            public_path('img/base-card.png')
         );
 
         $image->text($item['price'] . $item['symbol'], 860, 258, function ($font) {
