@@ -42,3 +42,6 @@ Route::group(['prefix' => 'redeem', 'middleware' => 'api.redeem.auth'], function
 Route::get('image-generate', [YmMainController::class, 'imageGenerate']);
 Route::get('description-generate', [YmMainController::class, 'descriptionGenerate']);
 
+// delivery type = 3 - whatsapp, 0 - ничего, 2- sms, 1 - email
+//1. create-order -> приходит referenceCode
+//2. запускаем orders/{referenceCode} -> отправляем оригинал клиенту при активации
