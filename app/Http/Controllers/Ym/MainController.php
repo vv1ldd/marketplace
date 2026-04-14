@@ -72,6 +72,8 @@ class MainController extends Controller
 
         WildflowCatalog::whereNotNull('bussiness_id')
             ->select(['id', 'sku', 'category', 'data']) // только нужное
+            ->where('image_updated_at', null)
+            ->orWhere('image_updated_at', '<=', Carbon::now()->subHour())
             ->chunk(100, function ($items) use ($image_generator) {
 
                 foreach ($items as $item) {
