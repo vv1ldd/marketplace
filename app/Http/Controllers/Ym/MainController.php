@@ -97,6 +97,7 @@ class MainController extends Controller
 
                         $item->update([
                             'image' => $savePath,
+                            'image_updated_at' => now()
                         ]);
 
                     } catch (\Exception $exception) {
