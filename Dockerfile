@@ -5,7 +5,8 @@ USER root
 
 # Install PHP extensions
 RUN install-php-extensions bcmath intl && \
-    install-php-extensions gd
+    install-php-extensions gd && \
+    install-php-extensions imagick
 
 # Install Node.js (LTS) and system dependencies required for Composer
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
