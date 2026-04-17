@@ -32,7 +32,16 @@ class WildflowService
         return $response->json('data.results');
     }
 
-    public function createOrder(string $service_sku, string $order_item_id, int $price, int $qte, bool $pre_order = false, string $email = 'sataniyazow@gmail.com'): object
+    public function createOrder(
+        string $service_sku,
+        string $order_item_id,
+        int $price,
+        int $qte,
+        bool $pre_order = false,
+        string $email = 'sataniyazow@gmail.com',
+        string $terminal_pin = '1029',
+        int $terminal_id = 9973
+    ): object
     {
         $response = $this->client->post('codes/create-order', [
             'sku' => $service_sku,
@@ -42,6 +51,8 @@ class WildflowService
             'referenceCode' => $order_item_id,
             'deliveryType' => 1,
             'destination' => $email,
+            'terminal_pin' => $terminal_pin,
+            'terminal_id' => $terminal_id
         ]);
 
         if ($response->failed()) {
