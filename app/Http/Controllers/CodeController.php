@@ -152,7 +152,7 @@ class CodeController extends Controller
             return redirect()->route('redeem.code')->withErrors(['code' => 'Ошибка, мы уже работаем над этим!']);
         }
 
-        sleep(2);
+        sleep(1);
 
         try {
             $cards = $service->getCards($order_item->uuid);
