@@ -38,8 +38,8 @@ class WildflowService
             'sku' => $service_sku,
             'price' => $price,
             'quantity' => $qte,
-            'pre_order' => $pre_order,
-            'reference_code' => $order_item_id,
+            'preOrder' => $pre_order,
+            'referenceCode' => $order_item_id,
             'deliveryType' => 1,
             'destination' => $email,
         ]);
