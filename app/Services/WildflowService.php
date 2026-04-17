@@ -31,4 +31,14 @@ class WildflowService
 
         return $response->json('data.results');
     }
+
+    public function createOrder(string $sku)
+    {
+
+    }
+
+    public function getOrder(string $referenceCode)
+    {
+
+    }
 }

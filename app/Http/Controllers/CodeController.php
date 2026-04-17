@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SendTelegramJob;
+use App\Mail\SendActivationCode;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\PlayStation\PlayStationAlt;
@@ -135,11 +136,16 @@ class CodeController extends Controller
 
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
+        //TODO Тут делаем запрос на 1. create-order по service_sku -> приходит referenceCode
+        //TODO запускаем orders/{referenceCode} -> получаем код оригинала
+        $original_code = 'asdasdasd';
+
         $order_item->update([
             'is_activated' => true,
             'client_info' => $data,
             'activated_at' => now(),
             'type_id' => $data['type_id'],
+            'original_code' => $original_code, //TODO Добавить поле в таблицу!!
         ]);
 
         $order_items = OrderItems::where('order_id', $order->id)->get();
@@ -161,6 +167,8 @@ class CodeController extends Controller
         ]);
 
         SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
+
+        Mail::to($user->email)->send(new SendActivationCode($original_code));
 
         return redirect()->route('redeem.success');
     }
