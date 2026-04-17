@@ -1,35 +1,46 @@
 <table width="100%" cellpadding="0" cellspacing="0">
 <tr>
-<td align="center" style="padding:28px 0;">
-<div style="max-width:520px;background:#ffffff;padding:28px;border-radius:22px;
-font-family:Arial,sans-serif;font-size:14px;color:#222;text-align:center;
-line-height:1.6;box-shadow:0 8px 24px rgba(0,0,0,0.06);">
+<td align="center" style="padding:20px; font-family:Arial, sans-serif; color:#222; font-size:14px; line-height:1.5;">
 
-1. Скопируйте ваш код который находится выше 👆
+<div style="max-width:420px; text-align:left;">
 
-<div style="margin:12px 0;padding:10px 14px;background:#f3f4f8;
-border-radius:12px;font-weight:bold;letter-spacing:1px;">
-ПРИМЕР: W1C-XXXX-XXXX-XXXX*
+<p><b>Как использовать ваучер</b></p>
+
+<p>
+1. Скопируйте код ваучера выше.
+</p>
+
+<p>
+2. Перейдите на сайт: <a href="https://marketplace.meanly.ru/redeem" target="_blank" style="color:#1a73e8; font-weight:bold;">
+marketplace.meanly.ru/redeem
+</a>
+</p>
+
+<p>
+3. Вставьте код ваучера и подтвердите активацию.
+</p>
+
+<p>
+4. После активации ваучера вы получите код пополнения на ваш Email
+</p>
+
+<p>
+5. Активируйте полученный код в сервисе активации вашего аккаунта. 
+</p>
+
+<p style="margin-top:20px;">
+Если возникнут вопросы:<br>
+<a href="https://meanly.ru/support" target="_blank" style="color:#1a73e8;">
+meanly.ru/support
+</a>
+</p>
+
+<p style="margin-top:20px; color:#666; font-size:12px;">
+Ваучер можно использовать только один раз.
+</p>
+
 </div>
 
-2. Нажмите:<br>
-
-
-<a href="https://meanly.ru/redeem" target="_blank"
-style="background:#1f9d55;color:#fff;padding:11px 22px;border-radius:22px;
-text-decoration:none;display:inline-block;font-weight:bold;
-box-shadow:0 4px 12px rgba(31,157,85,0.25);">
-Активировать
-</a>
-<br>
-<br>
-<a href="https://meanly.ru/support" target="_blank"
-style="background:#ffd84d;color:#111;padding:10px 20px;border-radius:22px;
-text-decoration:none;display:inline-block;font-weight:bold;">
-Поддержка
-</a>
-
-</div>
 </td>
 </tr>
 </table>
