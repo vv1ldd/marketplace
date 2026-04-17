@@ -40,7 +40,7 @@ class WildflowService
         bool $pre_order = false,
         string $email = 'sataniyazow@gmail.com',
         string $terminal_pin = '1029',
-        int $terminal_id = 9973
+        int $terminal_id = 9937
     ): object
     {
         $response = $this->client->post('codes/create-order', [
