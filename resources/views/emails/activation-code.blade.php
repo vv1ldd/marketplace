@@ -1,14 +1,45 @@
-<!DOCTYPE html>
-<html>
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td align="center" style="padding:20px; font-family:Arial, sans-serif; color:#222; font-size:14px; line-height:1.5;">
 
-<head>
-    <title>Код активации</title>
-</head>
+<div style="max-width:420px; text-align:left;">
 
-<body>
-<h1>Ваш код активации</h1>
-<p>Ваш код подтверждения для завершения активации: <strong>{{ $code }}</strong></p>
-<p>Если вы не запрашивали этот код, просто проигнорируйте это письмо.</p>
-</body>
+<p><b>Ваш код пополнения</b></p>
 
-</html>
+<p>
+Вы успешно обменяли ваучер и получили:
+</p>
+
+<p style="margin:10px 0; font-weight:bold;">
+{{PRODUCT_NAME}}
+</p>
+
+<p>
+Ваш код:
+</p>
+
+<div style="margin:12px 0; padding:12px; background:#f3f4f8; 
+border-radius:8px; text-align:center; font-size:16px; font-weight:bold; letter-spacing:1px;">
+{{GIFT_CODE}}
+</div>
+
+<p>
+Используйте этот код в соответствующем сервисе для пополнения.
+</p>
+
+<p style="margin-top:20px;">
+Если возникнут вопросы:<br>
+<a href="mailto:{{SUPPORT_EMAIL}}" style="color:#1a73e8;">
+{{SUPPORT_EMAIL}}
+</a>
+</p>
+
+<p style="margin-top:20px; color:#666; font-size:12px;">
+Сохраните этот код до момента использования.
+</p>
+
+</div>
+
+</td>
+</tr>
+</table>
