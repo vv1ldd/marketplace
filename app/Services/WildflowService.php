@@ -64,7 +64,7 @@ class WildflowService
 
     public function getCards(string $referenceCode)
     {
-        $response = $this->client->get('codes/' . $referenceCode . '/cards');
+        $response = $this->client->get('codes/orders/' . $referenceCode . '/cards');
 
         if ($response->failed()) {
             throw new \RuntimeException($response->body());
