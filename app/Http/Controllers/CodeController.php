@@ -9,6 +9,8 @@ use App\Models\Order\OrderItems;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use App\Models\User;
+use App\Models\WildflowCatalog;
+use App\Services\WildflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -136,16 +138,37 @@ class CodeController extends Controller
 
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
-        //TODO Тут делаем запрос на 1. create-order по service_sku -> приходит referenceCode
-        //TODO запускаем orders/{referenceCode} -> получаем код оригинала
-        $original_code = 'asdasdasd';
+        $product = WildflowCatalog::where('sku', $order_item->sku)->first();
+
+        $service_sku = data_get($product, 'data.data.product.sku');
+        $service_price = data_get($product, 'data.data.price');
+
+        $service = new WildflowService();
+
+        try {
+            $order_service = $service->createOrder($service_sku, $order_item->uuid, $service_price, $order_item->count);
+        } catch (\Exception $exception) {
+            \Log::error('Ошибка при активации на этапе createOrder', ['e' => $exception, 'order_item' => $order_item, 'product' => $product]);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Ошибка, мы уже работаем над этим!']);
+        }
+
+        sleep(2);
+
+        try {
+            $cards = $service->getCards($order_item->uuid);
+        } catch (\Exception $exception) {
+            \Log::error("Ошибка при активации на этапе getCards", ['e' => $exception, 'order_item' => $order_item, 'product' => $product]);
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Ошибка, мы уже работаем над этим!']);
+        }
+
+        $original_code = data_get($cards, '0.card_number');
 
         $order_item->update([
             'is_activated' => true,
             'client_info' => $data,
             'activated_at' => now(),
             'type_id' => $data['type_id'],
-            'original_code' => $original_code, //TODO Добавить поле в таблицу!!
+            'original_code' => $original_code,
         ]);
 
         $order_items = OrderItems::where('order_id', $order->id)->get();
@@ -168,7 +191,7 @@ class CodeController extends Controller
 
         SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
 
-        Mail::to($user->email)->send(new SendActivationCode($original_code));
+        Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
 
         return redirect()->route('redeem.success');
     }
@@ -258,7 +281,7 @@ class CodeController extends Controller
             abort(403, "Domain $host is not allowed");
         }
 
-        session()->put('is_frame', (bool) data_get($data, 'is_frame'));
+        session()->put('is_frame', (bool)data_get($data, 'is_frame'));
 
         return view('redeem.step1');
     }

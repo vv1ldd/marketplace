@@ -2,6 +2,8 @@
 
 namespace App\Mail;
 
+use App\Models\Order\Order;
+use App\Models\WildflowCatalog;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -14,7 +16,7 @@ class SendActivationCode extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(public string $code)
+    public function __construct(public string $code, public Order $order, public string $support_email = 'sataniyazow@gmail.com')
     {
     }
 

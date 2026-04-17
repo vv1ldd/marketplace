@@ -9,20 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class OrderItems extends Model
 {
-    protected $fillable = [
-        'order_id',
-        'key',
-        'uuid',
-        'sku',
-        'count',
-        'is_activated',
-        'is_redeemed',
-        'activate_till',
-        'client_info',
-        'activated_at',
-        'type_id',
-        'type_form_id'
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'activate_till' => 'datetime',

@@ -11,16 +11,16 @@
 </p>
 
 <p style="margin:10px 0; font-weight:bold;">
-{{PRODUCT_NAME}}
+{{data_get($order, 'info.items.0.offerName')}}
 </p>
 
 <p>
 Ваш код:
 </p>
 
-<div style="margin:12px 0; padding:12px; background:#f3f4f8; 
+<div style="margin:12px 0; padding:12px; background:#f3f4f8;
 border-radius:8px; text-align:center; font-size:16px; font-weight:bold; letter-spacing:1px;">
-{{GIFT_CODE}}
+{{$code}}
 </div>
 
 <p>
@@ -29,8 +29,8 @@ border-radius:8px; text-align:center; font-size:16px; font-weight:bold; letter-s
 
 <p style="margin-top:20px;">
 Если возникнут вопросы:<br>
-<a href="mailto:{{SUPPORT_EMAIL}}" style="color:#1a73e8;">
-{{SUPPORT_EMAIL}}
+<a href="mailto:{{$support_email}}" style="color:#1a73e8;">
+{{$support_email}}
 </a>
 </p>
 

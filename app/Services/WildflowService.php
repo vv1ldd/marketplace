@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Http;
 
 class WildflowService
 {
-    private string $base_url = 'https://api.wildflow.dev/api/v1/partners/';
+    private string $base_url = 'https://api.wildflow.dev/api/v1/';
 
     private PendingRequest $client;
 
@@ -23,7 +23,7 @@ class WildflowService
 
     public function getExchangeRates(): array
     {
-        $response = $this->client->get('exchange-rates');
+        $response = $this->client->get('partners/exchange-rates');
 
         if ($response->failed()) {
             throw new \RuntimeException($response->body());
@@ -32,13 +32,33 @@ class WildflowService
         return $response->json('data.results');
     }
 
-    public function createOrder(string $sku)
+    public function createOrder(string $service_sku, string $order_item_id, int $price, int $qte, bool $pre_order = false, string $email = 'sataniyazow@gmail.com'): object
     {
+        $response = $this->client->post('codes/create-order', [
+            'sku' => $service_sku,
+            'price' => $price,
+            'quantity' => $qte,
+            'pre_order' => $pre_order,
+            'reference_code' => $order_item_id,
+            'deliveryType' => 1,
+            'destination' => $email,
+        ]);
 
+        if ($response->failed()) {
+            throw new \RuntimeException($response->body());
+        }
+
+        return $response->json('order');
     }
 
-    public function getOrder(string $referenceCode)
+    public function getCards(string $referenceCode)
     {
+        $response = $this->client->get('codes/' . $referenceCode . '/cards');
 
+        if ($response->failed()) {
+            throw new \RuntimeException($response->body());
+        }
+
+        return $response->json('cards.results');
     }
 }
