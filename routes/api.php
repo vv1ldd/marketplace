@@ -39,6 +39,12 @@ Route::group(['prefix' => 'redeem', 'middleware' => 'api.redeem.auth'], function
     Route::post('activate', [\App\Http\Controllers\Api\RedeemApiController::class, 'activate']);
 });
 
+/** Тот же Bearer-токен ApiApplication, что и у /redeem — для ingestion леджера. */
+Route::group(['prefix' => 'ledger', 'middleware' => 'api.ledger.auth'], function () {
+    Route::get('catalog-map', [\App\Http\Controllers\Api\LedgerApiController::class, 'catalogMap']);
+    Route::get('redeem-events', [\App\Http\Controllers\Api\LedgerApiController::class, 'redeemEvents']);
+});
+
 Route::get('image-generate', [YmMainController::class, 'imageGenerate']);
 Route::get('description-generate', [YmMainController::class, 'descriptionGenerate']);
 

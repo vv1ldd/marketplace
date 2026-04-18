@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         $middleware->alias([
             'api.redeem.auth' => \App\Http\Middleware\CheckApiApplicationToken::class,
+            'api.ledger.auth' => \App\Http\Middleware\CheckApiApplicationToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
