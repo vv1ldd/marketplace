@@ -189,9 +189,17 @@ class CodeController extends Controller
             'code_activated' => $activated_all,
         ]);
 
-        SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
+        try {
+            Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
+        } catch (\Exception $exception) {
+            \Log::error('send email error', [$exception->getMessage()]);
+        }
 
-        Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
+//        try {
+//            SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
+//        } catch (\Exception $exception) {
+//            \Log::error('SendTelegramJob', [$exception->getMessage()]);
+//        }
 
         return redirect()->route('redeem.success');
     }
