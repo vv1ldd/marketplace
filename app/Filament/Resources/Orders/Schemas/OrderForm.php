@@ -177,7 +177,16 @@ class OrderForm
                                             'failed' => 'Ошибка',
                                             'manual' => 'Вручную',
                                         ])
-                                        ->label('Статус закупки'),
+                                        ->label('Статус закупки')
+                                        ->live()
+                                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                            if (in_array($state, ['success', 'manual'])) {
+                                                $set('is_activated', true);
+                                                if (!$get('activated_at')) {
+                                                    $set('activated_at', now()->format('Y-m-d H:i:s'));
+                                                }
+                                            }
+                                        }),
                                 ])->hidden($is_executor || $is_support),
 
                                 Grid::make(2)->schema([
