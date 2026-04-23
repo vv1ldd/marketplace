@@ -62,6 +62,18 @@ class OrdersTable
                     ->color(fn($record) => $record->items()->where('is_activated', '<>', true)->exists() ? 'danger' : 'success')
                     ->label('Активирован')
                     ->boolean(),
+                TextColumn::make('items.purchase_status')
+                    ->label('Закупка')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'success' => 'success',
+                        'failed' => 'danger',
+                        'pending' => 'warning',
+                        'manual' => 'info',
+                        default => 'secondary',
+                    })
+                    ->getStateUsing(fn($record) => $record->items->pluck('purchase_status')->first())
+                    ->hidden($is_executor || $is_support),
                 TextColumn::make('items.typeForm.name')->label('Тип')
                     ->limitList(1)
                     ->badge(),

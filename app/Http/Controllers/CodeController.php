@@ -138,61 +138,62 @@ class CodeController extends Controller
 
         $order_item = OrderItems::where('uuid', $data['uuid'])->first();
 
-        $product = WildflowCatalog::where('sku', $order_item->sku)->first();
-
-        $service_sku = data_get($product, 'data.data.product.sku');
-        $service_price = data_get($product, 'data.data.price');
-
-        $service = new WildflowService();
-
-        try {
-            $order_service = $service->createOrder($service_sku, $order_item->uuid, $service_price, $order_item->count);
-        } catch (\Exception $exception) {
-            \Log::error('Ошибка при активации на этапе createOrder', ['e' => $exception, 'order_item' => $order_item, 'product' => $product]);
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Ошибка, мы уже работаем над этим!']);
-        }
-
-        sleep(1);
-
-        try {
-            $cards = $service->getCards($order_item->uuid);
-        } catch (\Exception $exception) {
-            \Log::error("Ошибка при активации на этапе getCards", ['e' => $exception, 'order_item' => $order_item, 'product' => $product]);
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Ошибка, мы уже работаем над этим!']);
-        }
-
-        $original_code = data_get($cards, '0.card_number');
-
+        // 1. Сначала помечаем как активированный (клиент ввел данные)
         $order_item->update([
             'is_activated' => true,
             'client_info' => $data,
             'activated_at' => now(),
             'type_id' => $data['type_id'],
-            'original_code' => $original_code,
+            'purchase_status' => 'pending',
         ]);
 
+        // 2. Обновляем статус заказа, чтобы он стал доступен для исполнения (если все товары активированы)
         $order_items = OrderItems::where('order_id', $order->id)->get();
-
-        $activated_all = false;
-
-        foreach ($order_items as $item) {
-            if ($item->is_activated) {
-                $activated_all = true;
-            } else {
-                $activated_all = false;
-                break;
-            }
-        }
+        $activated_all = $order_items->every('is_activated');
 
         $order->update([
             'user_id' => $user->id,
             'code_activated' => $activated_all,
         ]);
 
-        try {
-            Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
-        } catch (\Exception $exception) {
-            \Log::error('send email error', [$exception->getMessage()]);
+        // 3. Пытаемся сделать автозакупку через Wildflow
+        $product = WildflowCatalog::where('sku', $order_item->sku)->first();
+
+        if ($product) {
+            $service_sku = data_get($product, 'data.data.product.sku');
+            $service_price = data_get($product, 'data.data.price');
+            $service = new WildflowService();
+
+            try {
+                $service->createOrder($service_sku, $order_item->uuid, $service_price, $order_item->count);
+                sleep(1);
+                $cards = $service->getCards($order_item->uuid);
+                $original_code = data_get($cards, '0.card_number');
+
+                $order_item->update([
+                    'purchase_status' => 'success',
+                    'original_code' => $original_code,
+                ]);
+
+                // Отправляем email с кодом только при успешной закупке
+                Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
+
+            } catch (\Exception $exception) {
+                \Log::error('Ошибка автозакупки в sendForm', [
+                    'error' => $exception->getMessage(),
+                    'uuid' => $order_item->uuid
+                ]);
+
+                $order_item->update([
+                    'purchase_status' => 'failed',
+                    'purchase_error' => $exception->getMessage(),
+                ]);
+            }
+        } else {
+            // Если товара нет в каталоге Wildflow — помечаем для ручной обработки
+            $order_item->update([
+                'purchase_status' => 'manual',
+            ]);
         }
 
 //        try {

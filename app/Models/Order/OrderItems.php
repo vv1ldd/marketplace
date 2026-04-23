@@ -17,6 +17,7 @@ class OrderItems extends Model
         'is_activated' => 'boolean',
         'is_redeemed' => 'boolean',
         'activated_at' => 'datetime',
+        'purchase_status' => 'string',
     ];
 
     public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo

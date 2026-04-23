@@ -160,7 +160,7 @@ class OrderForm
                                         ->label('Тип формы'),
                                 ]),
 
-                                Grid::make(2)->schema([
+                                Grid::make(3)->schema([
                                     Toggle::make('is_redeemed')
                                         ->default(false)
                                         ->inline(false)
@@ -169,11 +169,32 @@ class OrderForm
                                         ->inline(false)
                                         ->default(false)
                                         ->label('Активирован'),
+                                    Select::make('purchase_status')
+                                        ->options([
+                                            'none' => 'Нет',
+                                            'pending' => 'В процессе',
+                                            'success' => 'Успешно',
+                                            'failed' => 'Ошибка',
+                                            'manual' => 'Вручную',
+                                        ])
+                                        ->label('Статус закупки'),
                                 ])->hidden($is_executor || $is_support),
 
-                                DateTimePicker::make('activated_at')
-                                    ->label('Дата активации')
-                                    ->hidden($is_executor || $is_support),
+                                Grid::make(2)->schema([
+                                    DateTimePicker::make('activated_at')
+                                        ->label('Дата активации')
+                                        ->hidden($is_executor || $is_support),
+                                    TextInput::make('original_code')
+                                        ->label('Код продукта (Wildflow/Manual)')
+                                        ->copyable()
+                                        ->hidden($is_executor || $is_support),
+                                ]),
+
+                                Textarea::make('purchase_error')
+                                    ->label('Ошибка закупки')
+                                    ->readOnly()
+                                    ->columnSpanFull()
+                                    ->hidden(fn (Get $get) => !$get('purchase_error')),
 
                                 TextInput::make('key')
                                     ->hidden($is_executor || $is_support)

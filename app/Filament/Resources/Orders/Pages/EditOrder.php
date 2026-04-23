@@ -34,6 +34,19 @@ class EditOrder extends EditRecord
         return $data;
     }
 
+    protected function afterSave(): void
+    {
+        $record = $this->getRecord();
+        
+        // Пересчитываем статус активации заказа на основе всех его товаров
+        $activated_all = $record->items()->count() > 0 && 
+                         $record->items()->where('is_activated', '<>', true)->doesntExist();
+
+        if ($record->code_activated !== $activated_all) {
+            $record->update(['code_activated' => $activated_all]);
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
