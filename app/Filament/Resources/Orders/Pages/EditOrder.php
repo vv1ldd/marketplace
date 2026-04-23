@@ -38,9 +38,9 @@ class EditOrder extends EditRecord
     {
         $record = $this->getRecord();
         
-        // Пересчитываем статус активации заказа на основе всех его товаров
-        $activated_all = $record->items()->count() > 0 && 
-                         $record->items()->where('is_activated', '<>', true)->doesntExist();
+        // Пересчитываем статус активации заказа: должны быть активированы абсолютно все товары
+        $items = $record->items;
+        $activated_all = $items->isNotEmpty() && $items->every('is_activated', true);
 
         if ($record->code_activated !== $activated_all) {
             $record->update(['code_activated' => $activated_all]);
