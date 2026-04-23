@@ -62,7 +62,7 @@ class OrdersTable
                     ->color(fn($record) => $record->items()->where('is_activated', '<>', true)->exists() ? 'danger' : 'success')
                     ->label('Активирован')
                     ->boolean(),
-                TextColumn::make('items.purchase_status')
+                TextColumn::make('purchase_status_display')
                     ->label('Закупка')
                     ->badge()
                     ->color(fn($state): string => match ($state) {
