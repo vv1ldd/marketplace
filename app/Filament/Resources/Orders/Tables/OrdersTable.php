@@ -65,14 +65,14 @@ class OrdersTable
                 TextColumn::make('items.purchase_status')
                     ->label('Закупка')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn($state): string => match ($state) {
                         'success' => 'success',
                         'failed' => 'danger',
                         'pending' => 'warning',
                         'manual' => 'info',
                         default => 'secondary',
                     })
-                    ->getStateUsing(fn($record) => $record->items->pluck('purchase_status')->first())
+                    ->getStateUsing(fn($record) => $record->items->first()?->purchase_status ?? 'none')
                     ->hidden($is_executor || $is_support),
                 TextColumn::make('items.typeForm.name')->label('Тип')
                     ->limitList(1)
