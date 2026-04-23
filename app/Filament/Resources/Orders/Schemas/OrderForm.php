@@ -179,11 +179,11 @@ class OrderForm
                                         ])
                                         ->label('Статус закупки')
                                         ->live()
-                                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                        ->afterStateUpdated(function ($state, $set, $get) {
                                             if (in_array($state, ['success', 'manual'])) {
                                                 $set('is_activated', true);
                                                 if (!$get('activated_at')) {
-                                                    $set('activated_at', now()->format('Y-m-d H:i:s'));
+                                                    $set('activated_at', now());
                                                 }
                                             }
                                         }),
