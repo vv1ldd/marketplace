@@ -46,7 +46,10 @@ class MainController extends Controller
         $usdt_try = $binance_service->tickerPrice('USDTTRY');
         $usdt_rub = $binance_service->tickerPrice('USDTRUB');
 
-        $ym = new YmMainController((int) Settings::get('PS_TAX_FOR_SITES', 35));
+        $shop = \App\Models\Shop::where('name', 'Магазин игр')->first();
+        $tax = $shop ? $shop->ps_tax_for_sites : (int) Settings::get('PS_TAX_FOR_SITES', 35);
+
+        $ym = new YmMainController($tax);
 
         $return_data = [];
 

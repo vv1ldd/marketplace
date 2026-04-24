@@ -966,6 +966,9 @@ class MainController extends Controller
 
         if ($campaignId) {
             $shop = \App\Models\Shop::where('campaign_id', $campaignId)->first();
+            if ($shop) {
+                $this->ps_tax = $shop->ps_tax;
+            }
         }
 
         // Если магазин найден, проверяем его токен.
