@@ -113,7 +113,7 @@ class OrderForm
                     ->collapsible()
                     ->disabled($is_executor || $is_support)
                     ->schema([
-                        Repeater::make('items_in_order')
+                        Repeater::make('items')
                             ->relationship('items')
                             ->collapsible()
                             ->maxItems(100)
