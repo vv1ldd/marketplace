@@ -343,7 +343,7 @@ class OrderController extends Controller
                     'codes' => [$key]
                 ];
 
-                $type_form_id = PlayStationAlt::where("sku", data_get($item, 'offerId'))->value('type_form_id');
+                $type_form_id = \App\Models\Product::where("sku", data_get($item, 'offerId'))->value('type_form_id');
 
                 $insert_data[] = [
                     'key' => $key,
@@ -568,15 +568,15 @@ class OrderController extends Controller
             }
 
             try {
-                PlayStationAlt::updateOrCreate([
+                \App\Models\Product::updateOrCreate([
                     'sku' => $sku,
                 ], [
-                    'region_id' => '0f63f19f-fb73-4e9f-8f77-5a51d0d70009',
-                    'base_price' => data_get($item, 'price') * 100,
-                    'price_with_discount' => data_get($item, 'buyerPrice') * 100,
+                    'price_rub' => data_get($item, 'price') * 100,
+                    'price_try' => data_get($item, 'buyerPrice') * 100,
                     'name' => data_get($item, "order_item_name"),
                     'is_manual' => 1,
-                    'type_form_id' => str_starts_with($sku, 'VOUCHER-') ? 2 : 1
+                    'type_form_id' => str_starts_with($sku, 'VOUCHER-') ? 2 : 1,
+                    'type' => str_starts_with($sku, 'VOUCHER-') ? 'voucher' : 'game'
                 ]);
             } catch (\Exception  $e) {
 

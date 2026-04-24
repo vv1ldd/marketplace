@@ -38,8 +38,8 @@ class OrderForm
         $super_admin = auth()->user()->hasRole('super_admin');
 
         $skus = $order?->items?->pluck('sku')->filter()->unique()->toArray() ?? [];
-        $alts = PlayStationAlt::whereIn('sku', $skus)
-            ->get(['sku', 'name', 'woo_price_rub', 'woo_price_try'])
+        $alts = \App\Models\Product::whereIn('sku', $skus)
+            ->get(['sku', 'name', 'price_rub', 'price_try'])
             ->keyBy('sku');
 
 
@@ -119,7 +119,7 @@ class OrderForm
                             ->addActionLabel('Добавить товар')
                             ->addable(!$is_executor)
                             ->truncateItemLabel()
-                            ->itemLabel(fn(array $state): ?string => PlayStationAlt::where('sku', $state['sku'])
+                            ->itemLabel(fn(array $state): ?string => \App\Models\Product::where('sku', $state['sku'])
                                 ->value('name') ?? null)
                             ->columns(1)
                             ->schema([
@@ -140,14 +140,14 @@ class OrderForm
                                             ->visible($super_admin)
                                             ->state(function (Get $get) use ($alts) {
                                                 if ($price = $get('price_rub')) return $price / 100;
-                                                return $alts[$get('sku')]->woo_price_rub ? $alts[$get('sku')]->woo_price_rub / 100 : null;
+                                                return $alts[$get('sku')]->price_rub ? $alts[$get('sku')]->price_rub / 100 : null;
                                             }),
                                         TextEntry::make('price_try')
                                             ->label('Цена, лир')
                                             ->visible($super_admin || $is_executor)
                                             ->state(function (Get $get) use ($alts) {
                                                 if ($price = $get('price_try')) return $price / 100;
-                                                return $alts[$get('sku')]->woo_price_try ? $alts[$get('sku')]->woo_price_try / 100 : null;
+                                                return $alts[$get('sku')]->price_try ? $alts[$get('sku')]->price_try / 100 : null;
                                             }),
 
                                     ])->columns(),
