@@ -308,6 +308,7 @@ class CodeController extends Controller
         // 1. Try to find shop by query parameter (Highest priority)
         $shopSlug = $request->query('shop');
         $current_shop = null;
+        $prefix = null;
         
         if ($shopSlug) {
             $cleanSlug = rtrim($shopSlug, '-');
@@ -315,13 +316,12 @@ class CodeController extends Controller
                 ->orWhere('voucher_prefix', $cleanSlug . '-')
                 ->first();
                 
-            // If shop parameter is provided but not found, abort
-            if (!$current_shop) {
-                abort(404, "Shop with prefix '$shopSlug' not found.");
-            }
+            // Security: if shop parameter is provided but not found, 
+            // just use the provided slug as a prefix instead of 404ing.
+            $prefix = $current_shop?->voucher_prefix ?? ($cleanSlug . '-');
         }
 
-        // 2. If no shop parameter, fallback to host/domain detection
+        // 2. If no shop context from parameter, fallback to host/domain detection
         if (!$current_shop) {
             $current_shop = \App\Models\Shop::where('domain', $host)
                 ->orWhere(fn($q) => $host !== $app_domain ? $q->where('domain', 'like', "%$host%") : null)
@@ -331,10 +331,10 @@ class CodeController extends Controller
             if (!$current_shop && str_contains($host, 'meanly.ru')) {
                 $current_shop = \App\Models\Shop::where('domain', 'like', '%meanly.ru%')->first();
             }
+            
+            $prefix = $prefix ?: ($current_shop?->voucher_prefix ?? 'W1C-');
         }
 
-        $prefix = $current_shop?->voucher_prefix ?? 'W1C-';
-        
         // Ensure prefix ends with a dash for consistent UI
         if ($prefix && !str_ends_with($prefix, '-')) {
             $prefix .= '-';
