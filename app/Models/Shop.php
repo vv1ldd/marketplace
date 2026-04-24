@@ -16,6 +16,7 @@ class Shop extends Model
         'name',
         'type',
         'domain',
+        'store_api_token',
         'voucher_prefix',
         'ps_tax',
         'ps_tax_for_sites',

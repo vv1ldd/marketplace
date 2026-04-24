@@ -32,6 +32,11 @@ class ShopForm
                     ->label('Домен')
                     ->placeholder('example.com')
                     ->prefix('https://'),
+                TextInput::make('store_api_token')
+                    ->label('API Токен сайта (Storefront)')
+                    ->password()
+                    ->revealable()
+                    ->placeholder('Введите токен для выгрузки товаров'),
                 TextInput::make('voucher_prefix')
                     ->label('Префикс ваучеров')
                     ->placeholder('SHOP-')
