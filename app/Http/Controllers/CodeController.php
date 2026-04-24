@@ -165,7 +165,14 @@ class CodeController extends Controller
             $service = new WildflowService();
 
             try {
+            $order = $order_item->order;
+            $is_fake = data_get($order->info, 'fake', false);
+
+            if (!$is_fake) {
                 $service->createOrder($service_sku, $order_item->uuid, $service_price, $order_item->count);
+            } else {
+                \Log::info("Автозакуп пропущен: Тестовый заказ", ['uuid' => $order_item->uuid]);
+            }
                 sleep(1);
                 $cards = $service->getCards($order_item->uuid);
                 $original_code = data_get($cards, '0.card_number');
