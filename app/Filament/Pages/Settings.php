@@ -49,23 +49,79 @@ class Settings extends Page implements HasForms
 
     public function form(Schema $schema): Schema
     {
-        $components = [];
+        $keys = array_keys($this->data);
 
-        foreach ($this->data as $key => $value) {
-            if (str_starts_with($key, 'YM_') || in_array($key, ['PS_TAX', 'PS_TAX_FOR_SITES'])) {
-                continue;
+        $groups = [
+            'meanly' => [
+                'title' => 'Интеграция Meanly',
+                'icon' => 'heroicon-o-link',
+                'keys' => ['MEANLY_TOKEN'],
+            ],
+            'yandex' => [
+                'title' => 'Yandex Market (Глобально)',
+                'icon' => 'heroicon-o-shopping-bag',
+                'keys' => ['YM_BUSINESS_ID', 'YM_CAMPAIGN_ID', 'YM_API_KEY'],
+            ],
+            'finances' => [
+                'title' => 'Финансы и Налоги (Default)',
+                'icon' => 'heroicon-o-currency-dollar',
+                'keys' => ['PS_TAX', 'PS_TAX_FOR_SITES'],
+            ],
+        ];
+
+        $labels = [
+            'MEANLY_TOKEN' => 'Токен Meanly.ru',
+            'YM_BUSINESS_ID' => 'Business ID Яндекса',
+            'YM_CAMPAIGN_ID' => 'Campaign ID Яндекса',
+            'YM_API_KEY' => 'API Ключ Яндекса',
+            'PS_TAX' => 'Глобальный налог PS (%)',
+            'PS_TAX_FOR_SITES' => 'Налог для сайтов (%)',
+        ];
+
+        $sections = [];
+
+        // Build defined groups
+        foreach ($groups as $id => $group) {
+            $groupComponents = [];
+            foreach ($group['keys'] as $key) {
+                if (!array_key_exists($key, $this->data)) continue;
+
+                $groupComponents[] = $this->createSettingField($key, $labels[$key] ?? $key);
+                // Remove from local keys list to track what's left
+                $keys = array_diff($keys, [$key]);
             }
 
-            $components[] = TextInput::make($key)
-                ->password()
-                ->revealable()
-                ->autocomplete(false)
-                ->label($key)
-                ->required();
+            if (!empty($groupComponents)) {
+                $sections[] = \Filament\Forms\Components\Section::make($group['title'])
+                    ->description('Глобальные настройки для всей системы')
+                    ->icon($group['icon'])
+                    ->aside()
+                    ->schema($groupComponents);
+            }
         }
 
-        return $schema->columns()->
-        components($components)->statePath('data');
+        // Build "Other" group for remaining keys
+        if (!empty($keys)) {
+            $otherComponents = [];
+            foreach ($keys as $key) {
+                $otherComponents[] = $this->createSettingField($key, $key);
+            }
+            $sections[] = \Filament\Forms\Components\Section::make('Прочие настройки')
+                ->aside()
+                ->schema($otherComponents);
+        }
+
+        return $schema->components($sections)->statePath('data');
+    }
+
+    private function createSettingField(string $key, string $label): TextInput
+    {
+        return TextInput::make($key)
+            ->label($label)
+            ->password(fn() => str_contains($key, 'TOKEN') || str_contains($key, 'KEY'))
+            ->revealable(fn() => str_contains($key, 'TOKEN') || str_contains($key, 'KEY'))
+            ->autocomplete(false)
+            ->required();
     }
 
     public function save(): void
