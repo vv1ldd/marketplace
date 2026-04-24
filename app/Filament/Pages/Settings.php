@@ -52,9 +52,17 @@ class Settings extends Page implements HasForms
     {
         $keys = array_keys($this->data);
 
-        $groups = [];
+        $groups = [
+            'security' => [
+                'title' => 'Безопасность и API Платформы',
+                'icon' => 'heroicon-o-shield-check',
+                'keys' => ['PLATFORM_API_TOKEN'],
+            ],
+        ];
 
-        $labels = [];
+        $labels = [
+            'PLATFORM_API_TOKEN' => 'Глобальный токен доступа к платформе',
+        ];
 
         // Keys to ignore because they moved to Shops
         $migratedKeys = [
