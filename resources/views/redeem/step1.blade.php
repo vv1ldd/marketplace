@@ -34,7 +34,7 @@
 @section('scripts')
 <script>
     const input = document.getElementById('code');
-    const staticPrefix = '{{ $prefix }}';
+    const staticPrefix = @json($prefix);
 
     function formatCode(raw) {
         raw = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');

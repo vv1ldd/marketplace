@@ -311,6 +311,8 @@ class CodeController extends Controller
         $prefix = null;
         
         if ($shopSlug) {
+            // Sanitize: allow only alphanumeric and dashes
+            $shopSlug = preg_replace('/[^A-Z0-9-]/i', '', $shopSlug);
             $cleanSlug = rtrim($shopSlug, '-');
             $current_shop = \App\Models\Shop::where('voucher_prefix', $cleanSlug)
                 ->orWhere('voucher_prefix', $cleanSlug . '-')
