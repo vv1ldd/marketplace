@@ -8,6 +8,18 @@
         <h2 class="text-2xl font-bold text-white mb-6 text-center">Ваш заказ почти готов, остался один шаг</h2>
         <form class="space-y-5" method="POST" action="{{ route('redeem.activation.submit') }}">
             @csrf
+            @php
+                $order_item_uuid = session('order_item_info')['uuid'] ?? null;
+                $order_item = $order_item_uuid ? \App\Models\Order\OrderItems::where('uuid', $order_item_uuid)->with('game')->first() : null;
+                $product = $order_item?->game;
+            @endphp
+
+            @if($product && $product->image)
+                <div class="mb-6 flex justify-center">
+                    <img src="{{ asset($product->image) }}" alt="{{ $product->name }}" class="rounded-2xl shadow-2xl border border-zinc-700 max-h-64 object-contain">
+                </div>
+            @endif
+
             @if(session('is_frame'))
                 <input hidden name="is_frame" value="1"/>
             @endif
