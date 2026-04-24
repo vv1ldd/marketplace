@@ -12,10 +12,12 @@ class MeanlyService
     private string $base_url = "https://meanly.ru/api/v1/";
     private PendingRequest $client;
 
-    public function __construct()
+    public function __construct(?string $token = null)
     {
+        $token = $token ?: Settings::get('MEANLY_TOKEN');
+
         $this->client = Http::withHeaders([
-            'Authorization' => 'Bearer ' . Settings::get('MEANLY_TOKEN'),
+            'Authorization' => 'Bearer ' . $token,
         ])->baseUrl($this->base_url);
     }
 
