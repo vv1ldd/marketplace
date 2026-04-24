@@ -22,6 +22,11 @@ class ApiApplicationResource extends Resource
 
     protected static string | null | \UnitEnum $navigationGroup = 'Настройки';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     protected static ?string $label = 'API Приложение';
 
     protected static ?string $pluralLabel = 'API Приложения';

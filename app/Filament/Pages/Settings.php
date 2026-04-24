@@ -111,6 +111,12 @@ class Settings extends Page implements HasForms
                 ->schema($otherComponents);
         }
 
+        $sections[] = Section::make('Интеграции')
+            ->aside()
+            ->schema([
+                \Filament\Schemas\Components\View::make('filament.settings.api-apps-link'),
+            ]);
+
         return $schema->components($sections)->statePath('data');
     }
 
