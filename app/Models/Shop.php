@@ -26,6 +26,7 @@ class Shop extends Model
         'notification_token',
         'is_active',
         'auto_purchase_enabled',
+        'use_custom_smtp',
         'smtp_host',
         'smtp_port',
         'smtp_user',
@@ -40,6 +41,7 @@ class Shop extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'auto_purchase_enabled' => 'boolean',
+        'use_custom_smtp' => 'boolean',
     ];
 
     public function orders(): HasMany

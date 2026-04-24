@@ -90,35 +90,48 @@ class ShopForm
             ]),
 
             Section::make('Почта (SMTP)')->schema([
-                \Filament\Forms\Components\Grid::make(3)->schema([
-                    TextInput::make('smtp_host')
-                        ->label('SMTP Host')
-                        ->placeholder('smtp.example.com'),
-                    TextInput::make('smtp_port')
-                        ->label('SMTP Port')
-                        ->numeric()
-                        ->placeholder('587'),
-                    TextInput::make('smtp_encryption')
-                        ->label('Шифрование')
-                        ->placeholder('tls/ssl'),
-                ]),
-                \Filament\Forms\Components\Grid::make(2)->schema([
-                    TextInput::make('smtp_user')
-                        ->label('SMTP User')
-                        ->placeholder('user@example.com'),
-                    TextInput::make('smtp_password')
-                        ->label('SMTP Password')
-                        ->password()
-                        ->revealable(),
-                ]),
-                \Filament\Forms\Components\Grid::make(2)->schema([
-                    TextInput::make('smtp_from_address')
-                        ->label('Email отправителя')
-                        ->placeholder('no-reply@shop.com'),
-                    TextInput::make('smtp_from_name')
-                        ->label('Имя отправителя')
-                        ->placeholder('My Shop Support'),
-                ]),
+                Toggle::make('use_custom_smtp')
+                    ->label('Использовать собственные настройки SMTP')
+                    ->helperText('Если выключено, будут использоваться стандартные настройки платформы.')
+                    ->live(),
+
+                \Filament\Forms\Components\Grid::make(3)
+                    ->schema([
+                        TextInput::make('smtp_host')
+                            ->label('SMTP Host')
+                            ->placeholder('smtp.example.com'),
+                        TextInput::make('smtp_port')
+                            ->label('SMTP Port')
+                            ->numeric()
+                            ->placeholder('587'),
+                        TextInput::make('smtp_encryption')
+                            ->label('Шифрование')
+                            ->placeholder('tls/ssl'),
+                    ])
+                    ->visible(fn (callable $get) => $get('use_custom_smtp')),
+
+                \Filament\Forms\Components\Grid::make(2)
+                    ->schema([
+                        TextInput::make('smtp_user')
+                            ->label('SMTP User')
+                            ->placeholder('user@example.com'),
+                        TextInput::make('smtp_password')
+                            ->label('SMTP Password')
+                            ->password()
+                            ->revealable(),
+                    ])
+                    ->visible(fn (callable $get) => $get('use_custom_smtp')),
+
+                \Filament\Forms\Components\Grid::make(2)
+                    ->schema([
+                        TextInput::make('smtp_from_address')
+                            ->label('Email отправителя')
+                            ->placeholder('no-reply@shop.com'),
+                        TextInput::make('smtp_from_name')
+                            ->label('Имя отправителя')
+                            ->placeholder('My Shop Support'),
+                    ])
+                    ->visible(fn (callable $get) => $get('use_custom_smtp')),
             ])->collapsed(),
 
             Section::make('Уведомления Telegram')->schema([
