@@ -128,23 +128,22 @@ class OrderForm
                                         ->copyable()
                                         ->required(),
 
-                                    TextEntry::make('game_name')
-                                        ->copyable()
+                                    Placeholder::make('game_name')
                                         ->label('Название игры')
-                                        ->state(fn(Get $get) => $alts[$get('sku')]->name ?? null),
+                                        ->content(fn(Get $get) => $alts[$get('sku')]->name ?? null),
 
                                     Grid::make()->schema([
-                                        TextEntry::make('price_rub')
+                                        Placeholder::make('price_rub_info')
                                             ->label('Цена, руб')
                                             ->visible($super_admin)
-                                            ->state(function (Get $get) use ($alts) {
+                                            ->content(function (Get $get) use ($alts) {
                                                 if ($price = $get('price_rub')) return $price / 100;
                                                 return $alts[$get('sku')]->price_rub ? $alts[$get('sku')]->price_rub / 100 : null;
                                             }),
-                                        TextEntry::make('price_try')
+                                        Placeholder::make('price_try_info')
                                             ->label('Цена, лир')
                                             ->visible($super_admin || $is_executor)
-                                            ->state(function (Get $get) use ($alts) {
+                                            ->content(function (Get $get) use ($alts) {
                                                 if ($price = $get('price_try')) return $price / 100;
                                                 return $alts[$get('sku')]->price_try ? $alts[$get('sku')]->price_try / 100 : null;
                                             }),
