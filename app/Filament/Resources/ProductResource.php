@@ -20,6 +20,8 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Actions\Action;
+use Illuminate\Support\Facades\Artisan;
 
 class ProductResource extends Resource
 {
@@ -155,15 +157,6 @@ class ProductResource extends Resource
                     ->label('Название')
                     ->searchable()
                     ->limit(50),
-                TextColumn::make('type')
-                    ->label('Тип')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'game' => 'info',
-                        'voucher' => 'success',
-                        'service' => 'warning',
-                        default => 'gray',
-                    }),
                 TextColumn::make('price_rub')
                     ->label('Цена (руб.)')
                     ->state(fn ($record) => $record->price_rub ? $record->price_rub / 100 . ' ₽' : '-')
@@ -198,6 +191,20 @@ class ProductResource extends Resource
             ->actions([
                 EditAction::make(),
                 DeleteAction::make(),
+            ])
+            ->headerActions([
+                Action::make('sync_ps')
+                    ->label('Синхронизировать PS')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->action(function () {
+                        Artisan::call('ps:sync-to-products');
+                        \Filament\Notifications\Notification::make()
+                            ->title('Синхронизация PlayStation запущена')
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation(),
             ])
             ->bulkActions([
                 //
