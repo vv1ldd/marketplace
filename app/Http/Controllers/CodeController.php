@@ -142,6 +142,14 @@ class CodeController extends Controller
         $order_item->update([
             'is_activated' => true,
             'client_info' => $data,
+        ]);
+
+        // Логируем начало активации
+        $order_item->order->comments()->create([
+            'comment' => "Клиент начал процедуру активации (Email: {$data['email']}, Телефон: {$data['phone']})"
+        ]);
+
+        $order_item->update([
             'activated_at' => now(),
             'type_id' => $data['type_id'],
             'purchase_status' => 'pending',
@@ -170,12 +178,25 @@ class CodeController extends Controller
 
             if (!$is_fake) {
                 $service->createOrder($service_sku, $order_item->uuid, $service_price, $order_item->count);
+                
+                $order->comments()->create([
+                    'comment' => "Запрос на автозакупку отправлен (SKU: $service_sku, Цена: $service_price)"
+                ]);
             } else {
                 \Log::info("Автозакуп пропущен: Тестовый заказ", ['uuid' => $order_item->uuid]);
+                $order->comments()->create([
+                    'comment' => "Автозакуп пропущен: Тестовый заказ"
+                ]);
             }
                 sleep(1);
                 $cards = $service->getCards($order_item->uuid);
                 $original_code = data_get($cards, '0.card_number');
+
+                if ($original_code) {
+                    $order->comments()->create([
+                        'comment' => "Автозакупка успешна. Получен код: " . Str::mask($original_code, '*', 4, -4)
+                    ]);
+                }
 
                 $order_item->update([
                     'purchase_status' => 'success',
@@ -190,15 +211,16 @@ class CodeController extends Controller
                 // Отправляем email с кодом только при успешной закупке
                 Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
 
-            } catch (\Exception $exception) {
-                \Log::error('Ошибка автозакупки в sendForm', [
-                    'error' => $exception->getMessage(),
-                    'uuid' => $order_item->uuid
+            } catch (\Exception $e) {
+                \Log::error('wildflow error', [$e->getMessage()]);
+
+                $order->comments()->create([
+                    'comment' => "Ошибка автозакупки: " . $e->getMessage()
                 ]);
 
                 $order_item->update([
                     'purchase_status' => 'failed',
-                    'purchase_error' => $exception->getMessage(),
+                    'purchase_error' => $e->getMessage(),
                 ]);
             }
         } else {
@@ -207,12 +229,6 @@ class CodeController extends Controller
                 'purchase_status' => 'manual',
             ]);
         }
-
-//        try {
-//            SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
-//        } catch (\Exception $exception) {
-//            \Log::error('SendTelegramJob', [$exception->getMessage()]);
-//        }
 
         return redirect()->route('redeem.success');
     }

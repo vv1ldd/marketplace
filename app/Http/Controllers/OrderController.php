@@ -80,15 +80,22 @@ class OrderController extends Controller
         $woo_order_id = $order['order_id'] . '-' . $connection;
 
         try {
-            $order_id = Order::create([
+            $new_order = Order::create([
                 'order_id' => $woo_order_id,
                 'uuid' => Str::uuid()->toString(),
                 'status' => 'wc-processing',
                 'sub_status' => 'wc-processing',
                 'info' => $order_full_info,
                 'client_info' => $client_info,
-                'user_id' => $user->id ?? null
-            ])->id;
+                'user_id' => $user->id ?? null,
+                'shop_id' => $shop->id ?? null
+            ]);
+            
+            $order_id = $new_order->id;
+
+            $new_order->comments()->create([
+                'comment' => "Заказ получен из WooCommerce ($connection)"
+            ]);
         } catch (\Exception $e) {
 
             $log->error('create order error', [
@@ -513,7 +520,7 @@ class OrderController extends Controller
         }
 
         try {
-            $order_id = Order::create([
+            $new_order = Order::create([
                 'order_id' => $data['orderId'],
                 'uuid' => Str::uuid()->toString(),
                 'info' => $order_full_info,
@@ -522,7 +529,13 @@ class OrderController extends Controller
                 'user_id' => $user->id ?? null,
                 'shop_id' => $data['shop_id'] ?? null,
                 'is_test' => data_get($order_full_info, 'fake', false),
-            ])->id;
+            ]);
+            
+            $order_id = $new_order->id;
+
+            $new_order->comments()->create([
+                'comment' => "Заказ получен из Яндекс.Маркета" . (data_get($order_full_info, 'fake') ? " (ТЕСТ)" : "")
+            ]);
         } catch (\Exception $e) {
 
             $log->error('create order', [
