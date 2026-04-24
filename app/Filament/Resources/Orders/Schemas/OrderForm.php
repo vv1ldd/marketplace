@@ -155,7 +155,7 @@ class OrderForm
                                         ->label('Количество'),
 
 
-                                    Select::make('typeForm.id')
+                                    Select::make('type_form_id')
                                         ->relationship('typeForm', 'name')
                                         ->label('Тип формы'),
                                 ]),
