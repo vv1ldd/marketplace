@@ -59,14 +59,24 @@ class ProductResource extends Resource
                                 ->required()
                                 ->columnSpan(2),
                         ]),
-                        Select::make('type')
-                            ->label('Тип товара')
-                            ->options([
-                                'game' => 'Игра',
-                                'voucher' => 'Ваучер',
-                                'service' => 'Сервис',
-                            ])
-                            ->required(),
+                        Grid::make(2)->schema([
+                            Select::make('type')
+                                ->label('Провайдер')
+                                ->options([
+                                    'playstation' => 'PlayStation',
+                                    'wildflow' => 'Wildflow',
+                                ])
+                                ->required(),
+                            Select::make('category')
+                                ->label('Категория')
+                                ->options([
+                                    'game' => 'Игра',
+                                    'gift-card' => 'Подарочная карта',
+                                    'subscription' => 'Подписка',
+                                    'other' => 'Прочее',
+                                ])
+                                ->required(),
+                        ]),
                         Textarea::make('description')
                             ->label('Описание')
                             ->rows(3),
@@ -155,6 +165,17 @@ class ProductResource extends Resource
                         'wildflow' => 'warning',
                         default => 'gray',
                     }),
+                TextColumn::make('category')
+                    ->label('Категория')
+                    ->badge()
+                    ->color('success')
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'game' => 'Игра',
+                        'gift-card' => 'Гифт-карта',
+                        'subscription' => 'Подписка',
+                        'other' => 'Прочее',
+                        default => $state,
+                    }),
                 TextColumn::make('name')
                     ->label('Название')
                     ->searchable()
@@ -181,7 +202,19 @@ class ProductResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('category')
+                    ->options([
+                        'game' => 'Игры',
+                        'gift-card' => 'Гифт-карты',
+                        'subscription' => 'Подписки',
+                    ])
+                    ->label('Категория'),
+                \Filament\Tables\Filters\SelectFilter::make('type')
+                    ->options([
+                        'playstation' => 'PlayStation',
+                        'wildflow' => 'Wildflow',
+                    ])
+                    ->label('Провайдер'),
             ])
             ->actions([
                 EditAction::make(),
