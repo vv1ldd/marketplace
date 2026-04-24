@@ -26,7 +26,6 @@ class CodeController extends Controller
     public function checkEmail(Request $request): View|Factory|RedirectResponse
     {
         $data = $request->validate(['email' => 'required|email']);
-        $method = $request->input('method', 'email');
 
         if (!session()->has('order_item_info')) {
             return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
@@ -38,29 +37,9 @@ class CodeController extends Controller
         $verificationCode = rand(100000, 999999);
         session()->put('verification_code', $verificationCode);
 
-        $order_item = OrderItems::where('uuid', session('order_item_info')['uuid'])->first();
-        $order = $order_item->order;
+        Mail::to($data['email'])->send(new VerificationCodeMail($verificationCode));
 
-        if ($method === 'chat' && $order->chat_id) {
-            try {
-                $service = new YmService($order->shop);
-                $service->sendMessage($order->chat_id, "Ваш код подтверждения для активации: $verificationCode");
-                
-                $order->comments()->create([
-                    'comment' => "Код подтверждения отправлен в чат Яндекс.Маркета"
-                ]);
-            } catch (\Exception $e) {
-                \Log::error('OTP Chat send error', [$e->getMessage()]);
-                return back()->withErrors(['email' => 'Ошибка отправки в чат, попробуйте Email']);
-            }
-        } else {
-            Mail::to($data['email'])->send(new VerificationCodeMail($verificationCode));
-        }
-
-        session()->forget('otp_method');
-        session()->put('otp_method', $method);
-
-        return redirect()->temporarySignedRoute('redeem.activation', now()->addHours())->with('method', $method);
+        return redirect()->temporarySignedRoute('redeem.activation', now()->addHours());
     }
 
     public function getViewForm(Request $request): Factory|View
@@ -68,44 +47,23 @@ class CodeController extends Controller
         $order_item_info = session('order_item_info');
         $client_info = $order_item_info['client_info'] ?? null;
         $client_email = session('client_email');
-        $method = session('otp_method', 'email');
 
-        return view('redeem.step3', compact('client_info', 'client_email', 'method'));
+        return view('redeem.step3', compact('client_info', 'client_email'));
     }
 
     public function resendCode(Request $request): RedirectResponse
     {
         $email = session('client_email');
-        $method = $request->input('method', 'email');
-        $order_item_info = session('order_item_info');
-
-        if (!$email || !$order_item_info) {
+        if (!$email) {
             return redirect()->route('redeem.code')->withErrors(['code' => 'Сессия истекла']);
         }
 
         $verificationCode = rand(100000, 999999);
         session()->put('verification_code', $verificationCode);
 
-        $order_item = OrderItems::where('uuid', $order_item_info['uuid'])->first();
-        $order = $order_item->order;
+        Mail::to($email)->send(new VerificationCodeMail($verificationCode));
 
-        if ($method === 'chat' && $order->chat_id) {
-            try {
-                $service = new YmService($order->shop);
-                $service->sendMessage($order->chat_id, "Ваш код подтверждения для активации: $verificationCode");
-                
-                $order->comments()->create([
-                    'comment' => "Код подтверждения отправлен в чат Яндекс.Маркета"
-                ]);
-            } catch (\Exception $e) {
-                \Log::error('OTP Chat send error', [$e->getMessage()]);
-                return back()->withErrors(['verification_code' => 'Ошибка отправки в чат, попробуйте Email']);
-            }
-        } else {
-            Mail::to($email)->send(new VerificationCodeMail($verificationCode));
-        }
-
-        return back()->with('success', 'Код отправлен повторно на ' . ($method === 'chat' ? 'чат' : $email));
+        return back()->with('success', 'Код подтверждения повторно отправлен на ' . $email);
     }
 
     public function getEmailView(Request $request): View|Factory|RedirectResponse
@@ -146,6 +104,7 @@ class CodeController extends Controller
             'option.1.check' => 'nullable|string|in:on',
             'option.1.ps_birthday' => 'required_if:option.1.check,on|date_format:Y-m-d',
             'verification_code' => 'required|integer',
+            'deliver_to_chat' => 'nullable|string|in:on',
         ]);
 
         if ($data['verification_code'] != session('verification_code')) {
@@ -272,8 +231,8 @@ class CodeController extends Controller
                 // Отправляем email с кодом только при успешной закупке
                 Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
 
-                // Дублируем в чат Яндекс.Маркета, если он есть
-                if ($order->chat_id) {
+                // Дублируем в чат Яндекс.Маркета, если выбрано пользователем
+                if ($order->chat_id && data_get($data, 'deliver_to_chat') === 'on') {
                     try {
                         $ymService = new \App\Http\Services\YmService($order->shop);
                         $ymService->sendMessage($order->chat_id, view('chat.send_code_message', ['code' => $original_code])->render());

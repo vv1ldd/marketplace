@@ -271,6 +271,36 @@
                         Отправим подарочную карту на ваш указанный Email
                     </p>
                 @endif
+
+                @php
+                    $order_item_uuid = session('order_item_info')['uuid'] ?? null;
+                    $order_item = $order_item_uuid ? \App\Models\Order\OrderItems::where('uuid', $order_item_uuid)->first() : null;
+                    $order = $order_item?->order;
+                @endphp
+
+                @if($order && $order->chat_id)
+                <div class="w-full bg-blue-600/10 border border-blue-600/30 rounded-xl p-4">
+                    <label class="flex items-start gap-3 cursor-pointer group">
+                        <div class="relative flex items-center">
+                            <input type="checkbox" name="deliver_to_chat" checked class="sr-only peer">
+                            <div class="w-6 h-6 rounded-md border-2 border-blue-600/50 bg-zinc-800 peer-checked:bg-blue-600 peer-checked:border-blue-400 transition-all flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex flex-col">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-semibold text-white group-hover:text-blue-300 transition-colors">Доставить код в чат Яндекс.Маркета</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-bold uppercase tracking-wider">Бесплатно</span>
+                            </div>
+                            <p class="text-xs text-zinc-400 mt-1">
+                                Мы также продублируем ваш активированный код прямо в диалог с продавцом на Маркете для быстрого доступа.
+                            </p>
+                        </div>
+                    </label>
+                </div>
+                @endif
                 <div class="w-full">
                     <div>
                         <label class="block text-sm text-zinc-300 mb-1" for="verification_code">Код подтверждения<span
@@ -292,14 +322,10 @@
                         <div class="flex flex-col gap-1 mt-2">
                             <div class="flex justify-between items-center">
                                 <p class="text-zinc-400 text-xs">
-                                    @if($method === 'chat')
-                                        Мы отправили код подтверждения в ваш <b>чат в Яндекс.Маркете</b>.
-                                    @else
-                                        Мы отправили код подтверждения на <b>{{ session('client_email') }}</b>.
-                                    @endif
+                                    Мы отправили код подтверждения на <b>{{ session('client_email') }}</b>.
                                 </p>
                                 <a href="{{ route('redeem.email') }}" class="text-zinc-500 hover:text-zinc-400 text-xs transition-colors">
-                                    Изменить {{ $method === 'chat' ? 'способ' : 'email' }}
+                                    Изменить email
                                 </a>
                             </div>
                             <div class="flex items-center gap-2">
@@ -330,7 +356,6 @@
         </form>
         <form id="resend-form" method="POST" action="{{ route('redeem.resend') }}" class="hidden">
             @csrf
-            <input type="hidden" name="method" value="{{ $method }}">
         </form>
     </div>
 
