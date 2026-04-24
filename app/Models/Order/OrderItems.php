@@ -40,7 +40,7 @@ class OrderItems extends Model
     // app/Models/OrderItem.php
     public function game()
     {
-        return $this->belongsTo(PlayStationAlt::class, 'sku', 'sku');
+        return $this->belongsTo(\App\Models\Product::class, 'sku', 'sku');
     }
 
 
