@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 class ApiApplication extends Model
 {
     protected $fillable = [
+        'shop_id',
         'name',
         'first_name',
         'last_name',
@@ -27,5 +28,10 @@ class ApiApplication extends Model
     public static function generateToken(): string
     {
         return Str::random(64);
+    }
+
+    public function shop()
+    {
+        return $this->belongsTo(Shop::class);
     }
 }

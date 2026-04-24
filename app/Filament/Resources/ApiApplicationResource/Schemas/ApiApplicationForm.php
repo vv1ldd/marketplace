@@ -1,15 +1,16 @@
 <?php
 
 namespace App\Filament\Resources\ApiApplicationResource\Schemas;
-
+ 
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
-
+ 
 class ApiApplicationForm
 {
     public static function configure(Schema $schema): Schema
@@ -18,6 +19,10 @@ class ApiApplicationForm
             ->components([
                 Section::make()
                     ->schema([
+                        Select::make('shop_id')
+                            ->label('Магазин')
+                            ->relationship('shop', 'name')
+                            ->required(),
                         TextInput::make('name')
                             ->required()
                             ->maxLength(255)

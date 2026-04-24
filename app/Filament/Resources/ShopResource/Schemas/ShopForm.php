@@ -16,6 +16,10 @@ class ShopForm
                 TextInput::make('name')
                     ->label('Название магазина')
                     ->required(),
+                TextInput::make('domain')
+                    ->label('Домен')
+                    ->placeholder('example.com')
+                    ->prefix('https://'),
                 Toggle::make('is_active')
                     ->label('Активен')
                     ->default(true),

@@ -10,6 +10,7 @@ class Shop extends Model
 {
     protected $fillable = [
         'name',
+        'domain',
         'business_id',
         'campaign_id',
         'api_key',
@@ -26,5 +27,10 @@ class Shop extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function applications()
+    {
+        return $this->hasMany(ApiApplication::class);
     }
 }

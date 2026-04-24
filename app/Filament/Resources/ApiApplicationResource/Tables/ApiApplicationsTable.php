@@ -8,6 +8,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class ApiApplicationsTable
@@ -16,6 +17,10 @@ class ApiApplicationsTable
     {
         return $table
             ->columns([
+                TextColumn::make('shop.name')
+                    ->label('Магазин')
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
@@ -38,7 +43,9 @@ class ApiApplicationsTable
                     ->label('Создано'),
             ])
             ->filters([
-                //
+                SelectFilter::make('shop_id')
+                    ->label('Магазин')
+                    ->relationship('shop', 'name'),
             ])
             ->recordActions([
                 EditAction::make(),
