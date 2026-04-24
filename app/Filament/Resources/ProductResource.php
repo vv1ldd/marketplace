@@ -114,6 +114,8 @@ class ProductResource extends Resource
                                 ->label('Карточка товара')
                                 ->disabled()
                                 ->helperText('Генерируется автоматически'),
+                        ]),
+                    ]),
             ]);
     }
 
