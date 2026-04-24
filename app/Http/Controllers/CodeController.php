@@ -211,6 +211,23 @@ class CodeController extends Controller
                 // Отправляем email с кодом только при успешной закупке
                 Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
 
+                // Дублируем в чат Яндекс.Маркета, если он есть
+                if ($order->chat_id) {
+                    try {
+                        $ymService = new \App\Http\Services\YmService($order->shop);
+                        $ymService->sendMessage($order->chat_id, view('chat.send_code_message', ['code' => $original_code])->render());
+                        
+                        $order->comments()->create([
+                            'comment' => "Код успешно дублирован в чат Яндекс.Маркета"
+                        ]);
+                    } catch (\Exception $chatE) {
+                        \Log::error('YM Chat send error', [$chatE->getMessage()]);
+                        $order->comments()->create([
+                            'comment' => "Ошибка отправки кода в чат: " . $chatE->getMessage()
+                        ]);
+                    }
+                }
+
             } catch (\Exception $e) {
                 \Log::error('wildflow error', [$e->getMessage()]);
 
