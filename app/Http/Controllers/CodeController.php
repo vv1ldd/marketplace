@@ -311,34 +311,6 @@ class CodeController extends Controller
         return redirect()->route('redeem.success');
     }
 
-    public function getViewForm(Request $request)
-    {
-        if (!$request->hasValidSignature() || !session()->has('order_item_info')) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
-        }
-
-        $data = [
-            'uuid' => session('order_item_info')['uuid'],
-        ];
-
-        $order_item = OrderItems::where('uuid', $data['uuid'])->first();
-
-        if (!$order_item) {
-            return view('redeem.step1')->withErrors(['code' => 'Введен неверный или несуществующий код']);
-        }
-
-        $order = Order::find($order_item->order_id);
-
-        if (!$order) {
-            return view('redeem.step1')->withErrors(['code' => 'Заказ не был найден']);
-        }
-
-        return view('redeem.step3', [
-            'client_info' => $order->client_info,
-            'client_email' => session('client_email'),
-        ]);
-    }
-
     public function checkCode(Request $request)
     {
         $data = $request->validate([
