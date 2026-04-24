@@ -22,6 +22,7 @@ class Order extends Model
         'assigned_at',
         'code_activated',
         'account_data_on_send',
+        'shop_id',
     ];
 
     protected $casts = [
@@ -38,7 +39,12 @@ class Order extends Model
 
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'id');
+    }
+
+    public function shop(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Shop::class);
     }
 
     public function progress(): \Illuminate\Database\Eloquent\Relations\BelongsTo

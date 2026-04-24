@@ -961,13 +961,22 @@ class MainController extends Controller
             'ip' => $request->ip()
         ]);
 
-        $realToken = Settings::get('YM_NOTIFICATION_TOKEN', config('services.ym.notification_token'));
+        $campaignId = $request->input('campaignId');
+        $shop = null;
+
+        if ($campaignId) {
+            $shop = \App\Models\Shop::where('campaign_id', $campaignId)->first();
+        }
+
+        // Если магазин найден, проверяем его токен.
+        // Если нет (например, PING без ID), проверяем глобальный токен для совместимости.
+        $realToken = $shop ? $shop->notification_token : Settings::get('YM_NOTIFICATION_TOKEN', config('services.ym.notification_token'));
 
         if ($token !== $realToken) {
-
-            $log->error("Невалидные токен", [
+            $log->error("Невалидный токен", [
                 'exception' => 'Unauthorized token',
-                'token' => $token
+                'token' => $token,
+                'shop' => $shop ? $shop->name : 'Global/Unknown'
             ]);
 
             return response()->json([
@@ -983,10 +992,14 @@ class MainController extends Controller
                 'notificationType' => 'required|string|in:PING,ORDER_CREATED,ORDER_STATUS_UPDATED',
                 'orderId' => 'nullable|numeric',
                 'campaignId' => 'nullable|numeric',
-
                 'status' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
                 'substatus' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
             ]);
+
+            // Прокидываем shop_id дальше в контроллер заказов
+            if ($shop) {
+                $data['shop_id'] = $shop->id;
+            }
         } catch (ValidationException $exception) {
 
             $log->error("Невалидные данные", [

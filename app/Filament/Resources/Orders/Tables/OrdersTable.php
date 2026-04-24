@@ -28,6 +28,11 @@ class OrdersTable
                     ->label('Номер заказа')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('shop.name')
+                    ->label('Магазин')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('order_id')->label('Номер источника')
                     ->searchable()
                     ->hidden($is_executor || $is_support)
@@ -91,6 +96,9 @@ class OrdersTable
                     ->relationship('progress', 'name')
                     ->attribute('progress_id')
                     ->visible($is_super_admin),
+                SelectFilter::make('shop_id')
+                    ->label('Магазин')
+                    ->relationship('shop', 'name'),
             ], layout: FiltersLayout::AboveContent)
             ->persistFiltersInSession()
             ->recordActions([

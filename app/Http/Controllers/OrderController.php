@@ -307,7 +307,7 @@ class OrderController extends Controller
             $keys_data = [];
             $insert_data = [];
 
-            $service = new YmService();
+            $service = new YmService($order->shop);
 
             foreach ($order_info['items'] as $item) {
 
@@ -440,7 +440,8 @@ class OrderController extends Controller
             ];
         }
 
-        $service = new YmService();
+        $shop = isset($data['shop_id']) ? \App\Models\Shop::find($data['shop_id']) : null;
+        $service = new YmService($shop);
 
         try {
             $order_full_info = $service->getOrder(campaignId: $data['campaignId'], orderId: $data['orderId']);
@@ -512,7 +513,8 @@ class OrderController extends Controller
                 'info' => $order_full_info,
                 'client_info' => $client_info,
                 'chat_id' => $chat_id ?? null,
-                'user_id' => $user->id ?? null
+                'user_id' => $user->id ?? null,
+                'shop_id' => $data['shop_id'] ?? null,
             ])->id;
         } catch (\Exception $e) {
 

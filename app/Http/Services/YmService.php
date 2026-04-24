@@ -16,13 +16,20 @@ class YmService
 
     private mixed $campaign_id;
 
-    public function __construct()
+    public function __construct(\App\Models\Shop $shop = null)
     {
-        $this->ym_business_id = (int)Settings::get('YM_BUSINESS_ID', config('services.ym.business_id', 143486522));
-        $this->campaign_id = (int) Settings::get('YM_CAMPAIGN_ID', config('services.ym.campaign_id', 143486522));
+        if ($shop) {
+            $this->ym_business_id = (int)$shop->business_id;
+            $this->campaign_id = (int)$shop->campaign_id;
+            $api_key = $shop->api_key;
+        } else {
+            $this->ym_business_id = (int)Settings::get('YM_BUSINESS_ID', config('services.ym.business_id', 143486522));
+            $this->campaign_id = (int) Settings::get('YM_CAMPAIGN_ID', config('services.ym.campaign_id', 143486522));
+            $api_key = Settings::get('YM_API_KEY', config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683'));
+        }
 
         $this->client = Http::withHeaders([
-            'Api-Key' => Settings::get('YM_API_KEY', config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683')),
+            'Api-Key' => $api_key,
         ])
             ->baseUrl($this->base_url)
             ->withOptions([

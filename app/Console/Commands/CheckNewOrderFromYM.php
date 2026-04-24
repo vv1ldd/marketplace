@@ -33,96 +33,76 @@ class CheckNewOrderFromYM extends Command
     public function handle()
     {
         $log = \Log::channel('ym_check_orders')->withContext(['log_id' => Str::random(8),]);
+        $shops = \App\Models\Shop::where('is_active', true)->get();
 
-        $ymService = new YmService();
-
-        $ym_controller = new MainController();
-
-//        $log->info('check new orders');
-
-        try {
-            $new_orders = $ymService->getNewOrders();
-        } catch (ConnectionException $e) {
-            $log->error('getNewOrders error', [$e->getMessage()]);
-            return;
+        if ($shops->isEmpty()) {
+            $log->info('No active shops found');
+            // Fallback for one legacy shop if shops table is empty? 
+            // For now, let's assume we started using shops table.
         }
 
-        $campaign_id = (int) Settings::get('YM_CAMPAIGN_ID', config('services.ym.campaign_id', 143486522));
-
-//        $log->debug('check new orders', [$new_orders, $campaign_id])
-
-        if (empty($new_orders)) {
-//            $log->info('no new orders');
-            return;
-        } else {
-            $log->info('-----------------');
-            $log->debug('new orders', [$new_orders]);
-        }
-
-        foreach ($new_orders as $order) {
-
-            $order_id = data_get($order, 'id');
-
-            $order_exist = Order::where('order_id', $order_id)->exists();
-
-            if ($order_exist) {
-                $log->debug('order already exist', [$order_id]);
-                continue;
-            }
-
-            $log->debug('new order', [$order_id]);
-
-            $request = new Request();
-
-            $request->merge([
-                'notificationType' => 'ORDER_CREATED',
-                'orderId' => $order_id,
-                'campaignId' => $campaign_id,
-            ]);
-
-            $log->debug('ORDER_CREATED request data', [$request->all()]);
+        foreach ($shops as $shop) {
+            $log->info("Checking orders for shop: {$shop->name} (Campaign: {$shop->campaign_id})");
+            
+            $ymService = new YmService($shop);
+            $ym_controller = new MainController();
 
             try {
-                $response = $ym_controller->notification($request);
-            } catch (\Exception $e) {
-                $log->error('Error order created from YM', ['response' => $e->getMessage(), 'request' => $request->all()]);
+                $new_orders = $ymService->getNewOrders();
+            } catch (ConnectionException $e) {
+                $log->error("getNewOrders error for shop {$shop->name}", [$e->getMessage()]);
                 continue;
             }
 
-            $log->debug('ORDER_CREATED response', [$response->getData(true)]);
-
-            if ($response->status() !== 200) {
-                $log->error('Error order created from YM', ['response' => $response->body(true), 'request' => $request->all()]);
+            if (empty($new_orders)) {
                 continue;
             }
 
-            $request = new Request();
+            $log->info("Found " . count($new_orders) . " new orders for shop {$shop->name}");
 
-            $request->merge([
-                'notificationType' => 'ORDER_STATUS_UPDATED',
-                'orderId' => $order_id,
-                'campaignId' => $campaign_id,
-                'status' => 'PROCESSING',
-                'substatus' => 'STARTED',
-            ]);
+            foreach ($new_orders as $order) {
+                $order_id = data_get($order, 'id');
+                $order_exist = Order::where('order_id', $order_id)->where('shop_id', $shop->id)->exists();
 
-            $log->debug('ORDER_STATUS_UPDATED request data', [$request->all()]);
+                if ($order_exist) {
+                    continue;
+                }
 
-            try {
-                $response = $ym_controller->notification($request);
-            } catch (\Exception $e) {
-                $log->error('Error order status updated from YM', ['response' => $e->getMessage(), 'request' => $request->all()]);
-                continue;
+                $log->debug('Processing new order', ['shop' => $shop->name, 'order_id' => $order_id]);
+
+                $request = new Request();
+                $request->merge([
+                    'notificationType' => 'ORDER_CREATED',
+                    'orderId' => $order_id,
+                    'campaignId' => $shop->campaign_id,
+                    'shop_id' => $shop->id, // Passing shop_id to controller
+                ]);
+
+                try {
+                    $response = $ym_controller->notification($shop->notification_token, $request);
+                } catch (\Exception $e) {
+                    $log->error('Error ORDER_CREATED', ['shop' => $shop->name, 'e' => $e->getMessage(), 'order_id' => $order_id]);
+                    continue;
+                }
+
+                if ($response->status() === 200) {
+                    $request = new Request();
+                    $request->merge([
+                        'notificationType' => 'ORDER_STATUS_UPDATED',
+                        'orderId' => $order_id,
+                        'campaignId' => $shop->campaign_id,
+                        'shop_id' => $shop->id,
+                        'status' => 'PROCESSING',
+                        'substatus' => 'STARTED',
+                    ]);
+
+                    try {
+                        $ym_controller->notification($shop->notification_token, $request);
+                    } catch (\Exception $e) {
+                        $log->error('Error ORDER_STATUS_UPDATED', ['shop' => $shop->name, 'e' => $e->getMessage()]);
+                    }
+                }
             }
-
-            $log->debug('ORDER_STATUS_UPDATED response', [$response->getData(true)]);
-
-            if ($response->status() !== 200) {
-                $log->error('Error order status updated from YM', ['response' => $response->getData(true), 'request' => $request->all()]);
-                continue;
-            }
-
-            $log->debug('new order created', [$order_id]);
         }
     }
 }
