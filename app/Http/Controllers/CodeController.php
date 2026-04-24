@@ -290,6 +290,14 @@ class CodeController extends Controller
 
         $trusted_hosts_array = explode(',', $hosts);
 
+        // Include all active shop domains
+        $shop_domains = \App\Models\Shop::where('is_active', true)
+            ->pluck('domain')
+            ->filter()
+            ->toArray();
+
+        $trusted_hosts_array = array_unique(array_merge($trusted_hosts_array, $shop_domains));
+
         if (!in_array($host, $trusted_hosts_array)) {
             \Illuminate\Support\Facades\Log::warning("Domain mismatch in getCodeView: '$host' not in trusted list [" . implode(',', $trusted_hosts_array) . "]");
             abort(403, "Domain $host is not allowed");

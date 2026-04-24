@@ -63,7 +63,8 @@ class Settings extends Page implements HasForms
             'PS_TAX_FOR_SITES',
             'YM_BUSINESS_ID',
             'YM_CAMPAIGN_ID',
-            'YM_API_KEY'
+            'YM_API_KEY',
+            'TRUSTED_HOSTS'
         ];
         $keys = array_diff($keys, $migratedKeys);
 
