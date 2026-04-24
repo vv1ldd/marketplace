@@ -18,6 +18,8 @@ class OrderItems extends Model
         'is_redeemed' => 'boolean',
         'activated_at' => 'datetime',
         'purchase_status' => 'string',
+        'redeem_started_at' => 'datetime',
+        'reminder_sent_at' => 'datetime',
     ];
 
     public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo

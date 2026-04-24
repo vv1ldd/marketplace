@@ -311,6 +311,10 @@ class CodeController extends Controller
             'type_form_id' => $order_item->type_form_id,
         ]);
 
+        if (!$order_item->redeem_started_at) {
+            $order_item->update(['redeem_started_at' => now()]);
+        }
+
         return redirect()->temporarySignedRoute('redeem.email', now()->addHours());
     }
 

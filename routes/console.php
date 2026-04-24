@@ -16,3 +16,4 @@ Schedule::command(WooPriceUpdate::class)->at('21:00');
 Schedule::command(WooNewOrders::class)->everyMinute();
 Schedule::command(ImportWooUsers::class)->everyMinute();
 Schedule::command(WildflowParser::class)->hourly();
+Schedule::command(\App\Console\Commands\SendRedeemReminders::class)->everyFifteenMinutes();
