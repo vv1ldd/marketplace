@@ -53,31 +53,22 @@ class Settings extends Page implements HasForms
         $keys = array_keys($this->data);
 
         $groups = [
-            'meanly' => [
-                'title' => 'Интеграция Meanly',
-                'icon' => 'heroicon-o-link',
-                'keys' => ['MEANLY_TOKEN'],
-            ],
             'yandex' => [
                 'title' => 'Yandex Market (Глобально)',
                 'icon' => 'heroicon-o-shopping-bag',
                 'keys' => ['YM_BUSINESS_ID', 'YM_CAMPAIGN_ID', 'YM_API_KEY'],
             ],
-            'finances' => [
-                'title' => 'Финансы и Налоги (Default)',
-                'icon' => 'heroicon-o-currency-dollar',
-                'keys' => ['PS_TAX', 'PS_TAX_FOR_SITES'],
-            ],
         ];
 
         $labels = [
-            'MEANLY_TOKEN' => 'Токен Meanly.ru',
             'YM_BUSINESS_ID' => 'Business ID Яндекса',
             'YM_CAMPAIGN_ID' => 'Campaign ID Яндекса',
             'YM_API_KEY' => 'API Ключ Яндекса',
-            'PS_TAX' => 'Глобальный налог PS (%)',
-            'PS_TAX_FOR_SITES' => 'Налог для сайтов (%)',
         ];
+
+        // Keys to ignore because they moved to Shops
+        $migratedKeys = ['MEANLY_TOKEN', 'PS_TAX', 'PS_TAX_FOR_SITES'];
+        $keys = array_diff($keys, $migratedKeys);
 
         $sections = [];
 
