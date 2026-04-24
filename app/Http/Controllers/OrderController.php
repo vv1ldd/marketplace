@@ -246,6 +246,7 @@ class OrderController extends Controller
                     'keys_data' => $keys_data,
                     'first_name' => $order['billing_first_name'],
                     'order_id' => $order_id,
+                    'shop' => $shop,
                 ],
                 to: $order['billing_email'],
                 subject: $subject

@@ -57,18 +57,22 @@
                         <td style="padding-top:24px;text-align:left">
                             <div
                                 style="background:#fff5f5;border-radius:12px;color:#333;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;padding:20px">
+                                @php
+                                    $domain = $shop->domain ?? '1gros.ru';
+                                    $name = $shop->name ?? '1GROS';
+                                @endphp
                                 <h1 style="color:red;font-size:20px;margin:0 0 12px">Как активировать ваш код?</h1>
                                 <p style="margin:0">
                                     <strong style="color:red">Инструкция:</strong><br>
                                     1. Перейдите по ссылке
-                                    <a href="https://1gros.ru/redeem" style="color:#d32f2f;font-weight:bold"
-                                       target="_blank">1gros.ru/redeem</a><br>
+                                    <a href="https://{{ $domain }}/redeem" style="color:#d32f2f;font-weight:bold"
+                                       target="_blank">{{ $domain }}/redeem</a><br>
                                     2. Скопируйте код из письма.<br>
                                     3. Вставьте его в поле и следуйте инструкциям.<br><br>
                                     💡 <em>Нет аккаунта? Мы создадим его для вас во время активации.</em><br><br>
                                     <strong style="color:red">Нужна помощь?</strong>
-                                    <a href="https://1gros.ru/support" style="color:#d32f2f;font-weight:bold"
-                                       target="_blank">Свяжитесь с нашей поддержкой</a>.
+                                    <a href="https://{{ $domain }}/support" style="color:#d32f2f;font-weight:bold"
+                                       target="_blank">Свяжитесь с поддержкой {{ $name }}</a>.
                                 </p>
                             </div>
                         </td>

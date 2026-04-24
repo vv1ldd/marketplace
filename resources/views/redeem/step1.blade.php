@@ -12,10 +12,10 @@
                 @if(session('is_frame'))
                     <input hidden name="is_frame" value="1" />
                 @endif
-                <label class="block text-sm text-zinc-300 mb-1" for="first_name">Пример: W1C-XXXX-XXXX-XXXX<span
+                <label class="block text-sm text-zinc-300 mb-1" for="first_name">Пример: {{ $prefix }}XXXX-XXXX-XXXX<span
                         class="text-red-500">*</span></label>
-                <input id="code" type="text" maxlength="18" minlength="18" spellcheck="false" autocomplete="off"
-                    pattern="^W1C-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$" placeholder="Код" name="code"
+                <input id="code" type="text" maxlength="40" spellcheck="false" autocomplete="off"
+                    placeholder="Код" name="code"
                     value="{{ old('code') }}" autofocus required
                     class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2" />
                 @error('code')
@@ -34,13 +34,16 @@
 @section('scripts')
 <script>
     const input = document.getElementById('code');
-    const staticPrefix = 'W1C-';
+    const staticPrefix = '{{ $prefix }}';
 
     function formatCode(raw) {
         raw = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
         // убираем префикс, если случайно вставлен
-        raw = raw.replace(/^W1C/i, '');
+        let prefixClean = staticPrefix.replace(/[^A-Z0-9]/g, '').toUpperCase();
+        if (raw.startsWith(prefixClean)) {
+            raw = raw.substring(prefixClean.length);
+        }
 
         let parts = [];
         for (let i = 0; i < 12 && i < raw.length; i += 4) {

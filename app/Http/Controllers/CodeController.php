@@ -241,7 +241,7 @@ class CodeController extends Controller
     public function checkCode(Request $request)
     {
         $data = $request->validate([
-            'code' => 'required|string|regex:/^W1C-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/',
+            'code' => 'required|string|regex:/^[A-Z0-9-]+$/',
         ]);
 
         $order_item = OrderItems::where('key', $data['code'])->first();
@@ -305,6 +305,9 @@ class CodeController extends Controller
 
         session()->put('is_frame', (bool)data_get($data, 'is_frame'));
 
-        return view('redeem.step1');
+        $current_shop = \App\Models\Shop::where('domain', $host)->first();
+        $prefix = $current_shop?->voucher_prefix ?? 'W1C-';
+
+        return view('redeem.step1', compact('prefix'));
     }
 }
