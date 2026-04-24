@@ -307,17 +307,33 @@ class CodeController extends Controller
 
         // Try to find shop by query parameter first, then by host/domain
         $shopSlug = $request->query('shop');
+        $current_shop = null;
+        
         if ($shopSlug) {
-            $current_shop = \App\Models\Shop::where('voucher_prefix', $shopSlug)
-                ->orWhere('voucher_prefix', $shopSlug . '-') // handle case with/without trailing dash
+            $cleanSlug = rtrim($shopSlug, '-');
+            $current_shop = \App\Models\Shop::where('voucher_prefix', $cleanSlug)
+                ->orWhere('voucher_prefix', $cleanSlug . '-')
                 ->first();
         }
 
-        if (!isset($current_shop) || !$current_shop) {
-            $current_shop = \App\Models\Shop::where('domain', $host)->first();
+        if (!$current_shop) {
+            // Try matching domain directly or as part of the host (subdomain)
+            $current_shop = \App\Models\Shop::where('domain', $host)
+                ->orWhere(fn($q) => $host !== $app_domain ? $q->where('domain', 'like', "%$host%") : null)
+                ->first();
+                
+            // Last resort: if we are on a subdomain of meanly.ru, find the main shop
+            if (!$current_shop && str_contains($host, 'meanly.ru')) {
+                $current_shop = \App\Models\Shop::where('domain', 'like', '%meanly.ru%')->first();
+            }
         }
 
         $prefix = $current_shop?->voucher_prefix ?? 'W1C-';
+        
+        // Ensure prefix ends with a dash for consistent UI
+        if ($prefix && !str_ends_with($prefix, '-')) {
+            $prefix .= '-';
+        }
 
         return view('redeem.step1', compact('prefix'));
     }
