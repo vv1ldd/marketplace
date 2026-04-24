@@ -5,6 +5,9 @@ namespace App\Filament\Resources\ShopResource\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Table;
 
 class ShopsTable
@@ -38,11 +41,11 @@ class ShopsTable
                 //
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                \Filament\Tables\Actions\BulkActionGroup::make([
-                    \Filament\Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
