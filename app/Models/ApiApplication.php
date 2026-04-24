@@ -7,8 +7,12 @@ use Illuminate\Support\Str;
 
 class ApiApplication extends Model
 {
+    const TYPE_SHOP = 'shop';
+    const TYPE_PLATFORM = 'platform';
+
     protected $fillable = [
         'shop_id',
+        'type',
         'name',
         'first_name',
         'last_name',

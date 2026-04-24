@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ApiApplicationResource\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use App\Models\ApiApplication;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -17,10 +18,16 @@ class ApiApplicationsTable
     {
         return $table
             ->columns([
+                TextColumn::make('type')
+                    ->label('Тип')
+                    ->badge()
+                    ->color(fn ($state) => $state === ApiApplication::TYPE_PLATFORM ? 'warning' : 'info')
+                    ->formatStateUsing(fn ($state) => $state === ApiApplication::TYPE_PLATFORM ? 'Платформа' : 'Магазин'),
                 TextColumn::make('shop.name')
                     ->label('Магазин')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->placeholder('- Глобальный -'),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
@@ -43,6 +50,12 @@ class ApiApplicationsTable
                     ->label('Создано'),
             ])
             ->filters([
+                SelectFilter::make('type')
+                    ->label('Тип доступа')
+                    ->options([
+                        ApiApplication::TYPE_SHOP => 'Магазин',
+                        ApiApplication::TYPE_PLATFORM => 'Платформа',
+                    ]),
                 SelectFilter::make('shop_id')
                     ->label('Магазин')
                     ->relationship('shop', 'name'),

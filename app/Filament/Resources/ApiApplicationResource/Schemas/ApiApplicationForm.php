@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\ApiApplicationResource\Schemas;
  
+use App\Models\ApiApplication;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -17,12 +19,26 @@ class ApiApplicationForm
     {
         return $schema
             ->components([
-                Section::make()
+                Section::make('Тип доступа')
                     ->schema([
-                        Select::make('shop_id')
-                            ->label('Магазин')
-                            ->relationship('shop', 'name')
+                        Radio::make('type')
+                            ->label('Уровень доступа')
+                            ->options([
+                                ApiApplication::TYPE_SHOP => 'Доступ к конкретному магазину',
+                                ApiApplication::TYPE_PLATFORM => 'Глобальный доступ к платформе',
+                            ])
+                            ->default(ApiApplication::TYPE_SHOP)
+                            ->live()
                             ->required(),
+                        Select::make('shop_id')
+                            ->label('Выберите магазин')
+                            ->relationship('shop', 'name')
+                            ->visible(fn ($get) => $get('type') === ApiApplication::TYPE_SHOP)
+                            ->required(fn ($get) => $get('type') === ApiApplication::TYPE_SHOP),
+                    ]),
+
+                Section::make('Информация о приложении')
+                    ->schema([
                         TextInput::make('name')
                             ->required()
                             ->maxLength(255)
