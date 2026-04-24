@@ -42,7 +42,7 @@ class ProductResource extends Resource
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return parent::getEloquentQuery()
-            ->select(['id', 'sku', 'name', 'type', 'price_rub', 'price_try', 'is_active', 'created_at']);
+            ->select(['id', 'sku', 'name', 'type', 'category', 'price_rub', 'purchase_price', 'purchase_currency', 'is_active', 'created_at']);
     }
 
     public static function form(Schema $schema): Schema
