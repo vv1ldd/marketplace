@@ -94,6 +94,7 @@ class OrderController extends Controller
             $order_id = $new_order->id;
 
             $new_order->comments()->create([
+                'user_id' => $new_order->user_id,
                 'comment' => "Заказ получен из WooCommerce ($connection)"
             ]);
         } catch (\Exception $e) {
@@ -534,11 +535,13 @@ class OrderController extends Controller
             $order_id = $new_order->id;
 
             $new_order->comments()->create([
+                'user_id' => $user->id,
                 'comment' => "Заказ получен из Яндекс.Маркета" . (data_get($order_full_info, 'fake') ? " (ТЕСТ)" : "")
             ]);
 
             if (data_get($order_full_info, 'fake')) {
                 $new_order->comments()->create([
+                    'user_id' => $user->id,
                     'comment' => "⚠️ Внимание! Это тестовый заказ Яндекс.Маркета (Sandbox). Реальная закупка товара производиться не будет."
                 ]);
             }

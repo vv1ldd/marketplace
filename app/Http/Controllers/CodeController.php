@@ -166,6 +166,7 @@ class CodeController extends Controller
 
         // Логируем начало активации
         $order_item->order->comments()->create([
+            'user_id' => $user->id,
             'comment' => "Клиент начал процедуру активации (Email: {$data['email']}, Телефон: {$data['phone']})"
         ]);
 
@@ -200,11 +201,13 @@ class CodeController extends Controller
                 $service->createOrder($service_sku, $order_item->uuid, $service_price, $order_item->count);
                 
                 $order->comments()->create([
+                    'user_id' => $user->id,
                     'comment' => "Запрос на автозакупку отправлен (SKU: $service_sku, Цена: $service_price)"
                 ]);
             } else {
                 \Log::info("Автозакуп пропущен: Тестовый заказ", ['uuid' => $order_item->uuid]);
                 $order->comments()->create([
+                    'user_id' => $user->id,
                     'comment' => "Автозакуп пропущен: Тестовый заказ"
                 ]);
             }
@@ -214,6 +217,7 @@ class CodeController extends Controller
 
                 if ($original_code) {
                     $order->comments()->create([
+                        'user_id' => $user->id,
                         'comment' => "Автозакупка успешна. Получен код: " . Str::mask($original_code, '*', 4, -4)
                     ]);
                 }
@@ -238,11 +242,13 @@ class CodeController extends Controller
                         $ymService->sendMessage($order->chat_id, view('chat.send_code_message', ['code' => $original_code])->render());
                         
                         $order->comments()->create([
+                            'user_id' => $user->id,
                             'comment' => "Код успешно дублирован в чат Яндекс.Маркета"
                         ]);
                     } catch (\Exception $chatE) {
                         \Log::error('YM Chat send error', [$chatE->getMessage()]);
                         $order->comments()->create([
+                            'user_id' => $user->id,
                             'comment' => "Ошибка отправки кода в чат: " . $chatE->getMessage()
                         ]);
                     }
@@ -252,6 +258,7 @@ class CodeController extends Controller
                 \Log::error('wildflow error', [$e->getMessage()]);
 
                 $order->comments()->create([
+                    'user_id' => $user->id,
                     'comment' => "Ошибка автозакупки: " . $e->getMessage()
                 ]);
 

@@ -54,6 +54,7 @@ class SendRedeemReminders extends Command
                 $item->update(['reminder_sent_at' => now()]);
                 
                 $order->comments()->create([
+                    'user_id' => $order->user_id,
                     'comment' => "Отправлено напоминание о незавершенной активации в чат Яндекс.Маркета"
                 ]);
                 
