@@ -24,6 +24,7 @@ class Order extends Model
         'code_activated',
         'account_data_on_send',
         'shop_id',
+        'is_test',
     ];
 
     protected $casts = [

@@ -521,6 +521,7 @@ class OrderController extends Controller
                 'chat_id' => $chat_id ?? null,
                 'user_id' => $user->id ?? null,
                 'shop_id' => $data['shop_id'] ?? null,
+                'is_test' => data_get($order_full_info, 'fake', false),
             ])->id;
         } catch (\Exception $e) {
 
