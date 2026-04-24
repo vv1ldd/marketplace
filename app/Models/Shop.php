@@ -24,6 +24,7 @@ class Shop extends Model
         'business_id',
         'campaign_id',
         'api_key',
+        'ip_whitelist',
         'notification_token',
         'is_active',
         'auto_purchase_enabled',

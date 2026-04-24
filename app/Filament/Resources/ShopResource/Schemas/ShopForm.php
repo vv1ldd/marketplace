@@ -42,6 +42,10 @@ class ShopForm
                     ->password()
                     ->revealable()
                     ->placeholder('Введите токен для выгрузки товаров'),
+                \Filament\Forms\Components\Textarea::make('ip_whitelist')
+                    ->label('Белый список IP')
+                    ->placeholder('1.2.3.4, 5.6.7.8')
+                    ->helperText('IP-адреса сайта магазина через запятую. Если пусто, проверка отключена.'),
                 TextInput::make('voucher_prefix')
                     ->label('Префикс ваучеров')
                     ->placeholder('SHOP-')
