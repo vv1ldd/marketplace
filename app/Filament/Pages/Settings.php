@@ -52,6 +52,10 @@ class Settings extends Page implements HasForms
         $components = [];
 
         foreach ($this->data as $key => $value) {
+            if (str_starts_with($key, 'YM_')) {
+                continue;
+            }
+
             $components[] = TextInput::make($key)
                 ->password()
                 ->revealable()
