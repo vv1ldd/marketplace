@@ -138,11 +138,17 @@ class OrderForm
                                         TextEntry::make('price_rub')
                                             ->label('Цена, руб')
                                             ->visible($super_admin)
-                                            ->state(fn(Get $get) => $alts[$get('sku')]->woo_price_rub ? $alts[$get('sku')]->woo_price_rub / 100 : null),
+                                            ->state(function (Get $get) use ($alts) {
+                                                if ($price = $get('price_rub')) return $price / 100;
+                                                return $alts[$get('sku')]->woo_price_rub ? $alts[$get('sku')]->woo_price_rub / 100 : null;
+                                            }),
                                         TextEntry::make('price_try')
                                             ->label('Цена, лир')
                                             ->visible($super_admin || $is_executor)
-                                            ->state(fn(Get $get) => $alts[$get('sku')]->woo_price_try ? $alts[$get('sku')]->woo_price_try / 100 : null),
+                                            ->state(function (Get $get) use ($alts) {
+                                                if ($price = $get('price_try')) return $price / 100;
+                                                return $alts[$get('sku')]->woo_price_try ? $alts[$get('sku')]->woo_price_try / 100 : null;
+                                            }),
 
                                     ])->columns(),
 

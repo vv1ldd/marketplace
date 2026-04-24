@@ -352,6 +352,8 @@ class OrderController extends Controller
                     'activate_till' => now()->addYear()->format('Y-m-d'),
                     'sku' => data_get($item, 'offerId'),
                     'count' => data_get($item, 'count'),
+                    'price_rub' => data_get($item, 'price') * 100,
+                    'price_try' => data_get($item, 'buyerPrice') * 100, // Using buyerPrice as a second price field for now
                     'created_at' => now(),
                     'updated_at' => now(),
                     'type_form_id' => $type_form_id
