@@ -8,6 +8,9 @@ use App\Jobs\SendTelegramJob;
 use App\Mail\VerificationCodeMail;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
+use App\Models\WildflowCatalog;
+use App\Services\WildflowService;
+use App\Mail\SendActivationCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -195,14 +198,60 @@ class RedeemApiController extends Controller
             'type_id' => $data['type_id'],
         ]);
 
-        // Same logic as CodeController to update order status
+        // Пытаемся сделать автозакупку через Wildflow (как в CodeController)
+        $product = WildflowCatalog::where('sku', $order_item->sku)->first();
+
+        if ($product) {
+            $service_sku = data_get($product, 'data.data.product.sku');
+            $service_price = data_get($product, 'data.data.price');
+            $wf_service = new WildflowService();
+
+            try {
+                $wf_service->createOrder($service_sku, $order_item->uuid, $service_price, $order_item->count);
+                sleep(1);
+                $cards = $wf_service->getCards($order_item->uuid);
+                $original_code = data_get($cards, '0.card_number');
+
+                $order_item->update([
+                    'purchase_status' => 'success',
+                    'original_code' => $original_code,
+                ]);
+
+                // Отправляем email с кодом
+                Mail::to($request->input('email'))->send(new SendActivationCode($original_code, $order));
+
+            } catch (\Exception $exception) {
+                \Log::error('Ошибка автозакупки в Redeem API activate', [
+                    'error' => $exception->getMessage(),
+                    'uuid' => $order_item->uuid
+                ]);
+
+                $order_item->update([
+                    'purchase_status' => 'failed',
+                    'purchase_error' => $exception->getMessage(),
+                ]);
+            }
+        } else {
+            $order_item->update([
+                'purchase_status' => 'manual',
+            ]);
+        }
+
+        // Обновляем статус заказа
         $order_items = OrderItems::where('order_id', $order->id)->get();
         $activated_all = $order_items->every('is_activated');
+        $purchased_all = $order_items->every(fn($item) => $item->purchase_status === 'success');
 
-        $order->update([
+        $order_update_data = [
             'user_id' => $user->id,
             'code_activated' => $activated_all,
-        ]);
+        ];
+
+        if ($purchased_all) {
+            $order_update_data['progress_id'] = 4; // Выполнено
+        }
+
+        $order->update($order_update_data);
 
         SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
 
@@ -211,7 +260,7 @@ class RedeemApiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Активация успешно завершена'
+            'message' => 'Активация и закупка успешно завершены'
         ]);
     }
 }
