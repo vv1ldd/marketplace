@@ -22,6 +22,12 @@ class LedgerApiController extends Controller
      */
     public function catalogMap(Request $request): JsonResponse
     {
+        $whitelist = config('app.ledger_ip_whitelist');
+        
+        if ($whitelist && !in_array($request->ip(), explode(',', $whitelist))) {
+            return response()->json(['error' => 'Unauthorized IP: ' . $request->ip()], 403);
+        }
+
         $validated = $request->validate([
             'updated_since' => 'nullable|date',
             'limit' => 'nullable|integer|min:1|max:2000',
