@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ShopResource\Pages\CreateShop;
 use App\Filament\Resources\ShopResource\Pages\EditShop;
 use App\Filament\Resources\ShopResource\Pages\ListShops;
+use App\Filament\Resources\ShopResource\RelationManagers\ApiApplicationsRelationManager;
 use App\Filament\Resources\ShopResource\Schemas\ShopForm;
 use App\Filament\Resources\ShopResource\Tables\ShopsTable;
 use App\Models\Shop;
@@ -33,6 +34,13 @@ class ShopResource extends Resource
     public static function table(Table $table): Table
     {
         return ShopsTable::configure($table);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ApiApplicationsRelationManager::class
+        ];
     }
 
     public static function getPages(): array

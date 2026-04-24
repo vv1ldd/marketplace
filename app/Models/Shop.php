@@ -37,7 +37,7 @@ class Shop extends Model
         return $this->hasMany(Order::class);
     }
 
-    public function applications()
+    public function apiApplications(): HasMany
     {
         return $this->hasMany(ApiApplication::class);
     }
