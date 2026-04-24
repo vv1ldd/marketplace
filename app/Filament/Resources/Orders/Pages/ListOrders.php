@@ -25,11 +25,11 @@ class ListOrders extends ListRecords
 
         if ($super_admin) {
             return [
-                'all' => Tab::make('Все')->badge(fn() => Order::count()),
-                'Не обработаны' => Tab::make()
+                'Все' => Tab::make('Все')->badge(fn() => Order::count()),
+                'Не обработаны' => Tab::make('Не обработаны')
                     ->badge(fn() => Order::where('progress_id', '<>', 4)->where('is_problem', false)->count())
                     ->modifyQueryUsing(fn(Builder $query) => $query->where('progress_id', '<>', 4)->where('is_problem', false)),
-                'Проблемные' => Tab::make()
+                'Проблемные' => Tab::make('Проблемные')
                     ->badge(fn() => Order::where('is_problem', true)->count())
                     ->badgeColor('danger')
                     ->modifyQueryUsing(fn(Builder $query) => $query->where('is_problem', true))
