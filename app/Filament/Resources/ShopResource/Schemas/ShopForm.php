@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ShopResource\Schemas;
 
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -25,6 +26,7 @@ class ShopForm
                         \App\Models\Shop::TYPE_BOTH     => 'Ваучеры + Игры',
                     ])
                     ->default(\App\Models\Shop::TYPE_VOUCHERS)
+                    ->live()
                     ->required(),
                 TextInput::make('domain')
                     ->label('Домен')
@@ -38,11 +40,19 @@ class ShopForm
                     ->label('Наценка PS Tax (%)')
                     ->numeric()
                     ->default(35)
+                    ->visible(fn (callable $get) => in_array($get('type'), [
+                        \App\Models\Shop::TYPE_GAMES,
+                        \App\Models\Shop::TYPE_BOTH
+                    ]))
                     ->required(),
                 TextInput::make('ps_tax_for_sites')
                     ->label('Наценка PS Tax для сайтов (%)')
                     ->numeric()
                     ->default(35)
+                    ->visible(fn (callable $get) => in_array($get('type'), [
+                        \App\Models\Shop::TYPE_GAMES,
+                        \App\Models\Shop::TYPE_BOTH
+                    ]))
                     ->required(),
                 Toggle::make('is_active')
                     ->label('Активен')
