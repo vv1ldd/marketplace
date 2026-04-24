@@ -25,6 +25,8 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
+    protected static ?string $recordTitleAttribute = null;
+
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-cube';
 
     protected static string | \UnitEnum | null $navigationGroup = 'Каталог';
@@ -34,6 +36,12 @@ class ProductResource extends Resource
     protected static ?string $pluralLabel = 'Товары';
 
     protected static ?int $navigationSort = 1;
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->select(['id', 'sku', 'name', 'type', 'price_rub', 'price_try', 'is_active', 'created_at']);
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -97,6 +105,7 @@ class ProductResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultPaginationPageOption(10)
             ->columns([
                 TextColumn::make('sku')
                     ->label('SKU')
