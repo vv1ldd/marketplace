@@ -204,14 +204,14 @@ class OrderForm
                                         ->copyable()
                                         ->hidden($is_executor || $is_support)
                                         ->suffixAction(
-                                            \Filament\Forms\Components\Actions\Action::make('manual_send')
+                                            Action::make('manual_send')
                                                 ->label('Выдать вручную')
                                                 ->icon('heroicon-m-paper-airplane')
                                                 ->color('success')
                                                 ->requiresConfirmation()
                                                 ->modalHeading('Ручная выдача кода')
                                                 ->modalDescription('Вы действительно хотите выдать этот код клиенту вручную? Будет отправлено письмо и сообщение в чат Яндекс.Маркета (если доступно).')
-                                                ->action(function ($state, $record, \Filament\Forms\Set $set) {
+                                                ->action(function ($state, $record, Set $set) {
                                                     if (!$state) {
                                                         Notification::make()->title('Сначала введите код')->danger()->send();
                                                         return;
