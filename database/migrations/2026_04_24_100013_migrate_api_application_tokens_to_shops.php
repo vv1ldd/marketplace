@@ -18,14 +18,18 @@ return new class extends Migration
                 $shop = Shop::find($app->shop_id);
             }
 
-            // 2. Try by exact domain
+            // 2. Try by normalized domain matching
             if (!$shop && $app->domain) {
-                $shop = Shop::where('domain', $app->domain)->first();
+                $appDomain = $this->normalizeDomain($app->domain);
+                
+                $shop = Shop::all()->first(function ($s) use ($appDomain) {
+                    return $this->normalizeDomain($s->domain) === $appDomain;
+                });
             }
 
-            // 3. Try by partial domain match (e.g. meanly.ru match marketplace.meanly.ru)
+            // 3. Try by partial domain match fallback
             if (!$shop && $app->domain) {
-                $shop = Shop::where('domain', 'like', '%' . $app->domain . '%')->first();
+                $shop = Shop::where('domain', 'like', '%' . $this->normalizeDomain($app->domain) . '%')->first();
             }
 
             // 4. Try by name
@@ -33,9 +37,9 @@ return new class extends Migration
                 $shop = Shop::where('name', $app->name)->first();
             }
             
-            // Special case for Meanly as seen in screenshots
+            // Special case for Meanly
             if (!$shop && (str_contains(strtolower($app->name), 'meanly') || str_contains(strtolower($app->domain), 'meanly'))) {
-                $shop = Shop::where('name', 'MEANLY')
+                $shop = Shop::where('name', 'like', '%MEANLY%')
                     ->orWhere('domain', 'like', '%meanly.ru%')
                     ->first();
             }
@@ -44,11 +48,22 @@ return new class extends Migration
                 $shop->update([
                     'store_api_token' => $app->token,
                 ]);
-                \Illuminate\Support\Facades\Log::info("Migrated token for shop: {$shop->name} from app: {$app->name}");
+                \Illuminate\Support\Facades\Log::info("Migrated token for shop: {$shop->name} from app: {$app->name} (Normalized domain match)");
             } else {
                 \Illuminate\Support\Facades\Log::warning("Could not find shop for app: id={$app->id}, name={$app->name}, domain={$app->domain}");
             }
         }
+    }
+
+    private function normalizeDomain($domain): string
+    {
+        if (empty($domain)) return '';
+        
+        // Remove protocol, trailing slash, and whitespace
+        $domain = preg_replace('~^https?://~', '', trim($domain));
+        $domain = rtrim($domain, '/');
+        
+        return strtolower($domain);
     }
 
     public function down()
