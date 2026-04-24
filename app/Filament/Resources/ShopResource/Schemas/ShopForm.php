@@ -110,7 +110,7 @@ class ShopForm
                     ])
                     ->visible(fn (callable $get) => $get('use_custom_smtp')),
 
-                \Filament\Forms\Components\Grid::make(2)
+                \Filament\Schemas\Components\Grid::make(2)
                     ->schema([
                         TextInput::make('smtp_user')
                             ->label('SMTP User')
