@@ -305,7 +305,18 @@ class CodeController extends Controller
 
         session()->put('is_frame', (bool)data_get($data, 'is_frame'));
 
-        $current_shop = \App\Models\Shop::where('domain', $host)->first();
+        // Try to find shop by query parameter first, then by host/domain
+        $shopSlug = $request->query('shop');
+        if ($shopSlug) {
+            $current_shop = \App\Models\Shop::where('voucher_prefix', $shopSlug)
+                ->orWhere('voucher_prefix', $shopSlug . '-') // handle case with/without trailing dash
+                ->first();
+        }
+
+        if (!isset($current_shop) || !$current_shop) {
+            $current_shop = \App\Models\Shop::where('domain', $host)->first();
+        }
+
         $prefix = $current_shop?->voucher_prefix ?? 'W1C-';
 
         return view('redeem.step1', compact('prefix'));
