@@ -13,13 +13,17 @@ class Product extends Model
         'name',
         'description',
         'type',
+        'category',
         'price_rub',
-        'price_try',
+        'purchase_price',
+        'purchase_currency',
         'base_price',
         'type_form_id',
         'data',
         'is_manual',
         'is_active',
+        'image',
+        'image_updated_at',
         'send_to_ym_at',
     ];
 

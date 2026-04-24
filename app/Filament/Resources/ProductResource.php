@@ -88,10 +88,18 @@ class ProductResource extends Resource
                                 ->label('Цена (руб.)')
                                 ->numeric()
                                 ->prefix('₽'),
-                            TextInput::make('price_try')
-                                ->label('Цена (лир.)')
-                                ->numeric()
-                                ->prefix('TL'),
+                            TextInput::make('purchase_price')
+                                ->label('Закупочная цена')
+                                ->numeric(),
+                            Select::make('purchase_currency')
+                                ->label('Валюта закупки')
+                                ->options([
+                                    'TRY' => 'TL (Лиры)',
+                                    'USD' => '$ (Доллары)',
+                                    'EUR' => '€ (Евро)',
+                                    'KZT' => '₸ (Тенге)',
+                                ])
+                                ->default('TRY'),
                             TextInput::make('base_price')
                                 ->label('Базовая цена')
                                 ->numeric(),
@@ -159,6 +167,10 @@ class ProductResource extends Resource
                 TextColumn::make('price_rub')
                     ->label('Цена (руб.)')
                     ->state(fn ($record) => $record->price_rub ? $record->price_rub / 100 . ' ₽' : '-')
+                    ->sortable(),
+                TextColumn::make('purchase_price')
+                    ->label('Закупка')
+                    ->state(fn ($record) => $record->purchase_price ? ($record->purchase_price / 100) . ' ' . $record->purchase_currency : '-')
                     ->sortable(),
                 IconColumn::make('is_active')
                     ->label('Активен')
