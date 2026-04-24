@@ -64,7 +64,17 @@ class Settings extends Page implements HasForms
             'YM_BUSINESS_ID',
             'YM_CAMPAIGN_ID',
             'YM_API_KEY',
-            'TRUSTED_HOSTS'
+            'TRUSTED_HOSTS',
+            'TG_TOKEN',
+            'TG_CHAT_ID',
+            'SMTP_HOST',
+            'SMTP_PORT',
+            'SMTP_USER',
+            'SMTP_PASSWORD',
+            'SMTP_ENCRYPTION',
+            'SMTP_FROM_ADDRESS',
+            'SMTP_FROM_NAME',
+            'SMTP_SUBJECT'
         ];
         $keys = array_diff($keys, $migratedKeys);
 

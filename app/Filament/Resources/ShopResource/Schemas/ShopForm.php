@@ -130,6 +130,10 @@ class ShopForm
                         TextInput::make('smtp_from_name')
                             ->label('Имя отправителя')
                             ->placeholder('My Shop Support'),
+                        TextInput::make('smtp_subject')
+                            ->label('Тема письма')
+                            ->placeholder('Ваш код активации')
+                            ->columnSpanFull(),
                     ])
                     ->visible(fn (callable $get) => $get('use_custom_smtp')),
             ])->collapsed(),

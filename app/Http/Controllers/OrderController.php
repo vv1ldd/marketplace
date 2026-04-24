@@ -228,23 +228,28 @@ class OrderController extends Controller
             ];
         }
 
+        $order_model = Order::where('order_id', $order_id)->first();
+        $shop = $order_model?->shop;
+
         try {
+            $log->info('send instruction via MailService');
 
-            $log->info('send instruction to smtp');
+            $mailService = new \App\Services\MailService();
+            $subject = $shop?->use_custom_smtp && $shop?->smtp_subject 
+                ? $shop->smtp_subject 
+                : Settings::get('SMTP_SUBJECT', 'Ваш код активации');
 
-            Mail::send('instruction_with_code', [
-                'keys_data' => $keys_data,
-                'first_name' => $order['billing_first_name'],
-                'order_id' => $order_id,
-            ], function ($message) use ($order) {
-
-                $from_name = Settings::get('SMTP_FROM_NAME', 'Магазин 1GROS');
-                $subject = Settings::get('SMTP_SUBJECT', 'Ваш код активации');
-
-                $message->to($order['billing_email'])
-                    ->from(config('mail.from.address'), $from_name)
-                    ->subject($subject);
-            });
+            $mailService->sendShopMail(
+                shop: $shop,
+                view: 'instruction_with_code',
+                data: [
+                    'keys_data' => $keys_data,
+                    'first_name' => $order['billing_first_name'],
+                    'order_id' => $order_id,
+                ],
+                to: $order['billing_email'],
+                subject: $subject
+            );
 
         } catch (\Exception $e) {
 

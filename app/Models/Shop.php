@@ -34,6 +34,7 @@ class Shop extends Model
         'smtp_encryption',
         'smtp_from_address',
         'smtp_from_name',
+        'smtp_subject',
         'telegram_bot_token',
         'telegram_chat_id',
     ];
