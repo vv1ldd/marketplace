@@ -32,6 +32,11 @@ class ShopForm
                     ->label('Домен')
                     ->placeholder('example.com')
                     ->prefix('https://'),
+                TextInput::make('redeem_url')
+                    ->label('Кастомная ссылка Redeem')
+                    ->placeholder('https://partner.ru/redeem')
+                    ->url()
+                    ->helperText('Необязательно. Если пусто, используется стандартная ссылка хаба.'),
                 TextInput::make('store_api_token')
                     ->label('API Токен сайта (Storefront)')
                     ->password()

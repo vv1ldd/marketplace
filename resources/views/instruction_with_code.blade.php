@@ -60,7 +60,11 @@
                                 @php
                                     $hubDomain = 'marketplace.meanly.ru';
                                     $shopPrefix = $shop->voucher_prefix ?? '';
-                                    $redeemUrl = "https://{$hubDomain}/redeem" . ($shopPrefix ? "?shop={$shopPrefix}" : "");
+                                    
+                                    // Use custom redeem URL if set, otherwise fallback to hub
+                                    $redeemUrl = $shop->redeem_url 
+                                        ?: "https://{$hubDomain}/redeem" . ($shopPrefix ? "?shop={$shopPrefix}" : "");
+                                    
                                     $supportUrl = "https://" . ($shop->domain ?? $hubDomain) . "/support";
                                     $name = $shop->name ?? 'Marketplace';
                                 @endphp
@@ -69,7 +73,7 @@
                                     <strong style="color:red">Инструкция:</strong><br>
                                     1. Перейдите по ссылке
                                     <a href="{{ $redeemUrl }}" style="color:#d32f2f;font-weight:bold"
-                                       target="_blank">{{ $hubDomain }}/redeem</a><br>
+                                       target="_blank">{{ parse_url($redeemUrl, PHP_URL_HOST) }}{{ parse_url($redeemUrl, PHP_URL_PATH) }}</a><br>
                                     2. Скопируйте код из письма.<br>
                                     3. Вставьте его в поле и следуйте инструкциям.<br><br>
                                     💡 <em>Нет аккаунта? Мы создадим его для вас во время активации.</em><br><br>
