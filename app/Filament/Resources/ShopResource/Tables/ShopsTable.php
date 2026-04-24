@@ -20,6 +20,21 @@ class ShopsTable
                     ->label('Название')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('type')
+                    ->label('Тип')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => match($state) {
+                        \App\Models\Shop::TYPE_VOUCHERS => 'Ваучеры',
+                        \App\Models\Shop::TYPE_GAMES    => 'Игры',
+                        \App\Models\Shop::TYPE_BOTH     => 'Ваучеры + Игры',
+                        default => $state,
+                    })
+                    ->color(fn ($state) => match($state) {
+                        \App\Models\Shop::TYPE_VOUCHERS => 'info',
+                        \App\Models\Shop::TYPE_GAMES    => 'warning',
+                        \App\Models\Shop::TYPE_BOTH     => 'success',
+                        default => 'gray',
+                    }),
                 TextColumn::make('campaign_id')
                     ->label('Campaign ID')
                     ->searchable(),

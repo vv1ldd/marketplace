@@ -30,6 +30,8 @@ class OrdersTable
                     ->sortable(),
                 TextColumn::make('shop.name')
                     ->label('Магазин')
+                    ->badge()
+                    ->color('gray')
                     ->sortable()
                     ->searchable()
                     ->toggleable(),
@@ -90,16 +92,11 @@ class OrdersTable
                     ->hidden($is_executor || $is_support),
             ])
             ->filters([
-                SelectFilter::make('progress')
-                    ->label('Прогресс')
-                    ->multiple()
-                    ->relationship('progress', 'name')
-                    ->attribute('progress_id')
-                    ->visible($is_super_admin),
                 SelectFilter::make('shop_id')
                     ->label('Магазин')
+                    ->searchable()
                     ->relationship('shop', 'name'),
-            ], layout: FiltersLayout::AboveContent)
+            ], layout: FiltersLayout::Dropdown)
             ->persistFiltersInSession()
             ->recordActions([
                 EditAction::make(),

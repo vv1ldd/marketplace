@@ -15,6 +15,16 @@ class ShopForm
             Section::make('Основная информация')->schema([
                 TextInput::make('name')
                     ->label('Название магазина')
+                    ->required()
+                    ->maxLength(255),
+                Select::make('type')
+                    ->label('Тип магазина')
+                    ->options([
+                        \App\Models\Shop::TYPE_VOUCHERS => 'Ваучеры',
+                        \App\Models\Shop::TYPE_GAMES    => 'Игры',
+                        \App\Models\Shop::TYPE_BOTH     => 'Ваучеры + Игры',
+                    ])
+                    ->default(\App\Models\Shop::TYPE_VOUCHERS)
                     ->required(),
                 TextInput::make('domain')
                     ->label('Домен')

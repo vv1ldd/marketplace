@@ -8,8 +8,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Shop extends Model
 {
+    const TYPE_VOUCHERS = 'vouchers';
+    const TYPE_GAMES    = 'games';
+    const TYPE_BOTH     = 'both';
+
     protected $fillable = [
         'name',
+        'type',
         'domain',
         'voucher_prefix',
         'ps_tax',
