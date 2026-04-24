@@ -119,7 +119,7 @@ class OrderForm
                             ->addActionLabel('Добавить товар')
                             ->addable(!$is_executor)
                             ->truncateItemLabel()
-                            ->itemLabel(fn(array $state): ?string => $alts[$state['sku']]->name ?? $state['sku'] ?? null)
+                            ->itemLabel('Товар')
                             ->columns(1)
                             ->schema([
                                 Grid::make(3)->schema([
