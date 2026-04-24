@@ -88,7 +88,7 @@ class OrdersTable
                     ->limitList(1)
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->badge(),
-                TextColumn::make('created_at')->label('Создан')->dateTime('d.m.Y H:i').sortable(),
+                TextColumn::make('created_at')->label('Создан')->dateTime('d.m.Y H:i')->sortable(),
                 TextColumn::make('assigned_at')->label('Взят')
                     ->visible($is_super_admin)
                     ->toggleable(isToggledHiddenByDefault: true)
