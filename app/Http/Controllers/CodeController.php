@@ -175,6 +175,11 @@ class CodeController extends Controller
                     'original_code' => $original_code,
                 ]);
 
+                // Проверяем, если все товары в заказе успешно закуплены — закрываем заказ автоматически
+                if ($order_items->every(fn($item) => $item->purchase_status === 'success' || $item->id === $order_item->id)) {
+                    $order->update(['progress_id' => 4]); // 4 - Выполнено
+                }
+
                 // Отправляем email с кодом только при успешной закупке
                 Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
 
