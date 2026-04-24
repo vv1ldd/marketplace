@@ -40,7 +40,7 @@ class OrderForm
 
         $skus = $order?->items?->pluck('sku')->filter()->unique()->toArray() ?? [];
         $alts = \App\Models\Product::whereIn('sku', $skus)
-            ->get(['sku', 'name', 'price_rub', 'price_try'])
+            ->get(['sku', 'name', 'price_rub', 'purchase_price', 'purchase_currency'])
             ->keyBy('sku');
 
 
@@ -141,12 +141,14 @@ class OrderForm
                                                 if ($price = $get('price_rub')) return $price / 100;
                                                 return $alts[$get('sku')]->price_rub ? $alts[$get('sku')]->price_rub / 100 : null;
                                             }),
-                                        Placeholder::make('price_try_info')
-                                            ->label('Цена, лир')
+                                        Placeholder::make('purchase_price_info')
+                                            ->label('Закупочная цена')
                                             ->visible($super_admin || $is_executor)
                                             ->content(function (Get $get) use ($alts) {
-                                                if ($price = $get('price_try')) return $price / 100;
-                                                return $alts[$get('sku')]->price_try ? $alts[$get('sku')]->price_try / 100 : null;
+                                                $pPrice = $get('price_try') ?? ($alts[$get('sku')]->purchase_price ?? null);
+                                                $pCurrency = $alts[$get('sku')]->purchase_currency ?? 'TRY';
+                                                if (!$pPrice) return null;
+                                                return ($pPrice / 100) . ' ' . $pCurrency;
                                             }),
 
                                     ])->columns(),
