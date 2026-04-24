@@ -9,12 +9,15 @@
         <form class="space-y-5" method="POST" action="{{ route('redeem.email.submit') }}">
             @csrf
             <div class="w-full">
-                <label class="block text-sm text-zinc-300 mb-2">Способ получения проверочного кода<span class="text-red-500">*</span></label>
+                <label class="block text-sm text-zinc-300 mb-2 font-medium">Куда отправить код подтверждения?<span class="text-red-500">*</span></label>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                     <!-- Email Option -->
                     <label class="relative flex items-center p-3 rounded-xl border border-zinc-600 bg-zinc-700/50 cursor-pointer hover:bg-zinc-700 transition-colors">
                         <input type="radio" name="method" value="email" checked class="w-4 h-4 text-blue-600 bg-zinc-800 border-zinc-600 focus:ring-blue-600 focus:ring-offset-zinc-800">
-                        <span class="ml-3 text-sm text-white">Email (почта)</span>
+                        <div class="ml-3 flex flex-col">
+                            <span class="text-sm text-white">Email (почта)</span>
+                            <span class="text-xs text-zinc-400">Основной канал</span>
+                        </div>
                     </label>
 
                     @if(isset($order) && $order->chat_id)
@@ -22,8 +25,11 @@
                     <label class="relative flex items-center p-3 rounded-xl border border-blue-600/50 bg-blue-600/10 cursor-pointer hover:bg-blue-600/20 transition-colors">
                         <input type="radio" name="method" value="chat" class="w-4 h-4 text-blue-600 bg-zinc-800 border-zinc-600 focus:ring-blue-600 focus:ring-offset-zinc-800">
                         <div class="ml-3 flex flex-col">
-                            <span class="text-sm text-white">Чат Яндекс.Маркета</span>
-                            <span class="text-xs text-blue-400">Мгновенно</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-white font-medium">Чат Яндекс.Маркета</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-bold uppercase tracking-wider">Бесплатно</span>
+                            </div>
+                            <span class="text-xs text-blue-400">Мгновенная доставка</span>
                         </div>
                     </label>
                     @endif
@@ -47,6 +53,9 @@
                         class="text-red-500">*</span></label>
                 <input type="email" placeholder="ivan@mail.ru" name="email" value="{{ old('email') }}" autofocus required
                     class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2" />
+                <p class="text-[11px] text-zinc-500 mt-2 leading-tight">
+                    * Email используется для регистрации в системе и на него будет отправлен купленный товар по умолчанию.
+                </p>
                 @error('email')
                     <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                 @enderror
