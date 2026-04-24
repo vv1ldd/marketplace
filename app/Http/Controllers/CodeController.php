@@ -195,9 +195,19 @@ class CodeController extends Controller
 
             try {
             $order = $order_item->order;
-            $is_fake = data_get($order->info, 'fake', false);
+            $is_test_flag = (bool)($order->is_test ?? false);
+            $is_fake_info = (bool)data_get($order->info, 'fake', false);
+            
+            $is_test = $is_test_flag || $is_fake_info;
 
-            if (!$is_fake) {
+            if (!$is_test) {
+                // Прямой лог перед закупкой для аудита
+                \Log::info("ЗАПУСК РЕАЛЬНОГО АВТОЗАКУПА", [
+                    'uuid' => $order_item->uuid,
+                    'order_id' => $order->order_id,
+                    'sku' => $service_sku
+                ]);
+
                 $service->createOrder($service_sku, $order_item->uuid, $service_price, $order_item->count);
                 
                 $order->comments()->create([
@@ -205,7 +215,11 @@ class CodeController extends Controller
                     'comment' => "Запрос на автозакупку отправлен (SKU: $service_sku, Цена: $service_price)"
                 ]);
             } else {
-                \Log::info("Автозакуп пропущен: Тестовый заказ", ['uuid' => $order_item->uuid]);
+                \Log::info("Автозакуп пропущен: ТЕСТОВЫЙ ЗАКАЗ", [
+                    'uuid' => $order_item->uuid,
+                    'is_test_flag' => $is_test_flag,
+                    'is_fake_info' => $is_fake_info
+                ]);
                 $order->comments()->create([
                     'user_id' => $user->id,
                     'comment' => "Автозакуп пропущен: Тестовый заказ"
