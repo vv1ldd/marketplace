@@ -392,7 +392,7 @@ class OrderController extends Controller
 
             if (isset($order->chat_id) && $order->chat_id) {
                 try {
-                    $service->sendMessage($order->chat_id, view('chat.finish_message')->render());
+                    $service->sendMessage($order->chat_id, view('chat.finish_message', ['shop' => $order->shop])->render());
                     $log->debug('success send YM finish Message');
                 } catch (ConnectionException $e) {
                     $log->error('sendMessage finish', [
@@ -511,7 +511,7 @@ class OrderController extends Controller
 
         if (isset($chat_id)) {
             try {
-                $service->sendMessage($chat_id, view('chat.start_message')->render());
+                $service->sendMessage($chat_id, view('chat.start_message', ['shop' => $shop])->render());
                 $log->debug('success send YM Message');
             } catch (ConnectionException $e) {
                 $log->error('sendMessage YM', [

@@ -235,11 +235,11 @@ class CodeController extends Controller
                 // Отправляем email с кодом только при успешной закупке
                 Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
 
-                // Дублируем в чат Яндекс.Маркета, если выбрано пользователем
-                if ($order->chat_id && data_get($data, 'deliver_to_chat') === 'on') {
+                // Дублируем в чат Яндекс.Маркета, если выбрано пользователем или у магазина включен автозакуп
+                if ($order->chat_id && (data_get($data, 'deliver_to_chat') === 'on' || $order->shop->auto_purchase_enabled)) {
                     try {
                         $ymService = new \App\Http\Services\YmService($order->shop);
-                        $ymService->sendMessage($order->chat_id, view('chat.send_code_message', ['code' => $original_code])->render());
+                        $ymService->sendMessage($order->chat_id, view('chat.send_code_message', ['code' => $original_code, 'shop' => $order->shop])->render());
                         
                         $order->comments()->create([
                             'user_id' => $user->id,
