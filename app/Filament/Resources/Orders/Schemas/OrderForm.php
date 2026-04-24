@@ -196,7 +196,67 @@ class OrderForm
                                     TextInput::make('original_code')
                                         ->label('Код продукта (Wildflow/Manual)')
                                         ->copyable()
-                                        ->hidden($is_executor || $is_support),
+                                        ->hidden($is_executor || $is_support)
+                                        ->suffixAction(
+                                            \Filament\Forms\Components\Actions\Action::make('manual_send')
+                                                ->label('Выдать вручную')
+                                                ->icon('heroicon-m-paper-airplane')
+                                                ->color('success')
+                                                ->requiresConfirmation()
+                                                ->modalHeading('Ручная выдача кода')
+                                                ->modalDescription('Вы действительно хотите выдать этот код клиенту вручную? Будет отправлено письмо и сообщение в чат Яндекс.Маркета (если доступно).')
+                                                ->action(function ($state, $record, \Filament\Forms\Set $set) {
+                                                    if (!$state) {
+                                                        Notification::make()->title('Сначала введите код')->danger()->send();
+                                                        return;
+                                                    }
+
+                                                    // 1. Обновляем статус товара
+                                                    $record->update([
+                                                        'purchase_status' => 'success',
+                                                        'original_code' => $state,
+                                                        'activated_at' => $record->activated_at ?? now(),
+                                                        'is_activated' => true,
+                                                    ]);
+
+                                                    $order = $record->order;
+
+                                                    // 2. Отправляем Email
+                                                    $email = data_get($record->client_info, 'email') ?: $order->user?->email;
+                                                    if ($email) {
+                                                        try {
+                                                            \Illuminate\Support\Facades\Mail::to($email)->send(new \App\Mail\SendActivationCode($state, $order));
+                                                        } catch (\Exception $e) {
+                                                            \Illuminate\Support\Facades\Log::error('Manual Email send error', [$e->getMessage()]);
+                                                        }
+                                                    }
+
+                                                    // 3. Отправляем в чат Яндекс.Маркета
+                                                    if ($order->chat_id) {
+                                                        try {
+                                                            $ymService = new \App\Http\Services\YmService($order->shop);
+                                                            $ymService->sendMessage($order->chat_id, view('chat.send_code_message', ['code' => $state, 'shop' => $order->shop])->render());
+                                                        } catch (\Exception $e) {
+                                                            \Illuminate\Support\Facades\Log::error('Manual YM Chat send error', [$e->getMessage()]);
+                                                        }
+                                                    }
+
+                                                    // 4. Логируем действие
+                                                    $order->comments()->create([
+                                                        'user_id' => auth()->id(),
+                                                        'comment' => "Менеджер " . auth()->user()->name . " вручную выдал код: " . \Illuminate\Support\Str::mask($state, '*', 4, -4)
+                                                    ]);
+
+                                                    // 5. Уведомление в админке
+                                                    Notification::make()
+                                                        ->title('Код успешно выдан и отправлен клиенту')
+                                                        ->success()
+                                                        ->send();
+                                                        
+                                                    $set('purchase_status', 'success');
+                                                    $set('is_activated', true);
+                                                })
+                                        ),
                                 ]),
 
                                 Textarea::make('purchase_error')
