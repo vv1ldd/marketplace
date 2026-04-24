@@ -38,14 +38,17 @@ class OrdersTable
                 TextColumn::make('order_id')->label('Номер источника')
                     ->searchable()
                     ->hidden($is_executor || $is_support)
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->copyable(),
                 TextColumn::make('status')->label('Статус источника')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->hidden($is_executor || $is_support),
 //                TextColumn::make('order_items_count')->label('Товаров')
 //                    ->getStateUsing(fn($record) => $record->items()->count()),
                 TextColumn::make('user.id')
                     ->label('Юзер')
                     ->hidden($is_executor || $is_support)
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->url(fn($record) => $record->user?->id ? EditUser::getUrl(['record' => $record->user->id]) : null, true),
                 TextColumn::make('progress.name')->label('Прогресс')
                     ->sortable()
@@ -83,12 +86,15 @@ class OrdersTable
                     ->hidden($is_executor || $is_support),
                 TextColumn::make('items.typeForm.name')->label('Тип')
                     ->limitList(1)
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->badge(),
-                TextColumn::make('created_at')->label('Создан')->dateTime('d.m.Y H:i:s'),
+                TextColumn::make('created_at')->label('Создан')->dateTime('d.m.Y H:i').sortable(),
                 TextColumn::make('assigned_at')->label('Взят')
                     ->visible($is_super_admin)
-                    ->dateTime('d.m.Y H:i:s'),
-                TextColumn::make('updated_at')->label('Обновлен')->dateTime('d.m.Y H:i:s')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->dateTime('d.m.Y H:i'),
+                TextColumn::make('updated_at')->label('Обновлен')->dateTime('d.m.Y H:i')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->hidden($is_executor || $is_support),
             ])
             ->filters([
@@ -96,7 +102,7 @@ class OrdersTable
                     ->label('Магазин')
                     ->searchable()
                     ->relationship('shop', 'name'),
-            ], layout: FiltersLayout::Dropdown)
+            ], layout: FiltersLayout::Modal)
             ->persistFiltersInSession()
             ->recordActions([
                 EditAction::make(),
