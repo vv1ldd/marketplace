@@ -21,6 +21,8 @@ class MigrateLegacyShop extends Command
         $campaignId = Settings::get('YM_CAMPAIGN_ID', config('services.ym.campaign_id'));
         $businessId = Settings::get('YM_BUSSINES_ID', config('services.ym.business_id')); // Заметьте опечатку в ключе, как в docker-compose
         $notificationToken = Settings::get('YM_NOTIFICATION_TOKEN', config('services.ym.notification_token'));
+        $psTax = (int)Settings::get('PS_TAX', 35);
+        $psTaxForSites = (int)Settings::get('PS_TAX_FOR_SITES', 35);
 
         if (!$apiKey || !$campaignId) {
             $this->error('Legacy settings not found. Make sure YM_API_KEY and YM_CAMPAIGN_ID are set.');
@@ -37,12 +39,19 @@ class MigrateLegacyShop extends Command
                 'campaign_id' => $campaignId,
                 'api_key' => $apiKey,
                 'notification_token' => $notificationToken,
+                'ps_tax' => $psTax,
+                'ps_tax_for_sites' => $psTaxForSites,
                 'is_active' => true,
                 'auto_purchase_enabled' => true,
             ]);
             $this->info("Created new shop: {$shop->name}");
         } else {
-            $this->info("Shop with campaign ID {$campaignId} already exists.");
+            // Обновляем налоги даже для существующего, если они еще не перенесены (опционально)
+            $shop->update([
+                'ps_tax' => $psTax,
+                'ps_tax_for_sites' => $psTaxForSites,
+            ]);
+            $this->info("Updated taxes for shop: {$shop->name}");
         }
 
         // 3. Привязываем старые заказы

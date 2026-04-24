@@ -12,6 +12,8 @@ class Shop extends Model
         'name',
         'domain',
         'voucher_prefix',
+        'ps_tax',
+        'ps_tax_for_sites',
         'business_id',
         'campaign_id',
         'api_key',

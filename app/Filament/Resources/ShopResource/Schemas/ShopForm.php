@@ -24,6 +24,16 @@ class ShopForm
                     ->label('Префикс ваучеров')
                     ->placeholder('SHOP-')
                     ->maxLength(10),
+                TextInput::make('ps_tax')
+                    ->label('Наценка PS Tax (%)')
+                    ->numeric()
+                    ->default(35)
+                    ->required(),
+                TextInput::make('ps_tax_for_sites')
+                    ->label('Наценка PS Tax для сайтов (%)')
+                    ->numeric()
+                    ->default(35)
+                    ->required(),
                 Toggle::make('is_active')
                     ->label('Активен')
                     ->default(true),

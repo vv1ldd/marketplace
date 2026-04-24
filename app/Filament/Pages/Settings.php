@@ -52,7 +52,7 @@ class Settings extends Page implements HasForms
         $components = [];
 
         foreach ($this->data as $key => $value) {
-            if (str_starts_with($key, 'YM_')) {
+            if (str_starts_with($key, 'YM_') || in_array($key, ['PS_TAX', 'PS_TAX_FOR_SITES'])) {
                 continue;
             }
 
