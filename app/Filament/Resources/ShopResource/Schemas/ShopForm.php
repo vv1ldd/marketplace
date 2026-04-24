@@ -95,7 +95,7 @@ class ShopForm
                     ->helperText('Если выключено, будут использоваться стандартные настройки платформы.')
                     ->live(),
 
-                \Filament\Forms\Components\Grid::make(3)
+                \Filament\Schemas\Components\Grid::make(3)
                     ->schema([
                         TextInput::make('smtp_host')
                             ->label('SMTP Host')
@@ -122,7 +122,7 @@ class ShopForm
                     ])
                     ->visible(fn (callable $get) => $get('use_custom_smtp')),
 
-                \Filament\Forms\Components\Grid::make(2)
+                \Filament\Schemas\Components\Grid::make(2)
                     ->schema([
                         TextInput::make('smtp_from_address')
                             ->label('Email отправителя')
