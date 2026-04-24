@@ -52,22 +52,19 @@ class Settings extends Page implements HasForms
     {
         $keys = array_keys($this->data);
 
-        $groups = [
-            'yandex' => [
-                'title' => 'Yandex Market (Глобально)',
-                'icon' => 'heroicon-o-shopping-bag',
-                'keys' => ['YM_BUSINESS_ID', 'YM_CAMPAIGN_ID', 'YM_API_KEY'],
-            ],
-        ];
+        $groups = [];
 
-        $labels = [
-            'YM_BUSINESS_ID' => 'Business ID Яндекса',
-            'YM_CAMPAIGN_ID' => 'Campaign ID Яндекса',
-            'YM_API_KEY' => 'API Ключ Яндекса',
-        ];
+        $labels = [];
 
         // Keys to ignore because they moved to Shops
-        $migratedKeys = ['MEANLY_TOKEN', 'PS_TAX', 'PS_TAX_FOR_SITES'];
+        $migratedKeys = [
+            'MEANLY_TOKEN', 
+            'PS_TAX', 
+            'PS_TAX_FOR_SITES',
+            'YM_BUSINESS_ID',
+            'YM_CAMPAIGN_ID',
+            'YM_API_KEY'
+        ];
         $keys = array_diff($keys, $migratedKeys);
 
         $sections = [];
