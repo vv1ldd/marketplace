@@ -28,12 +28,13 @@ class ApiApplicationForm
                                 ApiApplication::TYPE_PLATFORM => 'Глобальный доступ к платформе',
                             ])
                             ->default(ApiApplication::TYPE_SHOP)
+                            ->hidden(fn ($livewire) => $livewire instanceof \Filament\Resources\RelationManagers\RelationManager)
                             ->live()
                             ->required(),
                         Select::make('shop_id')
                             ->label('Выберите магазин')
                             ->relationship('shop', 'name')
-                            ->visible(fn ($get) => $get('type') === ApiApplication::TYPE_SHOP)
+                            ->visible(fn ($get, $livewire) => $get('type') === ApiApplication::TYPE_SHOP && !($livewire instanceof \Filament\Resources\RelationManagers\RelationManager))
                             ->required(fn ($get) => $get('type') === ApiApplication::TYPE_SHOP),
                     ]),
 
