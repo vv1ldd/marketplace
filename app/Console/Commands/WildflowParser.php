@@ -58,6 +58,43 @@ class WildflowParser extends Command
             ['sku','data','type','updated_at'] // обновляемые поля
         );
 
+        // Синхронизируем с универсальной таблицей products
+        $products = [];
+        foreach ($rows as $row) {
+            $item = json_decode($row['data'], true);
+            $data = $item['data'] ?? [];
+            $productData = $data['product'] ?? $item; // В 'catalog' структура чуть другая
+
+            $name = '';
+            if (($productData['reward_type_text'] ?? '') === 'Gift-Card') {
+                $name .= 'Подарочная карта ';
+            }
+
+            $title = $productData['title'] ?? ($row['sku']);
+            $priceLabel = $data['price'] ?? $item['max_price'] ?? '';
+            $currencySymbol = ($productData['currency']['code'] ?? $item['currency']['code'] ?? '');
+            $name .= $title . ' ' . $priceLabel . $currencySymbol;
+
+            $category = ($productData['reward_type_text'] ?? '') === 'Gift-Card' ? 'gift-card' : 'game';
+
+            $products[] = [
+                'sku' => $row['sku'],
+                'name' => $name,
+                'type' => 'wildflow',
+                'category' => $category,
+                'data' => $row['data'],
+                'is_active' => true,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ];
+        }
+
+        \App\Models\Product::upsert(
+            $products,
+            ['sku'],
+            ['name', 'category', 'data', 'updated_at']
+        );
+
         return true;
     }
 
