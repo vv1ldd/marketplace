@@ -536,6 +536,12 @@ class OrderController extends Controller
             $new_order->comments()->create([
                 'comment' => "Заказ получен из Яндекс.Маркета" . (data_get($order_full_info, 'fake') ? " (ТЕСТ)" : "")
             ]);
+
+            if (data_get($order_full_info, 'fake')) {
+                $new_order->comments()->create([
+                    'comment' => "⚠️ Внимание! Это тестовый заказ Яндекс.Маркета (Sandbox). Реальная закупка товара производиться не будет."
+                ]);
+            }
         } catch (\Exception $e) {
 
             $log->error('create order', [
