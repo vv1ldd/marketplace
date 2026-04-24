@@ -11,6 +11,7 @@ class Shop extends Model
     protected $fillable = [
         'name',
         'domain',
+        'voucher_prefix',
         'business_id',
         'campaign_id',
         'api_key',

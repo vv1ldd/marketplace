@@ -20,6 +20,10 @@ class ShopForm
                     ->label('Домен')
                     ->placeholder('example.com')
                     ->prefix('https://'),
+                TextInput::make('voucher_prefix')
+                    ->label('Префикс ваучеров')
+                    ->placeholder('SHOP-')
+                    ->maxLength(10),
                 Toggle::make('is_active')
                     ->label('Активен')
                     ->default(true),

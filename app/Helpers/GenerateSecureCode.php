@@ -8,9 +8,16 @@ class GenerateSecureCode
      * @return string
      * @throws \Random\RandomException
      */
-    public static function generate(): string
+    public static function generate(string $prefix = null): string
     {
-        return 'W1C-' . self::generateUniqueSegment() . '-' . self::generateUniqueSegment() . '-' . self::generateUniqueSegment();
+        $prefix = $prefix ?: 'W1C-';
+        
+        // Убеждаемся, что префикс заканчивается на дефис для красоты, если он не пустой
+        if ($prefix && !str_ends_with($prefix, '-')) {
+            $prefix .= '-';
+        }
+
+        return $prefix . self::generateUniqueSegment() . '-' . self::generateUniqueSegment() . '-' . self::generateUniqueSegment();
 
     }
 

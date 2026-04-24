@@ -312,7 +312,7 @@ class OrderController extends Controller
             foreach ($order_info['items'] as $item) {
 
                 try {
-                    $key = GenerateSecureCode::generate();
+                    $key = GenerateSecureCode::generate($order->shop?->voucher_prefix);
                 } catch (RandomException $e) {
                     $log->error($e->getMessage());
 

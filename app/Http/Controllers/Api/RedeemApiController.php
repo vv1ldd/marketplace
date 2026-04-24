@@ -15,20 +15,26 @@ use Illuminate\Support\Facades\Mail;
 
 class RedeemApiController extends Controller
 {
-    /**
-     * Verify if the redeem code is valid.
-     */
     public function verifyCode(Request $request): JsonResponse
     {
         $request->validate([
-            'code' => 'required|string|regex:/^W1C-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/',
+            'code' => 'required|string|min:10', // Убираем жесткий regex, чтобы поддерживать разные префиксы
         ]);
 
         $code = $request->input('code');
-        $order_item = OrderItems::where('key', $code)->first();
+        $application = $request->attributes->get('api_application');
+
+        $order_item = OrderItems::with('order.shop')->where('key', $code)->first();
 
         if (!$order_item) {
             return response()->json(['message' => 'Введен неверный или несуществующий код'], 404);
+        }
+
+        // Проверка прав доступа: если ключ магазинный, то код должен принадлежать этому магазину
+        if ($application && $application->type === \App\Models\ApiApplication::TYPE_SHOP) {
+            if ($order_item->order?->shop_id !== $application->shop_id) {
+                return response()->json(['message' => 'Этот код принадлежит другому магазину'], 403);
+            }
         }
 
         if ($order_item->is_activated) {
@@ -65,9 +71,17 @@ class RedeemApiController extends Controller
         $code = $request->input('code');
         $email = $request->input('email');
 
-        // Check if code exists to prevent spam
-        if (!OrderItems::where('key', $code)->exists()) {
+        $order_item = OrderItems::with('order')->where('key', $code)->first();
+        $application = $request->attributes->get('api_application');
+
+        if (!$order_item) {
             return response()->json(['message' => 'Код не найден'], 404);
+        }
+
+        if ($application && $application->type === \App\Models\ApiApplication::TYPE_SHOP) {
+            if ($order_item->order?->shop_id !== $application->shop_id) {
+                return response()->json(['message' => 'Этот код принадлежит другому магазину'], 403);
+            }
         }
 
         $verificationCode = rand(100000, 999999);
@@ -120,10 +134,17 @@ class RedeemApiController extends Controller
             }
         }
 
-        $order_item = OrderItems::where('key', $code)->first();
+        $order_item = OrderItems::with('order')->where('key', $code)->first();
+        $application = $request->attributes->get('api_application');
 
         if (!$order_item) {
             return response()->json(['message' => 'Заказ не найден'], 404);
+        }
+
+        if ($application && $application->type === \App\Models\ApiApplication::TYPE_SHOP) {
+            if ($order_item->order?->shop_id !== $application->shop_id) {
+                return response()->json(['message' => 'Этот код принадлежит другому магазину'], 403);
+            }
         }
 
         if ($order_item->is_activated) {
