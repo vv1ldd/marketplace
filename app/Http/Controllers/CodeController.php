@@ -305,7 +305,7 @@ class CodeController extends Controller
 
         session()->put('is_frame', (bool)data_get($data, 'is_frame'));
 
-        // Try to find shop by query parameter first, then by host/domain
+        // 1. Try to find shop by query parameter (Highest priority)
         $shopSlug = $request->query('shop');
         $current_shop = null;
         
@@ -314,15 +314,20 @@ class CodeController extends Controller
             $current_shop = \App\Models\Shop::where('voucher_prefix', $cleanSlug)
                 ->orWhere('voucher_prefix', $cleanSlug . '-')
                 ->first();
+                
+            // If shop parameter is provided but not found, abort
+            if (!$current_shop) {
+                abort(404, "Shop with prefix '$shopSlug' not found.");
+            }
         }
 
+        // 2. If no shop parameter, fallback to host/domain detection
         if (!$current_shop) {
-            // Try matching domain directly or as part of the host (subdomain)
             $current_shop = \App\Models\Shop::where('domain', $host)
                 ->orWhere(fn($q) => $host !== $app_domain ? $q->where('domain', 'like', "%$host%") : null)
                 ->first();
                 
-            // Last resort: if we are on a subdomain of meanly.ru, find the main shop
+            // Last resort for Meanly domain
             if (!$current_shop && str_contains($host, 'meanly.ru')) {
                 $current_shop = \App\Models\Shop::where('domain', 'like', '%meanly.ru%')->first();
             }
