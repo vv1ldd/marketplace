@@ -17,9 +17,9 @@ class ShopResource extends Resource
 {
     protected static ?string $model = Shop::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-shopping-bag';
 
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static string | \UnitEnum | null $navigationGroup = 'Настройки';
 
     protected static ?string $label = 'Магазин';
 
