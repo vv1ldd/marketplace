@@ -107,10 +107,14 @@ class ProductResource extends Resource
         return $table
             ->defaultPaginationPageOption(10)
             ->columns([
-                TextColumn::make('sku')
-                    ->label('SKU')
-                    ->searchable()
-                    ->sortable(),
+                TextColumn::make('type')
+                    ->label('Тип')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'playstation' => 'info',
+                        'wildflow' => 'warning',
+                        default => 'gray',
+                    }),
                 TextColumn::make('name')
                     ->label('Название')
                     ->searchable()
