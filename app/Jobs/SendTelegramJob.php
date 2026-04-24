@@ -35,9 +35,13 @@ class SendTelegramJob implements ShouldQueue
         }
 
         $order = Order::where('order_id', $order_id)->first();
+        $shop = $order?->shop;
 
         $message = SendMessage::tg(order: $order, status: $status, order_item: $order_item);
 
-        (new TelegramService())->sendMessage($message);
+        $token = $shop?->telegram_bot_token;
+        $chat_id = $shop?->telegram_chat_id;
+
+        (new TelegramService($token))->sendMessage($message, $chat_id);
     }
 }

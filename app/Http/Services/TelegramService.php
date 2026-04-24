@@ -14,20 +14,24 @@ class TelegramService
     /** @var PendingRequest */
     private PendingRequest $client;
 
-    public function __construct()
+    public function __construct(?string $token = null)
     {
-        $this->client = Http::baseUrl($this->base_url . Settings::get('TG_TOKEN', config('services.tg.token')));
+        $token = $token ?: Settings::get('TG_TOKEN', config('services.tg.token'));
+        $this->client = Http::baseUrl($this->base_url . $token);
     }
 
     /**
      * @param string $message
+     * @param string|null $chat_id
      * @return int
      * @throws ConnectionException
      */
-    public function sendMessage(string $message): int
+    public function sendMessage(string $message, ?string $chat_id = null): int
     {
+        $chat_id = $chat_id ?: Settings::get('TG_CHAT_ID', config('services.tg.chat_id'));
+
         $response = $this->client->post('sendMessage', [
-            'chat_id' => Settings::get('TG_CHAT_ID', config('services.tg.chat_id')),
+            'chat_id' => $chat_id,
             'text' => $message,
             'parse_mode' => 'HTML',
         ]);
