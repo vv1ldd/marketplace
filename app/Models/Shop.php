@@ -26,6 +26,15 @@ class Shop extends Model
         'notification_token',
         'is_active',
         'auto_purchase_enabled',
+        'smtp_host',
+        'smtp_port',
+        'smtp_user',
+        'smtp_password',
+        'smtp_encryption',
+        'smtp_from_address',
+        'smtp_from_name',
+        'telegram_bot_token',
+        'telegram_chat_id',
     ];
 
     protected $casts = [

@@ -88,6 +88,49 @@ class ShopForm
                     ->label('Автозакупка включена')
                     ->default(true),
             ]),
+
+            Section::make('Почта (SMTP)')->schema([
+                \Filament\Forms\Components\Grid::make(3)->schema([
+                    TextInput::make('smtp_host')
+                        ->label('SMTP Host')
+                        ->placeholder('smtp.example.com'),
+                    TextInput::make('smtp_port')
+                        ->label('SMTP Port')
+                        ->numeric()
+                        ->placeholder('587'),
+                    TextInput::make('smtp_encryption')
+                        ->label('Шифрование')
+                        ->placeholder('tls/ssl'),
+                ]),
+                \Filament\Forms\Components\Grid::make(2)->schema([
+                    TextInput::make('smtp_user')
+                        ->label('SMTP User')
+                        ->placeholder('user@example.com'),
+                    TextInput::make('smtp_password')
+                        ->label('SMTP Password')
+                        ->password()
+                        ->revealable(),
+                ]),
+                \Filament\Forms\Components\Grid::make(2)->schema([
+                    TextInput::make('smtp_from_address')
+                        ->label('Email отправителя')
+                        ->placeholder('no-reply@shop.com'),
+                    TextInput::make('smtp_from_name')
+                        ->label('Имя отправителя')
+                        ->placeholder('My Shop Support'),
+                ]),
+            ])->collapsed(),
+
+            Section::make('Уведомления Telegram')->schema([
+                TextInput::make('telegram_bot_token')
+                    ->label('Telegram Bot Token')
+                    ->password()
+                    ->revealable()
+                    ->placeholder('123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11'),
+                TextInput::make('telegram_chat_id')
+                    ->label('Telegram Chat ID')
+                    ->placeholder('-100123456789'),
+            ])->collapsed(),
         ]);
     }
 }
