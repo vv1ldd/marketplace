@@ -8,6 +8,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Notifications\Notification;
 use UnitEnum;
@@ -92,7 +93,7 @@ class Settings extends Page implements HasForms
             }
 
             if (!empty($groupComponents)) {
-                $sections[] = \Filament\Forms\Components\Section::make($group['title'])
+                $sections[] = Section::make($group['title'])
                     ->description('Глобальные настройки для всей системы')
                     ->icon($group['icon'])
                     ->aside()
@@ -106,7 +107,7 @@ class Settings extends Page implements HasForms
             foreach ($keys as $key) {
                 $otherComponents[] = $this->createSettingField($key, $key);
             }
-            $sections[] = \Filament\Forms\Components\Section::make('Прочие настройки')
+            $sections[] = Section::make('Прочие настройки')
                 ->aside()
                 ->schema($otherComponents);
         }
