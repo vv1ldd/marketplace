@@ -292,10 +292,14 @@
                         <div class="flex flex-col gap-1 mt-2">
                             <div class="flex justify-between items-center">
                                 <p class="text-zinc-400 text-xs">
-                                    Мы отправили код подтверждения на {{ session('client_email') }}.
+                                    @if($method === 'chat')
+                                        Мы отправили код подтверждения в ваш <b>чат в Яндекс.Маркете</b>.
+                                    @else
+                                        Мы отправили код подтверждения на <b>{{ session('client_email') }}</b>.
+                                    @endif
                                 </p>
                                 <a href="{{ route('redeem.email') }}" class="text-zinc-500 hover:text-zinc-400 text-xs transition-colors">
-                                    Изменить email
+                                    Изменить {{ $method === 'chat' ? 'способ' : 'email' }}
                                 </a>
                             </div>
                             <div class="flex items-center gap-2">
@@ -326,6 +330,7 @@
         </form>
         <form id="resend-form" method="POST" action="{{ route('redeem.resend') }}" class="hidden">
             @csrf
+            <input type="hidden" name="method" value="{{ $method }}">
         </form>
     </div>
 

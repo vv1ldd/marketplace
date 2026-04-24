@@ -6,6 +6,7 @@ use App\Jobs\SendTelegramJob;
 use App\Mail\SendActivationCode;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
+use App\Http\Services\YmService;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use App\Models\User;
@@ -18,12 +19,14 @@ use Illuminate\View\Factory;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\VerificationCodeMail;
+use Illuminate\Support\Str;
 
 class CodeController extends Controller
 {
     public function checkEmail(Request $request): View|Factory|RedirectResponse
     {
         $data = $request->validate(['email' => 'required|email']);
+        $method = $request->input('method', 'email');
 
         if (!session()->has('order_item_info')) {
             return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
@@ -35,24 +38,74 @@ class CodeController extends Controller
         $verificationCode = rand(100000, 999999);
         session()->put('verification_code', $verificationCode);
 
-        Mail::to($data['email'])->send(new VerificationCodeMail($verificationCode));
+        $order_item = OrderItems::where('uuid', session('order_item_info')['uuid'])->first();
+        $order = $order_item->order;
 
-        return redirect()->temporarySignedRoute('redeem.activation', now()->addHours());
+        if ($method === 'chat' && $order->chat_id) {
+            try {
+                $service = new YmService($order->shop);
+                $service->sendMessage($order->chat_id, "Ваш код подтверждения для активации: $verificationCode");
+                
+                $order->comments()->create([
+                    'comment' => "Код подтверждения отправлен в чат Яндекс.Маркета"
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('OTP Chat send error', [$e->getMessage()]);
+                return back()->withErrors(['email' => 'Ошибка отправки в чат, попробуйте Email']);
+            }
+        } else {
+            Mail::to($data['email'])->send(new VerificationCodeMail($verificationCode));
+        }
+
+        session()->forget('otp_method');
+        session()->put('otp_method', $method);
+
+        return redirect()->temporarySignedRoute('redeem.activation', now()->addHours())->with('method', $method);
+    }
+
+    public function getViewForm(Request $request): Factory|View
+    {
+        $order_item_info = session('order_item_info');
+        $client_info = $order_item_info['client_info'] ?? null;
+        $client_email = session('client_email');
+        $method = session('otp_method', 'email');
+
+        return view('redeem.step3', compact('client_info', 'client_email', 'method'));
     }
 
     public function resendCode(Request $request): RedirectResponse
     {
-        if (!session()->has('order_item_info') || !session()->has('client_email')) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
+        $email = session('client_email');
+        $method = $request->input('method', 'email');
+        $order_item_info = session('order_item_info');
+
+        if (!$email || !$order_item_info) {
+            return redirect()->route('redeem.code')->withErrors(['code' => 'Сессия истекла']);
         }
 
-        $email = session('client_email');
         $verificationCode = rand(100000, 999999);
         session()->put('verification_code', $verificationCode);
 
-        Mail::to($email)->send(new VerificationCodeMail($verificationCode));
+        $order_item = OrderItems::where('uuid', $order_item_info['uuid'])->first();
+        $order = $order_item->order;
 
-        return back()->with('success', 'Код отправлен повторно');
+        if ($method === 'chat' && $order->chat_id) {
+            try {
+                $service = new YmService($order->shop);
+                $service->sendMessage($order->chat_id, "Ваш код подтверждения для активации: $verificationCode");
+                
+                $order->comments()->create([
+                    'comment' => "Код подтверждения отправлен в чат Яндекс.Маркета"
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('OTP Chat send error', [$e->getMessage()]);
+                return back()->withErrors(['verification_code' => 'Ошибка отправки в чат, попробуйте Email']);
+            }
+        } else {
+            Mail::to($email)->send(new VerificationCodeMail($verificationCode));
+        }
+
+        return back()->with('success', 'Код отправлен повторно на ' . ($method === 'chat' ? 'чат' : $email));
     }
 
     public function getEmailView(Request $request): View|Factory|RedirectResponse
@@ -61,7 +114,15 @@ class CodeController extends Controller
             return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
-        return view('redeem.step2');
+        $order_item_info = session('order_item_info');
+        if (!$order_item_info) {
+             return redirect()->route('redeem.code')->withErrors(['code' => 'Сессия истекла']);
+        }
+
+        $order_item = OrderItems::where('uuid', $order_item_info['uuid'])->first();
+        $order = $order_item?->order;
+
+        return view('redeem.step2', compact('order'));
     }
 
     public function getFinishView(Request $request): Factory|View
