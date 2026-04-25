@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\Users;
 
-use App\Filament\Resources\Users\Pages\CreateUser;
-use App\Filament\Resources\Users\Pages\EditUser;
-use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Filament\Resources\Users\Pages\Clients\CreateClient;
+use App\Filament\Resources\Users\Pages\Clients\EditClient;
+use App\Filament\Resources\Users\Pages\Clients\ListClients;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
@@ -20,8 +20,9 @@ class ClientResource extends Resource
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::UserGroup;
-    protected static string|null|\UnitEnum $navigationGroup = 'Управление';
+    protected static string|null|\UnitEnum $navigationGroup = null; // Move out of 'Management'
     protected static ?string $navigationLabel = 'Клиенты';
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $label = 'Клиента';
     protected static ?string $pluralLabel = 'Клиенты';
@@ -60,9 +61,9 @@ class ClientResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListUsers::route('/'),
-            'create' => CreateUser::route('/create'),
-            'edit' => EditUser::route('/{record}/edit'),
+            'index' => ListClients::route('/'),
+            'create' => CreateClient::route('/create'),
+            'edit' => EditClient::route('/{record}/edit'),
         ];
     }
 }
