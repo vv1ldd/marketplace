@@ -5,6 +5,7 @@ namespace App\Filament\Partner\Resources;
 use App\Filament\Partner\Resources\LegalEntityResource\Pages\CreateLegalEntity;
 use App\Filament\Partner\Resources\LegalEntityResource\Pages\EditLegalEntity;
 use App\Filament\Partner\Resources\LegalEntityResource\Pages\ListLegalEntities;
+use App\Filament\Resources\B2B\RelationManagers\ShopsRelationManager;
 use App\Models\LegalEntity;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
@@ -97,6 +98,13 @@ class LegalEntityResource extends Resource
             ->actions([
                 \Filament\Actions\EditAction::make(),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ShopsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

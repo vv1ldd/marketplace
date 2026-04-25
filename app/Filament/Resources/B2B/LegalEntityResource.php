@@ -5,6 +5,7 @@ namespace App\Filament\Resources\B2B;
 use App\Filament\Resources\B2B\Pages\CreateLegalEntity;
 use App\Filament\Resources\B2B\Pages\EditLegalEntity;
 use App\Filament\Resources\B2B\Pages\ListLegalEntities;
+use App\Filament\Resources\B2B\RelationManagers\ShopsRelationManager;
 use App\Models\LegalEntity;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -142,6 +143,13 @@ class LegalEntityResource extends Resource
                 \Filament\Actions\DeleteAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ShopsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
