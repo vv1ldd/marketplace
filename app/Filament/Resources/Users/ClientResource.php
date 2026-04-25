@@ -29,7 +29,10 @@ class ClientResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->clients();
+        return parent::getEloquentQuery()
+            ->whereDoesntHave('roles', function ($q) {
+                $q->whereIn('name', \App\Models\User::SYSTEM_ROLES);
+            });
     }
 
     public static function form(Schema $schema): Schema
@@ -39,7 +42,7 @@ class ClientResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return static::$model::count();
+        return static::$model::clients()->count();
     }
 
     public static function table(Table $table): Table
