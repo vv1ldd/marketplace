@@ -7,6 +7,7 @@ use App\Filament\Resources\ShopResource\Pages\EditShop;
 use App\Filament\Resources\ShopResource\Pages\ListShops;
 use App\Filament\Resources\ShopResource\RelationManagers\ApiApplicationsRelationManager;
 use App\Filament\Resources\ShopResource\RelationManagers\ClientsRelationManager;
+use App\Filament\Resources\ShopResource\RelationManagers\ManagersRelationManager;
 use App\Filament\Resources\ShopResource\Schemas\ShopForm;
 use App\Filament\Resources\ShopResource\Tables\ShopsTable;
 use App\Models\Shop;
@@ -42,6 +43,7 @@ class ShopResource extends Resource
         return [
             ApiApplicationsRelationManager::class,
             ClientsRelationManager::class,
+            ManagersRelationManager::class,
         ];
     }
 
