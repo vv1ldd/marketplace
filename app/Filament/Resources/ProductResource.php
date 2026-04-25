@@ -195,15 +195,22 @@ class ProductResource extends Resource
                     ->label('Залить')
                     ->icon('heroicon-o-cloud-arrow-up')
                     ->color('success')
-                    ->action(function (\App\Models\Product $record) {
-                        $service = new YmService();
+                    ->form([
+                        Select::make('shop_id')
+                            ->label('Магазин')
+                            ->options(\App\Models\Shop::whereNotNull('api_key')->pluck('name', 'id'))
+                            ->required(),
+                    ])
+                    ->action(function (\App\Models\Product $record, array $data) {
+                        $shop = \App\Models\Shop::find($data['shop_id']);
+                        $service = new YmService($shop);
                         $categoryId = (int)\App\Models\Settings::get('YM_CATEGORY_ID', 70301474);
                         
                         $offer = ["offer" => $record->toYmOffer($categoryId)];
                         $service->offerMappingsUpdate([$offer]);
 
                         Notification::make()
-                            ->title('Товар отправлен на Маркет')
+                            ->title('Товар отправлен в магазин: ' . $shop->name)
                             ->success()
                             ->send();
                     }),
@@ -224,12 +231,19 @@ class ProductResource extends Resource
                     })
                     ->requiresConfirmation(),
                 Action::make('send_to_market')
-                    ->label('Залить на Маркет (Все)')
+                    ->label('Залить на Маркет (Выборочно)')
                     ->icon('heroicon-o-cloud-arrow-up')
                     ->color('success')
-                    ->action(function () {
+                    ->form([
+                        Select::make('shop_id')
+                            ->label('Магазин')
+                            ->options(\App\Models\Shop::whereNotNull('api_key')->pluck('name', 'id'))
+                            ->required(),
+                    ])
+                    ->action(function (array $data) {
+                        $shop = \App\Models\Shop::find($data['shop_id']);
                         $products = \App\Models\Product::where('is_active', true)->get();
-                        $service = new YmService();
+                        $service = new YmService($shop);
                         $categoryId = (int)\App\Models\Settings::get('YM_CATEGORY_ID', 70301474);
                         
                         $offers = $products->map(fn($p) => ["offer" => $p->toYmOffer($categoryId)])->toArray();
@@ -240,7 +254,7 @@ class ProductResource extends Resource
                         }
 
                         Notification::make()
-                            ->title('Товары отправлены на Маркет')
+                            ->title('Товары отправлены в магазин: ' . $shop->name)
                             ->success()
                             ->send();
                     })
