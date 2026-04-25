@@ -27,6 +27,10 @@ class ManagersRelationManager extends RelationManager
             ])
             ->headerActions([
                 \Filament\Actions\AttachAction::make()
+                    ->recordSelectSearchColumns(['email', 'first_name', 'last_name'])
+                    ->recordSelectOptionsQuery(fn (\Illuminate\Database\Eloquent\Builder $query) => 
+                        $query->whereHas('roles', fn ($q) => $q->whereIn('name', ['b2b_partner', 'super_admin', 'manager']))
+                    )
                     ->form(fn (\Filament\Actions\AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Forms\Components\Select::make('role')

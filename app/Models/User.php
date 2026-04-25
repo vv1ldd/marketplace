@@ -78,7 +78,18 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
         'manager',
         'executor',
         'support',
+        'b2b_partner',
     ];
+
+    public function isB2BPartner(): bool
+    {
+        return $this->hasRole('b2b_partner');
+    }
+
+    public function isCustomer(): bool
+    {
+        return $this->hasRole('customer');
+    }
 
     public function canAccessPanel(Panel $panel): bool
     {
