@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users;
 
 use App\Filament\Resources\B2B\RelationManagers\LegalEntitiesRelationManager;
+use App\Filament\Resources\B2B\RelationManagers\ManagedShopsRelationManager;
 use App\Filament\Resources\Users\Pages\CreateB2BPartner;
 use App\Filament\Resources\Users\Pages\EditB2BPartner;
 use App\Filament\Resources\Users\Pages\ListB2BPartners;
@@ -43,6 +44,7 @@ class B2BPartnerResource extends Resource
     {
         return [
             LegalEntitiesRelationManager::class,
+            ManagedShopsRelationManager::class,
         ];
     }
 
