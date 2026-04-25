@@ -18,6 +18,12 @@ class ShopForm
                     ->label('Название магазина')
                     ->required()
                     ->maxLength(255),
+                Select::make('legal_entity_id')
+                    ->label('Юр. лицо (Владелец)')
+                    ->relationship('legalEntity', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->placeholder('Выберите организацию'),
                 Select::make('type')
                     ->label('Тип магазина')
                     ->options([

@@ -151,6 +151,11 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants
             ->withTimestamps();
     }
 
+    public function legalEntities(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(LegalEntity::class);
+    }
+
     public function getTenants(Panel $panel): Collection
     {
         return $this->managedShops;

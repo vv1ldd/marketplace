@@ -62,6 +62,11 @@ class Shop extends Model implements HasName
         return $this->belongsToMany(User::class, 'orders', 'shop_id', 'user_id')->distinct();
     }
 
+    public function legalEntity(): BelongsTo
+    {
+        return $this->belongsTo(LegalEntity::class);
+    }
+
     public function managers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(User::class, 'shop_user', 'shop_id', 'user_id')
