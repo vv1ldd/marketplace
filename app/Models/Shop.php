@@ -68,6 +68,15 @@ class Shop extends Model implements HasName
         return $this->belongsTo(LegalEntity::class);
     }
 
+    public function syncLegalEntityManager(): void
+    {
+        if ($this->legal_entity_id && $this->legalEntity && $this->legalEntity->user_id) {
+            $this->managers()->syncWithoutDetaching([
+                $this->legalEntity->user_id => ['role' => 'owner']
+            ]);
+        }
+    }
+
     public function managers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(User::class, 'shop_user', 'shop_id', 'user_id')

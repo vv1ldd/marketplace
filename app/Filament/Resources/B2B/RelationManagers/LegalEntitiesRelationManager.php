@@ -44,9 +44,12 @@ class LegalEntitiesRelationManager extends RelationManager
             ])
             ->headerActions([
                 \Filament\Tables\Actions\CreateAction::make(),
+                \Filament\Tables\Actions\AssociateAction::make()
+                    ->preloadRecordSelect(),
             ])
             ->actions([
                 \Filament\Tables\Actions\EditAction::make(),
+                \Filament\Tables\Actions\DissociateAction::make(),
                 \Filament\Tables\Actions\DeleteAction::make(),
             ]);
     }

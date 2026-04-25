@@ -32,8 +32,29 @@ class ShopForm
                             ->label('ИНН')
                             ->required()
                             ->maxLength(12),
-                        \Filament\Forms\Components\Hidden::make('user_id')
-                            ->default(auth()->id()),
+                        \Filament\Forms\Components\Select::make('user_id')
+                            ->label('Владелец (Партнер)')
+                            ->relationship('user', 'email', fn ($query) => $query->role('b2b_partner'))
+                            ->searchable()
+                            ->required()
+                            ->createOptionForm([
+                                \Filament\Forms\Components\TextInput::make('first_name')
+                                    ->label('Имя')
+                                    ->required(),
+                                \Filament\Forms\Components\TextInput::make('email')
+                                    ->label('Email')
+                                    ->email()
+                                    ->required()
+                                    ->unique('users', 'email'),
+                                \Filament\Forms\Components\TextInput::make('password')
+                                    ->label('Пароль')
+                                    ->password()
+                                    ->required()
+                                    ->default(fn () => \Illuminate\Support\Str::random(12)),
+                                \Filament\Forms\Components\Hidden::make('roles')
+                                    ->default(['b2b_partner']),
+                            ])
+                            ->afterOptionCreated(fn ($record) => $record->assignRole('b2b_partner')),
                     ]),
                 Select::make('type')
                     ->label('Тип магазина')

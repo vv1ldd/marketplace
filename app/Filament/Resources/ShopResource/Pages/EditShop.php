@@ -10,6 +10,11 @@ class EditShop extends EditRecord
 {
     protected static string $resource = ShopResource::class;
 
+    protected function afterSave(): void
+    {
+        $this->record->syncLegalEntityManager();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
