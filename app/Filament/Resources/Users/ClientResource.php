@@ -15,21 +15,21 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
-class UserResource extends Resource
+class ClientResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::ShieldCheck;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::UserGroup;
     protected static string|null|\UnitEnum $navigationGroup = 'Управление';
-    protected static ?string $navigationLabel = 'Сотрудники';
+    protected static ?string $navigationLabel = 'Клиенты';
 
-    protected static ?string $label = 'Сотрудника';
-    protected static ?string $pluralLabel = 'Сотрудники';
+    protected static ?string $label = 'Клиента';
+    protected static ?string $pluralLabel = 'Клиенты';
     protected static bool $hasTitleCaseModelLabel = false;
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->system();
+        return parent::getEloquentQuery()->clients();
     }
 
     public static function form(Schema $schema): Schema
