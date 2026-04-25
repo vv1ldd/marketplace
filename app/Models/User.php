@@ -120,6 +120,16 @@ class User extends Authenticatable implements FilamentUser, HasName
         return static::where('phone', $phone)->exists();
     }
 
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function shops(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Shop::class, 'orders', 'user_id', 'shop_id')->distinct();
+    }
+
     public function getFullName(): string
     {
         $full_name = $this->first_name;

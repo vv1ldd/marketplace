@@ -52,6 +52,11 @@ class Shop extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function clients(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'orders', 'shop_id', 'user_id')->distinct();
+    }
+
     public function apiApplications(): HasMany
     {
         return $this->hasMany(ApiApplication::class);

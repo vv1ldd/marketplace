@@ -41,7 +41,10 @@ class UsersTable
                         if ($data['value'] === 'system') return $query->system();
                         if ($data['value'] === 'clients') return $query->clients();
                         return $query;
-                    })
+                    }),
+                \Filament\Tables\Filters\SelectFilter::make('shop')
+                    ->label('Магазин')
+                    ->relationship('shops', 'name')
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
