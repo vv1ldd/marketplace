@@ -49,6 +49,18 @@ class User extends Authenticatable implements FilamentUser, HasName
      *
      * @return array<string, string>
      */
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (User $user) {
+            if ($user->roles()->count() === 0) {
+                $user->assignRole('customer');
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
