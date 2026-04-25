@@ -18,6 +18,7 @@ use Filament\Tables\Table;
 class ClientResource extends Resource
 {
     protected static ?string $model = User::class;
+    protected static ?string $slug = 'clients';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::UserGroup;
     protected static string|null|\UnitEnum $navigationGroup = null; // Move out of 'Management'

@@ -15,9 +15,10 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
-class UserResource extends Resource
+class StaffResource extends Resource
 {
     protected static ?string $model = User::class;
+    protected static ?string $slug = 'staff';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::ShieldCheck;
     protected static string|null|\UnitEnum $navigationGroup = 'Управление';
@@ -60,9 +61,9 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListUsers::route('/'),
-            'create' => CreateUser::route('/create'),
-            'edit' => EditUser::route('/{record}/edit'),
+            'index' => Pages\ListUsers::route('/'),
+            'create' => Pages\CreateUser::route('/create'),
+            'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }
 }
