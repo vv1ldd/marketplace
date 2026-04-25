@@ -58,9 +58,38 @@ class User extends Authenticatable implements FilamentUser, HasName
         ];
     }
 
+    const SYSTEM_ROLES = [
+        'super_admin',
+        'manager',
+        'executor',
+        'support',
+    ];
+
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        return $this->isSystemUser();
+    }
+
+    public function isSystemUser(): bool
+    {
+        return $this->hasAnyRole(static::SYSTEM_ROLES);
+    }
+
+    public function isClient(): bool
+    {
+        return ! $this->isSystemUser();
+    }
+
+    public function scopeSystem($query)
+    {
+        return $query->role(static::SYSTEM_ROLES);
+    }
+
+    public function scopeClients($query)
+    {
+        return $query->whereDoesntHave('roles', function ($q) {
+            $q->whereIn('name', static::SYSTEM_ROLES);
+        });
     }
 
     public function getFilamentName(): string
