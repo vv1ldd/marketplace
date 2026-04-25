@@ -23,7 +23,18 @@ class ShopForm
                     ->relationship('legalEntity', 'name')
                     ->searchable()
                     ->preload()
-                    ->placeholder('Выберите организацию'),
+                    ->placeholder('Выберите организацию')
+                    ->createOptionForm([
+                        \Filament\Forms\Components\TextInput::make('name')
+                            ->label('Полное наименование')
+                            ->required(),
+                        \Filament\Forms\Components\TextInput::make('inn')
+                            ->label('ИНН')
+                            ->required()
+                            ->maxLength(12),
+                        \Filament\Forms\Components\Hidden::make('user_id')
+                            ->default(auth()->id()),
+                    ]),
                 Select::make('type')
                     ->label('Тип магазина')
                     ->options([
