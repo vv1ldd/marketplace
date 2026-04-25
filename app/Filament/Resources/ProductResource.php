@@ -21,7 +21,9 @@ use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
 use Filament\Support\Icons\Heroicon;
 use Filament\Actions\Action;
+use App\Http\Services\YmService;
 use Illuminate\Support\Facades\Artisan;
+use Filament\Notifications\Notification;
 
 class ProductResource extends Resource
 {
@@ -189,6 +191,22 @@ class ProductResource extends Resource
                     ->label('Провайдер'),
             ])
             ->actions([
+                Action::make('send_this_to_market')
+                    ->label('Залить')
+                    ->icon('heroicon-o-cloud-arrow-up')
+                    ->color('success')
+                    ->action(function (\App\Models\Product $record) {
+                        $service = new YmService();
+                        $categoryId = (int)\App\Models\Settings::get('YM_CATEGORY_ID', 70301474);
+                        
+                        $offer = ["offer" => $record->toYmOffer($categoryId)];
+                        $service->offerMappingsUpdate([$offer]);
+
+                        Notification::make()
+                            ->title('Товар отправлен на Маркет')
+                            ->success()
+                            ->send();
+                    }),
                 EditAction::make(),
                 DeleteAction::make(),
             ])
@@ -199,8 +217,30 @@ class ProductResource extends Resource
                     ->color('info')
                     ->action(function () {
                         Artisan::call('ps:sync-to-products');
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->title('Синхронизация PlayStation запущена')
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation(),
+                Action::make('send_to_market')
+                    ->label('Залить на Маркет (Все)')
+                    ->icon('heroicon-o-cloud-arrow-up')
+                    ->color('success')
+                    ->action(function () {
+                        $products = \App\Models\Product::where('is_active', true)->get();
+                        $service = new YmService();
+                        $categoryId = (int)\App\Models\Settings::get('YM_CATEGORY_ID', 70301474);
+                        
+                        $offers = $products->map(fn($p) => ["offer" => $p->toYmOffer($categoryId)])->toArray();
+                        $chunks = array_chunk($offers, 20);
+                        
+                        foreach ($chunks as $chunk) {
+                            $service->offerMappingsUpdate($chunk);
+                        }
+
+                        Notification::make()
+                            ->title('Товары отправлены на Маркет')
                             ->success()
                             ->send();
                     })
