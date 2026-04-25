@@ -26,8 +26,8 @@ class ManagersRelationManager extends RelationManager
                 //
             ])
             ->headerActions([
-                Tables\Actions\AttachAction::make()
-                    ->form(fn (Tables\Actions\AttachAction $action): array => [
+                \Filament\Tables\Actions\AttachAction::make()
+                    ->form(fn (\Filament\Tables\Actions\AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Forms\Components\Select::make('role')
                             ->label('Роль')
@@ -41,11 +41,11 @@ class ManagersRelationManager extends RelationManager
                     ]),
             ])
             ->actions([
-                Tables\Actions\DetachAction::make(),
+                \Filament\Tables\Actions\DetachAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DetachBulkAction::make(),
+                \Filament\Tables\Actions\BulkActionGroup::make([
+                    \Filament\Tables\Actions\DetachBulkAction::make(),
                 ]),
             ]);
     }
