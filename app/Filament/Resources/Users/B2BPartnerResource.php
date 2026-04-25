@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Filament\Resources\B2B\RelationManagers\LegalEntitiesRelationManager;
 use App\Filament\Resources\Users\Pages\CreateB2BPartner;
 use App\Filament\Resources\Users\Pages\EditB2BPartner;
 use App\Filament\Resources\Users\Pages\ListB2BPartners;
@@ -18,13 +19,13 @@ class B2BPartnerResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-briefcase';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-users';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Управление';
+    protected static string | \UnitEnum | null $navigationGroup = 'B2B';
 
-    protected static ?string $label = 'B2B Партнер';
+    protected static ?string $label = 'Партнер';
 
-    protected static ?string $pluralLabel = 'B2B Партнеры';
+    protected static ?string $pluralLabel = 'Партнеры';
 
     protected static ?string $slug = 'b2b-partners';
 
@@ -36,6 +37,13 @@ class B2BPartnerResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            LegalEntitiesRelationManager::class,
+        ];
     }
 
     public static function table(Table $table): Table

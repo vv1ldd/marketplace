@@ -24,11 +24,11 @@ class LegalEntityResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-building-office';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Управление';
+    protected static string | \UnitEnum | null $navigationGroup = 'B2B';
 
-    protected static ?string $label = 'Юр. лицо';
+    protected static ?string $label = 'Организация';
 
-    protected static ?string $pluralLabel = 'Юр. лица';
+    protected static ?string $pluralLabel = 'Организации';
 
     public static function form(Schema $schema): Schema
     {
