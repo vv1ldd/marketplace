@@ -46,7 +46,7 @@ class UsersTable
                     ->label('Магазин')
                     ->relationship('shops', 'name')
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('users.created_at', 'desc')
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
