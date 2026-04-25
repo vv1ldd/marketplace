@@ -31,6 +31,17 @@ class UsersTable
                 TextColumn::make('created_at')->label('Создано')->dateTime('d.m.Y H:i:s'),
             ])
             ->filters([
+                \Filament\Tables\Filters\SelectFilter::make('user_type')
+                    ->label('Тип пользователя')
+                    ->options([
+                        'system' => 'Сотрудники',
+                        'clients' => 'Клиенты',
+                    ])
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data) {
+                        if ($data['value'] === 'system') return $query->system();
+                        if ($data['value'] === 'clients') return $query->clients();
+                        return $query;
+                    })
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
