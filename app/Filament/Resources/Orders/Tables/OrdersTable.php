@@ -34,7 +34,8 @@ class OrdersTable
                     ->color('gray')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->hidden(\Filament\Facades\Filament::getCurrentPanel()->getId() === 'partner'),
                 TextColumn::make('order_id')->label('Номер источника')
                     ->searchable()
                     ->hidden($is_executor || $is_support)
@@ -101,7 +102,8 @@ class OrdersTable
                 SelectFilter::make('shop_id')
                     ->label('Магазин')
                     ->searchable()
-                    ->relationship('shop', 'name'),
+                    ->relationship('shop', 'name')
+                    ->hidden(\Filament\Facades\Filament::getCurrentPanel()->getId() === 'partner'),
             ], layout: FiltersLayout::Modal)
             ->persistFiltersInSession()
             ->recordActions([
