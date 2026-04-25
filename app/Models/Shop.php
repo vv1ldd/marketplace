@@ -57,6 +57,13 @@ class Shop extends Model
         return $this->belongsToMany(User::class, 'orders', 'shop_id', 'user_id')->distinct();
     }
 
+    public function managers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'shop_user', 'shop_id', 'user_id')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
     public function apiApplications(): HasMany
     {
         return $this->hasMany(ApiApplication::class);

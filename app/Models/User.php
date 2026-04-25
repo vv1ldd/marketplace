@@ -130,6 +130,13 @@ class User extends Authenticatable implements FilamentUser, HasName
         return $this->belongsToMany(Shop::class, 'orders', 'user_id', 'shop_id')->distinct();
     }
 
+    public function managedShops(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Shop::class, 'shop_user', 'user_id', 'shop_id')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
     public function getFullName(): string
     {
         $full_name = $this->first_name;
