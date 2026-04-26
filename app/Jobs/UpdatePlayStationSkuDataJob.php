@@ -66,6 +66,10 @@ class UpdatePlayStationSkuDataJob implements ShouldQueue
                         'name' => $product['name'] ?? data_get($product, 'concept.name'),
                         'updated_at' => now()
                     ]);
+
+                if ($this->regionSlug === 'US') {
+                    app(\App\Services\PsBundleService::class)->syncGameBundle($this->sku, $this->regionId);
+                }
             }
         }
     }

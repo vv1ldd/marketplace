@@ -48,7 +48,7 @@ class ProvidersTable
                         if ($record->type === 'playstation') {
                             \Illuminate\Support\Facades\Artisan::call('ps:sync-to-products');
                         } elseif ($record->type === 'playstation_us') {
-                            \Illuminate\Support\Facades\Artisan::call('ps:sync-us-bundles');
+                            \Illuminate\Support\Facades\Artisan::call('ps:sync-region');
                         } elseif ($record->type === 'wildflow') {
                             \Illuminate\Support\Facades\Artisan::call('app:wildflow-parser');
                         }
