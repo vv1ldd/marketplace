@@ -402,7 +402,16 @@ class MainController extends Controller
             $shop = $shops->get($item->bussiness_id);
             $item_tax = $shop ? $shop->ym_tax : $global_tax;
 
-            $price = round($price * (1 + $item_tax / 100), 2);
+            $price = round($price * (1 + $item_tax / 100));
+
+            $minPrice = (int)Settings::get('YM_MIN_SUM_FOR_UPDATE', 0);
+            if ($price < $minPrice) {
+                $price = $minPrice;
+            }
+
+            if ($price <= 0) {
+                continue;
+            }
 
             if($item->image) {
                 $media = config('app.url') . '/' . $item->image;
