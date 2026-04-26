@@ -174,6 +174,10 @@ class ShopForm
                     ->label('Текст под кодом (в чате)')
                     ->helperText('Будет добавлено после фразы "Ваш код активации: XXXXX"')
                     ->rows(3),
+                TextInput::make('ym_min_selling_price')
+                    ->label('Минимальная цена (YM)')
+                    ->numeric()
+                    ->helperText('Финальная цена в магазине не упадет ниже этого значения'),
                 TextInput::make('notification_token')
                     ->label('Токен уведомлений')
                     ->password()

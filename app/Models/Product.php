@@ -94,6 +94,14 @@ class Product extends Model
             $params[] = ["parameterId" => 37919810, "value" => data_get($wfProduct, 'regions.0.name', 'все страны')];
         }
 
+        $finalPrice = $this->price_rub;
+        if ($shopId) {
+            $shop = Shop::find($shopId);
+            if ($shop && $shop->ym_min_selling_price && $finalPrice < $shop->ym_min_selling_price) {
+                $finalPrice = $shop->ym_min_selling_price;
+            }
+        }
+
         return [
             "offerId" => $this->sku,
             "name" => $name,
@@ -104,7 +112,7 @@ class Product extends Model
             "parameterValues" => $params,
             "downloadable" => true,
             "basicPrice" => [
-                "value" => $this->price_rub,
+                "value" => (int)$finalPrice,
                 "currencyId" => "RUR"
             ]
         ];

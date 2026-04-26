@@ -43,6 +43,7 @@ class Shop extends Model implements HasName
         'ym_chat_greeting',
         'ym_chat_finish',
         'ym_chat_code_footer',
+        'ym_min_selling_price',
         'is_active',
         'auto_purchase_enabled',
         'use_custom_smtp',
