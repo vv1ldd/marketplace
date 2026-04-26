@@ -130,7 +130,7 @@ class OrderForm
                                         ->required(),
 
                                     Placeholder::make('game_name')
-                                        ->label('Название игры')
+                                        ->label('Наименование товара')
                                         ->content(fn(Get $get) => $alts[$get('sku')]->name ?? null),
 
                                     Grid::make()->schema([
