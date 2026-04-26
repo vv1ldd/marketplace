@@ -46,8 +46,10 @@ class ProvidersTable
                     ->action(function ($record) {
                         if ($record->type === 'playstation') {
                             \Illuminate\Support\Facades\Artisan::call('ps:sync-to-products');
+                        } elseif ($record->type === 'playstation_us') {
+                            \Illuminate\Support\Facades\Artisan::call('ps:sync-us-bundles');
                         } elseif ($record->type === 'wildflow') {
-                            // TODO: Add wildflow sync command if exists
+                            \Illuminate\Support\Facades\Artisan::call('app:wildflow-parser');
                         }
                         
                         $record->update(['last_sync_at' => now()]);

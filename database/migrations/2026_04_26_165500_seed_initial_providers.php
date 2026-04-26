@@ -22,9 +22,18 @@ return new class extends Migration
         Provider::updateOrCreate(
             ['type' => 'playstation'],
             [
-                'name' => 'PlayStation Store',
+                'name' => 'PlayStation Store (TR)',
                 'is_active' => true,
                 'settings' => ['tax' => 35],
+            ]
+        );
+
+        Provider::updateOrCreate(
+            ['type' => 'playstation_us'],
+            [
+                'name' => 'PlayStation Store (US Bundles)',
+                'is_active' => true,
+                'settings' => ['tax' => 0], // Bundles use card prices which already have tax
             ]
         );
     }
