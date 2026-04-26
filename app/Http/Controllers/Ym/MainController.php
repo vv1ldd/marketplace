@@ -322,7 +322,12 @@ class MainController extends Controller
 
         $usdt_rub = $binance_service->tickerPrice('USDTRUB');
 
-        $tax = Settings::get('YM_TAX', 30);
+        // Fetch shops by business_id for lookup
+        $shops = Shop::whereIn('business_id', $items->pluck('bussiness_id')->filter()->unique())
+            ->get()
+            ->keyBy('business_id');
+
+        $global_tax = Settings::get('YM_TAX', 30);
 
         $category_id = (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474));
 
@@ -378,7 +383,11 @@ class MainController extends Controller
             }
 
             $price = $price * $usdt_rub;
-            $price = round($price * (1 + $tax / 100), 2);
+
+            $shop = $shops->get($item->bussiness_id);
+            $item_tax = $shop ? $shop->ym_tax : $global_tax;
+
+            $price = round($price * (1 + $item_tax / 100), 2);
 
             if($item->image) {
                 $media = config('app.url') . '/' . $item->image;
@@ -773,15 +782,22 @@ class MainController extends Controller
 
         $finished_data = [];
 
-        $stock = Settings::get('YM_STOCK', 10);
+        // Fetch shops by business_id for lookup
+        $shops = Shop::whereIn('business_id', $items->pluck('bussiness_id')->filter()->unique())
+            ->get()
+            ->keyBy('business_id');
+
+        $global_stock = Settings::get('YM_STOCK', 10);
 
         foreach ($items as $item) {
+            $shop = $shops->get($item->bussiness_id);
+            $item_stock = $shop ? $shop->ym_stock : $global_stock;
 
             $finished_data[] = [
                 'sku' => $item->sku,
                 'items' => [
                     [
-                        'count' => $stock,
+                        'count' => (int)$item_stock,
                     ]
                 ]
             ];

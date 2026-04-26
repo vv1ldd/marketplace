@@ -123,6 +123,16 @@ class ShopForm
                     ->password()
                     ->revealable()
                     ->required(),
+                TextInput::make('ym_tax')
+                    ->label('Наценка Яндекс (%)')
+                    ->numeric()
+                    ->default(30)
+                    ->required(),
+                TextInput::make('ym_stock')
+                    ->label('Остаток Яндекс')
+                    ->numeric()
+                    ->default(10)
+                    ->required(),
                 TextInput::make('notification_token')
                     ->label('Токен уведомлений')
                     ->password()

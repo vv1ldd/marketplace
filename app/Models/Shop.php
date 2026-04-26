@@ -32,6 +32,8 @@ class Shop extends Model implements HasName
         'api_key',
         'ip_whitelist',
         'notification_token',
+        'ym_tax',
+        'ym_stock',
         'is_active',
         'auto_purchase_enabled',
         'use_custom_smtp',
