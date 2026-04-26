@@ -36,8 +36,15 @@ class PsBundleService
         usort($availableCards, fn($a, $b) => $b['face_value'] <=> $a['face_value']);
 
         $gamePrice = $item->price_with_discount / 100;
+        $gameBasePrice = $item->base_price / 100;
+
         $bundle = $this->calculateBundle($gamePrice, $availableCards);
         if (!$bundle) return;
+
+        $oldBundle = null;
+        if ($gameBasePrice > $gamePrice) {
+            $oldBundle = $this->calculateBundle($gameBasePrice, $availableCards);
+        }
 
         $psData = json_decode($item->data, true);
         $description = '';
@@ -58,14 +65,17 @@ class PsBundleService
                 'type' => 'playstation',
                 'category' => 'game',
                 'price_rub' => $bundle['total_rub'],
+                'old_price_rub' => ($oldBundle && $oldBundle['total_rub'] > $bundle['total_rub']) ? $oldBundle['total_rub'] : null,
                 'purchase_price' => $bundle['total_face_value'] * 100,
                 'purchase_currency' => 'USD',
-                'base_price' => $gamePrice * 100,
+                'base_price' => $item->base_price,
                 'data' => json_encode([
                     'is_bundle' => true,
                     'original_sku' => $item->sku,
                     'original_price' => $gamePrice,
+                    'original_base_price' => $gameBasePrice,
                     'cards' => $bundle['card_skus'],
+                    'old_cards' => $oldBundle ? $oldBundle['card_skus'] : null,
                 ]),
                 'is_active' => true,
                 'updated_at' => now(),

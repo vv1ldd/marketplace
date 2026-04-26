@@ -15,6 +15,7 @@ class Product extends Model
         'type',
         'category',
         'price_rub',
+        'old_price_rub',
         'purchase_price',
         'purchase_currency',
         'base_price',
@@ -107,7 +108,7 @@ class Product extends Model
             }
         }
 
-        return [
+        $offer = [
             "offerId" => $this->sku,
             "name" => $name,
             "marketCategoryId" => $marketCategoryId,
@@ -121,5 +122,11 @@ class Product extends Model
                 "currencyId" => "RUR"
             ]
         ];
+
+        if ($this->old_price_rub && $this->old_price_rub > $finalPriceKopeks) {
+            $offer['basicPrice']['oldPrice'] = (int)($this->old_price_rub / 100);
+        }
+
+        return $offer;
     }
 }

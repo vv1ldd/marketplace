@@ -75,7 +75,8 @@ class SyncPsToProducts extends Command
                 'type' => 'playstation',
                 'category' => 'game',
                 'price_rub' => $price_rub,
-                'base_price' => $base_price_rub,
+                'old_price_rub' => $base_price_rub > $price_rub ? $base_price_rub : null,
+                'base_price' => $item->base_price,
                 'purchase_price' => $item->price_with_discount,
                 'purchase_currency' => 'TRY',
                 'data' => $item->data,
@@ -90,7 +91,7 @@ class SyncPsToProducts extends Command
         Product::upsert(
             $products,
             ['sku'],
-            ['name', 'description', 'price_rub', 'base_price', 'purchase_price', 'purchase_currency', 'data', 'is_active', 'updated_at']
+            ['name', 'description', 'price_rub', 'old_price_rub', 'base_price', 'purchase_price', 'purchase_currency', 'data', 'is_active', 'updated_at']
         );
 
         $this->info("Sync completed successfully!");
