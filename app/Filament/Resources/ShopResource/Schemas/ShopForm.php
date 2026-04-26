@@ -170,6 +170,10 @@ class ShopForm
                 \Filament\Forms\Components\Textarea::make('ym_chat_finish')
                     ->label('Сообщение о доставке')
                     ->rows(3),
+                \Filament\Forms\Components\Textarea::make('ym_chat_code_footer')
+                    ->label('Текст под кодом (в чате)')
+                    ->helperText('Будет добавлено после фразы "Ваш код активации: XXXXX"')
+                    ->rows(3),
                 TextInput::make('notification_token')
                     ->label('Токен уведомлений')
                     ->password()
