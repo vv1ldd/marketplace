@@ -41,6 +41,29 @@ class EditShop extends EditRecord
                             ->send();
                     }
                 }),
+            \Filament\Actions\Action::make('update_ym_stocks')
+                ->label('Обновить остатки YM')
+                ->color('warning')
+                ->icon('heroicon-o-archive-box')
+                ->requiresConfirmation()
+                ->action(function () {
+                    $controller = app(\App\Http\Controllers\Ym\MainController::class);
+                    $request = new \Illuminate\Http\Request(['business_id' => $this->record->business_id]);
+                    
+                    $response = $controller->prepareSendStockItemsWildflow($request);
+                    
+                    if ($response->isSuccessful()) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Остатки успешно обновлены')
+                            ->success()
+                            ->send();
+                    } else {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Ошибка при обновлении остатков')
+                            ->danger()
+                            ->send();
+                    }
+                }),
             DeleteAction::make(),
         ];
     }

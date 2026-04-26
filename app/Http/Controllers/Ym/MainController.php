@@ -791,8 +791,22 @@ class MainController extends Controller
 
         $start = time();
 
-        $items = WildflowCatalog::whereNotNull('bussiness_id')
-            ->get();
+        $businessId = $request->input('business_id');
+
+        $query = WildflowCatalog::whereNotNull('bussiness_id');
+
+        if ($businessId) {
+            $query->where('bussiness_id', $businessId);
+        }
+
+        $items = $query->get();
+
+        if ($items->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No items found for this business ID',
+            ], 404);
+        }
 
         $finished_data = [];
 
