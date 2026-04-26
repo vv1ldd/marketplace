@@ -87,17 +87,9 @@ class WildflowParser extends Command
             $title = $productData['title'] ?? ($row['sku']);
             $retailPrice = (float)($data['price'] ?? $item['max_price'] ?? 0);
             $purchasePrice = (float)($item['price'] ?? $retailPrice);
-            
             $currencyCode = ($productData['currency']['code'] ?? $item['currency']['code'] ?? 'USD');
+            
             $name .= $title . ' ' . $retailPrice . $currencyCode;
-
-            // Calculate price_rub based on base_price (retailPrice)
-            // Simulating an item object for pricesCalc
-            $tempItem = (object)['price_with_discount' => $retailPrice * 100, 'base_price' => $retailPrice * 100];
-            [$priceRub, $basePriceRub] = $ym->pricesCalc($tempItem, 1, $effective_rate); 
-            // Wait, pricesCalc: round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + $this->ps_tax / 100))
-            // If item->price_with_discount is USD (cent), usdt_try = 1, usdt_rub = 100 
-            // Result is cents in RUB. OK.
 
             $category = ($productData['reward_type_text'] ?? '') === 'Gift-Card' ? 'gift-card' : 'game';
 
@@ -106,7 +98,6 @@ class WildflowParser extends Command
                 'name' => $name,
                 'type' => 'wildflow',
                 'category' => $category,
-                'price_rub' => $priceRub, 
                 'purchase_price' => $purchasePrice * 100,
                 'purchase_currency' => $currencyCode,
                 'base_price' => $retailPrice * 100,
@@ -120,7 +111,7 @@ class WildflowParser extends Command
         \App\Models\Product::upsert(
             $products,
             ['sku'],
-            ['name', 'category', 'price_rub', 'purchase_price', 'purchase_currency', 'base_price', 'data', 'updated_at']
+            ['name', 'category', 'purchase_price', 'purchase_currency', 'base_price', 'data', 'updated_at']
         );
 
         return true;

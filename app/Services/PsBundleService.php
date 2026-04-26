@@ -64,11 +64,9 @@ class PsBundleService
                 'description' => "Данный товар является набором подарочных карт (USD) для покупки игры " . ($item->name ?? $sku) . " в американском регионе PlayStation Store.\n\n" . mb_substr(strip_tags($description), 0, 2500),
                 'type' => 'playstation',
                 'category' => 'game',
-                'price_rub' => $bundle['total_rub'],
-                'old_price_rub' => ($oldBundle && $oldBundle['total_rub'] > $bundle['total_rub']) ? $oldBundle['total_rub'] : null,
-                'purchase_price' => $bundle['total_face_value'] * 100,
+                'purchase_price' => $bundle['total_face_value'] * 100, // Total cost in USD cents
                 'purchase_currency' => 'USD',
-                'base_price' => $item->base_price,
+                'base_price' => $item->base_price, // Original game price in USD cents
                 'data' => json_encode([
                     'is_bundle' => true,
                     'original_sku' => $item->sku,

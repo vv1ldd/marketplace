@@ -156,10 +156,15 @@ class ProductResource extends Resource
                     ->label('Название')
                     ->searchable()
                     ->limit(50),
-                TextColumn::make('price_rub')
-                    ->label('Цена (руб.)')
-                    ->state(fn ($record) => $record->price_rub ? $record->price_rub / 100 . ' ₽' : '-')
-                    ->description(fn($record) => ($record->old_price_rub && $record->old_price_rub > $record->price_rub) ? ($record->old_price_rub / 100) . ' ₽ (скидка)' : null)
+                TextColumn::make('base_price')
+                    ->label('База (ритейл)')
+                    ->state(fn ($record) => $record->base_price ? ($record->base_price / 100) . ' ' . $record->purchase_currency : '-')
+                    ->description(function($record) {
+                        if (!$record->base_price) return null;
+                        $finance = app(\App\Services\FinanceService::class);
+                        $rub = $finance->convertToRub($record->base_price / 100, $record->purchase_currency, 30); // 30% estimated tax
+                        return "≈ " . number_format($rub, 0, '.', ' ') . " ₽ (с нац. 30%)";
+                    })
                     ->sortable(),
                 TextColumn::make('purchase_price')
                     ->label('Закупка')

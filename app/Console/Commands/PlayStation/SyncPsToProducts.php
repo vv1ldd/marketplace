@@ -49,13 +49,8 @@ class SyncPsToProducts extends Command
             $this->info("Current rates: USDT/TRY: $usdt_try, USDT/RUB: $usdt_rub (Effective: " . round($effective_rate, 2) . ")");
         }
 
-        $ym = new YmMainController($tax); 
-
         $products = [];
         foreach ($items as $item) {
-            // We'll pass 1 and effective_rate to simulate the conversion
-            [$price_rub, $base_price_rub] = $ym->pricesCalc($item, 1, $effective_rate);
-
             // Extract description from PS data if possible
             $psData = json_decode($item->data, true);
             $description = '';
@@ -74,10 +69,8 @@ class SyncPsToProducts extends Command
                 'description' => mb_substr(strip_tags($description), 0, 3000),
                 'type' => 'playstation',
                 'category' => 'game',
-                'price_rub' => $price_rub,
-                'old_price_rub' => $base_price_rub > $price_rub ? $base_price_rub : null,
-                'base_price' => $item->base_price,
-                'purchase_price' => $item->price_with_discount,
+                'base_price' => $item->base_price, // Original price in TRY
+                'purchase_price' => $item->price_with_discount, // Discounted price in TRY
                 'purchase_currency' => 'TRY',
                 'data' => $item->data,
                 'is_active' => true,
@@ -91,7 +84,7 @@ class SyncPsToProducts extends Command
         Product::upsert(
             $products,
             ['sku'],
-            ['name', 'description', 'price_rub', 'old_price_rub', 'base_price', 'purchase_price', 'purchase_currency', 'data', 'is_active', 'updated_at']
+            ['name', 'description', 'base_price', 'purchase_price', 'purchase_currency', 'data', 'is_active', 'updated_at']
         );
 
         $this->info("Sync completed successfully!");
