@@ -145,10 +145,9 @@ class OrderForm
                                             ->label('Закупочная цена')
                                             ->visible($super_admin || $is_executor)
                                             ->content(function (Get $get) use ($alts) {
-                                                $pPrice = $get('price_try') ?? ($alts[$get('sku')]->purchase_price ?? null);
-                                                $pCurrency = $alts[$get('sku')]->purchase_currency ?? 'TRY';
-                                                if (!$pPrice) return null;
-                                                return ($pPrice / 100) . ' ' . $pCurrency;
+                                                $product = $alts[$get('sku')] ?? null;
+                                                if (!$product || !$product->purchase_price) return null;
+                                                return $product->purchase_price . ' ' . ($product->purchase_currency ?? 'TRY');
                                             }),
 
                                     ])->columns(),
