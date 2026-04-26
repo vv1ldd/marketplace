@@ -292,14 +292,13 @@ class ProductResource extends Resource
                                     'region_code' => $itemData['product']['regions'][0]['code'] ?? 'TR',
                                 ];
 
-                                $path = $generator->generate($generateData, $shop->ym_base_card, $shop->ym_logo);
-                                $record->update([
-                                    'image' => $path,
-                                    'image_updated_at' => now(),
-                                ]);
-
-                                // 2. Prepare Offer
-                                $offers[] = ["offer" => $record->toYmOffer($categoryId)];
+                                $path = $generator->generate($generateData, $shop->ym_base_card, $shop->ym_logo, $shop->id);
+                                
+                                // We don't necessarily update $record->image here because that's for global fallback
+                                // But we pass shopId to toYmOffer which handles the per-shop URL
+                                
+                                // 2. Prepare Offer with shopId
+                                $offers[] = ["offer" => $record->toYmOffer($categoryId, $shop->id)];
                                 $processedCount++;
 
                             } catch (\Exception $e) {

@@ -16,7 +16,7 @@ class ImageGenerator
         $this->countries = \DB::table('mapping_countries')
             ->pluck('name_ru', 'code')->toArray();
     }
-    public function generate(array $item, ?string $basePath = null, ?string $logoPath = null): string
+    public function generate(array $item, ?string $basePath = null, ?string $logoPath = null, ?int $shopId = null): string
     {
         $manager = new ImageManager(Driver::class);
 
@@ -52,8 +52,13 @@ class ImageGenerator
             $font->align('left');
         });
 
-        $public_path = 'img/card/' . $item['sku'] . '.png';
-//        $save_path = "app/public/$public_path";
+        $folder = $shopId ? "img/card/sh_$shopId" : "img/card";
+        
+        if (!file_exists(public_path($folder))) {
+            mkdir(public_path($folder), 0775, true);
+        }
+
+        $public_path = $folder . '/' . $item['sku'] . '.png';
 
         $image->save(public_path($public_path));
 

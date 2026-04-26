@@ -82,7 +82,14 @@ class Settings extends Page implements HasForms
             'SMTP_ENCRYPTION',
             'SMTP_FROM_ADDRESS',
             'SMTP_FROM_NAME',
-            'SMTP_SUBJECT'
+            'SMTP_SUBJECT',
+            'YM_MIN_SUM_FOR_UPDATE',
+            'YM_DIFF_IN_HOURS_FOR_SALE',
+            'YM_TAX',
+            'YM_STOCK',
+            'YM_WAREHOUSE_ID',
+            'YM_CATEGORY_ID',
+            'YM_NOTIFICATION_TOKEN',
         ];
         $keys = array_diff($keys, $migratedKeys);
 

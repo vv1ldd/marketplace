@@ -39,7 +39,7 @@ class Product extends Model
         return $this->belongsTo(PlayStationTypeForm::class, 'type_form_id', 'id');
     }
 
-    public function toYmOffer(int $marketCategoryId): array
+    public function toYmOffer(int $marketCategoryId, ?int $shopId = null): array
     {
         $data = $this->data;
         $name = $this->name;
@@ -48,9 +48,13 @@ class Product extends Model
         $params = [];
         $vendor = 'Нет бренда';
 
+        if ($shopId) {
+            $pictures = [config('app.url') . "/img/card/sh_$shopId/{$this->sku}.png"];
+        }
+
         if ($this->type === 'playstation') {
             // PlayStation specific logic
-            if ($media = data_get($data, 'media')) {
+            if (empty($pictures) && ($media = data_get($data, 'media'))) {
                 foreach ($media as $m) {
                     if ($m['type'] !== 'VIDEO') $pictures[] = $m['url'];
                 }
