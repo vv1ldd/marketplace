@@ -16,9 +16,12 @@ class WildflowParser extends Command
     {
         set_time_limit(480);
 
+        $provider = \App\Models\Provider::where('type', 'wildflow')->first();
+        $token = $provider->credentials['api_key'] ?? config('app.wildflow_token');
+
         $client = Http::withHeaders([
             'Accept' => 'application/json',
-            'X-Auth-Token' => config('app.wildflow_token'),
+            'X-Auth-Token' => $token,
         ])
             ->timeout(60)
             ->withoutVerifying()
@@ -58,12 +61,23 @@ class WildflowParser extends Command
             ['sku','data','type','updated_at'] // обновляемые поля
         );
 
+        // Get exchange rates
+        $binance_service = new \App\Http\Services\BinanceService();
+        $tax = $provider->settings['tax'] ?? 30;
+        $manual_rate = $provider->settings['currency_rate'] ?? null;
+
+        $usdt_rub = $binance_service->tickerPrice('USDTRUB');
+        // Wildflow is usually USD based
+        $effective_rate = $manual_rate ?? $usdt_rub;
+
+        $ym = new \App\Http\Controllers\Ym\MainController($tax);
+
         // Синхронизируем с универсальной таблицей products
         $products = [];
         foreach ($rows as $row) {
             $item = json_decode($row['data'], true);
             $data = $item['data'] ?? [];
-            $productData = $data['product'] ?? $item; // В 'catalog' структура чуть другая
+            $productData = $data['product'] ?? $item;
 
             $name = '';
             if (($productData['reward_type_text'] ?? '') === 'Gift-Card') {
@@ -71,9 +85,19 @@ class WildflowParser extends Command
             }
 
             $title = $productData['title'] ?? ($row['sku']);
-            $priceLabel = $data['price'] ?? $item['max_price'] ?? '';
-            $currencySymbol = ($productData['currency']['code'] ?? $item['currency']['code'] ?? '');
-            $name .= $title . ' ' . $priceLabel . $currencySymbol;
+            $retailPrice = (float)($data['price'] ?? $item['max_price'] ?? 0);
+            $purchasePrice = (float)($item['price'] ?? $retailPrice);
+            
+            $currencyCode = ($productData['currency']['code'] ?? $item['currency']['code'] ?? 'USD');
+            $name .= $title . ' ' . $retailPrice . $currencyCode;
+
+            // Calculate price_rub based on base_price (retailPrice)
+            // Simulating an item object for pricesCalc
+            $tempItem = (object)['price_with_discount' => $retailPrice * 100, 'base_price' => $retailPrice * 100];
+            [$priceRub, $basePriceRub] = $ym->pricesCalc($tempItem, 1, $effective_rate / 100); // pricesCalc expects units? No, it expects cents/kopeks if $usdt_try is 1? 
+            // Wait, pricesCalc: round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + $this->ps_tax / 100))
+            // If item->price_with_discount is USD (cent), usdt_try = 1, usdt_rub = 100 
+            // Result is cents in RUB. OK.
 
             $category = ($productData['reward_type_text'] ?? '') === 'Gift-Card' ? 'gift-card' : 'game';
 
@@ -82,6 +106,10 @@ class WildflowParser extends Command
                 'name' => $name,
                 'type' => 'wildflow',
                 'category' => $category,
+                'price_rub' => $priceRub, 
+                'purchase_price' => $purchasePrice * 100,
+                'purchase_currency' => $currencyCode,
+                'base_price' => $retailPrice * 100,
                 'data' => $row['data'],
                 'is_active' => true,
                 'updated_at' => now(),
@@ -92,7 +120,7 @@ class WildflowParser extends Command
         \App\Models\Product::upsert(
             $products,
             ['sku'],
-            ['name', 'category', 'data', 'updated_at']
+            ['name', 'category', 'price_rub', 'purchase_price', 'purchase_currency', 'base_price', 'data', 'updated_at']
         );
 
         return true;
