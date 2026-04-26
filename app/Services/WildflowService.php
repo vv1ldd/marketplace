@@ -11,11 +11,14 @@ class WildflowService
 
     private PendingRequest $client;
 
-    public function __construct()
+    public function __construct(\App\Models\Provider $provider = null)
     {
+        $provider = $provider ?? \App\Models\Provider::where('type', 'wildflow')->first();
+        $token = $provider->credentials['api_key'] ?? config('app.wildflow_token');
+
         $this->client = Http::withHeaders([
             'Accept' => 'application/json',
-            'X-Auth-Token' => config('app.wildflow_token'),
+            'X-Auth-Token' => $token,
         ])->timeout(60)
             ->withoutVerifying()
             ->baseUrl($this->base_url);

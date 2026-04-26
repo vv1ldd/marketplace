@@ -29,16 +29,32 @@ class SyncPsToProducts extends Command
         }
 
         $binance_service = new BinanceService();
+        $provider = \App\Models\Provider::where('type', 'playstation')->first();
+        $tax = $provider->settings['tax'] ?? 35;
+        $manual_rate = $provider->settings['currency_rate'] ?? null;
+
         $usdt_try = $binance_service->tickerPrice('USDTTRY');
         $usdt_rub = $binance_service->tickerPrice('USDTRUB');
 
-        $this->info("Current rates: USDT/TRY: $usdt_try, USDT/RUB: $usdt_rub");
+        // If manual rate is provided, we should probably adjust usdt_rub or similar
+        // But for PS, usually it's TRY -> RUB rate.
+        // My current pricesCalc uses (try_price / usdt_try) * usdt_rub
+        // Which is basically try_price * (usdt_rub / usdt_try)
+        
+        $effective_rate = $usdt_rub / $usdt_try;
+        if ($manual_rate) {
+            $effective_rate = $manual_rate;
+            $this->info("Using MANUAL currency rate: $manual_rate");
+        } else {
+            $this->info("Current rates: USDT/TRY: $usdt_try, USDT/RUB: $usdt_rub (Effective: " . round($effective_rate, 2) . ")");
+        }
 
-        $ym = new YmMainController(); // Uses default tax OR we can fetch from Shop later
+        $ym = new YmMainController($tax); 
 
         $products = [];
         foreach ($items as $item) {
-            [$price_rub, $base_price_rub] = $ym->pricesCalc($item, $usdt_try, $usdt_rub);
+            // We'll pass 1 and effective_rate to simulate the conversion
+            [$price_rub, $base_price_rub] = $ym->pricesCalc($item, 1, $effective_rate);
 
             // Extract description from PS data if possible
             $psData = json_decode($item->data, true);

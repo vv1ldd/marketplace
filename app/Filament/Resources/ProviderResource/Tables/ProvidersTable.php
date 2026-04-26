@@ -39,6 +39,25 @@ class ProvidersTable
                 //
             ])
             ->actions([
+                \Filament\Tables\Actions\Action::make('sync')
+                    ->label('Синхронизировать')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->action(function ($record) {
+                        if ($record->type === 'playstation') {
+                            \Illuminate\Support\Facades\Artisan::call('ps:sync-to-products');
+                        } elseif ($record->type === 'wildflow') {
+                            // TODO: Add wildflow sync command if exists
+                        }
+                        
+                        $record->update(['last_sync_at' => now()]);
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Синхронизация запущена для: ' . $record->name)
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation(),
                 EditAction::make(),
             ])
             ->bulkActions([
