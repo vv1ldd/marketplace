@@ -39,6 +39,11 @@ class Product extends Model
         return $this->belongsTo(PlayStationTypeForm::class, 'type_form_id', 'id');
     }
 
+    public function provider(): BelongsTo
+    {
+        return $this->belongsTo(Provider::class, 'type', 'type');
+    }
+
     public function toYmOffer(int $marketCategoryId, ?int $shopId = null): array
     {
         $data = $this->data;

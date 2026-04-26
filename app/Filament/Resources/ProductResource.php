@@ -66,10 +66,7 @@ class ProductResource extends Resource
                         Grid::make(2)->schema([
                             Select::make('type')
                                 ->label('Провайдер')
-                                ->options([
-                                    'playstation' => 'PlayStation',
-                                    'wildflow' => 'Wildflow',
-                                ])
+                                ->options(\App\Models\Provider::all()->pluck('name', 'type'))
                                 ->required(),
                             Select::make('category')
                                 ->label('Категория')
@@ -136,10 +133,10 @@ class ProductResource extends Resource
         return $table
             ->defaultPaginationPageOption(10)
             ->columns([
-                TextColumn::make('type')
-                    ->label('Тип')
+                TextColumn::make('provider.name')
+                    ->label('Провайдер')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn($record): string => match ($record->type) {
                         'playstation' => 'info',
                         'wildflow' => 'warning',
                         default => 'gray',
@@ -184,10 +181,7 @@ class ProductResource extends Resource
                     ])
                     ->label('Категория'),
                 \Filament\Tables\Filters\SelectFilter::make('type')
-                    ->options([
-                        'playstation' => 'PlayStation',
-                        'wildflow' => 'Wildflow',
-                    ])
+                    ->options(\App\Models\Provider::all()->pluck('name', 'type'))
                     ->label('Провайдер'),
             ])
             ->actions([
