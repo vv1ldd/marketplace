@@ -16,13 +16,13 @@ class ImageGenerator
         $this->countries = \DB::table('mapping_countries')
             ->pluck('name_ru', 'code')->toArray();
     }
-    public function generate(array $item): string
+    public function generate(array $item, ?string $basePath = null, ?string $logoPath = null): string
     {
         $manager = new ImageManager(Driver::class);
 
-        $image = $manager->decodePath(
-            public_path('img/base-card.png')
-        );
+        $baseCard = $basePath ? storage_path('app/public/' . $basePath) : public_path('img/base-card.png');
+
+        $image = $manager->decodePath($baseCard);
 
         $image->text($item['price'] . $item['symbol'], 860, 258, function ($font) {
             $font->filename(public_path('fonts/Inter-Black.otf'));
@@ -31,9 +31,9 @@ class ImageGenerator
             $font->align('center');
         });
 
-        $logo = $manager->decodePath(
-            public_path('img/logo/' . $item['category'] . '.png'),
-        )
+        $logoFile = $logoPath ? storage_path('app/public/' . $logoPath) : public_path('img/logo/' . $item['category'] . '.png');
+
+        $logo = $manager->decodePath($logoFile)
             ->scaleDown(width: 350);
 
         $image->insert($logo, alignment: 'center-center');

@@ -38,6 +38,8 @@ class Shop extends Model implements HasName
         'ym_min_price',
         'ym_category_id',
         'ym_diff_hours',
+        'ym_base_card',
+        'ym_logo',
         'is_active',
         'auto_purchase_enabled',
         'use_custom_smtp',

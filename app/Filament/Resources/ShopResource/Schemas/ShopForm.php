@@ -154,6 +154,16 @@ class ShopForm
                 TextInput::make('ym_diff_hours')
                     ->label('Разница часов для скидки')
                     ->numeric(),
+                \Filament\Forms\Components\FileUpload::make('ym_base_card')
+                    ->label('Базовая подложка (PNG)')
+                    ->image()
+                    ->directory('img/branding')
+                    ->helperText('Рекомендуемый размер 1000x1200'),
+                \Filament\Forms\Components\FileUpload::make('ym_logo')
+                    ->label('Логотип магазина (PNG)')
+                    ->image()
+                    ->directory('img/branding')
+                    ->helperText('Прозрачный PNG, будет наложен по центру'),
                 TextInput::make('notification_token')
                     ->label('Токен уведомлений')
                     ->password()
