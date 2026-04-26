@@ -60,7 +60,7 @@ class OrderCommentsRelationManager extends RelationManager
                     ->searchable(),
                 TextColumn::make('user_role')
                     ->label('Роль')
-                    ->getStateUsing(fn($record) => $record->user->getRoleNames()->first()),
+                    ->getStateUsing(fn($record) => $record->user ? $record->user->getRoleNames()->first() : 'system'),
 //                TextColumn::make('user.email')
 //                    ->getStateUsing(fn($record) => $record->user->email)
 //                    ->label('Пользователь')
