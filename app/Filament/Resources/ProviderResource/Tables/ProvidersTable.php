@@ -4,6 +4,9 @@ namespace App\Filament\Resources\ProviderResource\Tables;
 
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Actions\EditAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Tables\Table;
 
 class ProvidersTable
@@ -36,11 +39,11 @@ class ProvidersTable
                 //
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                \Filament\Tables\Actions\BulkActionGroup::make([
-                    \Filament\Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
