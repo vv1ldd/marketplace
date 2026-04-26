@@ -261,68 +261,68 @@ class ProductResource extends Resource
                     ->requiresConfirmation(),
             ])
             ->bulkActions([
-                \Filament\Tables\Actions\BulkAction::make('generate_and_send_to_ym')
-                    ->label('Генерация и выгрузка в YM')
-                    ->icon('heroicon-o-sparkles')
-                    ->color('success')
-                    ->form([
-                        Select::make('shop_id')
-                            ->label('Магазин')
-                            ->options(\App\Models\Shop::whereNotNull('api_key')->pluck('name', 'id'))
-                            ->required(),
-                    ])
-                    ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data) {
-                        $shop = \App\Models\Shop::find($data['shop_id']);
-                        $generator = new \App\Services\ImageGenerator();
-                        $service = new YmService($shop);
-                        $categoryId = (int)($shop->ym_category_id ?? \App\Models\Settings::get('YM_CATEGORY_ID', 70301474));
-                        
-                        $processedCount = 0;
-                        $offers = [];
+                \Filament\Actions\BulkActionGroup::make([
+                    \Filament\Actions\Action::make('generate_and_send_to_ym')
+                        ->label('Генерация и выгрузка в YM')
+                        ->icon('heroicon-o-sparkles')
+                        ->color('success')
+                        ->form([
+                            Select::make('shop_id')
+                                ->label('Магазин')
+                                ->options(\App\Models\Shop::all()->pluck('name', 'id'))
+                                ->required(),
+                        ])
+                        ->action(function (array $data, \Illuminate\Support\Collection $records) {
+                            $shop = \App\Models\Shop::find($data['shop_id']);
+                            $generator = new \App\Services\ImageGenerator();
+                            $service = new \App\Http\Services\YmService($shop);
+                            $categoryId = (int)($shop->ym_category_id ?? \App\Models\Settings::get('YM_CATEGORY_ID', 70301474));
 
-                        foreach ($records as $record) {
-                            try {
-                                // 1. Generate Image
-                                $itemData = $record->data['data'] ?? [];
-                                $generateData = [
-                                    'sku' => $record->sku,
-                                    'price' => $itemData['price'] ?? ($record->price_rub / 100),
-                                    'symbol' => $itemData['product']['currency']['symbol'] ?? ($record->type === 'playstation' ? ' TL' : ''),
-                                    'category' => $record->category ?? ($record->type === 'playstation' ? 'ps' : 'other'),
-                                    'region_code' => $itemData['product']['regions'][0]['code'] ?? 'TR',
-                                ];
+                            $offers = [];
+                            $processedCount = 0;
 
-                                $path = $generator->generate($generateData, $shop->ym_base_card, $shop->ym_logo, $shop->id);
-                                
-                                // We don't necessarily update $record->image here because that's for global fallback
-                                // But we pass shopId to toYmOffer which handles the per-shop URL
-                                
-                                // 2. Prepare Offer with shopId
-                                $offers[] = ["offer" => $record->toYmOffer($categoryId, $shop->id)];
-                                $processedCount++;
+                            foreach ($records as $record) {
+                                try {
+                                    // 1. Generate Shop-Specific Image
+                                    $itemData = $record->data['data'] ?? [];
+                                    $generateData = [
+                                        'sku' => $record->sku,
+                                        'price' => $itemData['price'] ?? ($record->price_rub / 100),
+                                        'symbol' => $itemData['product']['currency']['symbol'] ?? ($record->type === 'playstation' ? ' TL' : ''),
+                                        'category' => $record->category ?? ($record->type === 'playstation' ? 'ps' : 'other'),
+                                        'region_code' => $itemData['product']['regions'][0]['code'] ?? 'TR',
+                                    ];
 
-                            } catch (\Exception $e) {
-                                \Illuminate\Support\Facades\Log::error("Bulk Gen&Send failed for SKU {$record->sku}: " . $e->getMessage());
+                                    $path = $generator->generate($generateData, $shop->ym_base_card, $shop->ym_logo, $shop->id);
+                                    
+                                    // We don't necessarily update $record->image here because that's for global fallback
+                                    // But we pass shopId to toYmOffer which handles the per-shop URL
+                                    
+                                    // 2. Prepare Offer with shopId
+                                    $offers[] = ["offer" => $record->toYmOffer($categoryId, $shop->id)];
+                                    $processedCount++;
+
+                                } catch (\Exception $e) {
+                                    \Illuminate\Support\Facades\Log::error("Bulk YM Sync failed for SKU {$record->sku}: " . $e->getMessage());
+                                }
                             }
-                        }
 
-                        // 3. Send in Chunks
-                        if (!empty($offers)) {
-                            $chunks = array_chunk($offers, 50);
+                            $chunks = array_chunk($offers, 20);
+                            
                             foreach ($chunks as $chunk) {
                                 $service->offerMappingsUpdate($chunk);
                             }
-                        }
 
-                        Notification::make()
-                            ->title("Успешно!")
-                            ->body("Обработано товаров: $processedCount. Они отправлены в магазин: {$shop->name}")
-                            ->success()
-                            ->send();
-                    })
-                    ->deselectRecordsAfterCompletion()
-                    ->requiresConfirmation(),
-                \Filament\Tables\Actions\DeleteBulkAction::make(),
+                            Notification::make()
+                                ->title('Товары отправлены в магазин: ' . $shop->name)
+                                ->body("Обработано товаров: {$processedCount}")
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation()
+                        ->deselectRecordsAfterCompletion(),
+                    \Filament\Tables\Actions\DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
