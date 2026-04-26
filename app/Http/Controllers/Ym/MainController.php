@@ -488,10 +488,13 @@ class MainController extends Controller
 
         $finished_data_chunks = array_chunk($finished_data, 20);
 
+        $targetShop = ($businessId && $shops->has($businessId)) ? $shops->get($businessId) : null;
+
         foreach ($finished_data_chunks as $chunk) {
             $res = $this->sendItems(
                 chunk: $chunk,
-                send_id: $send_id
+                send_id: $send_id,
+                shop: $targetShop
             );
 
             if (!$res['success']) {
@@ -832,7 +835,9 @@ class MainController extends Controller
             ];
         }
 
-        $service = new YmService();
+        $service = ($businessId && $shops->has($businessId)) 
+            ? new YmService($shops->get($businessId)) 
+            : new YmService();
 
         $service->offerStocks($finished_data);
 
@@ -925,7 +930,7 @@ class MainController extends Controller
      * @param string $send_id
      * @return array
      */
-    private function sendItems(array $chunk, string $send_id, string $lang_region_id = null, string $price_region_id = null): array
+    private function sendItems(array $chunk, string $send_id, string $lang_region_id = null, string $price_region_id = null, \App\Models\Shop $shop = null): array
     {
 //        $ym_sender_log = YmSenderLog::create([
 //            'lang_region_id' => $lang_region_id,
@@ -936,7 +941,7 @@ class MainController extends Controller
 //            'created_at' => now()
 //        ]);
 
-        $service = new YmService();
+        $service = $shop ? new YmService($shop) : new YmService();
 
         $meanly_service = new MeanlyService();
 
