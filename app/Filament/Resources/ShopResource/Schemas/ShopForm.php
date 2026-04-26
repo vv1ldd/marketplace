@@ -51,10 +51,18 @@ class ShopForm
                                     ->password()
                                     ->required()
                                     ->default(fn () => \Illuminate\Support\Str::random(12)),
-                                \Filament\Forms\Components\Hidden::make('roles')
-                                    ->default(['b2b_partner']),
                             ])
-                            ->afterOptionCreated(fn ($record) => $record->assignRole('b2b_partner')),
+                            ->createOptionUsing(function (array $data): int {
+                                $user = \App\Models\User::create([
+                                    'first_name' => $data['first_name'],
+                                    'email' => $data['email'],
+                                    'password' => bcrypt($data['password']),
+                                ]);
+
+                                $user->assignRole('b2b_partner');
+
+                                return $user->id;
+                            }),
                     ]),
                 Select::make('type')
                     ->label('Тип магазина')
