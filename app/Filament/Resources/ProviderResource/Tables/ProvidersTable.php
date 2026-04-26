@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProviderResource\Tables;
 
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -39,7 +40,7 @@ class ProvidersTable
                 //
             ])
             ->actions([
-                \Filament\Tables\Actions\Action::make('sync')
+                Action::make('sync')
                     ->label('Синхронизировать')
                     ->icon('heroicon-o-arrow-path')
                     ->color('info')
