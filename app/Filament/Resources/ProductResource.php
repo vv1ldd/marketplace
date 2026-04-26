@@ -88,22 +88,28 @@ class ProductResource extends Resource
                             TextInput::make('price_rub')
                                 ->label('Цена (руб.)')
                                 ->numeric()
-                                ->prefix('₽'),
+                                ->formatStateUsing(fn ($state) => $state / 100)
+                                ->dehydrateStateUsing(fn ($state) => $state * 100)
+                                ->suffix('₽'),
                             TextInput::make('purchase_price')
                                 ->label('Закупочная цена')
-                                ->numeric(),
+                                ->numeric()
+                                ->formatStateUsing(fn ($state) => $state / 100)
+                                ->dehydrateStateUsing(fn ($state) => $state * 100),
                             Select::make('purchase_currency')
                                 ->label('Валюта закупки')
                                 ->options([
-                                    'TRY' => 'TL (Лиры)',
-                                    'USD' => '$ (Доллары)',
-                                    'EUR' => '€ (Евро)',
-                                    'KZT' => '₸ (Тенге)',
+                                    'USD' => '$ (USD)',
+                                    'TRY' => '₺ (TRY)',
+                                    'EUR' => '€ (Euro)',
+                                    'RUB' => '₽ (RUB)',
                                 ])
-                                ->default('TRY'),
+                                ->searchable(),
                             TextInput::make('base_price')
                                 ->label('Базовая цена')
-                                ->numeric(),
+                                ->numeric()
+                                ->formatStateUsing(fn ($state) => $state / 100)
+                                ->dehydrateStateUsing(fn ($state) => $state * 100),
                         ]),
                         Grid::make(2)->schema([
                             Select::make('type_form_id')
