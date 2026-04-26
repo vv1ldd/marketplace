@@ -159,6 +159,7 @@ class ProductResource extends Resource
                 TextColumn::make('price_rub')
                     ->label('Цена (руб.)')
                     ->state(fn ($record) => $record->price_rub ? $record->price_rub / 100 . ' ₽' : '-')
+                    ->description(fn($record) => ($record->old_price_rub && $record->old_price_rub > $record->price_rub) ? ($record->old_price_rub / 100) . ' ₽ (скидка)' : null)
                     ->sortable(),
                 TextColumn::make('purchase_price')
                     ->label('Закупка')

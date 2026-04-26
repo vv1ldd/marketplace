@@ -94,7 +94,7 @@ class WildflowParser extends Command
             // Calculate price_rub based on base_price (retailPrice)
             // Simulating an item object for pricesCalc
             $tempItem = (object)['price_with_discount' => $retailPrice * 100, 'base_price' => $retailPrice * 100];
-            [$priceRub, $basePriceRub] = $ym->pricesCalc($tempItem, 1, $effective_rate / 100); // pricesCalc expects units? No, it expects cents/kopeks if $usdt_try is 1? 
+            [$priceRub, $basePriceRub] = $ym->pricesCalc($tempItem, 1, $effective_rate); 
             // Wait, pricesCalc: round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + $this->ps_tax / 100))
             // If item->price_with_discount is USD (cent), usdt_try = 1, usdt_rub = 100 
             // Result is cents in RUB. OK.
