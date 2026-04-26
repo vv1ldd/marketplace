@@ -14,6 +14,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Textarea;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Actions\EditAction;
@@ -133,7 +134,7 @@ class ProductResource extends Resource
             ]);
     }
 
-    public static function table(Schema $table): Schema
+    public static function table(Table $table): Table
     {
         return $table
             ->defaultPaginationPageOption(10)

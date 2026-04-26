@@ -7,6 +7,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
+use Filament\Tables\Table;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
@@ -52,7 +53,7 @@ class CurrencyResource extends Resource
             ]);
     }
 
-    public static function table(Schema $table): Schema
+    public static function table(Table $table): Table
     {
         return $table
             ->columns([
