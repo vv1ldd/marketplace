@@ -11,6 +11,7 @@ use App\Jobs\QuarantineRemove;
 use App\Jobs\UpdateYmPrices;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
+use App\Models\Shop;
 use App\Models\WildflowCatalog;
 use App\Models\YmSenderLog;
 use App\Services\DescriptionGenerator;
