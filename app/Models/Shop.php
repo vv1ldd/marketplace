@@ -34,6 +34,7 @@ class Shop extends Model implements HasName
         'notification_token',
         'ym_tax',
         'ym_stock',
+        'ym_warehouse_id',
         'is_active',
         'auto_purchase_enabled',
         'use_custom_smtp',

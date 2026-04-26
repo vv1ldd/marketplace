@@ -139,7 +139,11 @@ class ShopForm
                 TextInput::make('ym_stock')
                     ->label('Остаток Яндекс')
                     ->numeric()
-                    ->default(10)
+                    ->required(),
+                TextInput::make('ym_warehouse_id')
+                    ->label('ID склада Яндекс')
+                    ->helperText('Необходимо для DBS/FBS (например, 2157157)')
+                    ->numeric()
                     ->required(),
                 TextInput::make('notification_token')
                     ->label('Токен уведомлений')

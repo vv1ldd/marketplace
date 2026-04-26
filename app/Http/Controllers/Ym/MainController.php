@@ -824,12 +824,16 @@ class MainController extends Controller
         foreach ($items as $item) {
             $shop = $shops->get($item->bussiness_id);
             $item_stock = $shop ? $shop->ym_stock : $global_stock;
+            $warehouseId = $shop ? $shop->ym_warehouse_id : Settings::get('YM_WAREHOUSE_ID');
 
             $finished_data[] = [
                 'sku' => $item->sku,
+                'warehouseId' => (int)$warehouseId,
                 'items' => [
                     [
                         'count' => (int)$item_stock,
+                        'type' => 'FIT',
+                        'updatedAt' => now()->toIso8601String(),
                     ]
                 ]
             ];
