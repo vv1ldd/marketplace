@@ -231,4 +231,17 @@ class YmService
 
         return $response->json();
     }
+
+    public function getWarehouses()
+    {
+        $campaign_id = $this->campaign_id;
+
+        $response = $this->client->get("campaigns/$campaign_id/warehouses");
+
+        if ($response->failed()) {
+            throw new ConnectionException($response->body(), $response->status());
+        }
+
+        return $response->json('result.warehouses');
+    }
 }
