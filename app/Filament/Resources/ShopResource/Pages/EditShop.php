@@ -18,6 +18,29 @@ class EditShop extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\Action::make('update_ym_prices')
+                ->label('Обновить цены YM')
+                ->color('info')
+                ->icon('heroicon-o-arrow-path')
+                ->requiresConfirmation()
+                ->action(function () {
+                    $controller = app(\App\Http\Controllers\Ym\MainController::class);
+                    $request = new \Illuminate\Http\Request(['business_id' => $this->record->business_id]);
+                    
+                    $response = $controller->sendItemsWildflow($request);
+                    
+                    if ($response->isSuccessful()) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Цены успешно обновлены')
+                            ->success()
+                            ->send();
+                    } else {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Ошибка при обновлении цен')
+                            ->danger()
+                            ->send();
+                    }
+                }),
             DeleteAction::make(),
         ];
     }
