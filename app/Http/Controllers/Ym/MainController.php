@@ -250,14 +250,18 @@ class MainController extends Controller
 
             [$price_with_discount, $base_price] = $this->pricesCalc($item, $usdt_try, $usdt_rub);
 
-            if ($price_with_discount < (Settings::get('YM_MIN_SUM_FOR_UPDATE') * 100)) {
-                $price_with_discount = Settings::get('YM_MIN_SUM_FOR_UPDATE') * 100;
+            $shop = $shops->get($item->bussiness_id);
+            $minPrice = $shop && $shop->ym_min_price ? $shop->ym_min_price : (int)Settings::get('YM_MIN_SUM_FOR_UPDATE', 0);
+            $diffHours = $shop && $shop->ym_diff_hours ? $shop->ym_diff_hours : (float)Settings::get('YM_DIFF_IN_HOURS_FOR_SALE');
+
+            if ($price_with_discount < ($minPrice * 100)) {
+                $price_with_discount = $minPrice * 100;
                 $base_price = $price_with_discount;
             }
 
             if ($price_with_discount !== $base_price &&
                 $item->end_discount_stamp &&
-                now()->diffInHours($item->end_discount_stamp) < (float)Settings::get('YM_DIFF_IN_HOURS_FOR_SALE')
+                now()->diffInHours($item->end_discount_stamp) < $diffHours
             ) {
                 $price_with_discount = $base_price;
             }
@@ -343,8 +347,7 @@ class MainController extends Controller
             ->keyBy('business_id');
 
         $global_tax = Settings::get('YM_TAX', 30);
-
-        $category_id = (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474));
+        $global_category_id = (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474));
 
         $finished_data = [];
 
@@ -401,10 +404,11 @@ class MainController extends Controller
 
             $shop = $shops->get($item->bussiness_id);
             $item_tax = $shop ? $shop->ym_tax : $global_tax;
+            $category_id = $shop && $shop->ym_category_id ? $shop->ym_category_id : $global_category_id;
 
             $price = round($price * (1 + $item_tax / 100));
 
-            $minPrice = (int)Settings::get('YM_MIN_SUM_FOR_UPDATE', 0);
+            $minPrice = $shop && $shop->ym_min_price ? $shop->ym_min_price : (int)Settings::get('YM_MIN_SUM_FOR_UPDATE', 0);
             if ($price < $minPrice) {
                 $price = $minPrice;
             }

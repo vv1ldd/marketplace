@@ -145,6 +145,15 @@ class ShopForm
                     ->helperText('Необходимо для DBS/FBS (например, 2157157)')
                     ->numeric()
                     ->required(),
+                TextInput::make('ym_min_price')
+                    ->label('Минимальная цена')
+                    ->numeric(),
+                TextInput::make('ym_category_id')
+                    ->label('Категория Яндекс')
+                    ->numeric(),
+                TextInput::make('ym_diff_hours')
+                    ->label('Разница часов для скидки')
+                    ->numeric(),
                 TextInput::make('notification_token')
                     ->label('Токен уведомлений')
                     ->password()
