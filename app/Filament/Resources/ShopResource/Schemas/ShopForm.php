@@ -164,6 +164,12 @@ class ShopForm
                     ->image()
                     ->directory('img/branding')
                     ->helperText('Прозрачный PNG, будет наложен по центру'),
+                \Filament\Forms\Components\Textarea::make('ym_chat_greeting')
+                    ->label('Приветствие в чате')
+                    ->rows(3),
+                \Filament\Forms\Components\Textarea::make('ym_chat_finish')
+                    ->label('Сообщение о доставке')
+                    ->rows(3),
                 TextInput::make('notification_token')
                     ->label('Токен уведомлений')
                     ->password()

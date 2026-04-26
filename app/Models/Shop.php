@@ -40,6 +40,8 @@ class Shop extends Model implements HasName
         'ym_diff_hours',
         'ym_base_card',
         'ym_logo',
+        'ym_chat_greeting',
+        'ym_chat_finish',
         'is_active',
         'auto_purchase_enabled',
         'use_custom_smtp',
