@@ -15,13 +15,13 @@ use Filament\Tables\Table;
 
 class CurrencyResource extends Resource
 {
-    protected static ?string $model = Currency::class;
+    protected static $model = Currency::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
-    protected static ?string $navigationLabel = 'Валюты';
-    protected static ?string $modelLabel = 'Валюту';
-    protected static ?string $pluralModelLabel = 'Валюты';
-    protected static ?string $navigationGroup = 'Настройки';
+    protected static $navigationIcon = 'heroicon-o-currency-dollar';
+    protected static $navigationLabel = 'Валюты';
+    protected static $modelLabel = 'Валюту';
+    protected static $pluralModelLabel = 'Валюты';
+    protected static $navigationGroup = 'Настройки';
 
     public static function form(Form $form): Form
     {
