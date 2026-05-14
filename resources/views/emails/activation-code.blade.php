@@ -27,6 +27,17 @@ border-radius:8px; text-align:center; font-size:16px; font-weight:bold; letter-s
 Используйте этот код в соответствующем сервисе для пополнения.
 </p>
 
+@if(!empty($viewCodePageUrl))
+<p style="margin-top:16px;">
+<a href="{{ $viewCodePageUrl }}" style="display:inline-block; padding:12px 20px; background:#1a73e8; color:#fff; text-decoration:none; border-radius:8px; font-weight:bold;">
+Открыть страницу с кодом
+</a>
+</p>
+<p style="margin-top:8px; color:#666; font-size:12px;">
+Ссылка действует ограниченное время; на странице можно скопировать код и прочитать инструкцию.
+</p>
+@endif
+
 <p style="margin-top:20px;">
 Если возникнут вопросы:<br>
 <a href="mailto:{{$support_email}}" style="color:#1a73e8;">

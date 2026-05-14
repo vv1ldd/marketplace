@@ -12,15 +12,20 @@ class ManagersRelationManager extends RelationManager
 {
     protected static string $relationship = 'managers';
 
-    protected static ?string $title = 'Менеджеры (B2B партнеры)';
+    protected static ?string $title = null;
+
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('admin.shops.relations.managers');
+    }
 
     public function table(Table $table): Table
     {
         return $table
             ->recordTitleAttribute('email')
             ->columns([
-                Tables\Columns\TextColumn::make('email')->label('Email'),
-                Tables\Columns\TextColumn::make('pivot.role')->label('Роль')->badge(),
+                Tables\Columns\TextColumn::make('email')->label(__('admin.customers.email')),
+                Tables\Columns\TextColumn::make('pivot.role')->label(__('admin.users.role'))->badge(),
             ])
             ->filters([
                 //
@@ -34,11 +39,11 @@ class ManagersRelationManager extends RelationManager
                     ->form(fn (\Filament\Actions\AttachAction $action): array => [
                         $action->getRecordSelect(),
                         Forms\Components\Select::make('role')
-                            ->label('Роль')
+                            ->label(__('admin.users.role'))
                             ->options([
-                                'owner' => 'Владелец',
-                                'manager' => 'Менеджер',
-                                'viewer' => 'Наблюдатель',
+                                'owner' => __('admin.shops.relations.roles.owner'),
+                                'manager' => __('admin.shops.relations.roles.manager'),
+                                'viewer' => __('admin.shops.relations.roles.viewer'),
                             ])
                             ->required()
                             ->default('manager'),

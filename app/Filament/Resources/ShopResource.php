@@ -5,9 +5,6 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ShopResource\Pages\CreateShop;
 use App\Filament\Resources\ShopResource\Pages\EditShop;
 use App\Filament\Resources\ShopResource\Pages\ListShops;
-use App\Filament\Resources\ShopResource\RelationManagers\ApiApplicationsRelationManager;
-use App\Filament\Resources\ShopResource\RelationManagers\ClientsRelationManager;
-use App\Filament\Resources\ShopResource\RelationManagers\ManagersRelationManager;
 use App\Filament\Resources\ShopResource\Schemas\ShopForm;
 use App\Filament\Resources\ShopResource\Tables\ShopsTable;
 use App\Models\Shop;
@@ -22,11 +19,27 @@ class ShopResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-shopping-bag';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Настройки';
+    public static function getNavigationLabel(): string
+    {
+        return __('admin.shops.shops');
+    }
 
-    protected static ?string $label = 'Магазин';
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Магазины и B2B';
+    }
 
-    protected static ?string $pluralLabel = 'Магазины';
+    protected static ?int $navigationSort = 20;
+
+    public static function getLabel(): ?string
+    {
+        return __('admin.shops.shop');
+    }
+
+    public static function getPluralLabel(): ?string
+    {
+        return __('admin.shops.shops');
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -41,9 +54,7 @@ class ShopResource extends Resource
     public static function getRelations(): array
     {
         return [
-            ApiApplicationsRelationManager::class,
-            ClientsRelationManager::class,
-            ManagersRelationManager::class,
+            //
         ];
     }
 

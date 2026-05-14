@@ -25,14 +25,18 @@ class ListOrders extends ListRecords
 
         if ($super_admin) {
             return [
-                'Все' => Tab::make('Все')->badge(fn() => Order::count()),
-                'Не обработаны' => Tab::make('Не обработаны')
+                'All' => Tab::make(__('admin.orders.tabs.all'))->badge(fn() => Order::count()),
+                'Unprocessed' => Tab::make(__('admin.orders.tabs.unprocessed'))
                     ->badge(fn() => Order::where('progress_id', '<>', 4)->where('is_problem', false)->count())
                     ->modifyQueryUsing(fn(Builder $query) => $query->where('progress_id', '<>', 4)->where('is_problem', false)),
-                'Проблемные' => Tab::make('Проблемные')
+                'Problematic' => Tab::make(__('admin.orders.tabs.problematic'))
                     ->badge(fn() => Order::where('is_problem', true)->count())
                     ->badgeColor('danger')
-                    ->modifyQueryUsing(fn(Builder $query) => $query->where('is_problem', true))
+                    ->modifyQueryUsing(fn(Builder $query) => $query->where('is_problem', true)),
+                'Processed' => Tab::make(__('admin.orders.tabs.processed'))
+                    ->badge(fn() => Order::where('progress_id', 4)->count())
+                    ->badgeColor('success')
+                    ->modifyQueryUsing(fn(Builder $query) => $query->where('progress_id', 4)),
             ];
         } else {
             return [];
@@ -64,7 +68,7 @@ class ListOrders extends ListRecords
 
         if ($is_executor) {
             $action = Action::make('takeOrder')
-                ->label('Взять заказ')
+                ->label(__('admin.orders.actions.take_order'))
 //                    ->redeem(function () {
 //                        return [
 //                            TextInput::make('comment')
@@ -80,7 +84,7 @@ class ListOrders extends ListRecords
 
                             Notification::make()
                                 ->warning()
-                                ->title('Завершите обработку уже взятых заказов, чтобы взять новый.')
+                                ->title(__('admin.orders.notifications.complete_previous'))
                                 ->send();
 
                             return;
@@ -94,7 +98,7 @@ class ListOrders extends ListRecords
                     if (!$order) {
                         Notification::make()
                             ->warning()
-                            ->title('Нет доступных заказов')
+                            ->title(__('admin.orders.notifications.no_available'))
                             ->send();
 
                         return;
@@ -107,7 +111,7 @@ class ListOrders extends ListRecords
 
                     Notification::make()
                         ->success()
-                        ->title("Заказ #{$order->id} взят")
+                        ->title(__('admin.orders.notifications.order_taken', ['id' => $order->id]))
                         ->send();
 
                     // Используем Livewire redirect, если это действие в Widget или Page

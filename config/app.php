@@ -39,7 +39,7 @@ return [
     |
     */
 
-    'debug' => (bool)env('APP_DEBUG', false),
+    'debug' => (bool) env('APP_DEBUG', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -125,5 +125,37 @@ return [
 
     'domain' => env('APP_DOMAIN', '1gros.local'),
 
+    /**
+     * Хосты Filament-панелей (без схемы). Пусто — панели доступны с любого Host (удобно для localhost).
+     */
+    'admin_panel_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('OPS_PANEL_DOMAIN', env('ADMIN_PANEL_DOMAIN', '')))))),
+    'partner_panel_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('CONSORTIUM_PANEL_DOMAIN', env('PARTNER_PANEL_DOMAIN', '')))))),
+    'treasury_panel_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('TREASURY_PANEL_DOMAIN', ''))))),
+    'kernel_panel_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('KERNEL_PANEL_DOMAIN', ''))))),
+    'audit_panel_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('TRIBUNAL_PANEL_DOMAIN', env('AUDIT_PANEL_DOMAIN', '')))))),
+    'support_panel_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('SUPPORT_PANEL_DOMAIN', ''))))),
+
     'wildflow_token' => env('APP_WILDFLOW_TOKEN'),
+
+    /**
+     * На local с дампом БД с прода: абсолютные ссылки на свой маркет (см. remote_asset_hosts)
+     * трактовать как файлы из public и открывать через asset() на текущем APP_URL.
+     * Выкл: APP_REWRITE_REMOTE_ASSETS=false
+     */
+    'rewrite_remote_asset_urls' => filter_var(
+        env('APP_REWRITE_REMOTE_ASSETS', env('APP_ENV') === 'local'),
+        FILTER_VALIDATE_BOOL
+    ),
+
+    /** @var list<string> */
+    'remote_asset_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env(
+        'APP_REMOTE_ASSET_HOSTS',
+        'marketplace.meanly.ru,www.marketplace.meanly.ru'
+    ))))),
+
+    /**
+     * Только local: на шаге redeem после email принять этот код вместо значения из сессии (без реальной почты).
+     * Пусто — отключено. На production/staging не задавать.
+     */
+    'redeem_local_verification_code' => env('REDEEM_LOCAL_VERIFICATION_CODE'),
 ];

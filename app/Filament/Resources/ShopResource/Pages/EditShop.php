@@ -5,10 +5,83 @@ namespace App\Filament\Resources\ShopResource\Pages;
 use App\Filament\Resources\ShopResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Str;
 
 class EditShop extends EditRecord
 {
     protected static string $resource = ShopResource::class;
+
+    public function hasCombinedRelationManagerTabsWithContent(): bool
+    {
+        return true;
+    }
+
+    public function getContentTabLabel(): ?string
+    {
+        return __('admin.shops.tabs.settings');
+    }
+
+    public function getRelationManagersContentComponent(): \Filament\Schemas\Components\Component
+    {
+        return parent::getRelationManagersContentComponent()
+            ->contained(true)
+            ->extraAttributes([
+                'class' => 'w-full',
+                'style' => 'width: 100%',
+            ]);
+    }
+
+    public function mount(int|string $record): void
+    {
+        ini_set('memory_limit', '512M');
+        parent::mount($record);
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $allowed = $data['allowed_categories'] ?? [];
+        if (! is_array($allowed)) {
+            $allowed = [];
+        }
+
+        $region = $data['shop_region'] ?? 'RU';
+        $groupsMap = \App\Filament\Resources\ShopResource\Schemas\ShopForm::getGroupsMap($region);
+
+        // Populate categories
+        if ($groupsMap) {
+            foreach ($groupsMap as $groupName => $brandOptions) {
+                $groupKey = 'cat_'.Str::slug($groupName, '_');
+                $brandIds = array_keys($brandOptions);
+                $data[$groupKey] = array_values(array_intersect($allowed, $brandIds));
+            }
+        }
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // 🌟 If we are NOT allowing all brands, we must update the allowed_categories list
+        if (! ($data['allow_all_brands'] ?? false)) {
+            $allSelected = [];
+
+            // Merge all cat_* fields into allowed_categories
+            foreach ($data as $key => $value) {
+                if (str_starts_with($key, 'cat_') && is_array($value)) {
+                    $allSelected = array_merge($allSelected, $value);
+                }
+            }
+
+            $data['allowed_categories'] = array_values(array_unique($allSelected));
+        } else {
+            // If allow_all_brands is TRUE, we keep existing allowed_categories
+            // OR we can just ignore them as the scope will ignore them anyway.
+            // But we MUST NOT set it to [] here based on empty form fields.
+            unset($data['allowed_categories']); // Don't overwrite if it's not in the form
+        }
+
+        return $data;
+    }
 
     protected function afterSave(): void
     {
@@ -18,111 +91,6 @@ class EditShop extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            \Filament\Actions\Action::make('update_ym_prices')
-                ->label('Обновить цены YM')
-                ->color('info')
-                ->icon('heroicon-o-arrow-path')
-                ->requiresConfirmation()
-                ->action(function () {
-                    $controller = app(\App\Http\Controllers\Ym\MainController::class);
-                    $request = new \Illuminate\Http\Request(['business_id' => $this->record->business_id]);
-                    
-                    $response = $controller->sendItemsWildflow($request);
-                    
-                    if ($response->isSuccessful()) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Цены успешно обновлены')
-                            ->success()
-                            ->send();
-                    } else {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Ошибка при обновлении цен')
-                            ->danger()
-                            ->send();
-                    }
-                }),
-            \Filament\Actions\Action::make('update_ym_stocks')
-                ->label('Обновить остатки YM')
-                ->color('warning')
-                ->icon('heroicon-o-archive-box')
-                ->requiresConfirmation()
-                ->action(function () {
-                    $controller = app(\App\Http\Controllers\Ym\MainController::class);
-                    $request = new \Illuminate\Http\Request(['business_id' => $this->record->business_id]);
-                    
-                    $response = $controller->prepareSendStockItemsWildflow($request);
-                    
-                    if ($response->isSuccessful()) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Остатки успешно обновлены')
-                            ->success()
-                            ->send();
-                    } else {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Ошибка при обновлении остатков')
-                            ->danger()
-                            ->send();
-                    }
-                }),
-            \Filament\Actions\Action::make('upload_provider_products')
-                ->label('Залить товары провайдера')
-                ->icon('heroicon-o-cloud-arrow-up')
-                ->color('success')
-                ->form([
-                    \Filament\Forms\Components\Select::make('provider')
-                        ->label('Провайдер')
-                        ->options([
-                            'playstation' => 'PlayStation',
-                            'wildflow' => 'Wildflow',
-                        ])
-                        ->required(),
-                ])
-                ->action(function (array $data) {
-                    $shop = $this->record;
-                    $provider = $data['provider'];
-                    
-                    $products = \App\Models\Product::where('type', $provider)
-                        ->where('is_active', true)
-                        ->get();
-                    
-                    $generator = new \App\Services\ImageGenerator();
-                    $service = new \App\Http\Services\YmService($shop);
-                    $categoryId = (int)($shop->ym_category_id ?? \App\Models\Settings::get('YM_CATEGORY_ID', 70301474));
-                    
-                    $offers = [];
-                    foreach ($products as $p) {
-                        try {
-                            // 1. Generate Shop-Specific Image
-                            $itemData = $p->data['data'] ?? [];
-                            $genData = [
-                                'sku' => $p->sku,
-                                'price' => $itemData['price'] ?? ($p->price_rub / 100),
-                                'symbol' => $itemData['product']['currency']['symbol'] ?? ($p->type === 'playstation' ? ' TL' : ''),
-                                'category' => $p->category ?? ($p->type === 'playstation' ? 'ps' : 'other'),
-                                'region_code' => $itemData['product']['regions'][0]['code'] ?? 'TR',
-                            ];
-                            
-                            $generator->generate($genData, $shop->ym_base_card, $shop->ym_logo, $shop->id);
-
-                            // 2. Prepare Offer with shopId
-                            $offers[] = ["offer" => $p->toYmOffer($categoryId, $shop->id)];
-                        } catch (\Exception $e) {
-                             \Illuminate\Support\Facades\Log::error("Bulk Provider Sync failed for SKU {$p->sku}: " . $e->getMessage());
-                        }
-                    }
-
-                    $chunks = array_chunk($offers, 50);
-                    foreach ($chunks as $chunk) {
-                        $service->offerMappingsUpdate($chunk);
-                    }
-
-                    \Filament\Notifications\Notification::make()
-                        ->title('Выгрузка завершена')
-                        ->body("Активные товары ({$provider}) отправлены в магазин: {$shop->name}")
-                        ->success()
-                        ->send();
-                })
-                ->requiresConfirmation(),
             DeleteAction::make(),
         ];
     }

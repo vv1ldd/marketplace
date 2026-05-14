@@ -1,0 +1,39 @@
+{
+    "id": 5220,
+    "sku": "DPmbs8X33fsqZVKu",
+    "data": {
+        "sku": 11231,
+        "upc": 659245734067,
+        "image": "https:\/\/d1upatzsvnpphr.cloudfront.net\/gift\/products\/images\/2025\/12\/Cashi_Walmart.png",
+        "title": "Cashi Walmart",
+        "regions": [
+            {
+                "code": "MX",
+                "name": "Mexico"
+            }
+        ],
+        "currency": {
+            "code": "MXN",
+            "symbol": "MX$",
+            "currency": "Pesos"
+        },
+        "max_price": 500,
+        "min_price": 500,
+        "pre_order": true,
+        "categories": [
+            {
+                "name": "Cashi Walmart"
+            }
+        ],
+        "upc_string": "659245734067",
+        "description": "{\"content\": [{\"title\": \"Product Description\", \"description\": \"Con Cashi ahorra en cada compra que hagas en Walmart, Bodega Aurrera, Walmart Express y Sam\\u2019s Club.\", \"type\": \"marketing\"}, {\"title\": \"Redemption Instruction\", \"description\": \"Descarga y abre la aplicaci\\u00f3n de Cashi en tu celular (disponible en Google Play y App Store). Crea un usuario y en la secci\\u00f3n saldo disponible presiona la opci\\u00f3n Cargar y luego haz clic en Canjear c\\u00f3digo promocional y ah\\u00ed introduce tu c\\u00f3digo Cashi para cargar el saldo del c\\u00f3digo en tu cuenta y puedas comenzar a usarlo.\", \"type\": \"redeem\"}, {\"title\": \"Terms and Conditions\", \"description\": \"El saldo existente en su Tarjeta de Regalo Cashi esta\\u0301 sujeto a las siguientes restricciones:\\r\\n\\r\\n(i) No podr\\u00e1\\u0301 ser transferido total o parcialmente a otro Cashi ni ninguna otra cuenta o medio de pago, canjeado por dinero en efectivo o usado para adquirir otras tarjetas de regalo emitidas o comercializadas por Walmex; (ii) Los montos no pueden ser canjeados o convertidos a dinero en efectivo; (iii) No podr\\u00e1\\u0301 exceder en ning\\u00fan momento del equivalente a $60,000.00 (sesenta mil pesos M.N.); (iv) La vigencia del saldo existente ser\\u00e1\\u0301 de 2 (dos) a\\u00f1os contados a partir del d\\u00eda de su \\u00faltimo movimiento (recarga o compra), el cual, en caso de no hacer uso de su saldo dentro de esta vigencia, ser\\u00e1\\u0301 cancelado sin derecho a devoluci\\u00f3n alguna; (v) No podr\\u00e1n realizarse m\\u00e1s de 5 (cinco) recargas, ni tampoco pagarse el mismo servicio o servicios de la misma categor\\u00eda m\\u00e1s de 5 (cinco) veces, en un mismo d\\u00eda; (vi) No podr\\u00e1\\u0301 adquirir bienes o servicios diferentes a los comercializados por y\/o disponibles directamente a trav\\u00e9s de Walmex, y; (vii) Cualesquier otras limitaciones que Walmex podr\\u00e1\\u0301 establecer a fin de dar cumplimiento a la legislaci\\u00f3n aplicable. En caso de que el Usuario requiera realizar una devoluci\\u00f3n o cancelaci\\u00f3n de una compra realizada con la Tarjeta de Regalo, previa la validaci\\u00f3n de los requisitos de devoluci\\u00f3n aplicables seg\\u00fan las pol\\u00edticas de Walmex y, en su caso, entrega de la documentaci\\u00f3n necesaria para validar la identidad del Usuario, con excepci\\u00f3n del pago de servicios, Walmex devolver\\u00e1\\u0301 el saldo utilizado mediante el mismo medio de pago, es decir tarjeta de regalo.\", \"type\": \"terms\"}, {\"title\": \"Legal Disclaimer\", \"description\": \"\", \"type\": \"legal_disclaimer\"}]}",
+        "reward_type": 0,
+        "showing_price": null,
+        "activation_fee": 0,
+        "reward_type_text": "Gift-Card",
+        "percentage_of_buying_price": 0.8
+    },
+    "created_at": "2026-04-29T09:01:44.000000Z",
+    "updated_at": "2026-04-29T23:01:59.000000Z",
+    "service_sku": 11231
+}

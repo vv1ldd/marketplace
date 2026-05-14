@@ -2,24 +2,33 @@
 
 namespace App\Models\Order;
 
-use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class OrderComment extends Model
 {
     protected $fillable = [
         'order_id',
         'user_id',
+        'user_type',
         'comment',
     ];
 
-    public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    protected $casts = [
+        'comment' => \App\Casts\VaultEncrypted::class,
+    ];
+
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class, 'order_id', 'id');
     }
 
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    /**
+     * Get the author of the comment (User or Seller).
+     */
+    public function user(): MorphTo
     {
-        return $this->belongsTo(User::class, 'user_id', 'id');
+        return $this->morphTo('user', 'user_type', 'user_id');
     }
 }

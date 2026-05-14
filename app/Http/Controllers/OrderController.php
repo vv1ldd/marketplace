@@ -8,10 +8,8 @@ use App\Http\Services\YmService;
 use App\Jobs\SendTelegramJob;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
-use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Random\RandomException;
 
@@ -29,259 +27,8 @@ class OrderController extends Controller
         $this->log->info('/-----------------------/');
     }
 
-    public function createdFromWoo(array $order, array $items, string $connection): array
-    {
-        $log = $this->log;
-
-        $log->debug('createFromWoo data', ['order' => $order, 'items' => $items, 'connection' => $connection]);
-
-        $client_info = [
-            'email' => $order['billing_email'],
-            'phone' => NormalizePhone::normalize($order['billing_phone']),
-            'lastName' => $order['billing_last_name'],
-            'firstName' => $order['billing_first_name'],
-        ];
-
-        try {
-            $user = UserController::getByPhone($order["billing_phone"]);
-            if ($user) {
-                $log->debug('user found by phone', [$user]);
-            } else {
-                $log->debug('user not found by phone', [$client_info]);
-            }
-
-        } catch (\Exception $exception) {
-            $log->error('error getByPhone, but continue process', [
-                'exception' => $exception->getMessage(),
-            ]);
-        }
-
-        if (empty($user)) {
-            try {
-                $user = UserController::updateOrCreate($order["billing_phone"], [
-                    'email' => $order["billing_email"],
-                    'last_name' => $order["billing_last_name"],
-                    'first_name' => $order["billing_first_name"],
-                ]);
-                $log->debug('user created', [$user]);
-            } catch (\Exception $exception) {
-                $log->error('error updateOrCreate user, but continue process', [
-                    'exception' => $exception->getMessage(),
-                ]);
-            }
-        }
-
-        $order_full_info = [
-            'order' => $order,
-            'items' => $items,
-            'connection' => $connection
-        ];
-
-        $woo_order_id = $order['order_id'] . '-' . $connection;
-
-        try {
-            $new_order = Order::create([
-                'order_id' => $woo_order_id,
-                'uuid' => Str::uuid()->toString(),
-                'status' => 'wc-processing',
-                'sub_status' => 'wc-processing',
-                'info' => $order_full_info,
-                'client_info' => $client_info,
-                'user_id' => $user->id ?? null,
-                'shop_id' => $shop->id ?? null
-            ]);
-            
-            $order_id = $new_order->id;
-
-            $new_order->comments()->create([
-                'user_id' => $new_order->user_id,
-                'comment' => "Заказ получен из WooCommerce ($connection)"
-            ]);
-        } catch (\Exception $e) {
-
-            $log->error('create order error', [
-                'exception' => $e->getMessage(),
-            ]);
-
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
-        }
-
-        $log->debug('order created', [$order_id]);
-
-        $log->info('order items creating');
-
-        if (empty($items)) {
-
-            $log->error('items is empty');
-
-            return [
-                'success' => false,
-                'error' => 'items is empty',
-            ];
-        }
-
-        foreach ($items as $item) {
-
-            try {
-                $key = GenerateSecureCode::generate();
-            } catch (RandomException $e) {
-                $log->error($e->getMessage());
-
-                return [
-                    'success' => false,
-                    'error' => $e->getMessage(),
-                ];
-            }
-
-            $keys_data[] = [
-                'key' => $key,
-                'name' => data_get($item, "order_item_name"),
-            ];
-
-            $sku = data_get($item, 'meta._sku');
-
-            if (!$sku) {
-
-                $log->info('create TEMP sku');
-
-                $sku = 'temp' . '-' . Str::random(10) . '-' . $connection;
-
-                PlayStationAlt::create([
-                    'sku' => $sku,
-                    'region_id' => '0f63f19f-fb73-4e9f-8f77-5a51d0d70009',
-                    'base_price' => data_get($item, 'product._line_subtotal') * 100,
-                    'price_with_discount' => data_get($item, 'product._line_total') * 100,
-                    'name' => data_get($item, "order_item_name"),
-                    'is_manual' => 1,
-                    'woo_price_rub' => data_get($item, 'product._line_total') * 100,
-                    'woo_price_try' => data_get($item, 'meta._price_try') * 100,
-                ]);
-
-            } else {
-
-                $log->info('search product by sku');
-
-                $product = PlayStationAlt::where('sku', $sku)->first();
-
-                if (!$product) {
-                    $log->info('product not found by sku');
-
-                    PlayStationAlt::create([
-                        'sku' => $sku,
-                        'region_id' => '0f63f19f-fb73-4e9f-8f77-5a51d0d70009',
-                        'base_price' => data_get($item, 'product._line_subtotal') * 100,
-                        'price_with_discount' => data_get($item, 'product._line_total') * 100,
-                        'name' => data_get($item, "order_item_name"),
-                        'is_manual' => 1,
-                        'woo_price_rub' => data_get($item, 'product._line_total') * 100,
-                        'woo_price_try' => data_get($item, 'meta._price_try') * 100,
-                    ]);
-
-                    $log->debug('product created by sku', [$sku]);
-                } else {
-                    $log->debug('product found by sku', [$product]);
-
-                    PlayStationAlt::where('sku', $sku)->update([
-                        'woo_price_rub' => data_get($item, 'product._line_total') * 100,
-                        'woo_price_try' => data_get($item, 'meta._price_try') * 100,
-                    ]);
-                }
-            }
-
-            $insert_data[] = [
-                'key' => $key,
-                'uuid' => Str::uuid()->toString(),
-                'order_id' => $order_id,
-                'activate_till' => now()->addYear()->format('Y-m-d'),
-                'sku' => $sku,
-                'count' => data_get($item, 'product._qty', 1),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-
-        }
-
-        $log->debug('keys', [$keys_data]);
-        $log->debug('insert_data', [$insert_data]);
-
-//        $order = Order::where('order_id', $order_id)->first();
-
-        try {
-
-            \DB::beginTransaction();
-
-            OrderItems::insert($insert_data);
-
-//            $service->provideOrderDigitalCodes(keys: $keys_data, campaignId: $data['campaignId'], orderId: $data['orderId']);
-
-//            $order->update([
-//                'status' => 'PROCESSING',
-//                'sub_status' => $data['substatus']
-//            ]);
-
-            \DB::commit();
-
-        } catch (\Exception $e) {
-
-            \DB::rollBack();
-
-            $log->error('provideOrderDigitalCodes', [$e->getMessage()]);
-
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
-        }
-
-        $order_model = Order::where('order_id', $order_id)->first();
-        $shop = $order_model?->shop;
-
-        try {
-            $log->info('send instruction via MailService');
-
-            $mailService = new \App\Services\MailService();
-            $subject = $shop?->use_custom_smtp && $shop?->smtp_subject 
-                ? $shop->smtp_subject 
-                : Settings::get('SMTP_SUBJECT', 'Ваш код активации');
-
-            $mailService->sendShopMail(
-                shop: $shop,
-                view: 'instruction_with_code',
-                data: [
-                    'keys_data' => $keys_data,
-                    'first_name' => $order['billing_first_name'],
-                    'order_id' => $order_id,
-                    'shop' => $shop,
-                ],
-                to: $order['billing_email'],
-                subject: $subject
-            );
-
-        } catch (\Exception $e) {
-
-            $log->error('send instruction to smtp error', [$e->getMessage()]);
-
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
-        }
-
-        $log->info('success');
-
-        SendTelegramJob::dispatchSync(order_id: $woo_order_id, status: 'new');
-
-        return [
-            'success' => true,
-            'order_id' => $order_id,
-        ];
-    }
 
     /**
-     * @param array $data
      * @return array|true[]
      */
     public function updated(array $data): array
@@ -293,7 +40,7 @@ class OrderController extends Controller
         $order = Order::where('order_id', $data['orderId'])
             ->first();
 
-        if (!$order) {
+        if (! $order) {
             $log->error('order not found', [$order]);
 
             return [
@@ -308,7 +55,7 @@ class OrderController extends Controller
             return [
                 'success' => false,
                 'error' => 'current order status not NEW or PROCESSING',
-                'code' => 1
+                'code' => 1,
             ];
         }
 
@@ -325,55 +72,129 @@ class OrderController extends Controller
 
             foreach ($order_info['items'] as $item) {
 
-                try {
-                    $key = GenerateSecureCode::generate($order->shop?->voucher_prefix);
-                } catch (RandomException $e) {
-                    $log->error($e->getMessage());
+                $sku = (string) data_get($item, 'offerId');
+                
+                // 🎟 Try to find a pre-generated voucher in stock
+                $inventory = \App\Models\ProductInventory::where('shop_id', $order->shop_id)
+                    ->where('sku', $sku)
+                    ->where('is_used', false)
+                    ->first();
+                
+                if (! $inventory) {
+                    $product_model = \App\Models\Product::with('provider')->queryByOfferSku($sku)->where('shop_id', $order->shop_id)->first();
+                    
+                    $hasActiveProvider = $product_model && $product_model->provider_id && $product_model->provider?->is_active;
 
-                    return [
-                        'success' => false,
-                        'error' => $e->getMessage(),
-                    ];
+                    if ($hasActiveProvider && $order->shop_id >= 1) { // Include shop 1 for testing and main operations
+                        $log->info('Stock empty, attempting auto-replenish', ['sku' => $sku]);
+                        
+                        try {
+                            $catalogItem = \App\Models\WildflowCatalog::where('sku', $product_model->wildflow_catalog_sku ?? $product_model->sku)->first();
+                            $sellerId = $order->shop->sellers()->first()?->id ?? 1; // Fallback to system user if no seller linked
+
+                            if ($catalogItem) {
+                                // Try to buy 1 item into stock automatically
+                                \App\Jobs\AddCatalogItemToShop::dispatchSync(
+                                    catalogItemId: $catalogItem->id,
+                                    shopId: $order->shop_id,
+                                    sellerId: $sellerId,
+                                    count: 1
+                                );
+                                
+                                // Re-search for inventory
+                                $inventory = \App\Models\ProductInventory::where('shop_id', $order->shop_id)
+                                    ->where('sku', $sku)
+                                    ->where('is_used', false)
+                                    ->first();
+                                    
+                                if ($inventory) {
+                                    $log->info('Auto-replenish success, voucher obtained');
+                                    $order->comments()->create([
+                                        'comment' => "📦 Автопополнение: Товар {$sku} автоматически добавлен на склад (баланс позволил).",
+                                    ]);
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            $log->warning('Auto-replenish failed', ['error' => $e->getMessage()]);
+                        }
+                    }
                 }
+
+                if (! $inventory) {
+                    throw new \Exception("Товар {$sku} отсутствует на складе и автопополнение невозможно (проверьте баланс или наличие у поставщика).");
+                }
+
+                $key = $inventory->voucher; // our internal redeem token (not the real Wildflow gift-card code)
 
                 $keys_data[] = [
                     'id' => data_get($item, 'id'),
                     'activate_till' => now()->addYear()->format('Y-m-d'),
-                    'slip' => view('instruction')->render(),
-                    'codes' => [$key]
+                    'slip' => view('instruction', ['shop' => $order->shop])->render(),
+                    'codes' => [$key],
                 ];
 
-                $type_form_id = \App\Models\Product::where("sku", data_get($item, 'offerId'))->value('type_form_id');
+                $product_model = \App\Models\Product::queryByOfferSku($sku)->first();
+                $type_form_id = $product_model?->type_form_id;
 
-                $insert_data[] = [
+                $order_item_uuid = Str::uuid()->toString();
+                
+                $orderItem = OrderItems::create([
                     'key' => $key,
-                    'uuid' => Str::uuid()->toString(),
+                    'uuid' => $order_item_uuid,
                     'order_id' => $order->id,
                     'activate_till' => now()->addYear()->format('Y-m-d'),
-                    'sku' => data_get($item, 'offerId'),
+                    'sku' => $sku,
                     'count' => data_get($item, 'count'),
                     'price_rub' => data_get($item, 'price') * 100,
-                    'price_try' => data_get($item, 'buyerPrice') * 100, // Using buyerPrice as a second price field for now
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                    'type_form_id' => $type_form_id
-                ];
+                    'price_try' => data_get($item, 'buyerPrice') * 100,
+                    'type_form_id' => $type_form_id,
+                    'purchase_status' => 'pending',
+                ]);
+
+                // If we used a pre-generated code, link it to this item
+                if ($inventory) {
+                    $inventory->update([
+                        'is_used' => true,
+                        'order_item_id' => $orderItem->id,
+                        'status' => 'reserved', // Voucher is now held under this order
+                    ]);
+
+                    // ⛓️ Sovereign Ledger: Record the STOCK_RESERVE
+                    app(\App\Services\LedgerService::class)->record($order->shop, 'STOCK_RESERVE', $inventory, [
+                        'order_id' => $order->id,
+                        'order_item_id' => $orderItem->id,
+                        'sku' => $inventory->sku,
+                    ]);
+
+                    // 💰 Sovereign Ledger: Record the FINANCE_CAPTURE (Since we just delivered the code to Yandex)
+                    app(\App\Services\LedgerService::class)->record($order->shop, 'FINANCE_CAPTURE', $order, [
+                        'order_id' => $order->id,
+                        'inventory_id' => $inventory->id,
+                        'sku' => $inventory->sku,
+                    ]);
+
+                    // 📊 Stock Management: Check rules (notifications, auto-replenish)
+                    if ($product_model) {
+                        app(\App\Services\StockManagementService::class)->processStockChange($product_model);
+                    }
+                }
             }
 
             $log->debug('keys', [$keys_data]);
-            $log->debug('insert_data', [$insert_data]);
+            $log->debug('order items created');
 
             try {
 
                 \DB::beginTransaction();
 
-                OrderItems::insert($insert_data);
-
+                // OrderItems already created above
+                
                 $service->provideOrderDigitalCodes(keys: $keys_data, campaignId: $data['campaignId'], orderId: $data['orderId']);
 
                 $order->update([
                     'status' => 'PROCESSING',
-                    'sub_status' => $data['substatus']
+                    'sub_status' => $data['substatus'],
+                    'progress_id' => 2, // В обработке
                 ]);
 
                 \DB::commit();
@@ -405,19 +226,54 @@ class OrderController extends Controller
 
             $log->info('success');
 
-            SendTelegramJob::dispatchSync(order_id: $data['orderId'], status: 'new');
+            if (! data_get($data, 'is_manual_sync', false)) {
+                SendTelegramJob::dispatchSync(order_id: $data['orderId'], status: 'new');
+            }
 
             return [
                 'success' => true,
             ];
 
-        } else if ($data['status'] === 'DELIVERY' || $data['status'] === 'DELIVERED') {
+        } elseif ($data['status'] === 'DELIVERY' || $data['status'] === 'DELIVERED') {
 
             $log->info('status DELIVERED or DELIVERY');
 
             $order->update([
                 'status' => $data['status'],
-                'sub_status' => $data['substatus']
+                'sub_status' => $data['substatus'],
+                'progress_id' => ($data['status'] === 'DELIVERED') ? 4 : 2,
+            ]);
+
+            return [
+                'success' => true,
+            ];
+
+        } elseif ($data['status'] === 'CANCELLED') {
+
+            $log->info('status CANCELLED - triggering release logic');
+
+            $order_items = OrderItems::where('order_id', $order->id)->get();
+
+            foreach ($order_items as $item) {
+                $inventory = \App\Models\ProductInventory::where('order_item_id', $item->id)->first();
+                if ($inventory) {
+                    $inventory->release('Marketplace Cancellation: ' . ($data['substatus'] ?? 'No reason provided'));
+                }
+            }
+
+            $order->update([
+                'status' => 'CANCELLED',
+                'sub_status' => $data['substatus'] ?? 'CANCELLED',
+                'progress_id' => 5, // Отменен
+            ]);
+
+            $order->comments()->create([
+                'comment' => "🚫 Заказ отменен маркетплейсом ({$data['substatus']}). Товар возвращен на склад, баланс восстановлен.",
+            ]);
+
+            // ⛓️ Sovereign Ledger: Record the Order Cancellation
+            app(\App\Services\LedgerService::class)->record($order->shop, 'ORDER_CANCEL', $order, [
+                'reason' => $data['substatus'] ?? 'unknown',
             ]);
 
             return [
@@ -435,10 +291,6 @@ class OrderController extends Controller
         }
     }
 
-    /**
-     * @param array $data
-     * @return array
-     */
     public function created(array $data): array
     {
         $log = $this->log;
@@ -449,43 +301,53 @@ class OrderController extends Controller
 
         if ($order) {
             $log->error('order already created', [$order]);
+
             return [
                 'success' => false,
                 'error' => 'order already created',
-                'code' => 1
+                'code' => 1,
             ];
         }
 
         $shop = isset($data['shop_id']) ? \App\Models\Shop::find($data['shop_id']) : null;
         $service = new YmService($shop);
 
-        try {
-            $order_full_info = $service->getOrder(campaignId: $data['campaignId'], orderId: $data['orderId']);
-            $items = data_get($order_full_info, 'items');
-            $log->debug('order_full_info', [$order_full_info]);
-        } catch (ConnectionException $e) {
-            $log->error('order_full_info', [
-                'exception' => $e->getMessage(),
-            ]);
+        $isSandbox = ($shop && $shop->is_sandbox) || !empty($data['fake']);
 
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
-        }
+        if ($isSandbox) {
+            $order_full_info = $data['order_full_info'] ?? [];
+            $items = data_get($order_full_info, 'items', []);
+            $client_info = $data['client_info'] ?? [];
+            $log->debug('sandbox mode: using fake order data', ['order_full_info' => $order_full_info, 'client_info' => $client_info]);
+        } else {
+            try {
+                $order_full_info = $service->getOrder(orderId: $data['orderId'], campaignId: $data['campaignId']);
+                $items = data_get($order_full_info, 'items');
+                $log->debug('order_full_info', [$order_full_info]);
+            } catch (ConnectionException $e) {
+                $log->error('order_full_info', [
+                    'exception' => $e->getMessage(),
+                ]);
 
-        try {
-            $client_info = $service->getOrderBuyerInfo(campaignId: $data['campaignId'], orderId: $data['orderId']);
-            $log->debug('client_info', [$client_info]);
-        } catch (ConnectionException $e) {
-            $log->error('getOrderBuyerInfo', [
-                'exception' => $e->getMessage(),
-            ]);
+                return [
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ];
+            }
 
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
+            try {
+                $client_info = $service->getOrderBuyerInfo(orderId: $data['orderId'], campaignId: $data['campaignId']);
+                $log->debug('client_info', [$client_info]);
+            } catch (ConnectionException $e) {
+                $log->error('getOrderBuyerInfo', [
+                    'exception' => $e->getMessage(),
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ];
+            }
         }
 
         try {
@@ -502,23 +364,27 @@ class OrderController extends Controller
             ]);
         }
 
-        try {
-            $chat_id = $service->newChat($data['orderId']);
-            $log->debug('chat_id YM', [$chat_id]);
-        } catch (ConnectionException $e) {
-            $log->error('newChat', [
-                'exception' => $e->getMessage(),
-            ]);
-        }
+        $is_manual_sync = data_get($data, 'is_manual_sync', false);
 
-        if (isset($chat_id)) {
+        if (! $is_manual_sync) {
             try {
-                $service->sendMessage($chat_id, view('chat.start_message', ['shop' => $shop])->render());
-                $log->debug('success send YM Message');
+                $chat_id = $service->newChat($data['orderId']);
+                $log->debug('chat_id YM', [$chat_id]);
             } catch (ConnectionException $e) {
-                $log->error('sendMessage YM', [
+                $log->error('newChat', [
                     'exception' => $e->getMessage(),
                 ]);
+            }
+
+            if (isset($chat_id)) {
+                try {
+                    $service->sendMessage($chat_id, view('chat.start_message', ['shop' => $shop])->render());
+                    $log->debug('success send YM Message');
+                } catch (ConnectionException $e) {
+                    $log->error('sendMessage YM', [
+                        'exception' => $e->getMessage(),
+                    ]);
+                }
             }
         }
 
@@ -531,20 +397,32 @@ class OrderController extends Controller
                 'chat_id' => $chat_id ?? null,
                 'user_id' => $user->id ?? null,
                 'shop_id' => $data['shop_id'] ?? null,
+                'business_id' => $shop ? $shop->business_id : null,
+                'campaign_id' => $shop ? $shop->campaign_id : ($data['campaignId'] ?? null),
                 'is_test' => data_get($order_full_info, 'fake', false),
+                'progress_id' => 2, // В обработке
             ]);
-            
+
+            // ⛓️ Sovereign Ledger: Record the initial order receipt (Yandex)
+            app(\App\Services\LedgerService::class)->record($new_order->shop, 'ORDER_RECEIVE', $new_order, [
+                'external_id' => $data['orderId'],
+                'channel' => 'yandex',
+                'is_test' => data_get($order_full_info, 'fake', false),
+                'client_email' => $client_info['email'] ?? null,
+                'client_phone' => $client_info['phone'] ?? null,
+            ]);
+
             $order_id = $new_order->id;
 
             $new_order->comments()->create([
                 'user_id' => null,
-                'comment' => "Заказ получен из Яндекс.Маркета" . (data_get($order_full_info, 'fake') ? " (ТЕСТ)" : "")
+                'comment' => 'Заказ получен из Яндекс.Маркета'.(data_get($order_full_info, 'fake') ? ' (ТЕСТ)' : ''),
             ]);
 
             if (data_get($order_full_info, 'fake')) {
                 $new_order->comments()->create([
                     'user_id' => null,
-                    'comment' => "⚠️ Внимание! Это тестовый заказ Яндекс.Маркета (Sandbox). Реальная закупка товара производиться не будет."
+                    'comment' => '⚠️ Внимание! Это тестовый заказ Яндекс.Маркета (Sandbox). Реальная закупка товара производиться не будет.',
                 ]);
             }
         } catch (\Exception $e) {
@@ -563,7 +441,7 @@ class OrderController extends Controller
 
             $sku = data_get($item, 'offerId');
 
-            if(!$sku) {
+            if (! $sku) {
                 continue;
             }
 
@@ -573,16 +451,16 @@ class OrderController extends Controller
                 ], [
                     'price_rub' => data_get($item, 'price') * 100,
                     'price_try' => data_get($item, 'buyerPrice') * 100,
-                    'name' => data_get($item, "order_item_name"),
+                    'name' => data_get($item, 'order_item_name'),
                     'is_manual' => 1,
                     'type_form_id' => str_starts_with($sku, 'VOUCHER-') ? 2 : 1,
-                    'type' => str_starts_with($sku, 'VOUCHER-') ? 'voucher' : 'game'
+                    'type' => str_starts_with($sku, 'VOUCHER-') ? 'voucher' : 'game',
                 ]);
             } catch (\Exception  $e) {
 
                 $log->error('update product error, but continue', [
                     'exception' => $e->getMessage(),
-                    'item' => $item
+                    'item' => $item,
                 ]);
 
                 continue;
@@ -590,12 +468,41 @@ class OrderController extends Controller
         }
 
         $log->debug('created', [
-            'order_id' => $order_id
+            'order_id' => $order_id,
         ]);
 
         return [
             'success' => true,
-            'order_id' => $order_id
+            'order_id' => $order_id,
         ];
+    }
+
+    public function arbitrageFinished(array $data): array
+    {
+        $log = $this->log;
+        $log->debug('arbitrageFinished data', [$data]);
+
+        $order = Order::where('order_id', $data['orderId'])->first();
+
+        if (! $order) {
+            $log->error('order not found for arbitrageFinished', [$data['orderId']]);
+
+            return ['success' => false, 'error' => 'order not found'];
+        }
+
+        $decision = $data['decision'] ?? 'UNKNOWN';
+
+        $order->update([
+            'dispute_decision' => $decision,
+        ]);
+
+        $order->comments()->create([
+            'user_id' => null,
+            'comment' => '⚖️ Арбитраж по заказу завершен. '.'Решение: '.$decision,
+        ]);
+
+        $log->info('arbitrageFinished success');
+
+        return ['success' => true];
     }
 }

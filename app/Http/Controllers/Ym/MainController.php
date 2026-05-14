@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Ym;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\OrderController;
 use App\Http\Services\BinanceService;
 use App\Http\Services\YmService;
 use App\Jobs\ItemsYmShow;
+use App\Jobs\ProcessYmNotification;
 use App\Jobs\QuarantineRemove;
 use App\Jobs\UpdateYmPrices;
+use App\Models\Order\YmNotification;
 use App\Models\PlayStation\PlayStationAlt;
 use App\Models\Settings;
 use App\Models\Shop;
@@ -17,9 +18,9 @@ use App\Models\YmSenderLog;
 use App\Services\DescriptionGenerator;
 use App\Services\ImageGenerator;
 use App\Services\MeanlyService;
+use App\Services\Provider\ProviderHub;
 use App\Services\WildflowService;
 use Carbon\Carbon;
-use Illuminate\Bus\Batch;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
@@ -30,15 +31,16 @@ class MainController extends Controller
 {
     private int $ps_tax;
 
-    public function __construct(int $tax = null)
+    public function __construct(?int $tax = null)
     {
-        $this->ps_tax = $tax ?? (int)Settings::get('PS_TAX', 35);
+        $this->ps_tax = $tax ?? (int) Settings::get('PS_TAX', 35);
     }
 
     public function descriptionGenerate()
     {
-        $generator = new DescriptionGenerator();
+        $generator = new DescriptionGenerator;
         WildflowCatalog::whereNotNull('bussiness_id')
+            ->where('is_active', true)
             ->select(['id', 'sku', 'category', 'data']) // только нужное
             ->chunk(100, function ($items) use ($generator) {
 
@@ -46,7 +48,7 @@ class MainController extends Controller
                     $data = $item->data['data'];
                     $category = $item->category;
 
-                    if (!isset($data['product']['regions'][0]['code'])) {
+                    if (! isset($data['product']['regions'][0]['code'])) {
                         continue;
                     }
 
@@ -55,7 +57,7 @@ class MainController extends Controller
                             country_code: $data['product']['regions'][0]['code'],
                             currency: $data['product']['currency']['code'],
                             category: $category
-                        )
+                        ),
                     ]);
                 }
             });
@@ -69,9 +71,10 @@ class MainController extends Controller
     {
         set_time_limit(480);
 
-        $image_generator = new ImageGenerator();
+        $image_generator = new ImageGenerator;
 
         WildflowCatalog::whereNotNull('bussiness_id')
+            ->where('is_active', true)
             ->select(['id', 'sku', 'category', 'data']) // только нужное
             ->where('image_updated_at', null)
             ->orWhere('image_updated_at', '<=', Carbon::now()->subHour())
@@ -80,7 +83,7 @@ class MainController extends Controller
                 foreach ($items as $item) {
                     $data = $item->data['data'];
 
-                    if(!isset($data['product']['regions'][0]['code'])){
+                    if (! isset($data['product']['regions'][0]['code'])) {
                         continue;
                     }
 
@@ -98,11 +101,12 @@ class MainController extends Controller
 
                         $item->update([
                             'image' => $savePath,
-                            'image_updated_at' => now()
+                            'image_updated_at' => now(),
                         ]);
 
                     } catch (\Exception $exception) {
                         \Log::error('Ошибка генерации фото', [$exception->getMessage()]);
+
                         continue;
                     }
                 }
@@ -123,9 +127,9 @@ class MainController extends Controller
             'skus' => 'nullable|array',
         ]);
 
-        $query = WildflowCatalog::query();
+        $query = WildflowCatalog::where('is_active', true);
 
-        if (!empty($data['skus'])) {
+        if (! empty($data['skus'])) {
             $query->whereIn('id', $data['skus']);
         }
 
@@ -134,7 +138,7 @@ class MainController extends Controller
             ->pluck('sku')
             ->toArray();
 
-        $service = new YmService();
+        $service = new YmService;
 
         return $service->offerDelete($skus);
     }
@@ -153,7 +157,7 @@ class MainController extends Controller
                 \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
                 \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
                 't2.data',
-                't2.name as name'
+                't2.name as name',
             ])
             ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
                 $join->on('t1.sku', '=', 't2.sku')
@@ -163,7 +167,7 @@ class MainController extends Controller
             ->where('t1.price_with_discount', '>', 0)
             ->whereNotNull('t2.data');
 
-        if (!empty($data['skus'])) {
+        if (! empty($data['skus'])) {
             $items = $items->whereIn('sku', $data['skus']);
         }
 
@@ -198,8 +202,6 @@ class MainController extends Controller
     }
 
     /**
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      * @throws ConnectionException
      */
     public function prepareToUpdatePriceItems(Request $request): \Illuminate\Http\JsonResponse
@@ -216,7 +218,7 @@ class MainController extends Controller
                 't1.end_discount_stamp',
                 \DB::raw('ROUND(t1.base_price / 100, 2) as base_price'),
                 \DB::raw('ROUND(t1.price_with_discount / 100, 2) as price_with_discount'),
-                't2.name as name'
+                't2.name as name',
             ])
             ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
                 $join->on('t1.sku', '=', 't2.sku')
@@ -226,7 +228,7 @@ class MainController extends Controller
             ->where('t1.is_manual', false)
             ->where('t1.price_with_discount', '>', 0);
 
-        if (!empty($data['skus'])) {
+        if (! empty($data['skus'])) {
             $items = $items->whereIn('sku', $data['skus']);
         }
 
@@ -239,7 +241,7 @@ class MainController extends Controller
             ], 400);
         }
 
-        $binance_service = new BinanceService();
+        $binance_service = new BinanceService;
 
         $usdt_try = $binance_service->tickerPrice('USDTTRY');
         $usdt_rub = $binance_service->tickerPrice('USDTRUB');
@@ -251,8 +253,8 @@ class MainController extends Controller
             [$price_with_discount, $base_price] = $this->pricesCalc($item, $usdt_try, $usdt_rub);
 
             $shop = $shops->get($item->bussiness_id);
-            $minPrice = $shop && $shop->ym_min_price ? $shop->ym_min_price : (int)Settings::get('YM_MIN_SUM_FOR_UPDATE', 0);
-            $diffHours = $shop && $shop->ym_diff_hours ? $shop->ym_diff_hours : (float)Settings::get('YM_DIFF_IN_HOURS_FOR_SALE');
+            $minPrice = $shop && $shop->ym_min_price ? $shop->ym_min_price : (int) Settings::get('YM_MIN_SUM_FOR_UPDATE', 0);
+            $diffHours = $shop && $shop->ym_diff_hours ? $shop->ym_diff_hours : (float) Settings::get('YM_DIFF_IN_HOURS_FOR_SALE');
 
             if ($price_with_discount < ($minPrice * 100)) {
                 $price_with_discount = $minPrice * 100;
@@ -269,12 +271,12 @@ class MainController extends Controller
             $finished_data[] = [
                 'offerId' => $item->sku,
                 'price' => [
-                    "value" => $price_with_discount,
-                    "currencyId" => "RUR",
+                    'value' => $price_with_discount,
+                    'currencyId' => 'RUR',
                     ...($base_price > $price_with_discount ? [
-                        "discountBase" => $base_price
-                    ] : [])
-                ]
+                        'discountBase' => $base_price,
+                    ] : []),
+                ],
             ];
         }
 
@@ -307,7 +309,6 @@ class MainController extends Controller
             ->onQueue('low')
             ->dispatch();
 
-
         return response()->json([
             'success' => true,
             'queued' => count($finished_data_chunks),
@@ -322,7 +323,7 @@ class MainController extends Controller
 
         $businessId = $request->input('business_id');
 
-        $query = WildflowCatalog::whereNotNull('bussiness_id');
+        $query = WildflowCatalog::whereNotNull('bussiness_id')->where('is_active', true);
 
         if ($businessId) {
             $query->where('bussiness_id', $businessId);
@@ -337,7 +338,7 @@ class MainController extends Controller
             ], 404);
         }
 
-        $binance_service = new BinanceService();
+        $binance_service = new BinanceService;
 
         $usdt_rub = $binance_service->tickerPrice('USDTRUB');
 
@@ -347,7 +348,7 @@ class MainController extends Controller
             ->keyBy('business_id');
 
         $global_tax = Settings::get('YM_TAX', 30);
-        $global_category_id = (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474));
+        $global_category_id = (int) Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474));
 
         $finished_data = [];
 
@@ -356,14 +357,15 @@ class MainController extends Controller
         $vendors = \DB::table('mapping')
             ->pluck('vendor', 'tag');
 
-        $wildflow_service = new WildflowService();
+        $hub = app(ProviderHub::class);
+        $wildflow_driver = $hub->driver('wildflow');
 
-        $exchange_rates = $wildflow_service->getExchangeRates();
+        $exchange_rates = $wildflow_driver->getRates();
 
         $ratesMap = collect($exchange_rates)
             ->mapWithKeys(function ($item) {
                 return [
-                    $item['to_currency']['code'] => $item['rate']
+                    $item['to_currency']['code'] => $item['rate'],
                 ];
             });
 
@@ -379,14 +381,14 @@ class MainController extends Controller
                 $name .= 'Подарочная карта ';
             }
 
-            $name .= $product['title'] . ' ' . $data['price'] . $product['currency']['code'];
+            $name .= $product['title'].' '.$data['price'].$product['currency']['code'];
 
             $tag = $item->category;
             $postfix = $postfixes[$tag] ?? null;
             $vendor = $vendors[$tag] ?? 'Нет бренда';
 
             if ($postfix) {
-                $name .= ' ' . $postfix;
+                $name .= ' '.$postfix;
             }
 
             $currency = $product['currency']['code'];
@@ -408,7 +410,7 @@ class MainController extends Controller
 
             $price = round($price * (1 + $item_tax / 100));
 
-            $minPrice = $shop && $shop->ym_min_price ? $shop->ym_min_price : (int)Settings::get('YM_MIN_SUM_FOR_UPDATE', 0);
+            $minPrice = $shop && $shop->ym_min_price ? $shop->ym_min_price : (int) Settings::get('YM_MIN_SUM_FOR_UPDATE', 0);
             if ($price < $minPrice) {
                 $price = $minPrice;
             }
@@ -417,81 +419,80 @@ class MainController extends Controller
                 continue;
             }
 
-            if($item->image) {
-                $media = config('app.url') . '/' . $item->image;
+            if ($item->image) {
+                $media = config('app.url').'/'.$item->image;
             } else {
                 $media = $product['image'];
             }
 
-
-//            $description = $product['description'] ? json_decode($product['description'], true) : [];
-//            $text = $desc['content'][0]['description'] ?? '';
-//
-//            $terms = data_get($description, 'content.2.description');
-//            $description = $text . $terms;
+            //            $description = $product['description'] ? json_decode($product['description'], true) : [];
+            //            $text = $desc['content'][0]['description'] ?? '';
+            //
+            //            $terms = data_get($description, 'content.2.description');
+            //            $description = $text . $terms;
 
             $finished_data[] = [
-                "offer" => [
-                    "offerId" => $sku,
-                    "name" => $name,
+                'offer' => [
+                    'offerId' => $sku,
+                    'name' => $name,
                     'marketCategoryId' => $category_id,
                     'pictures' => [$media],
                     'vendor' => $vendor,
-                    "description" => $item->description,
-                    "parameterValues" => [
-//                        ...(isset($platformName) ? [
-//                            [
-//                                "parameterId" => 45128695,
-//                                "value" => $platformName,
-//                            ]
-//                        ] : []),
+                    'description' => $item->description,
+                    'parameterValues' => [
+                        //                        ...(isset($platformName) ? [
+                        //                            [
+                        //                                "parameterId" => 45128695,
+                        //                                "value" => $platformName,
+                        //                            ]
+                        //                        ] : []),
                         [
-                            "parameterId" => 37821410,
-                            "value" => (int)$data['price'],
+                            'parameterId' => 37821410,
+                            'value' => (int) $data['price'],
                         ],
                         [
-                            "parameterId" => 37919770,
-                            "value" => "в течение 1 месяца",
+                            'parameterId' => 37919770,
+                            'value' => 'в течение 1 месяца',
                         ],
                         [
-                            "parameterId" => 37978250,
-                            "value" => "пополнение счета",
+                            'parameterId' => 37978250,
+                            'value' => 'пополнение счета',
                         ],
-//                        [
-//                            "parameterId" => 37972050,
-//                            "value" => $name,
-//                        ],
+                        //                        [
+                        //                            "parameterId" => 37972050,
+                        //                            "value" => $name,
+                        //                        ],
                         [
-                            "parameterId" => 37693330,
-                            "value" => "электронный ключ",
+                            'parameterId' => 37693330,
+                            'value' => 'электронный ключ',
                         ],
                         [
-                            "parameterId" => 16382542,
-                            "value" => "Ключ предназначен для активации на сервисе активации MEANLY. Инструкция по активации будет отправлена вам на электронную почту вместе с кодом в течение 10 минут после покупки.",
+                            'parameterId' => 16382542,
+                            'value' => 'Ключ предназначен для активации на сервисе активации MEANLY. Инструкция по активации будет отправлена вам на электронную почту вместе с кодом в течение 10 минут после покупки.',
                         ],
-//                        ...($is_group ? [
-//                            [
-//                                "parameterId" => 200,
-//                                "value" => $item->concept_id
-//                            ]
-//                        ] : []),
+                        //                        ...($is_group ? [
+                        //                            [
+                        //                                "parameterId" => 200,
+                        //                                "value" => $item->concept_id
+                        //                            ]
+                        //                        ] : []),
                         [
-                            "parameterId" => 37919810,
-                            "value" => data_get($product, 'regions.0.name'),
+                            'parameterId' => 37919810,
+                            'value' => data_get($product, 'regions.0.name'),
                         ],
                     ],
-                    "downloadable" => true,
+                    'downloadable' => true,
                     'basicPrice' => [
-                        "value" => $price,
-                        "currencyId" => "RUR",
-//                        ...($base_price > $price_with_discount ? [
-//                            "discountBase" => $base_price
-//                        ] : [])
+                        'value' => $price,
+                        'currencyId' => 'RUR',
+                        //                        ...($base_price > $price_with_discount ? [
+                        //                            "discountBase" => $base_price
+                        //                        ] : [])
                     ],
-//                    ...(!empty($tags) ? ['tags' => $tags] : []),
-//                    'params' => $params ?? [],
-//                    ...(!empty($videos) ? ['videos' => $videos] : [])
-                ]
+                    //                    ...(!empty($tags) ? ['tags' => $tags] : []),
+                    //                    'params' => $params ?? [],
+                    //                    ...(!empty($videos) ? ['videos' => $videos] : [])
+                ],
             ];
         }
 
@@ -510,7 +511,7 @@ class MainController extends Controller
                 shop: $targetShop
             );
 
-            if (!$res['success']) {
+            if (! $res['success']) {
                 $error_bag[] = $res['error'];
             }
         }
@@ -521,7 +522,7 @@ class MainController extends Controller
             'send_id' => $send_id,
             'total' => count($finished_data),
             'on_sent' => count($finished_data) - count($error_bag) * 100,
-            'seconds_spent' => time() - $start
+            'seconds_spent' => time() - $start,
         ], empty($error_bag) ? 200 : 400);
     }
 
@@ -552,7 +553,7 @@ class MainController extends Controller
                 't2.name as name',
                 't1.region_id as region_id',
                 't1.concept_id as concept_id',
-                't2.is_group'
+                't2.is_group',
             ])
             ->leftJoin('play_station_alts as t2', function ($join) use ($data) {
                 $join->on('t1.sku', '=', 't2.sku')
@@ -562,7 +563,7 @@ class MainController extends Controller
             ->where('t1.price_with_discount', '>', 0)
             ->whereNotNull('t2.data');
 
-        if (!empty($data['skus'])) {
+        if (! empty($data['skus'])) {
             $items = $items->whereIn('t1.sku', $data['skus']);
         }
 
@@ -577,7 +578,7 @@ class MainController extends Controller
 
         $finished_data = [];
 
-        $binance_service = new BinanceService();
+        $binance_service = new BinanceService;
 
         $usdt_try = $binance_service->tickerPrice('USDTTRY');
         $usdt_rub = $binance_service->tickerPrice('USDTRUB');
@@ -590,7 +591,7 @@ class MainController extends Controller
 
             $data = json_decode($item->data, true);
 
-            if (!$data) {
+            if (! $data) {
                 continue;
             }
 
@@ -635,13 +636,13 @@ class MainController extends Controller
 
             // Жанр
             $genres = [];
-            if (!empty($data['combinedLocalizedGenres'])) {
+            if (! empty($data['combinedLocalizedGenres'])) {
                 foreach ($data['combinedLocalizedGenres'] as $genre) {
                     $genres[] = $genre['value'];
                 }
             }
 
-            if (!empty($genres)) {
+            if (! empty($genres)) {
                 $params[] = [
                     'name' => 'Жанр',
                     'value' => implode(', ', $genres),
@@ -649,7 +650,7 @@ class MainController extends Controller
             }
 
             // Режим игры
-            if (!empty($data['compatibilityNotices'])) {
+            if (! empty($data['compatibilityNotices'])) {
 
                 foreach ($data['compatibilityNotices'] as $notice) {
 
@@ -664,11 +665,11 @@ class MainController extends Controller
                     }
                 }
             }
-//            }
+            //            }
 
             if (isset($players)) {
 
-                $count_players = "1";
+                $count_players = '1';
 
                 if ($players > 1 && $players < 100) {
                     $count_players = "до $players";
@@ -681,11 +682,11 @@ class MainController extends Controller
                 $name .= " для $platformName";
             }
 
-            $name .= ", электронный ключ активации, TR";
+            $name .= ', электронный ключ активации, TR';
 
             $description = '';
 
-            if (!empty($data['descriptions'])) {
+            if (! empty($data['descriptions'])) {
                 foreach ($data['descriptions'] as $desc) {
                     if ($desc['type'] === 'LONG' || $desc['type'] === 'COMPATIBILITY_NOTICE') {
                         $description .= $desc['value'];
@@ -696,75 +697,75 @@ class MainController extends Controller
             $description = str_replace('facebook', '(соц. сеть на букву ф)', $description);
 
             $finished_data[] = [
-                "offer" => [
-                    "offerId" => $item->sku,
-                    "name" => $name,
-                    'marketCategoryId' => (int)Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474)),
+                'offer' => [
+                    'offerId' => $item->sku,
+                    'name' => $name,
+                    'marketCategoryId' => (int) Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474)),
                     'pictures' => $pictures ?? [],
                     ...(isset($data['publisherName']) ? ['vendor' => $data['publisherName']] : []),
-                    "description" => $description,
-                    "parameterValues" => [
+                    'description' => $description,
+                    'parameterValues' => [
                         ...(isset($platformName) ? [
                             [
-                                "parameterId" => 45128695,
-                                "value" => $platformName,
-                            ]
+                                'parameterId' => 45128695,
+                                'value' => $platformName,
+                            ],
                         ] : []),
                         [
-                            "parameterId" => 37693330,
-                            "value" => "электронный ключ",
+                            'parameterId' => 37693330,
+                            'value' => 'электронный ключ',
                         ],
                         [
-                            "parameterId" => 37972050,
-                            "value" => "без сервиса активации",
+                            'parameterId' => 37972050,
+                            'value' => 'без сервиса активации',
                         ],
                         [
-                            "parameterId" => 45132091,
-                            "value" => "цифровое",
+                            'parameterId' => 45132091,
+                            'value' => 'цифровое',
                         ],
                         [
-                            "parameterId" => 45130810,
-                            "value" => $item->name,
+                            'parameterId' => 45130810,
+                            'value' => $item->name,
                         ],
                         [
-                            "parameterId" => 16382542,
-                            "value" => "Ключ предназначен для активации на сервисе активации ИГРОС. Инструкция по активации будет отправлена вам на электронную почту вместе с кодом в течение 10 минут после покупки.",
+                            'parameterId' => 16382542,
+                            'value' => 'Ключ предназначен для активации на сервисе активации ИГРОС. Инструкция по активации будет отправлена вам на электронную почту вместе с кодом в течение 10 минут после покупки.',
                         ],
                         ...($is_group ? [
                             [
-                                "parameterId" => 200,
-                                "value" => $item->concept_id
-                            ]
+                                'parameterId' => 200,
+                                'value' => $item->concept_id,
+                            ],
                         ] : []),
                         [
-                            "parameterId" => 37919810,
-                            "value" => "все страны",
+                            'parameterId' => 37919810,
+                            'value' => 'все страны',
                         ],
                         ...(isset($mode) ? [
                             [
-                                "parameterId" => 45131673,
-                                "value" => $mode
-                            ]
+                                'parameterId' => 45131673,
+                                'value' => $mode,
+                            ],
                         ] : []),
                         ...(isset($count_players) ? [
                             [
-                                "parameterId" => 39984210,
-                                "value" => $count_players
-                            ]
-                        ] : [])
+                                'parameterId' => 39984210,
+                                'value' => $count_players,
+                            ],
+                        ] : []),
                     ],
-                    "downloadable" => true,
+                    'downloadable' => true,
                     'basicPrice' => [
-                        "value" => $price_with_discount,
-                        "currencyId" => "RUR",
+                        'value' => $price_with_discount,
+                        'currencyId' => 'RUR',
                         ...($base_price > $price_with_discount ? [
-                            "discountBase" => $base_price
-                        ] : [])
+                            'discountBase' => $base_price,
+                        ] : []),
                     ],
-                    ...(!empty($tags) ? ['tags' => $tags] : []),
+                    ...(! empty($tags) ? ['tags' => $tags] : []),
                     'params' => $params ?? [],
-                    ...(!empty($videos) ? ['videos' => $videos] : [])
-                ]
+                    ...(! empty($videos) ? ['videos' => $videos] : []),
+                ],
             ];
         }
 
@@ -786,7 +787,7 @@ class MainController extends Controller
                 send_id: $send_id
             );
 
-            if (!$res['success']) {
+            if (! $res['success']) {
                 $error_bag[] = $res['error'];
             }
         }
@@ -797,7 +798,7 @@ class MainController extends Controller
             'send_id' => $send_id,
             'total' => count($finished_data),
             'on_sent' => count($finished_data) - count($error_bag) * 100,
-            'seconds_spent' => time() - $start
+            'seconds_spent' => time() - $start,
         ], empty($error_bag) ? 200 : 400);
 
     }
@@ -810,7 +811,7 @@ class MainController extends Controller
 
         $businessId = $request->input('business_id');
 
-        $query = WildflowCatalog::whereNotNull('bussiness_id');
+        $query = WildflowCatalog::whereNotNull('bussiness_id')->where('is_active', true);
 
         if ($businessId) {
             $query->where('bussiness_id', $businessId);
@@ -841,26 +842,26 @@ class MainController extends Controller
 
             $finished_data[] = [
                 'sku' => $item->sku,
-                'warehouseId' => (int)$warehouseId,
+                'warehouseId' => (int) $warehouseId,
                 'items' => [
                     [
-                        'count' => (int)$item_stock,
+                        'count' => (int) $item_stock,
                         'type' => 'FIT',
                         'updatedAt' => now()->toIso8601String(),
-                    ]
-                ]
+                    ],
+                ],
             ];
         }
 
-        $service = ($businessId && $shops->has($businessId)) 
-            ? new YmService($shops->get($businessId)) 
-            : new YmService();
+        $service = ($businessId && $shops->has($businessId))
+            ? new YmService($shops->get($businessId))
+            : new YmService;
 
         $service->offerStocks($finished_data);
 
         return response()->json([
             'success' => true,
-            'seconds_spent' => time() - $start
+            'seconds_spent' => time() - $start,
         ]);
     }
 
@@ -887,7 +888,7 @@ class MainController extends Controller
             ->where('t1.price_with_discount', '>', 0)
             ->whereNotNull('t2.data');
 
-        if (!empty($data['skus'])) {
+        if (! empty($data['skus'])) {
             $items = $items->whereIn('t1.sku', $data['skus']);
         }
 
@@ -911,12 +912,12 @@ class MainController extends Controller
                 'items' => [
                     [
                         'count' => $stock,
-                    ]
-                ]
+                    ],
+                ],
             ];
         }
 
-        $service = new YmService();
+        $service = new YmService;
 
         $finished_data_chunks = [];
 
@@ -924,9 +925,9 @@ class MainController extends Controller
             $finished_data_chunks = array_chunk($finished_data, 1000);
         }
 
-//        dd($finished_data_chunks[0]);
+        //        dd($finished_data_chunks[0]);
 
-        if (!empty($finished_data_chunks)) {
+        if (! empty($finished_data_chunks)) {
             foreach ($finished_data_chunks as $chunk) {
                 $service->offerStocks($chunk);
             }
@@ -936,54 +937,47 @@ class MainController extends Controller
 
         return response()->json([
             'success' => true,
-            'seconds_spent' => time() - $start
+            'seconds_spent' => time() - $start,
         ]);
     }
 
-    /**
-     * @param string $lang_region_id
-     * @param string $price_region_id
-     * @param array $chunk
-     * @param string $send_id
-     * @return array
-     */
-    private function sendItems(array $chunk, string $send_id, string $lang_region_id = null, string $price_region_id = null, \App\Models\Shop $shop = null): array
+    private function sendItems(array $chunk, string $send_id, ?string $lang_region_id = null, ?string $price_region_id = null, ?\App\Models\Shop $shop = null): array
     {
-//        $ym_sender_log = YmSenderLog::create([
-//            'lang_region_id' => $lang_region_id,
-//            'price_region_id' => $price_region_id,
-//            'send_id' => $send_id,
-//            'request' => json_encode($chunk, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-//            'status' => 'pending',
-//            'created_at' => now()
-//        ]);
+        //        $ym_sender_log = YmSenderLog::create([
+        //            'lang_region_id' => $lang_region_id,
+        //            'price_region_id' => $price_region_id,
+        //            'send_id' => $send_id,
+        //            'request' => json_encode($chunk, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        //            'status' => 'pending',
+        //            'created_at' => now()
+        //        ]);
 
-        $service = $shop ? new YmService($shop) : new YmService();
+        $service = $shop ? new YmService($shop) : new YmService;
 
-        $meanly_service = new MeanlyService();
+        $meanly_service = new MeanlyService;
 
         try {
             $service->offerMappingsUpdate($chunk);
 
-//            $res = $meanly_service->sendOffers($chunk);
+            //            $res = $meanly_service->sendOffers($chunk);
 
-//            $ym_sender_log->update([
-//                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-//                'updated_at' => now(),
-//                'status' => 'success'
-//            ]);
+            //            $ym_sender_log->update([
+            //                'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            //                'updated_at' => now(),
+            //                'status' => 'success'
+            //            ]);
 
-//            PlayStationAlt::whereIn('sku', array_column($chunk, 'sku'))->update(['send_to_ym_at' => now()]);
+            //            PlayStationAlt::whereIn('sku', array_column($chunk, 'sku'))->update(['send_to_ym_at' => now()]);
 
         } catch (\Exception $e) {
 
-            \Log::error("send items error", [$e->getMessage()]);
+            \Log::error('send items error', [$e->getMessage()]);
 
-//            $ym_sender_log->update([
-//                'response' => json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-//                'updated_at' => now(),
-//                'status' => 'error'
-//            ]);
+            //            $ym_sender_log->update([
+            //                'response' => json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            //                'updated_at' => now(),
+            //                'status' => 'error'
+            //            ]);
 
             return [
                 'success' => false,
@@ -995,17 +989,8 @@ class MainController extends Controller
         return ['success' => true, 'send_id' => $send_id];
     }
 
-    private function updatePriceItems()
-    {
+    private function updatePriceItems() {}
 
-    }
-
-    /**
-     * @param $item
-     * @param $usdt_try
-     * @param $usdt_rub
-     * @return array
-     */
     public function pricesCalc($item, $usdt_try, $usdt_rub): array
     {
         $price_with_discount = round((($item->price_with_discount / $usdt_try) * $usdt_rub) * (1 + $this->ps_tax / 100));
@@ -1025,7 +1010,7 @@ class MainController extends Controller
         $log->debug('Пришло уведомление', [
             'request' => $request->all(),
             'headers' => $request->headers->all(),
-            'ip' => $request->ip()
+            'ip' => $request->ip(),
         ]);
 
         $campaignId = $request->input('campaignId');
@@ -1043,27 +1028,36 @@ class MainController extends Controller
         $realToken = $shop ? $shop->notification_token : Settings::get('YM_NOTIFICATION_TOKEN', config('services.ym.notification_token'));
 
         if ($token !== $realToken) {
-            $log->error("Невалидный токен", [
+            $log->error('Невалидный токен', [
                 'exception' => 'Unauthorized token',
                 'token' => $token,
-                'shop' => $shop ? $shop->name : 'Global/Unknown'
+                'shop' => $shop ? $shop->name : 'Global/Unknown',
             ]);
 
             return response()->json([
                 'error' => [
                     'message' => 'Unauthorized token',
-                    'type' => 'UNKNOWN'
-                ]
+                    'type' => 'UNKNOWN',
+                ],
             ], 400);
         }
 
         try {
             $data = $request->validate([
-                'notificationType' => 'required|string|in:PING,ORDER_CREATED,ORDER_STATUS_UPDATED',
+                'notificationType' => 'required|string',
                 'orderId' => 'nullable|numeric',
                 'campaignId' => 'nullable|numeric',
                 'status' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
                 'substatus' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
+            ]);
+
+            // Log notification to DB
+            YmNotification::create([
+                'campaign_id' => $data['campaignId'] ?? $request->input('campaignId'),
+                'order_id' => $data['orderId'] ?? $request->input('orderId'),
+                'type' => $data['notificationType'],
+                'payload' => $request->all(),
+                'processed_at' => now(),
             ]);
 
             // Прокидываем shop_id дальше в контроллер заказов
@@ -1072,85 +1066,33 @@ class MainController extends Controller
             }
         } catch (ValidationException $exception) {
 
-            $log->error("Невалидные данные", [
+            $log->error('Невалидные данные', [
                 'exception' => $exception->getMessage(),
-                'errors' => $exception->errors()
+                'errors' => $exception->errors(),
             ]);
 
             return response()->json([
                 'error' => [
                     'message' => $exception->getMessage(),
-                    'type' => 'WRONG_EVENT_FORMAT'
-                ]
+                    'type' => 'WRONG_EVENT_FORMAT',
+                ],
             ], 400);
 
         }
 
-        switch ($data['notificationType']) {
-            case 'ORDER_CREATED':
-
-                $log->info('notificationType ORDER_CREATED');
-
-                $order_controller = new OrderController('ORDER_CREATED');
-                $result = $order_controller->created($data);
-
-                if (!$result['success']) {
-
-                    $log->error("Не удалось создать заказ", [
-                        'result' => $result
-                    ]);
-
-                    return response()->json([
-                        'error' => [
-                            'message' => $result['error'],
-                            'type' => data_get($result, 'code') === 1 ? 'DUPLICATED_EVENT' : 'UNKNOWN'
-                        ]
-                    ], 400);
-                }
-
-                $log->debug("Заказ создан", ['result' => $result]);
-
-                break;
-            case 'ORDER_STATUS_UPDATED':
-
-                $log->info('notificationType ORDER_STATUS_UPDATED');
-
-                $order_controller = new OrderController('ORDER_STATUS_UPDATED');
-                $result = $order_controller->updated($data);
-
-                if (!$result['success']) {
-
-                    $log->error("Не удалось обновить статус заказа", [
-                        'result' => $result
-                    ]);
-
-                    return response()->json([
-                        'error' => [
-                            'message' => $result['error'],
-                            'type' => data_get($result, 'code') === 1 ? 'DUPLICATED_EVENT' : 'UNKNOWN'
-                        ]
-                    ], 400);
-                }
-
-                $log->debug("Заказ обновлен", ['result' => $result]);
-
-                break;
-            case 'PING':
-                $log->info('notificationType PING');
-                break;
-            default:
-                return response()->json([
-                    'error' => [
-                        'message' => 'Неизвестное уведомление',
-                        'type' => 'UNKNOWN'
-                    ]
-                ], 400);
+        if (in_array($data['notificationType'], ['ORDER_CREATED', 'ORDER_STATUS_UPDATED', 'CHAT_ARBITRAGE_FINISHED'])) {
+            ProcessYmNotification::dispatch($data)->onQueue('default');
+            $log->info('Dispatched ProcessYmNotification for '.$data['notificationType']);
+        } elseif ($data['notificationType'] === 'PING') {
+            $log->info('notificationType PING');
+        } else {
+            $log->warning('Неизвестное уведомление: '.$data['notificationType']);
         }
 
         return response()->json([
             'name' => 'marketplace.1gros.ru',
             'time' => now('UTC')->toIso8601String(),
-            'version' => '0.0.1'
+            'version' => '0.0.1',
         ]);
     }
 }

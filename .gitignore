@@ -12,6 +12,7 @@
 /.vscode
 /.zed
 /auth.json
+mysql-dump-*.dmp
 /node_modules
 
 /public/hot
@@ -23,3 +24,5 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 composer.phar
+/bin/*
+!/bin/.gitkeep

@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/** Тема redeem: только внутри .redeem-root[data-redeem-theme="dark"] */
+@custom-variant redeem-dark (&:is(.redeem-root[data-redeem-theme="dark"] *));
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';

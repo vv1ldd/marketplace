@@ -25,7 +25,7 @@ class ManagedShopsRelationManager extends RelationManager
     {
         return ShopsTable::configure($table)
             ->headerActions([
-                \Filament\Tables\Actions\AttachAction::make()
+                \Filament\Actions\AttachAction::make()
                     ->preloadRecordSelect()
                     ->form(fn (\Filament\Actions\AttachAction $action): array => [
                         $action->getRecordSelect(),

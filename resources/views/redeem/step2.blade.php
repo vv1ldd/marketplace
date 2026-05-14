@@ -1,33 +1,41 @@
 @extends('layouts.app')
 
-@section('title', 'Укажите ваш email-адрес')
+@section('title', 'Email для активации')
 
 @section('content')
-    <div
-        class="w-full bg-zinc-800 border border-zinc-700 @if(!session('is_frame')) max-w-xl rounded-2xl @endif shadow-xl sm:p-8 p-4">
-        <h2 class="text-2xl font-bold text-white mb-6 text-center">Укажите ваш email-адрес</h2>
+    <x-redeem.panel headline="Укажите email" icon="mail">
+        <x-slot name="lead">
+            На этот адрес придёт <span class="font-medium text-zinc-800 redeem-dark:text-zinc-300">код подтверждения</span>, а после выдачи —
+            <span class="font-medium text-zinc-800 redeem-dark:text-zinc-300">код продукта</span> и ссылка на страницу с ним.
+        </x-slot>
+        <x-slot name="sublead">
+            Используйте почту, к которой у вас есть доступ: без подтверждения мы не сможем завершить активацию.
+        </x-slot>
+
         <form class="space-y-5" method="POST" action="{{ route('redeem.email.submit') }}">
             @csrf
+            <input type="hidden" name="uuid" value="{{ session('order_item_info')['uuid'] ?? '' }}" />
             <div class="w-full">
-                @if(session('is_frame'))
+                @if (session('is_frame'))
                     <input hidden name="is_frame" value="1" />
                 @endif
-                <label class="block text-sm text-zinc-300 mb-1" for="email">Ваш почтовый адрес<span
-                        class="text-red-500">*</span></label>
-                <input type="email" placeholder="ivan@mail.ru" name="email" value="{{ old('email') }}" autofocus required
-                    class="w-full rounded-xl border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-600 focus:outline-none px-4 py-2" />
-                <p class="text-[11px] text-zinc-500 mt-2 leading-tight">
-                    * Email используется для регистрации в системе и на него будет отправлен купленный товар по умолчанию.
+                <label class="mb-2 block text-sm font-medium text-zinc-700 redeem-dark:text-zinc-300" for="email">Почтовый адрес<span
+                        class="text-red-500 redeem-dark:text-red-400">*</span></label>
+                <input type="email" id="email" placeholder="you@example.com" name="email"
+                    value="{{ old('email') }}" autofocus required
+                    class="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-zinc-900 placeholder-zinc-400 shadow-inner focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 redeem-dark:border-zinc-600/80 redeem-dark:bg-zinc-800/80 redeem-dark:text-white redeem-dark:placeholder-zinc-500 redeem-dark:shadow-none" />
+                <p class="mt-2 text-[11px] leading-relaxed text-zinc-500 redeem-dark:text-zinc-500">
+                    Email сохраняется в заказе и используется для регистрации в системе и доставки товара по умолчанию.
                 </p>
                 @error('email')
-                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    <p class="mt-2 text-sm text-red-600 redeem-dark:text-red-400">{{ $message }}</p>
                 @enderror
             </div>
             <button type="submit"
-                class="cursor-pointer w-full bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-white font-semibold py-2 px-4 rounded-xl shadow-md focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                class="w-full cursor-pointer rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-lg shadow-blue-900/15 transition-colors hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white redeem-dark:shadow-blue-900/20 redeem-dark:focus:ring-offset-zinc-900"
                 tabindex="5">
                 Далее
             </button>
         </form>
-    </div>
+    </x-redeem.panel>
 @endsection

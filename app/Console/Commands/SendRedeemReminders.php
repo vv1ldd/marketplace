@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Order\OrderItems;
 use App\Http\Services\YmService;
+use App\Models\Order\OrderItems;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -35,33 +35,34 @@ class SendRedeemReminders extends Command
             ->whereNull('reminder_sent_at')
             ->get();
 
-        $this->info("Found " . $stuckItems->count() . " stuck redemptions.");
+        $this->info('Found '.$stuckItems->count().' stuck redemptions.');
 
         foreach ($stuckItems as $item) {
             $order = $item->order;
-            
-            if (!$order || !$order->chat_id) {
+
+            if (! $order || ! $order->chat_id) {
                 continue;
             }
 
             try {
                 $service = new YmService($order->shop);
-                
-                $message = "Здравствуйте! Мы заметили, что вы начали активацию вашего ваучера (код: " . $item->key . "), но не завершили процесс. \n\nЕсли у вас возникли технические сложности или вопросы — просто напишите ответ в этот чат, и мы вам поможем!";
-                
+
+                $message = 'Здравствуйте! Мы заметили, что вы начали активацию вашего ваучера (код: '.$item->key."), но не завершили процесс. \n\nЕсли у вас возникли технические сложности или вопросы — просто напишите ответ в этот чат, и мы вам поможем!";
+
                 $service->sendMessage($order->chat_id, $message);
-                
+
                 $item->update(['reminder_sent_at' => now()]);
-                
+
                 $order->comments()->create([
                     'user_id' => $order->user_id,
-                    'comment' => "Отправлено напоминание о незавершенной активации в чат Яндекс.Маркета"
+                    'user_type' => $order->user_id ? \App\Models\Customer::class : null,
+                    'comment' => 'Отправлено напоминание о незавершенной активации в чат Яндекс.Маркета',
                 ]);
-                
+
                 $this->info("Reminder sent for Order ID: {$order->order_id}");
-                
+
             } catch (\Exception $e) {
-                Log::error("Failed to send redeem reminder for order {$order->id}: " . $e->getMessage());
+                Log::error("Failed to send redeem reminder for order {$order->id}: ".$e->getMessage());
             }
         }
     }

@@ -11,7 +11,7 @@ use Filament\Tables\Columns\TextColumn;
 
 class LegalEntitiesRelationManager extends RelationManager
 {
-    protected static string $relationship = 'legalEntities';
+    protected static string $relationship = 'managedLegalEntities';
 
     protected static ?string $title = 'Организации партнера';
 
@@ -43,14 +43,26 @@ class LegalEntitiesRelationManager extends RelationManager
                     ->counts('shops'),
             ])
             ->headerActions([
-                \Filament\Tables\Actions\CreateAction::make(),
-                \Filament\Tables\Actions\AssociateAction::make()
-                    ->preloadRecordSelect(),
+                \Filament\Actions\CreateAction::make(),
+                \Filament\Actions\AttachAction::make()
+                    ->preloadRecordSelect()
+                    ->form(fn (\Filament\Actions\AttachAction $action): array => [
+                        $action->getRecordSelect(),
+                        \Filament\Forms\Components\Select::make('role')
+                            ->label(__('admin.users.role'))
+                            ->options([
+                                'owner' => __('admin.shops.relations.roles.owner'),
+                                'manager' => __('admin.shops.relations.roles.manager'),
+                                'viewer' => __('admin.shops.relations.roles.viewer'),
+                            ])
+                            ->required()
+                            ->default('manager'),
+                    ]),
             ])
             ->actions([
-                \Filament\Tables\Actions\EditAction::make(),
-                \Filament\Tables\Actions\DissociateAction::make(),
-                \Filament\Tables\Actions\DeleteAction::make(),
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DetachAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ]);
     }
 }

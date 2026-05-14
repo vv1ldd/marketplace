@@ -62,6 +62,7 @@ return [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'replace_placeholders' => true,
         ],
 
@@ -69,6 +70,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
         ],
@@ -85,6 +87,7 @@ return [
         'papertrail' => [
             'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'handler' => env('LOG_PAPERTRAIL_HANDLER', SyslogUdpHandler::class),
             'handler_with' => [
                 'host' => env('PAPERTRAIL_URL'),
@@ -97,6 +100,7 @@ return [
         'stderr' => [
             'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'handler' => StreamHandler::class,
             'handler_with' => [
                 'stream' => 'php://stderr',
@@ -108,6 +112,7 @@ return [
         'syslog' => [
             'driver' => 'syslog',
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'facility' => env('LOG_SYSLOG_FACILITY', LOG_USER),
             'replace_placeholders' => true,
         ],
@@ -115,6 +120,7 @@ return [
         'errorlog' => [
             'driver' => 'errorlog',
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'replace_placeholders' => true,
         ],
 
@@ -131,6 +137,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/ym/notification.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
         ],
@@ -139,6 +146,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/ym/check_orders.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
         ],
@@ -147,6 +155,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/ps/order.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 31),
             'replace_placeholders' => true,
         ],
@@ -155,6 +164,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/ps/observer.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
         ],
@@ -163,6 +173,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/translate/translate_items.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
         ],
@@ -171,6 +182,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/woo/update_woo_prices.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
         ],
@@ -179,6 +191,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/woo/monitor_new_orders_woo.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
         ],
@@ -187,6 +200,7 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/woo/monitor_import_woo_users.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'tap' => [App\Logging\MaskPii::class],
             'days' => env('LOG_DAILY_DAYS', 3),
             'replace_placeholders' => true,
         ]

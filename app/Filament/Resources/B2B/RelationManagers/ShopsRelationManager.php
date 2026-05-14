@@ -25,15 +25,19 @@ class ShopsRelationManager extends RelationManager
     {
         return ShopsTable::configure($table)
             ->headerActions([
-                \Filament\Tables\Actions\AssociateAction::make()
+                \Filament\Actions\CreateAction::make(),
+                \Filament\Actions\AssociateAction::make()
                     ->preloadRecordSelect(),
             ])
             ->actions([
-                \Filament\Tables\Actions\DissociateAction::make(),
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DissociateAction::make(),
+                \Filament\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
-                \Filament\Tables\Actions\BulkActionGroup::make([
-                    \Filament\Tables\Actions\DissociateBulkAction::make(),
+                \Filament\Actions\BulkActionGroup::make([
+                    \Filament\Actions\DissociateBulkAction::make(),
+                    \Filament\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }

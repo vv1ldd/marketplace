@@ -19,11 +19,26 @@ class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
     protected static string|BackedEnum|null $navigationIcon = Heroicon::ShoppingBag;
-    protected static ?string $navigationLabel = 'Заказы';
-    protected static ?int $navigationSort = 1;
+    public static function getNavigationLabel(): string
+    {
+        return 'Все заказы';
+    }
 
-    protected static ?string $label = 'Заказа';
-    protected static ?string $pluralLabel = 'Заказы';
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Мастер-ключ';
+    }
+
+    public static function getLabel(): ?string
+    {
+        return __('admin.orders.order');
+    }
+
+    public static function getPluralLabel(): ?string
+    {
+        return __('admin.orders.orders');
+    }
+
     protected static bool $hasTitleCaseModelLabel = false;
 
 //    protected static ?string $navigationBadgeTooltip = 'Кол-во не обработанных заказов';

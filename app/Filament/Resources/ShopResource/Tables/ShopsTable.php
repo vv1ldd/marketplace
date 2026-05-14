@@ -2,12 +2,11 @@
 
 namespace App\Filament\Resources\ShopResource\Tables;
 
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ToggleColumn;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\EditAction;
 use Filament\Tables\Table;
 
 class ShopsTable
@@ -17,37 +16,22 @@ class ShopsTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Название')
+                    ->label(__('admin.shops.fields.name'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('type')
-                    ->label('Тип')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => match($state) {
-                        \App\Models\Shop::TYPE_VOUCHERS => 'Ваучеры',
-                        \App\Models\Shop::TYPE_GAMES    => 'Игры',
-                        \App\Models\Shop::TYPE_BOTH     => 'Ваучеры + Игры',
-                        default => $state,
-                    })
-                    ->color(fn ($state) => match($state) {
-                        \App\Models\Shop::TYPE_VOUCHERS => 'info',
-                        \App\Models\Shop::TYPE_GAMES    => 'warning',
-                        \App\Models\Shop::TYPE_BOTH     => 'success',
-                        default => 'gray',
-                    }),
                 TextColumn::make('campaign_id')
-                    ->label('Campaign ID')
+                    ->label(__('admin.shops.fields.campaign_id'))
                     ->searchable(),
                 IconColumn::make('is_active')
-                    ->label('Активен')
+                    ->label(__('admin.shops.fields.is_active'))
                     ->boolean()
                     ->sortable(),
                 IconColumn::make('auto_purchase_enabled')
-                    ->label('Автозакуп')
+                    ->label(__('admin.shops.fields.auto_purchase_enabled'))
                     ->boolean()
                     ->sortable(),
                 TextColumn::make('created_at')
-                    ->label('Создан')
+                    ->label(__('admin.orders.created'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),

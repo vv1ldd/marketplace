@@ -10,13 +10,20 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "bezhansalleh/filament-language-switch": "^4.3",
         "bezhansalleh/filament-shield": "^4.0@beta",
         "filament/filament": "~4.0",
         "intervention/image": "^4.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "league/flysystem-aws-s3-v3": "^3.32",
+        "marcelweidum/filament-passkeys": "^2.0",
         "mrt1m/playstation-store-api": "^2.2",
-        "opcodesio/log-viewer": "^3.18"
+        "opcodesio/log-viewer": "^3.18",
+        "php-ffmpeg/php-ffmpeg": "^1.4",
+        "simplesoftwareio/simple-qrcode": "^4.2",
+        "spatie/laravel-passkeys": "^1.7",
+        "yandex-market/partner-api-spec": "1.0.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -31,7 +38,9 @@
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/"
+            "Database\\Seeders\\": "database/seeders/",
+            "AppYandexSdk\\": "app/YandexSdk/lib/",
+            "Meanly\\Mdk\\Kernel\\": "/Users/w1ld/Documents/GitHub/MDK/kernel/src/"
         }
     },
     "autoload-dev": {
@@ -43,7 +52,8 @@
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",
-            "@php artisan filament:upgrade"
+            "@php artisan filament:upgrade",
+            "@php artisan app:install-binaries"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
@@ -80,5 +90,19 @@
         }
     },
     "minimum-stability": "beta",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "package",
+            "package": {
+                "name": "yandex-market/partner-api-spec",
+                "version": "1.0.0",
+                "source": {
+                    "url": "https://github.com/yandex-market/yandex-market-partner-api.git",
+                    "type": "git",
+                    "reference": "main"
+                }
+            }
+        }
+    ]
 }

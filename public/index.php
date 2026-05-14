@@ -1,9 +1,20 @@
 <?php
 
-use Illuminate\Foundation\Application;
+// Silence PHP 8.5 deprecations locally to prevent header issues
+if (file_exists(__DIR__ . '/../.env')) {
+    $env = file_get_contents(__DIR__ . '/../.env');
+    if (strpos($env, 'APP_ENV=local') !== false) {
+        ini_set('display_errors', '0');
+        error_reporting(E_ALL & ~E_DEPRECATED);
+    }
+}
+
 use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
+
+// Suppress annoying notices during local development (like Broken Pipe)
+error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);
 
 // Determine if the application is in maintenance mode...
 if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {

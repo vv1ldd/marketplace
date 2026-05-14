@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order\OrderItems;
+use App\Models\Shop;
 use App\Models\WildflowCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,10 +23,11 @@ class LedgerApiController extends Controller
      */
     public function catalogMap(Request $request): JsonResponse
     {
+        $ledgerShopId = $request->attributes->get('ledger_shop_id');
+
         $whitelist = config('app.ledger_ip_whitelist');
-        
-        if ($whitelist && !in_array($request->ip(), explode(',', $whitelist))) {
-            return response()->json(['error' => 'Unauthorized IP: ' . $request->ip()], 403);
+        if ($ledgerShopId === null && $whitelist && ! in_array($request->ip(), explode(',', $whitelist))) {
+            return response()->json(['error' => 'Unauthorized IP: '.$request->ip()], 403);
         }
 
         $validated = $request->validate([
@@ -37,6 +39,21 @@ class LedgerApiController extends Controller
         $limit = min($limit, 2000);
 
         $query = WildflowCatalog::query()->orderBy('id');
+
+        if ($ledgerShopId !== null) {
+            $shop = Shop::query()->whereKey($ledgerShopId)->first();
+            $skus = $shop ? $shop->products()->pluck('products.sku') : collect();
+
+            if ($skus->isEmpty()) {
+                return response()->json([
+                    'status' => 'success',
+                    'count' => 0,
+                    'items' => [],
+                ]);
+            }
+
+            $query->whereIn('sku', $skus);
+        }
 
         if (! empty($validated['updated_since'])) {
             $query->where('updated_at', '>=', $validated['updated_since']);
@@ -86,6 +103,13 @@ class LedgerApiController extends Controller
      */
     public function redeemEvents(Request $request): JsonResponse
     {
+        $ledgerShopId = $request->attributes->get('ledger_shop_id');
+
+        $whitelist = config('app.ledger_ip_whitelist');
+        if ($ledgerShopId === null && $whitelist && ! in_array($request->ip(), explode(',', $whitelist))) {
+            return response()->json(['error' => 'Unauthorized IP: '.$request->ip()], 403);
+        }
+
         $validated = $request->validate([
             'from' => 'nullable|date',
             'to' => 'nullable|date',
@@ -100,6 +124,10 @@ class LedgerApiController extends Controller
             ->where(function ($q) {
                 $q->where('is_redeemed', true)->orWhere('is_activated', true);
             });
+
+        if ($ledgerShopId !== null) {
+            $query->whereHas('order', fn ($q) => $q->where('shop_id', $ledgerShopId));
+        }
 
         if (! empty($validated['from'])) {
             $query->where('updated_at', '>=', $validated['from'].' 00:00:00');

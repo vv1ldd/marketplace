@@ -2,33 +2,24 @@
 
 namespace App\Helpers;
 
+use App\Services\VoucherEngine;
+
+/**
+ * @deprecated Use \App\Services\VoucherEngine::issue() directly for full SVC format support.
+ *
+ * Kept for backward compatibility. Routes all calls through the new VoucherEngine
+ * so existing code will automatically produce SVC-format codes.
+ */
 class GenerateSecureCode
 {
     /**
-     * @return string
      * @throws \Random\RandomException
      */
-    public static function generate(string $prefix = null): string
+    public static function generate(?string $prefix = null, ?string $sku = null): string
     {
-        $prefix = $prefix ?: 'W1C-';
-        
-        // Убеждаемся, что префикс заканчивается на дефис для красоты, если он не пустой
-        if ($prefix && !str_ends_with($prefix, '-')) {
-            $prefix .= '-';
-        }
+        // Strip any trailing dashes from legacy prefix usage
+        $issuerPrefix = rtrim($prefix ?? 'WLD', '-');
 
-        return $prefix . self::generateUniqueSegment() . '-' . self::generateUniqueSegment() . '-' . self::generateUniqueSegment();
-
-    }
-
-    /**
-     * @param int $length
-     * @return string
-     * @throws \Random\RandomException
-     */
-    private static function generateUniqueSegment(int $length = 4): string
-    {
-        $bytes = random_bytes(ceil($length / 2));
-        return strtoupper(substr(bin2hex($bytes), 0, $length));
+        return VoucherEngine::issue(issuerPrefix: $issuerPrefix, sku: $sku);
     }
 }

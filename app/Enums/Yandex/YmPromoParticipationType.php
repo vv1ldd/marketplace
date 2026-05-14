@@ -1,0 +1,27 @@
+<?php
+
+namespace App\Enums\Yandex;
+
+/**
+ * Generated from Yandex Market OpenAPI spec
+ * Без указания фильтра возвращаются акции, в которых продавец участвует или может принять участие.
+ *
+ * Какие акции вернутся при указании фильтра:
+ *
+ * * `PARTICIPATING_NOW` — текущие акции, в которых участвует продавец.
+ *
+ * * `PARTICIPATED` — завершенные акции, в которых продавец участвовал за последний год. Если за год их было меньше 15, в ответе придут 15 последних акций за все время.
+ */
+enum YmPromoParticipationType: string
+{
+    case PARTICIPATING_NOW = 'PARTICIPATING_NOW';
+    case PARTICIPATED = 'PARTICIPATED';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::PARTICIPATING_NOW => 'PARTICIPATING_NOW',
+            self::PARTICIPATED => 'PARTICIPATED',
+        };
+    }
+}

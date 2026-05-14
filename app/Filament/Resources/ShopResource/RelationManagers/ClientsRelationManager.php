@@ -2,23 +2,26 @@
 
 namespace App\Filament\Resources\ShopResource\RelationManagers;
 
-use App\Filament\Resources\Users\Tables\UsersTable;
+use App\Filament\Resources\Users\Tables\CustomersTable;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Table;
-use Filament\Schemas\Schema;
 
 class ClientsRelationManager extends RelationManager
 {
     protected static string $relationship = 'clients';
 
-    protected static ?string $title = 'Клиенты';
+    protected static ?string $title = null;
+
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    {
+        return __('admin.shops.relations.clients');
+    }
 
     public function table(Table $table): Table
     {
-        return UsersTable::configure($table)
-            ->headerActions([]) // Remove create/add actions if you don't want to add clients to shop manually
+        return CustomersTable::configure($table)
+            ->headerActions([])
             ->actions([
-                // Keep view/edit if needed
                 \Filament\Actions\ViewAction::make(),
             ]);
     }

@@ -1,0 +1,82 @@
+{
+    "retailer_catalog": {
+        "id": 236,
+        "sku": "lf59MMyjUTJOFSPE",
+        "service_sku": "0090900015006",
+        "data": {
+            "price": 15,
+            "product": {
+                "sku": 909,
+                "upc": "659245718852",
+                "image": "https:\/\/d1upatzsvnpphr.cloudfront.net\/gift\/products\/images\/2024\/10\/Apple_Gift_Card_IT_2-250_EUR.png",
+                "title": "Apple Gift Card Italy",
+                "regions": [
+                    {
+                        "code": "IT",
+                        "name": "Italy"
+                    }
+                ],
+                "currency": {
+                    "code": "EUR",
+                    "symbol": "\u20ac",
+                    "currency": "Euro"
+                },
+                "pre_order": true,
+                "categories": [
+                    {
+                        "name": "App Store & iTunes Italy"
+                    },
+                    {
+                        "name": "Software"
+                    }
+                ],
+                "description": "{\"content\": [{\"title\": \"Product Description\", \"description\": \"Discover the Apple Gift Card IT, your gateway to a world of digital entertainment and premium products. With this card, you can effortlessly shop for a variety of items including the latest apps, games, music tracks, movies, and TV shows. Enjoy seamless shopping at any Apple Store across Italy or online on the App Store. The benefits of the Apple Gift Card IT extend beyond purchases; it can be used towards subscriptions such as Apple Music and iCloud+. There's no need to worry about expiration dates, making this card a flexible choice for every Apple enthusiast.\", \"type\": \"marketing\"}, {\"title\": \"Redemption Instruction\", \"description\": \"Redeeming your Apple Gift Card IT is simple and straightforward. Just follow these steps:\\n1. Visit the App Store or any Apple Store in Italy.\\n2. Select the products or subscriptions you wish to purchase.\\n3. During checkout, choose to redeem a gift card.\\n4. Enter the code found on your Apple Gift Card IT.\\n5. Confirm the transaction to apply the card balance.\\n\\n**Limitations:** Please note that while the Apple Gift Card IT can be used for a variety of purchases, it is not applicable towards pre-existing subscriptions. Always ensure to review the specific terms during your redeeming process.\", \"type\": \"redeem\"}, {\"title\": \"Terms and Conditions\", \"description\": \"<p><strong>Attenzione alle frodi sulle carte regalo. Non condividere il tuo codice. <\/strong><\/p>\\r\\n<p>Valida solo per transazioni riguardanti propriet\\u00e0 Apple in Italia. Per assistenza, visita <a href=\\\"http:\/\/www.support.apple.com\/giftcard\\\">support.apple.com\/giftcard<\/a>. Non riscattabile presso rivenditori Apple o in cambio di denaro, non rivendibile, rimborsabile o scambiabile, tranne nei casi previsti dalla legge. Apple declina ogni responsabilit\\u00e0 per l\\u2019uso non autorizzato. Si applicano termini e condizioni; vedi <a href=\\\"http:\/\/www.apple.com\/it\/go\/legal\/gc\\\">apple.com\/it\/go\/legal\/gc<\/a>. Rilasciato da Apple Distribution International Ltd. (ADIL). Nessuna scadenza.<\/p>\\r\\n<p>\\u00a9 2022 Apple Distribution International Ltd. Tutti i diritti riservati.<\/p>\\r\\n<p>\\u00a0<\/p>\\r\\n<p><strong>Beware of gift card scams. Do not share your code. <\/strong><\/p>\\r\\nValid only for transactions involving Apple properties in Italy. For assistance, visit <a href=\\\"http:\/\/www.support.apple.com\/giftcard\\\">support.apple.com\/giftcard<\/a>. Not redeemable at Apple retailers or for cash, <br \/>not for resale, refund or exchange, except as required by law. Apple disclaims all liability for unauthorized use. Terms and conditions apply; see <br \/><a href=\\\"http:\/\/www.apple.com\/uk\/go\/legal\/gc\\\">apple.com\/uk\/go\/legal\/gc<\/a>. Released by Apple Distribution International Ltd. (ADIL). No expiration. <br \/>\\u00a9 2022 Apple Distribution International Ltd. All rights reserved.\", \"type\": \"terms\"}, {\"title\": \"Legal Disclaimer\", \"description\": \"\", \"type\": \"legal_disclaimer\"}]}",
+                "reward_type": 0,
+                "reward_type_text": "Gift-Card"
+            },
+            "buying_price": 14.78,
+            "product_code": "0090900015006"
+        },
+        "created_at": "2026-03-05T20:06:37.000000Z",
+        "updated_at": "2026-05-11T22:00:56.000000Z"
+    },
+    "catalog": {
+        "id": 1916,
+        "sku": "k9hypQXRKLP4EDwA",
+        "service_sku": 5478,
+        "data": {
+            "sku": 5478,
+            "upc": 659245754294,
+            "image": "https:\/\/d1upatzsvnpphr.cloudfront.net\/gift\/products\/images\/2024\/11\/bata.jpg",
+            "title": "Bata IN",
+            "regions": [
+                {
+                    "code": "IN",
+                    "name": "India"
+                }
+            ],
+            "currency": {
+                "code": "INR",
+                "symbol": "Rp",
+                "currency": "Rupees"
+            },
+            "max_price": 100,
+            "min_price": 100,
+            "pre_order": true,
+            "categories": [
+                {
+                    "name": "Bata"
+                }
+            ],
+            "upc_string": "659245754294",
+            "description": "{\"content\": [{\"title\": \"Product Description\", \"description\": \"\", \"type\": \"marketing\"}, {\"title\": \"Redemption Instruction\", \"description\": \"<div>Visit the Bata India website (www.bata.in).<\/div><div>Add your desired products to the shopping cart and proceed to checkout.<\/div><div>Select Gift Card as the payment method during checkout.<\/div><div>Enter the gift card number and PIN in the designated fields.<\/div><div>If the order amount exceeds the gift card balance, you can pay the remaining amount using other payment options like UPI, debit\/credit card, or net banking.<\/div><div>Complete the transaction, and you will receive a confirmation of your purchase.<\/div>\", \"type\": \"redeem\"}, {\"title\": \"Terms and Conditions\", \"description\": \"<div>Validity:<\/div><div><br><\/div><div>Bata Gift Cards are valid for 12 months from the date of issuance unless specified otherwise.<\/div><div>The validity cannot be extended, and unused balances after the expiration date will be forfeited.<\/div><div>Usage:<\/div><div><br><\/div><div>Gift cards can be redeemed at all Bata stores across India or on the official Bata India website.<\/div><div>Partial redemption is allowed. If the purchase value is less than the gift card amount, the remaining balance will be available for future use.<\/div><div>Non-Transferable:<\/div><div><br><\/div><div>Bata gift cards are non-refundable, non-transferable, and cannot be exchanged for cash.<\/div><div>Limitations:<\/div><div><br><\/div><div>The gift card cannot be used to purchase another gift card or voucher.<\/div><div>It cannot be combined with promotional offers unless explicitly mentioned.<\/div><div>Redemption Conditions:<\/div><div><br><\/div><div>Multiple gift cards can be used in a single transaction, depending on store policy.<\/div><div>Any balance left on the card will remain active until the card&#8217;s expiration date.<\/div><div>Lost\/Stolen Cards:<\/div><div><br><\/div><div>Bata is not responsible for lost, stolen, or unauthorized use of gift cards.<\/div><div>Customer Support:<\/div><div><br><\/div><div>For issues, customers can contact Bata customer care through their official website or customer service number.<\/div><div>Redemption Steps for Bata Gift Cards<\/div><div>In-Store Redemption:<\/div><div>Visit any Bata outlet in India.<\/div><div>Choose your desired products and proceed to the billing counter.<\/div><div>Inform the cashier that you want to pay using a Bata Gift Card.<\/div><div>Provide the gift card details (card number and PIN). The cashier will validate the card and process the payment.<\/div><div>If the total amount exceeds the gift card balance, pay the remaining amount using cash, card, or other payment methods.<\/div>\", \"type\": \"terms\"}, {\"title\": \"Legal Disclaimer\", \"description\": \"\", \"type\": \"legal_disclaimer\"}]}",
+            "reward_type": 0,
+            "showing_price": null,
+            "activation_fee": 0,
+            "reward_type_text": "Gift-Card",
+            "percentage_of_buying_price": -5.6
+        },
+        "created_at": "2026-03-05T19:51:17.000000Z",
+        "updated_at": "2026-05-12T00:01:32.000000Z"
+    }
+}

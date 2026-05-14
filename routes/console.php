@@ -1,20 +1,27 @@
 <?php
 
 use App\Console\Commands\CheckNewOrderFromYM;
-use App\Console\Commands\ImportWooUsers;
-use App\Console\Commands\PlayStation\DetailFromRegion;
 use App\Console\Commands\TranslateItems;
-use App\Console\Commands\WildflowParser;
-use App\Console\Commands\WooNewOrders;
-use App\Console\Commands\WooPriceUpdate;
+use App\Console\Commands\SyncCatalogsCommand;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::command(DetailFromRegion::class)->everyTwoHours();
+Schedule::command('app:update-currency-rates')->hourly()->after(function () {
+    Artisan::call('app:sync-catalogs');
+});
 Schedule::command(CheckNewOrderFromYM::class)->everyMinute();
 Schedule::command(TranslateItems::class)->at('23:00');
-Schedule::command(WooPriceUpdate::class)->at('21:00');
-Schedule::command(WooNewOrders::class)->everyMinute();
-Schedule::command(ImportWooUsers::class)->everyMinute();
-Schedule::command(WildflowParser::class)->hourly();
+Schedule::command(SyncCatalogsCommand::class)->hourly();
 Schedule::command(\App\Console\Commands\WildflowToMarket::class)->hourlyAt(30); // Run 30 mins after parser
 Schedule::command(\App\Console\Commands\SendRedeemReminders::class)->everyFifteenMinutes();
+Schedule::command(\App\Console\Commands\RetryFailedPurchases::class)->everyFifteenMinutes();
+Schedule::command(\App\Console\Commands\NormalizeBrands::class)->hourlyAt(45); // Run 15 mins after WildflowToMarket
+
+// 🤖 Auto-healing loop for OOS items
+Schedule::command(\App\Console\Commands\HealOutOfStockItems::class, ['--limit=50'])->everyFifteenMinutes();
+
+// Yandex Market Bridge Sync
+Schedule::command('ym:push-catalog')->everyFifteenMinutes();
+Schedule::command('ym:sync-full')->dailyAt('02:00');
+Schedule::command('ym:sync-params --limit=500')->dailyAt('03:00');
+Schedule::command('ym:sync-categories')->weeklyOn(0, '04:00');

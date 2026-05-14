@@ -1,0 +1,11 @@
+# GenerateClosureDocumentsRequest
+
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**campaign_id** | **int** | Идентификатор кампании (магазина) — технический идентификатор, который представляет ваш магазин в системе Яндекс Маркета при работе через API. Он однозначно связывается с вашим магазином, но предназначен только для автоматизированного взаимодействия.  Его можно узнать с помощью запроса [GET v2/campaigns](../../reference/campaigns/getCampaigns.md) или найти в кабинете продавца на Маркете. Нажмите на иконку вашего аккаунта → **Настройки** и в меню слева выберите **API и модули**:  * блок **Идентификатор кампании**; * вкладка **Лог запросов** → выпадающий список в блоке **Показывать логи**.  ⚠️ Не путайте его с: - идентификатором магазина, который отображается в личном кабинете продавца; - рекламными кампаниями. |
+**month_of_year** | [**\AppYandexSdk\Model\ClosureDocumentsMonthOfYearDTO**](ClosureDocumentsMonthOfYearDTO.md) |  |
+**contract_types** | [**\AppYandexSdk\Model\ClosureDocumentsContractType[]**](ClosureDocumentsContractType.md) | Типы договоров, по которым нужны закрывающие документы.  Если их не указать, вернется архив с документами по всем найденным договорам. | [optional]
+
+[[Back to Model list]](../../README.md#models) [[Back to API list]](../../README.md#endpoints) [[Back to README]](../../README.md)

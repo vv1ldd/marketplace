@@ -24,6 +24,10 @@ class ApiApplication extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'token' => \App\Casts\VaultEncrypted::class . ':token_bidx',
+        'first_name' => \App\Casts\VaultEncrypted::class,
+        'last_name' => \App\Casts\VaultEncrypted::class,
+        'phone' => \App\Casts\VaultEncrypted::class . ':phone_bidx',
     ];
 
     /**
@@ -37,5 +41,17 @@ class ApiApplication extends Model
     public function shop()
     {
         return $this->belongsTo(Shop::class);
+    }
+
+    public function legalEntity(): \Illuminate\Database\Eloquent\Relations\HasOneThrough
+    {
+        return $this->hasOneThrough(
+            LegalEntity::class,
+            Shop::class,
+            'id',
+            'id',
+            'shop_id',
+            'legal_entity_id'
+        );
     }
 }

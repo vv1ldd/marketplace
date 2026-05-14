@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use Filament\Actions\Exports\Models\Export;
+use Filament\Actions\Imports\Models\Import;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Opcodes\LogViewer\Facades\LogViewer;
 
@@ -14,7 +16,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Suppress annoying notices globally
+        error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);
     }
 
     /**
@@ -22,12 +25,30 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Auth::provider('vault', function ($app, array $config) {
+            return new \App\Auth\VaultUserProvider($app['hash'], $config['model']);
+        });
+
+        Export::polymorphicUserRelationship(true);
+        Import::polymorphicUserRelationship(true);
         Gate::guessPolicyNamesUsing(function (string $modelClass) {
-            return str_replace('Models', 'Policies', $modelClass) . 'Policy';
+            return str_replace('Models', 'Policies', $modelClass).'Policy';
+        });
+
+        // Grant super_admin sovereign access to all permissions globally
+        Gate::before(function ($user, $ability) {
+            return $user->hasRole('super_admin') ? true : null;
         });
 
         LogViewer::auth(function ($request) {
             return $request->user() && $request->user()->hasRole('super_admin');
         });
+
+        // Настройка переключателя языков
+        if (class_exists(\BezhanSalleh\FilamentLanguageSwitch\LanguageSwitch::class)) {
+            \BezhanSalleh\FilamentLanguageSwitch\LanguageSwitch::configureUsing(function (\BezhanSalleh\FilamentLanguageSwitch\LanguageSwitch $switch) {
+                $switch->locales(['ru', 'en', 'es']);
+            });
+        }
     }
 }

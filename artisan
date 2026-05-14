@@ -1,6 +1,15 @@
 #!/usr/bin/env php
 <?php
 
+// Silence PHP 8.5 deprecations locally to prevent header issues
+if (file_exists(__DIR__ . '/.env')) {
+    $env = file_get_contents(__DIR__ . '/.env');
+    if (strpos($env, 'APP_ENV=local') !== false) {
+        ini_set('display_errors', '0');
+        error_reporting(E_ALL & ~E_DEPRECATED);
+    }
+}
+
 use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 

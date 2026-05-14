@@ -1469,7 +1469,17 @@
     @yield('styles')
 </head>
 <body class="@if(!isset($is_frame) || !$is_frame) bg-[#FDFDFC] dark:bg-[#0a0a0a] text-[#1b1b18] min-h-screen p-6 lg:p-8 @endif flex items-center lg:justify-center flex-col">
+@if (request()->is('redeem*'))
+    @php($redeemTheme = session('redeem_theme', 'dark'))
+    <div
+        class="redeem-root flex w-full flex-col items-center pb-24 {{ $redeemTheme === 'light' ? 'text-zinc-900' : 'text-zinc-100' }}"
+        data-redeem-theme="{{ $redeemTheme }}">
+@endif
 @yield('content')
+@if (request()->is('redeem*'))
+        <x-redeem.theme-toggle :theme="$redeemTheme" />
+    </div>
+@endif
 
 @yield('scripts')
 </body>

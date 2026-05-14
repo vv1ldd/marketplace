@@ -31,4 +31,28 @@ class MeanlyService
 
         return $response->json();
     }
+
+    public function getOffers()
+    {
+        $allOffers = [];
+        $page = 1;
+
+        do {
+            $response = $this->client->get("catalog/offers", ['page' => $page]);
+
+            if ($response->failed()) {
+                throw new ConnectionException($response->body(), $response->status());
+            }
+
+            $offers = $response->json('data');
+            if (empty($offers)) break;
+
+            $allOffers = array_merge($allOffers, $offers);
+            
+            $lastPage = $response->json('meta.last_page') ?? 1;
+            $page++;
+        } while ($page <= $lastPage);
+
+        return $allOffers;
+    }
 }

@@ -51,5 +51,24 @@ return [
         'api_key' => env('GOOGLE_TRANSLATE_API_KEY'),
     ],
 
+    'imgbb' => [
+        'key' => env('IMGBB_API_KEY'),
+    ],
+
     'trusted_hosts' => env('TRUSTED_HOSTS', 'marketplace.wildcloud.ru,1gros.local,platform.local'),
+
+    /*
+    | При смене SKU в wildflow_catalogs парсером: алиасы + обновление products у этих магазинов (id через запятую).
+    | По умолчанию 1 — MEANLY.
+    */
+    'wildflow' => [
+        'sku_map_shop_ids' => (function (): array {
+            $raw = trim((string) env('WILDFLOW_SKU_MAP_SHOP_IDS', '1'));
+
+            return array_values(array_filter(array_map(
+                'intval',
+                explode(',', $raw === '' ? '1' : $raw)
+            )));
+        })(),
+    ],
 ];

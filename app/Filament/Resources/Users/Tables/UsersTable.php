@@ -18,35 +18,33 @@ class UsersTable
         return $table
             ->columns([
                 TextColumn::make('full_name')
-                    ->label('ФИО')
+                    ->label(__('admin.customers.name'))
                     ->getStateUsing(fn($record) => $record->getFullName()),
-                TextColumn::make('roles')->label('Роль')->getStateUsing(function ($record) {
+                TextColumn::make('roles')->label(__('admin.users.roles'))->getStateUsing(function ($record) {
                     return $record->roles()->pluck('name')->implode(', ');
                 }),
-                TextColumn::make('email')->searchable()->copyable()->label('Email'),
+                TextColumn::make('email')->searchable()->copyable()->label(__('admin.customers.email')),
                 TextColumn::make('phone')
                     ->searchable()
                     ->copyable()
-                    ->label('Телефон'),
-                TextColumn::make('created_at')->label('Создано')->dateTime('d.m.Y H:i:s'),
+                    ->label(__('admin.customers.phone')),
+                TextColumn::make('created_at')->label(__('admin.orders.created'))->dateTime('d.m.Y H:i:s'),
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('user_type')
-                    ->label('Тип пользователя')
+                    ->label(__('admin.users.fields.type'))
                     ->options([
-                        'system' => 'Сотрудники',
-                        'clients' => 'Клиенты',
+                        'system' => __('admin.users.staff'),
+                        'clients' => __('admin.customers.customers'),
                     ])
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data) {
                         if ($data['value'] === 'system') return $query->system();
                         if ($data['value'] === 'clients') return $query->clients();
                         return $query;
                     }),
-                \Filament\Tables\Filters\SelectFilter::make('shop')
-                    ->label('Магазин')
-                    ->relationship('shops', 'name')
+
             ])
-            ->defaultSort('users.created_at', 'desc')
+            ->defaultSort(fn ($query) => $query->getModel()->getTable() . '.created_at', 'desc')
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
