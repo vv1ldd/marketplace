@@ -135,71 +135,74 @@
             </div>
         @endif
 
-        <form action="{{ route('partner.register.submit') }}" method="POST">
+        <form action="{{ route('partner.register.submit') }}" method="POST" id="registration-form">
             @csrf
             
-            <div class="form-group">
-                <label class="form-label">ИНН организации</label>
-                <input type="text" name="inn" id="inn-field" class="form-input" placeholder="7700123456" required value="{{ old('inn') }}" autocomplete="off">
-            </div>
-
-            <div class="form-group" id="name-container" style="display: none; transition: all 0.3s ease; opacity: 0; margin-bottom: 1.5rem;">
-                <label class="form-label">Официальное название (автоматически)</label>
-                <input type="text" name="legal_name" id="name-field" class="form-input" readonly style="background: rgba(0,255,0,0.05); border-color: rgba(0,255,0,0.2); color: #10b981; font-weight: 600;">
-                <div style="font-size: 0.75rem; color: #10b981; margin-top: 0.4rem; font-weight: 700; display: flex; align-items: center; gap: 4px;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    VERIFIED BY DADATA & ANCHORED IN SIMPLE-L1
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Рабочий Email</label>
-                <input type="email" name="email" class="form-input" placeholder="ivan@company.com" required value="{{ old('email') }}">
-            </div>
-
-            <!-- 💰 Tax System (New Section) -->
-            <div id="tax-section" style="margin-top: 1.5rem; display: none; animation: slideDown 0.4s ease forwards;">
-                <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Система налогообложения</label>
-                <select name="tax_system" id="tax_system" class="form-input" style="height: 44px; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: 0.65rem auto;">
-                    <option value="OSN">ОСНО (Общая система)</option>
-                    <option value="USN">УСН (Упрощенная система)</option>
-                    <option value="USN_INCOME">УСН Доходы</option>
-                    <option value="NPD">НПД (Самозанятый)</option>
-                </select>
-            </div>
-
-            <!-- Fallback Fields (Manual Entry for IPs or when DaData fails) -->
-            <style>
-                @keyframes slideDown {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .fallback-active {
-                    animation: slideDown 0.4s ease forwards;
-                    display: block !important;
-                }
-            </style>
-            <div id="fallback-fields" style="display: none; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
-                <p id="fallback-message" style="font-size: 0.75rem; color: var(--amber); margin-bottom: 1rem;">
-                    Не удалось автоматически найти данные. Пожалуйста, введите их вручную.
-                </p>
-                <div id="manual-name-group" class="form-group" style="margin-bottom: 1rem;">
-                    <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Полное название организации</label>
-                    <input type="text" name="legal_name" id="manual_legal_name" class="form-input" placeholder='ООО "КОМПАНИЯ"'>
-                </div>
-                <div class="form-group" style="margin-bottom: 1rem;">
-                    <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">ОГРН</label>
-                    <input type="text" name="ogrn" id="manual_ogrn" class="form-input" placeholder="1234567890123">
-                </div>
+            <!-- PHASE 1: INN SEARCH -->
+            <div id="phase-search">
                 <div class="form-group">
-                    <label id="address-label" style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Юридический адрес</label>
-                    <textarea name="address" id="manual_address" class="form-input" style="height: 60px;"></textarea>
+                    <label class="form-label">ИНН организации</label>
+                    <input type="text" name="inn" id="inn-field" class="form-input" placeholder="7700123456" required value="{{ old('inn') }}" autocomplete="off">
+                </div>
+
+                <div class="form-group" id="name-container" style="display: none; transition: all 0.3s ease; opacity: 0; margin-top: 1.5rem;">
+                    <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 16px; padding: 1.5rem; text-align: center;">
+                        <label class="form-label" style="color: #10b981; margin-bottom: 0.5rem; display: block;">Найдена организация:</label>
+                        <input type="text" id="name-field" class="form-input" readonly style="background: transparent; border: none; color: #fff; font-weight: 800; text-align: center; font-size: 1.2rem; padding: 0;">
+                        
+                        <div style="font-size: 0.75rem; color: #10b981; margin-top: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 1.5rem;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            VERIFIED BY DADATA
+                        </div>
+
+                        <button type="button" id="confirm-org-btn" class="btn-submit" style="background: #10b981; color: #fff;">
+                            Да, это моя организация ✅
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div id="background-data"></div> <!-- Container for hidden inputs -->
+            <!-- PHASE 2: DETAILS (Hidden initially) -->
+            <div id="phase-details" style="display: none; animation: slideDown 0.5s ease forwards;">
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label class="form-label">Рабочий Email</label>
+                    <input type="email" name="email" class="form-input" placeholder="ivan@company.com" required value="{{ old('email') }}">
+                </div>
 
-            <button type="submit" class="btn-submit" id="submit-btn">Начать регистрацию →</button>
+                <!-- 💰 Tax System -->
+                <div id="tax-section" style="margin-top: 1.5rem;">
+                    <label class="form-label">Система налогообложения</label>
+                    <select name="tax_system" id="tax_system" class="form-input" style="height: 44px; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: 0.65rem auto;">
+                        <option value="OSN">ОСНО (Общая система)</option>
+                        <option value="USN">УСН (Упрощенная система)</option>
+                        <option value="USN_INCOME">УСН Доходы</option>
+                        <option value="NPD">НПД (Самозанятый)</option>
+                    </select>
+                </div>
+
+                <!-- Fallback/IP Fields -->
+                <div id="fallback-fields" style="display: none; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                    <p id="fallback-message" style="font-size: 0.75rem; color: var(--amber); margin-bottom: 1rem;"></p>
+                    <div id="manual-name-group" class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label">Полное название организации</label>
+                        <input type="text" name="legal_name" id="manual_legal_name" class="form-input">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label">ОГРН</label>
+                        <input type="text" name="ogrn" id="manual_ogrn" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label id="address-label" class="form-label">Юридический адрес</label>
+                        <textarea name="address" id="manual_address" class="form-input" style="height: 60px;"></textarea>
+                    </div>
+                </div>
+
+                <div id="background-data"></div>
+
+                <button type="submit" id="submit-btn" class="btn-submit" style="margin-top: 1.5rem; width: 100%;">
+                    Завершить первый шаг →
+                </button>
+            </div>
         </form>
 
         <div class="auth-footer">
@@ -216,28 +219,33 @@
     const bgData = document.getElementById('background-data');
     const nameField = document.getElementById('name-field');
     const nameContainer = document.getElementById('name-container');
+    const phaseSearch = document.getElementById('phase-search');
+    const phaseDetails = document.getElementById('phase-details');
+    const confirmBtn = document.getElementById('confirm-org-btn');
     
     let typingTimer;
 
     const handleInput = () => {
         clearTimeout(typingTimer);
         const inn = innInput.value.trim();
-        console.log('INN Input:', inn);
         if (inn.length === 10 || inn.length === 12) {
             searchINN();
-        } else if (inn.length > 12) {
-            typingTimer = setTimeout(searchINN, 300);
         }
     };
 
     innInput.addEventListener('input', handleInput);
     innInput.addEventListener('paste', () => setTimeout(handleInput, 100));
 
+    confirmBtn.addEventListener('click', () => {
+        phaseSearch.style.opacity = '0.3';
+        phaseSearch.style.pointerEvents = 'none';
+        phaseDetails.style.display = 'block';
+    });
+
     async function searchINN() {
         const inn = innInput.value.trim();
         if (!inn) return;
 
-        console.log('Searching for INN (POST):', inn);
         nameContainer.style.display = 'block';
         nameContainer.style.opacity = '0.5';
         nameField.value = "Загрузка...";
@@ -256,12 +264,10 @@
             if (!res.ok) throw new Error('API Error: ' + res.status);
             
             const data = await res.json();
-            console.log('Search Result:', data);
             bgData.innerHTML = ''; // Clear previous
 
             if (data.suggestions && data.suggestions.length > 0) {
                 const org = data.suggestions[0];
-                console.log('Normalized Org:', org);
                 
                 nameContainer.style.opacity = '1';
                 nameField.value = org.name;
@@ -272,8 +278,7 @@
                 addHidden('kpp', org.kpp || '');
                 addHidden('address', org.address || '');
 
-                // 💰 Deep Search for Tax System
-                taxSection.style.display = 'block';
+                // 💰 Tax System
                 document.getElementById('tax_system').value = org.tax_system || 'OSN';
 
                 if (org.is_ip) {
@@ -287,21 +292,10 @@
                     fallbackFields.classList.remove('fallback-active');
                     fallbackFields.style.display = 'none';
                 }
-
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
             } else if (data.fallback) {
-                nameField.value = "ИНН не найден в реестре";
+                nameField.value = "ИНН не найден";
                 nameContainer.style.opacity = '1';
-                taxSection.style.display = 'block';
-                fallbackFields.classList.add('fallback-active');
-                document.getElementById('manual-name-group').style.display = 'block';
-                document.getElementById('fallback-message').textContent = 'Не удалось найти данные. Пожалуйста, введите их вручную:';
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-            } else {
-                nameField.value = "Ничего не найдено";
-                nameContainer.style.opacity = '1';
+                confirmBtn.innerText = "Ввести данные вручную ✍️";
             }
         } catch (e) {
             console.error('Search failed:', e);
