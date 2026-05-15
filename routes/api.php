@@ -61,3 +61,4 @@ Route::prefix('catalog')->group(function () {
 // 1. create-order -> приходит referenceCode
 // 2. запускаем orders/{referenceCode} -> отправляем оригинал клиенту при активации
 Route::post('/telemetry/report', [App\Http\Controllers\Api\TelemetryController::class, 'report']);
+Route::post('/b2b/search', [App\Http\Controllers\Api\B2BController::class, 'search']);

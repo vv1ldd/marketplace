@@ -220,7 +220,8 @@ class AddCatalogItemToShop implements ShouldQueue
                      $availability = $wfService->checkAvailability(
                          service_sku: (string)$serviceSku,
                          quantity: $this->count,
-                         price: $isVariable ? (float)$retailPrice : null
+                         price: $isVariable ? (float)$retailPrice : null,
+                         terminalId: (string)$this->sellerId
                      );
 
                      if (!$availability['available']) {

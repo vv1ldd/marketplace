@@ -129,13 +129,28 @@
         innField.addEventListener('input', async (e) => {
             const inn = e.target.value.trim();
             if (inn.length === 10 || inn.length === 12) {
-                // В реальности здесь вызов /api/b2b/search
-                // Имитируем мгновенный поиск
-                nameContainer.style.display = 'block';
-                setTimeout(() => {
-                    nameContainer.style.opacity = '1';
-                    nameField.value = "ООО 'Автоматизация' (ИНН " + inn + ")";
-                }, 100);
+                try {
+                    const response = await fetch('/api/b2b/search', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ inn: inn })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.verified) {
+                        nameContainer.style.display = 'block';
+                        setTimeout(() => {
+                            nameContainer.style.opacity = '1';
+                            nameField.value = data.name;
+                        }, 50);
+                    }
+                } catch (e) {
+                    console.error("DaData lookup failed", e);
+                }
             } else {
                 nameContainer.style.opacity = '0';
                 setTimeout(() => { nameContainer.style.display = 'none'; }, 300);

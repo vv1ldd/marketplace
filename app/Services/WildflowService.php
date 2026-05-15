@@ -7,13 +7,14 @@ use Illuminate\Support\Facades\Http;
 
 class WildflowService
 {
-    private string $base_url = 'http://api.wildflow.test/api/v1/';
+    private string $base_url;
 
     private PendingRequest $client;
     private ?string $financial_secret = null;
 
     public function __construct(string $overrideToken = null, ?\App\Models\Provider $providerModel = null)
     {
+        $this->base_url = config('services.wildflow.base_url', 'http://api.wildflow.test/api/v1/');
         $providerModel = $providerModel ?? \App\Models\Provider::where('type', 'wildflow')->first();
         
         // Highly dynamic token resolution: Override > DB Provider credentials > Config fallback
@@ -53,17 +54,19 @@ class WildflowService
         int $quantity,
         bool $pre_order = false,
         string $destination = '',
-        string $provider = 'ezpin'
+        string $provider = 'ezpin',
+        ?string $terminalId = null
     )
     {
-        $payload = [
-            'service_sku'   => $service_sku, // Stays robust string!
+        $payload = array_filter([
+            'service_sku'   => $service_sku,
             'price'         => $price,
             'quantity'      => $quantity,
             'pre_order'     => $pre_order,
-            'referenceCode' => $order_item_id, // Sent as plain string, Aggregator auto-UUIDs it!
+            'referenceCode' => $order_item_id,
             'destination'   => $destination,
-        ];
+            'terminal_id'     => $terminalId,
+        ]);
  
         \Illuminate\Support\Facades\Log::info("Wildflow Universal Order START [Provider: {$provider}]", ['payload' => $payload]);
  
@@ -81,18 +84,27 @@ class WildflowService
  
         return $response->json('order');
     }
-
+ 
     /**
      * 🛡️ AVAILABILITY GUARD
      * Checks if vendor has real items in stock before committing resources.
      */
-    public function checkAvailability(string $service_sku, int $quantity = 1, ?float $price = null, string $provider = 'ezpin'): array
+    public function checkAvailability(
+        string $service_sku, 
+        int $quantity = 1, 
+        ?float $price = null, 
+        string $provider = 'ezpin',
+        ?string $terminalId = null
+    ): array
     {
-        $response = $this->client->get("providers/{$provider}/check-availability/{$service_sku}", array_filter([
+        $params = array_filter([
             'quantity' => $quantity,
-            'price' => $price
-        ]));
-
+            'price' => $price,
+            'terminal_id' => $terminalId
+        ]);
+ 
+        $response = $this->client->get("providers/{$provider}/check-availability/{$service_sku}", $params);
+ 
         if ($response->failed()) {
              // Log silently, caller will decide handling
              \Illuminate\Support\Facades\Log::warning("Availability Check Failed", ['sku' => $service_sku, 'body' => $response->body()]);
@@ -145,26 +157,73 @@ class WildflowService
     /**
      * 💳 JIT CREDIT GRANTING (SECURED & MULTI-TENANT)
      */
-    public function grantCredit(float $amount, string $reference, ?string $sellerId = null, ?string $sellerName = null): array
+    public function grantCredit(float $amount, string $reference, ?string $terminalId = null): array
     {
+        $payload = array_filter([
+            'amount' => (float)$amount,
+            'reference' => $reference,
+            'terminal_id' => $terminalId,
+        ]);
+ 
         $headers = [];
         if ($this->financial_secret) {
-            $formattedAmount = number_format($amount, 2, '.', '');
-            $dataToSign = "{$formattedAmount}:{$reference}";
-            $headers['X-Financial-Signature'] = hash_hmac('sha256', $dataToSign, $this->financial_secret);
+            $jsonBody = json_encode($payload);
+            $headers['X-Financial-Signature'] = hash_hmac('sha256', $jsonBody, $this->financial_secret);
         }
-
-        $payload = [
-            'amount' => $amount,
-            'reference' => $reference,
-            'seller_id' => $sellerId,
-            'seller_name' => $sellerName,
-        ];
-
-        $response = $this->client->withHeaders($headers)->post("partners/grant-credit", array_filter($payload));
+ 
+        $response = $this->client->withHeaders($headers)->post("partners/grant-credit", $payload);
 
         if ($response->failed()) {
             throw new \RuntimeException("Failed to grant credit: " . $response->body());
+        }
+
+        return $response->json();
+    }
+ 
+    public function syncPartner(string $terminalId): array
+    {
+        $payload = [
+            'terminal_id' => $terminalId,
+        ];
+ 
+        $response = $this->client->post("partners/sync", $payload);
+ 
+        if ($response->failed()) {
+            throw new \RuntimeException("Failed to sync partner: " . $response->body());
+        }
+ 
+        return $response->json();
+    }
+
+    public function getPartner(string $terminalId): array
+    {
+        $response = $this->client->get("partners/{$terminalId}");
+
+        if ($response->failed()) {
+            throw new \RuntimeException("Failed to fetch partner data: " . $response->body());
+        }
+
+        return $response->json('data') ?? [];
+    }
+
+    public function topUp(string $terminalId, float $amount, string $reference = ''): array
+    {
+        $payload = [
+            'terminal_id' => $terminalId,
+            'amount' => $amount,
+            'reference' => $reference ?: "Top-up via Marketplace Admin",
+        ];
+
+        $headers = [];
+        if ($this->financial_secret) {
+            $jsonBody = json_encode($payload);
+            $headers['X-Financial-Signature'] = hash_hmac('sha256', $jsonBody, $this->financial_secret);
+        }
+
+        $response = $this->client->withHeaders($headers)->post("partners/top-up", $payload);
+
+        if ($response->failed()) {
+            throw new \RuntimeException("Failed to top up partner in Kernel: " . $response->body());
         }
 
         return $response->json();

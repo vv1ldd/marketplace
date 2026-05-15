@@ -65,10 +65,22 @@ class LegalEntityResource extends Resource
                     ->label(__('admin.b2b.sections.status'))
                     ->boolean(),
                 TextColumn::make('available_balance')
-                    ->label('Баланс (RUB)')
+                    ->label('Локальный баланс')
                     ->money('RUB')
-                    ->color('success')
+                    ->color('gray')
                     ->sortable(),
+                TextColumn::make('kernel_balance')
+                    ->label('Кернел Баланс')
+                    ->getStateUsing(function (LegalEntity $record) {
+                        try {
+                            $data = (new \App\Services\WildflowService())->getPartner((string)$record->id);
+                            return $data['balance'] ?? 0;
+                        } catch (\Exception $e) {
+                            return 'Error';
+                        }
+                    })
+                    ->money('RUB')
+                    ->color('success'),
                 TextColumn::make('reserved_balance')
                     ->label('Холды (RUB)')
                     ->money('RUB')
@@ -100,29 +112,60 @@ class LegalEntityResource extends Resource
                     ])
                     ->action(function (LegalEntity $record, array $data) {
                         $amount = (float) $data['amount'];
-                        
-                        // Update balance
-                        $record->increment('available_balance', $amount);
-                        
-                        // ⛓️ Sovereign Ledger: Record the top-up
-                        // We pick the first shop of the entity to anchor the ledger event
-                        $shop = $record->shops()->first() ?? \App\Models\Shop::first();
-                        
-                        if ($shop) {
-                            app(\App\Services\LedgerService::class)->record($shop, 'FINANCE_TOPUP', $record, [
-                                'amount' => $amount,
-                                'comment' => $data['comment'] ?? '',
-                                'new_balance' => $record->available_balance,
-                                'admin_id' => auth()->id(),
-                                'admin_email' => auth()->user()?->email,
-                            ]);
-                        }
+                        $reference = $data['comment'] ?? "Top-up via Marketplace Admin";
 
-                        \Filament\Notifications\Notification::make()
-                            ->title('Баланс пополнен')
-                            ->body("Добавлено {$amount} RUB к счету {$record->name}")
-                            ->success()
-                            ->send();
+                        try {
+                            // 1. Update Remote Sovereign Ledger (Kernel)
+                            (new \App\Services\WildflowService())->topUp((string)$record->id, $amount, $reference);
+                            
+                            // 2. Update Local Mirror
+                            $record->increment('available_balance', $amount);
+                            
+                            // 3. Local Ledger Record
+                            $shop = $record->shops()->first() ?? \App\Models\Shop::first();
+                            if ($shop) {
+                                app(\App\Services\LedgerService::class)->record($shop, 'FINANCE_TOPUP', $record, [
+                                    'amount' => $amount,
+                                    'comment' => $reference,
+                                    'new_balance' => $record->available_balance,
+                                    'admin_id' => auth()->id(),
+                                ]);
+                            }
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Баланс пополнен')
+                                ->body("Успешно добавлено {$amount} RUB в Кернел и локально.")
+                                ->success()
+                                ->send();
+
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Ошибка пополнения')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                \Filament\Actions\Action::make('syncWithKernel')
+                    ->label('Синхронизировать')
+                    ->icon('heroicon-m-arrow-path')
+                    ->color('info')
+                    ->action(function (LegalEntity $record) {
+                        try {
+                            (new \App\Services\WildflowService())->syncPartner((string)$record->id);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Синхронизация успешна')
+                                ->body("Терминал для {$record->name} подтвержден в Кернеле.")
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Ошибка синхронизации')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
                 \Filament\Actions\EditAction::make(),
                 \Filament\Actions\DeleteAction::make(),

@@ -32,15 +32,15 @@ class WildflowDriver implements ProviderDriverInterface
 
         // 💳 JIT CREDIT GRANTING (With Multi-Tenant Auto-Registration)
         try {
-            $sellerId = (string)($meta['seller_id'] ?? '');
+            $terminalId = (string)($meta['terminal_id'] ?? '');
             $sellerName = (string)($meta['seller_name'] ?? '');
 
             Log::info("Wildflow JIT Credit: Attempting to grant {$totalAmount} for ref {$reference}", [
-                'seller_id' => $sellerId,
+                'terminal_id' => $terminalId,
                 'seller_name' => $sellerName
             ]);
 
-            $this->getService()->grantCredit($totalAmount, $reference, $sellerId, $sellerName);
+            $this->getService()->grantCredit($totalAmount, $reference, $terminalId);
         } catch (\Throwable $e) {
             Log::error("Wildflow JIT Credit FAILED: " . $e->getMessage());
             throw $e;
@@ -53,7 +53,8 @@ class WildflowDriver implements ProviderDriverInterface
             price: $price,
             quantity: $quantity,
             pre_order: $meta['pre_order'] ?? false,
-            destination: $meta['email'] ?? ''
+            destination: $meta['email'] ?? '',
+            terminalId: $terminalId
         );
 
         return $reference;

@@ -79,6 +79,15 @@ class LegalEntity extends Model
     {
         static::created(function ($entity) {
             app(\App\Services\LedgerService::class)->recordGlobal('LEGAL_ENTITY_CREATED', $entity, $entity->toArray());
+            
+            // 📡 AUTO-SYNC to Wildflow Kernel
+            try {
+                (new \App\Services\WildflowService())->syncPartner(
+                    (string)$entity->id
+                );
+            } catch (\Exception $e) {
+                \Log::warning("Wildflow Partner Sync failed during registration: " . $e->getMessage());
+            }
         });
 
         static::updated(function ($entity) {

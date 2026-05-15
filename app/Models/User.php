@@ -21,12 +21,17 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles, InteractsWithPasskeys;
 
-    public function getPasskeyDisplayName(): string
+    public function getPassKeyDisplayName(): string
     {
         return $this->first_name ?? $this->email ?? "User #{$this->id}";
     }
 
-    public function getPasskeyIdentifier(): string
+    public function getPassKeyId(): string
+    {
+        return hash('sha256', (string) $this->id);
+    }
+
+    public function getPassKeyName(): string
     {
         return $this->email ?? "user-{$this->id}";
     }

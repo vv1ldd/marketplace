@@ -6,10 +6,19 @@ use App\Http\Middleware\ApplyRedeemThemeFromQuery;
 use App\Http\Controllers\TelemetryController;
 use Illuminate\Support\Facades\Route;
 
-Route::passkeys();
-
 Route::domain(config('app.domain'))->group(function () {
+    Route::passkeys();
     Route::get('/', fn () => view('landing'))->name('home');
+    
+    Route::prefix('partner')->group(function () {
+        Route::get('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'show'])->name('partner.register');
+        Route::post('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'register'])->name('partner.register.submit');
+        Route::post('/register/finalize', [\App\Http\Controllers\PartnerRegistrationController::class, 'finalize'])->name('partner.register.finalize');
+        Route::get('/register/step2', [\App\Http\Controllers\PartnerRegistrationController::class, 'showStep2'])->name('partner.register.step2');
+        Route::post('/register/step2', [\App\Http\Controllers\PartnerRegistrationController::class, 'storeStep2'])->name('partner.register.step2.submit');
+    });
+
+    Route::post('/passkeys/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'storePasskey'])->name('passkeys.register');
 });
 
 Route::get('/lang/{locale}', function (string $locale) {

@@ -274,13 +274,20 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
         $shop = $order->shop;
         $legalEntity = $shop?->legalEntity;
         if ($shop && $shop->id !== 1 && $legalEntity) {
-             // Calculate what was deducted (service price in cents * count)
-             $catalog = \App\Models\WildflowCatalog::findForOrderOfferSku($order_item->sku);
-             $service_price = $catalog ? (float)data_get($catalog, 'data.data.price', 0) : 0;
-             $totalCost = (int)($service_price * 100) * $order_item->count;
+             // 🔄 RELEASE HOLD: Move back from reserved_balance to balance
+             $inventory = \App\Models\ProductInventory::where('order_item_id', $order_item->id)->first();
+             $procurement = $inventory?->procurement;
+             
+             if ($procurement && $procurement->price_per_item > 0) {
+                 $totalCost = $procurement->price_per_item * $order_item->count;
+             } else {
+                 // Fallback to dynamic calculation
+                 $catalog = \App\Models\WildflowCatalog::findForOrderOfferSku($order_item->sku);
+                 $service_price = $catalog ? (float)data_get($catalog, 'data.data.price', 0) : 0;
+                 $totalCost = (int)($service_price * 100) * $order_item->count;
+             }
 
              if ($totalCost > 0) {
-                 // 🔄 RELEASE HOLD: Move back from reserved_balance to balance
                  \DB::transaction(function () use ($legalEntity, $totalCost) {
                      $legalEntity->decrement('reserved_balance', $totalCost);
                      $legalEntity->increment('balance', $totalCost);
@@ -395,9 +402,6 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
         }
     }
 
-    /**
-     * Move money from Reserved to "Sold" (Actual Capture)
-     */
     private function captureFundsFromHold(Order $order, OrderItems $order_item, Customer $customer): void
     {
         $legalEntity = $order->shop?->legalEntity;
@@ -405,30 +409,39 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
             return;
         }
 
-        // 1. Determine cost (based on actual catalog price at moment of sale or purchase price)
-        $product = \App\Models\Product::where('sku', $order_item->sku)->where('shop_id', $order->shop_id)->first();
-        $catalogSku = $product?->wildflow_catalog_sku ?? $order_item->sku;
+        // 1. Determine cost (Attempt to use actual procurement price, fallback to dynamic catalog price)
+        $inventory = \App\Models\ProductInventory::where('order_item_id', $order_item->id)->first();
+        $procurement = $inventory?->procurement;
         
-        $catalog = \App\Models\WildflowCatalog::where('sku', $catalogSku)->first();
-        if (! $catalog) {
-            Log::warning('Capture: Catalog item not found for SKU', ['sku' => $catalogSku]);
-            return;
+        if ($procurement && $procurement->price_per_item > 0) {
+            // Price is stored in cents/integer in Procurement model
+            $costRub = ($procurement->price_per_item / 100) * $order_item->count;
+            Log::info("Capture: Using exact procurement price", ['cost' => $costRub, 'procurement_id' => $procurement->id]);
+        } else {
+            // Fallback to dynamic calculation if procurement data is missing
+            $product = \App\Models\Product::where('sku', $order_item->sku)->where('shop_id', $order->shop_id)->first();
+            $catalogSku = $product?->wildflow_catalog_sku ?? $order_item->sku;
+            
+            $catalog = \App\Models\WildflowCatalog::where('sku', $catalogSku)->first();
+            if (! $catalog) {
+                Log::warning('Capture: Catalog item not found for SKU', ['sku' => $catalogSku]);
+                return;
+            }
+
+            $financeService = app(\App\Services\FinanceService::class);
+            $cur = $order_item->nominal_currency ?: ($catalog->currency_code ?? 'USD');
+            $rate = $financeService->getRate($cur);
+            
+            $baseNominal = (float) ($order_item->nominal_amount ?? $catalog->retail_price);
+            $costRub = $baseNominal * $rate * $order_item->count;
+            Log::info("Capture: Using dynamic catalog price (fallback)", ['cost' => $costRub]);
         }
 
-        $financeService = app(\App\Services\FinanceService::class);
-        $cur = $order_item->nominal_currency ?: ($catalog->currency_code ?? 'USD');
-        $rate = $financeService->getRate($cur);
-        
-        $baseNominal = (float) ($order_item->nominal_amount ?? $catalog->retail_price);
-        $costRub = $baseNominal * $rate * $order_item->count;
-
         // 2. Decrement from Reserved Balance
-        // Note: We check if there's enough in reserved, though usually there is.
         if ($legalEntity->reserved_balance >= $costRub) {
             $legalEntity->decrement('reserved_balance', $costRub);
 
             // ✅ Mark inventory as SOLD
-            $inventory = \App\Models\ProductInventory::where('order_item_id', $order_item->id)->first();
             if ($inventory) {
                 $inventory->update(['status' => 'sold']);
             }
@@ -445,6 +458,7 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
                 'order_item_id' => $order_item->id,
                 'customer_id' => $customer->id,
                 'customer_email' => $customer->email,
+                'procurement_id' => $procurement?->id,
             ]);
         } else {
             // Log warning if for some reason reserved balance was already low
