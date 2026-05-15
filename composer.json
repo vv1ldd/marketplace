@@ -40,7 +40,8 @@
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
             "AppYandexSdk\\": "app/YandexSdk/lib/",
-            "Meanly\\Mdk\\Kernel\\": "/Users/w1ld/Documents/GitHub/MDK/kernel/src/"
+            "Meanly\\Mdk\\Kernel\\": "/Users/w1ld/Documents/GitHub/MDK/kernel/src/",
+            "Meanly\\SimpleL1\\": "/Users/w1ld/Documents/GitHub/new/simple-l1/laravel-package/src/"
         }
     },
     "autoload-dev": {

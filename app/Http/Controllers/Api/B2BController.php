@@ -11,8 +11,11 @@ class B2BController extends Controller
     public function search(Request $request, BusinessRegistrationManager $manager)
     {
         $inn = $request->input('inn');
-        $sl1Address = $request->input('sl1_address', 'anonymous');
+        \Illuminate\Support\Facades\Log::info("B2B Search Triggered", ['inn' => $inn]);
         
-        return response()->json($manager->searchAndAnchor($inn, $sl1Address));
+        $result = $manager->searchAndAnchor($inn, 'anonymous');
+        \Illuminate\Support\Facades\Log::info("B2B Search Result", $result);
+
+        return response()->json($result);
     }
 }

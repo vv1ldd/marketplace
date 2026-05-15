@@ -128,7 +128,13 @@
 
         innField.addEventListener('input', async (e) => {
             const inn = e.target.value.trim();
+            console.log("INN Input:", inn); // DEBUG
+            
             if (inn.length === 10 || inn.length === 12) {
+                nameContainer.style.display = 'block';
+                nameContainer.style.opacity = '0.5';
+                nameField.value = "Загрузка данных...";
+
                 try {
                     const response = await fetch('/api/b2b/search', {
                         method: 'POST',
@@ -139,17 +145,20 @@
                         body: JSON.stringify({ inn: inn })
                     });
                     
+                    console.log("API Response Status:", response.status); // DEBUG
                     const data = await response.json();
+                    console.log("API Data:", data); // DEBUG
                     
                     if (data.verified) {
-                        nameContainer.style.display = 'block';
-                        setTimeout(() => {
-                            nameContainer.style.opacity = '1';
-                            nameField.value = data.name;
-                        }, 50);
+                        nameContainer.style.opacity = '1';
+                        nameField.value = data.name;
+                    } else {
+                        nameField.value = "Ошибка: " + (data.error || "не найдено");
+                        nameContainer.style.opacity = '1';
                     }
                 } catch (e) {
-                    console.error("DaData lookup failed", e);
+                    console.error("Fetch Error:", e);
+                    nameField.value = "Ошибка сети или сервера";
                 }
             } else {
                 nameContainer.style.opacity = '0';
