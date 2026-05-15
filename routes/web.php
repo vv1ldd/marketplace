@@ -23,7 +23,7 @@ Route::domain(config('app.domain'))->group(function () {
         Route::post('/register/offer', [\App\Http\Controllers\PartnerRegistrationController::class, 'acceptOffer'])->name('partner.register.offer.submit');
     });
 
-    Route::post('/passkeys/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'storePasskey'])->name('passkeys.register');
+    Route::post('/passkeys/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'storePasskey'])->name('partner.register.passkey.store');
 });
 
 Route::get('/lang/{locale}', function (string $locale) {
