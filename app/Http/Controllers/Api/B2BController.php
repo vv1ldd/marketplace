@@ -23,7 +23,8 @@ class B2BController extends Controller
                         'kpp' => '526201001',
                         'address' => ['value' => 'г. Нижний Новгород, ул. Суверенная, д. 1'],
                         'management' => ['name' => 'Иванов Иван Иванович'],
-                        'type' => 'LEGAL'
+                        'type' => 'LEGAL',
+                        'tax_system' => 'ОСН' // Simulation
                     ]
                 ]]
             ]);
@@ -37,11 +38,9 @@ class B2BController extends Controller
                 return response()->json(['suggestions' => [], 'fallback' => true]);
             }
 
-            // Enrich the result with extra flags
+            // Return everything DaData gives us
             foreach ($result as &$item) {
                 $item['is_ip'] = $isIP;
-                // Determine tax system hint (simplified logic)
-                $item['tax_system_hint'] = $isIP ? 'USN' : 'OSN'; 
             }
 
             return response()->json(['suggestions' => $result]);

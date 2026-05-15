@@ -250,9 +250,21 @@
                 addHidden('kpp', d.kpp || '');
                 addHidden('address', d.address ? d.address.value : '');
 
-                // Smart UI Logic
+                // 💰 Deep Search for Tax System
                 taxSection.style.display = 'block';
-                document.getElementById('tax_system').value = org.tax_system_hint || 'OSN';
+                let detectedTax = d.tax_system || (d.finance ? d.finance.tax_system : null);
+                
+                const taxMap = {
+                    'ОСН': 'OSN', 'ОСНО': 'OSN',
+                    'УСН': 'USN', 'УСНО': 'USN',
+                    'ЕНВД': 'OSN', // Fallback
+                    'ЕСХН': 'USN',
+                    'ПСН': 'USN',
+                    'НПД': 'NPD'
+                };
+
+                const taxValue = detectedTax ? (taxMap[detectedTax.toUpperCase()] || 'OSN') : (org.is_ip ? 'USN' : 'OSN');
+                document.getElementById('tax_system').value = taxValue;
 
                 if (org.is_ip) {
                     fallbackFields.classList.add('fallback-active');
