@@ -91,7 +91,11 @@
         const statusMsg = document.getElementById('status-msg');
 
         signBtn.addEventListener('click', async () => {
-            const options = @json($passkeyOptions);
+            let options = @json($passkeyOptions);
+            
+            if (typeof options === 'string') {
+                options = JSON.parse(options);
+            }
             
             if (!options) {
                 alert('Сессия истекла. Пожалуйста, начните регистрацию сначала.');
