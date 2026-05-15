@@ -60,9 +60,9 @@ class PartnerRegistrationController extends Controller
 
         Auth::login($user);
 
-        // 🔑 Prepare Passkey options but go to Offer instead
-        $optionsJson = app(\Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction::class)->execute($user, true);
-        session(['passkey_options' => $optionsJson]);
+        // 🔑 Prepare Passkey options as an array (not string)
+        $options = app(\Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction::class)->execute($user, false);
+        session(['passkey_options' => $options]);
 
         return redirect()->route('partner.register.offer');
     }
