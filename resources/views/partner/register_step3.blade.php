@@ -76,12 +76,61 @@
             <p>{{ $agreementText }}</p>
         </div>
 
-        <form action="{{ route('partner.register.offer.submit') }}" method="POST">
-            @csrf
-            <button type="submit" class="btn-submit">
-                Я принимаю условия оферты ✍️
+        <div id="offer-actions">
+            <button type="button" id="sign-offer-btn" class="btn-submit">
+                Подписать оферту и завершить регистрацию ✍️
             </button>
-        </form>
+            <p id="status-msg" style="text-align: center; font-size: 0.8rem; margin-top: 1rem; color: var(--amber); display: none;"></p>
+        </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@7.2.0/dist/bundle/index.umd.min.js"></script>
+    <script>
+        const { startRegistration } = SimpleWebAuthnBrowser;
+        const signBtn = document.getElementById('sign-offer-btn');
+        const statusMsg = document.getElementById('status-msg');
+
+        signBtn.addEventListener('click', async () => {
+            const options = @json($passkeyOptions);
+            
+            if (!options) {
+                alert('Сессия истекла. Пожалуйста, начните регистрацию сначала.');
+                window.location.href = "{{ route('partner.register') }}";
+                return;
+            }
+
+            signBtn.disabled = true;
+            signBtn.innerText = "Подписание... 🛡️";
+            statusMsg.style.display = 'block';
+            statusMsg.innerText = "Пожалуйста, подтвердите вашу личность с помощью Passkey (FaceID/Fingerprint)";
+
+            try {
+                const attestationResponse = await startRegistration(options);
+                
+                const verifyRes = await fetch("{{ route('partner.register.passkey.store') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify(attestationResponse)
+                });
+
+                const result = await verifyRes.json();
+
+                if (result.success) {
+                    statusMsg.innerText = "Подпись подтверждена! Создаем организацию...";
+                    window.location.href = result.redirect;
+                } else {
+                    throw new Error(result.error || 'Ошибка верификации');
+                }
+            } catch (error) {
+                console.error(error);
+                signBtn.disabled = false;
+                signBtn.innerText = "Попробовать снова ✍️";
+                statusMsg.innerText = "Ошибка: " + error.message;
+            }
+        });
+    </script>
 </body>
 </html>

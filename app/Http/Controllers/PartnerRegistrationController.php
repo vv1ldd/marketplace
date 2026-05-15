@@ -18,7 +18,7 @@ class PartnerRegistrationController extends Controller
     }
 
     /**
-     * STEP 1: Basic Info (INN + Email)
+     * STEP 1: Basic Info (INN + Email) -> Redirect to Offer
      */
     public function register(Request $request)
     {
@@ -37,7 +37,7 @@ class PartnerRegistrationController extends Controller
             return back()->withErrors(['inn' => 'Организация с таким ИНН уже зарегистрирована.'])->withInput();
         }
 
-        // Store registration data in session for final step
+        // Store registration data in session
         session(['partner_registration' => [
             'email' => $email,
             'inn' => $inn,
@@ -60,92 +60,86 @@ class PartnerRegistrationController extends Controller
 
         Auth::login($user);
 
-        // 🔑 Trigger Passkey Creation Step
+        // 🔑 Prepare Passkey options but go to Offer instead
         $optionsJson = app(\Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction::class)->execute($user, true);
         session(['passkey_options' => $optionsJson]);
 
-        return view('partner.register_passkey', [
-            'options' => $optionsJson,
-            'user' => $user
-        ]);
+        return redirect()->route('partner.register.offer');
     }
 
     /**
-     * STEP 2: Passkey Storage & L1 Anchoring
-     */
-    public function storePasskey(Request $request)
-    {
-        $user = Auth::user();
-        $optionsJson = session('passkey_options');
-        
-        if (!$optionsJson) return response()->json(['error' => 'Session expired'], 422);
-
-        try {
-            app(\Spatie\LaravelPasskeys\Actions\StorePasskeyAction::class)->execute(
-                $user,
-                $request->getContent(),
-                $optionsJson,
-                $request->getHost(),
-                ['name' => 'Primary Key']
-            );
-            return response()->json(['success' => true]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
-        }
-    }
-
-    /**
-     * STEP 3: Redirect to Offer
-     */
-    public function finalize(Request $request)
-    {
-        $user = Auth::user();
-        $passkey = $user->passkeys()->latest()->first();
-        
-        if ($passkey) {
-            $address = $this->calculateL1Address($passkey->data->credentialPublicKey);
-            $meta = $user->meta ?? [];
-            $meta['l1_address'] = $address;
-            $user->meta = $meta;
-            $user->save();
-        }
-
-        return response()->json([
-            'success' => true,
-            'redirect' => route('partner.register.offer')
-        ]);
-    }
-
-    /**
-     * STEP 4: Public Offer Review
+     * STEP 2: Show Offer
      */
     public function showOffer()
     {
         $reg = session('partner_registration');
         if (!$reg) return redirect()->route('partner.register');
 
-        $agreementText = "Договор на оказание услуг по размещению Товарных предложений и предоставлению функционала по заключению договоров и/или предварительному бронированию Товаров на Сервисе.
-        Дата размещения: 30 апреля 2026 г.
-        Дата вступления в силу: 01 мая 2026 г.
-
-        1. Термины и определения
-        Сервис Яндекс Маркет, Маркетплейс Яндекс Маркета (Сервис) — все веб-сайты (включая, но не ограничиваясь, размещенными в сети Интернет по адресу: market.yandex.ru), программы для ЭВМ (включая программы для мобильных устройств) Исполнителя или его аффилированных лиц...
-        
-        2. Предмет Договора и обязательства Сторон
-        2.1. По настоящему Договору Исполнитель за вознаграждение обязуется оказывать Заказчику Услуги по предоставлению Заказчику возможности размещать на Сервисе Товарные предложения Заказчика...
-        
-        3. Порядок приемки Услуг
-        3.1. Услуги считаются оказанными Исполнителем надлежащим образом и принятыми Заказчиком в указанном в Акте объеме...
-        
-        4. Стоимость Услуг. Вознаграждение Исполнителя. Порядок расчетов
-        4.1. Стоимость Услуг (Вознаграждение Исполнителя) за расчетный период указывается в Акте...
-        
-        [Текст сокращен для кода, но в системе используется полная версия]";
+        $agreementText = "Договор на оказание услуг по размещению Товарных предложений... [Полный текст оферты]";
 
         return view('partner.register_step3', [
             'registration' => $reg,
-            'agreementText' => $agreementText
+            'agreementText' => $agreementText,
+            'passkeyOptions' => session('passkey_options')
         ]);
+    }
+
+    /**
+     * ATOMIC STEP: Passkey Storage + LegalEntity Creation
+     */
+    public function storePasskey(Request $request)
+    {
+        $user = Auth::user();
+        $optionsJson = session('passkey_options');
+        $reg = session('partner_registration');
+        
+        if (!$optionsJson || !$reg) {
+            return response()->json(['error' => 'Session expired or invalid registration data'], 422);
+        }
+
+        return DB::transaction(function() use ($user, $request, $optionsJson, $reg) {
+            try {
+                // 1. Create Passkey
+                $passkey = app(\Spatie\LaravelPasskeys\Actions\StorePasskeyAction::class)->execute(
+                    $user,
+                    $request->getContent(),
+                    $optionsJson,
+                    $request->getHost(),
+                    ['name' => 'Primary Sovereign Identity']
+                );
+
+                // 2. Anchor L1 Address
+                $address = $this->calculateL1Address($passkey->data->credentialPublicKey);
+                $meta = $user->meta ?? [];
+                $meta['l1_address'] = $address;
+                $user->meta = $meta;
+                $user->save();
+
+                // 3. Create LegalEntity (The "Signed" Entity)
+                LegalEntity::create([
+                    'user_id' => $user->id,
+                    'name' => $reg['name'],
+                    'inn' => $reg['inn'],
+                    'kpp' => $reg['kpp'] ?? null,
+                    'ogrn' => $reg['ogrn'] ?? null,
+                    'legal_address' => $reg['address'] ?? null,
+                    'tax_system' => $reg['tax_system'] ?? 'OSN',
+                    'is_active' => false,
+                    'agreement_signed_at' => now(),
+                    'agreement_signature' => 'PASSKEY:' . $passkey->credential_id,
+                ]);
+
+                session()->forget(['partner_registration', 'passkey_options']);
+
+                return response()->json([
+                    'success' => true,
+                    'redirect' => route('partner.dashboard')
+                ]);
+            } catch (\Exception $e) {
+                \Log::error("Registration Error: " . $e->getMessage());
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
+        });
     }
 
     /**
