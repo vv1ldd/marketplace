@@ -219,22 +219,44 @@
     
     let typingTimer;
 
-    innInput.addEventListener('input', () => {
+    const handleInput = () => {
         clearTimeout(typingTimer);
         const inn = innInput.value.trim();
-        if (inn.length >= 10) {
-            typingTimer = setTimeout(searchINN, 500);
+        console.log('INN Input:', inn);
+        if (inn.length === 10 || inn.length === 12) {
+            searchINN();
+        } else if (inn.length > 12) {
+            typingTimer = setTimeout(searchINN, 300);
         }
-    });
+    };
+
+    innInput.addEventListener('input', handleInput);
+    innInput.addEventListener('paste', () => setTimeout(handleInput, 100));
 
     async function searchINN() {
         const inn = innInput.value.trim();
+        if (!inn) return;
+
+        console.log('Searching for INN (POST):', inn);
         nameContainer.style.display = 'block';
+        nameContainer.style.opacity = '0.5';
         nameField.value = "Загрузка...";
         
         try {
-            const res = await fetch(`/api/b2b/search?inn=${inn}`);
+            const res = await fetch('/api/b2b/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ inn: inn })
+            });
+            
+            if (!res.ok) throw new Error('API Error: ' + res.status);
+            
             const data = await res.json();
+            console.log('Search Result:', data);
             bgData.innerHTML = ''; // Clear previous
 
             if (data.suggestions && data.suggestions.length > 0) {
@@ -257,7 +279,7 @@
                 const taxMap = {
                     'ОСН': 'OSN', 'ОСНО': 'OSN',
                     'УСН': 'USN', 'УСНО': 'USN',
-                    'ЕНВД': 'OSN', // Fallback
+                    'ЕНВД': 'OSN',
                     'ЕСХН': 'USN',
                     'ПСН': 'USN',
                     'НПД': 'NPD'
@@ -282,15 +304,21 @@
                 submitBtn.style.opacity = '1';
             } else if (data.fallback) {
                 nameField.value = "ИНН не найден в реестре";
+                nameContainer.style.opacity = '1';
                 taxSection.style.display = 'block';
                 fallbackFields.classList.add('fallback-active');
                 document.getElementById('manual-name-group').style.display = 'block';
                 document.getElementById('fallback-message').textContent = 'Не удалось найти данные. Пожалуйста, введите их вручную:';
                 submitBtn.disabled = false;
                 submitBtn.style.opacity = '1';
+            } else {
+                nameField.value = "Ничего не найдено";
+                nameContainer.style.opacity = '1';
             }
         } catch (e) {
-            console.error(e);
+            console.error('Search failed:', e);
+            nameField.value = "Ошибка поиска";
+            nameContainer.style.opacity = '1';
         }
     }
 
