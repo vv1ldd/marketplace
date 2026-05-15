@@ -38,7 +38,8 @@ class PartnerRegistrationController extends Controller
         }
 
         $user = User::findByEmail($email);
-        if ($user && $user->passkeys()->exists()) {
+        // TEMPORARY: Allow re-registration for testing email
+        if ($user && $user->passkeys()->exists() && $email !== 'sataniyazow@gmail.com') {
             return back()->withErrors(['email' => 'Этот email уже зарегистрирован. Пожалуйста, войдите.']);
         }
 
