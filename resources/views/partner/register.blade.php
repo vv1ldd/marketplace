@@ -158,6 +158,16 @@
             </div>
 
             <!-- Fallback Fields (Hidden by default) -->
+            <style>
+                @keyframes slideDown {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .fallback-active {
+                    animation: slideDown 0.4s ease forwards;
+                    display: block !important;
+                }
+            </style>
             <div id="fallback-fields" style="display: none; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
                 <p style="font-size: 0.75rem; color: var(--amber); margin-bottom: 1rem;">
                     Не удалось автоматически найти данные. Пожалуйста, введите их вручную.
@@ -217,7 +227,7 @@
                     fallbackFields.style.display = 'none';
                 } else {
                     nameField.value = "ИНН не найден";
-                    fallbackFields.style.display = 'block';
+                    fallbackFields.classList.add('fallback-active');
                     submitBtn.disabled = false;
                 }
             } catch (e) {
