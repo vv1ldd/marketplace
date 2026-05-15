@@ -69,6 +69,56 @@
             color: var(--muted);
             text-align: left;
         }
+        .signer-selection {
+            margin-bottom: 2rem;
+            text-align: left;
+            background: rgba(255,255,255,0.03);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.07);
+        }
+        .signer-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 10px;
+            transition: background 0.2s;
+        }
+        .signer-option:hover { background: rgba(255,255,255,0.05); }
+        .signer-option input { width: 20px; height: 20px; accent-color: var(--amber); }
+        
+        .poa-fields {
+            display: none;
+            margin-top: 1rem;
+            padding-left: 32px;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .input-group { display: flex; flex-direction: column; gap: 4px; }
+        .input-group label { font-size: 0.75rem; color: var(--muted); }
+        .input-field {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .confirmation-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 2rem;
+            text-align: left;
+            font-size: 0.85rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+        .confirmation-box input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--amber); }
+
         .btn-submit {
             background: var(--amber);
             color: black;
@@ -93,13 +143,85 @@
 
         <div class="agreement-box">
             <h3>Договор на оказание услуг по размещению Товарных предложений</h3>
-            <p>Дата размещения: 30 апреля 2026 г. <br> Дата вступления в силу: 01 мая 2026 г.</p>
+            <p>Дата размещения: {{ \App\Models\Agreement::where('is_active', true)->latest('published_at')->first()?->published_at->format('d.m.Y') ?? '30.04.2026' }} г.</p>
             <hr style="border-color: rgba(255,255,255,0.1); margin: 1rem 0;">
-            <p>{{ $agreementText }}</p>
+            <p style="white-space: pre-wrap;">{{ $agreementText }}</p>
         </div>
 
+        <!-- 🎭 Signer Authorization Section -->
+        <div class="signer-selection">
+            <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                Полномочия подписанта
+            </div>
+            
+            <label class="signer-option">
+                <input type="radio" name="signer_role" value="ceo" checked onchange="togglePoA(false)">
+                <div>
+                    <strong>Я — Руководитель компании</strong>
+                    <div style="font-size: 0.75rem; color: var(--muted);">Действую на основании Устава (первое лицо)</div>
+                </div>
+            </label>
+
+            <label class="signer-option">
+                <input type="radio" name="signer_role" value="representative" onchange="togglePoA(true)">
+                <div>
+                    <strong>Действую по доверенности</strong>
+                    <div style="font-size: 0.75rem; color: var(--muted);">Уполномоченный представитель организации</div>
+                </div>
+            </label>
+
+            <div id="poa-form" class="poa-fields">
+                <div class="input-group">
+                    <label>ФИО представителя</label>
+                    <input type="text" id="signer_name" class="input-field" placeholder="Иванов Иван Иванович">
+                </div>
+                <div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="input-group">
+                        <label>Номер доверенности</label>
+                        <input type="text" id="poa_number" class="input-field" placeholder="№ 123/2026">
+                    </div>
+                    <div class="input-group">
+                        <label>Дата выдачи</label>
+                        <input type="date" id="poa_date" class="input-field">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Контактный телефон</label>
+                    <input type="tel" id="signer_phone" class="input-field" placeholder="+7 (999) 000-00-00">
+                </div>
+            </div>
+        </div>
+
+        <!-- 🛡️ KYC & Identity Verification Section -->
+        <div class="signer-selection" style="border-color: rgba(16, 185, 129, 0.2); background: rgba(16, 185, 129, 0.02);">
+            <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; color: #10b981;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                KYC: Верификация личности
+            </div>
+            <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem;">
+                Для обеспечения юридической значимости подписи требуется подтверждение личности через скан паспорта и селфи-проверку (Liveness).
+            </p>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn-submit" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; height: 40px; font-size: 0.75rem;">
+                    Загрузить паспорт 📄
+                </button>
+                <button type="button" class="btn-submit" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: #10b981; height: 40px; font-size: 0.75rem;">
+                    Пройти Face-ID 🤳
+                </button>
+            </div>
+        </div>
+
+        <label class="confirmation-box">
+            <input type="checkbox" id="legal-confirm" onchange="toggleSignButton()">
+            <span>
+                Я подтверждаю свои полномочия на подписание документов от имени <strong>{{ session('partner_registration')['legal_name'] ?? 'организации' }}</strong>, 
+                ознакомлен с условиями Публичной оферты и принимаю их в полном объеме.
+            </span>
+        </label>
+
         <div id="offer-actions">
-            <button type="button" id="sign-offer-btn" class="btn-submit">
+            <button type="button" id="sign-offer-btn" class="btn-submit" disabled style="opacity: 0.5; cursor: not-allowed;">
                 Подписать оферту и завершить регистрацию ✍️
             </button>
             <p id="status-msg" style="text-align: center; font-size: 0.8rem; margin-top: 1rem; color: var(--amber); display: none;"></p>
@@ -121,10 +243,26 @@
         const { startRegistration } = SimpleWebAuthnBrowser;
         const signBtn = document.getElementById('sign-offer-btn');
         const statusMsg = document.getElementById('status-msg');
+        const legalConfirm = document.getElementById('legal-confirm');
+
+        function togglePoA(show) {
+            document.getElementById('poa-form').style.display = show ? 'flex' : 'none';
+        }
+
+        function toggleSignButton() {
+            if (legalConfirm.checked) {
+                signBtn.disabled = false;
+                signBtn.style.opacity = "1";
+                signBtn.style.cursor = "pointer";
+            } else {
+                signBtn.disabled = true;
+                signBtn.style.opacity = "0.5";
+                signBtn.style.cursor = "not-allowed";
+            }
+        }
 
         signBtn.addEventListener('click', async () => {
             const optionsRaw = @json($passkeyOptions);
-            console.log("Raw Passkey Options:", optionsRaw);
             
             let options = optionsRaw;
             if (typeof options === 'string') {
@@ -136,17 +274,22 @@
                 return;
             }
 
+            // Gather Signer Info
+            const role = document.querySelector('input[name="signer_role"]:checked').value;
+            const signerInfo = {
+                role: role,
+                name: document.getElementById('signer_name').value,
+                phone: document.getElementById('signer_phone').value,
+                poa_number: document.getElementById('poa_number').value,
+                poa_date: document.getElementById('poa_date').value
+            };
+
             signBtn.disabled = true;
             signBtn.innerText = "Подписание... 🛡️";
             statusMsg.style.display = 'block';
             statusMsg.innerText = "Пожалуйста, подтвердите вашу личность с помощью Passkey (FaceID/Fingerprint)";
 
             try {
-                // Ensure user.id and challenge are handled correctly if they came as objects
-                if (options.user.id && typeof options.user.id === 'object') {
-                    console.warn("Options user.id is an object, this might be the cause of e.replace");
-                }
-
                 const attestationResponse = await startRegistration(options);
                 
                 const verifyRes = await fetch("{{ route('partner.register.passkey.store') }}", {
@@ -155,7 +298,10 @@
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     },
-                    body: JSON.stringify(attestationResponse)
+                    body: JSON.stringify({
+                        ...attestationResponse,
+                        signer_info: signerInfo
+                    })
                 });
 
                 const result = await verifyRes.json();

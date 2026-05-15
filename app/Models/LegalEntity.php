@@ -45,6 +45,7 @@ class LegalEntity extends Model
         'agreement_signed_at',
         'agreement_signature',
         'status',
+        'agreement_metadata',
     ];
 
     protected $casts = [
@@ -55,6 +56,7 @@ class LegalEntity extends Model
         'allowed_brands' => 'array',
         'allow_all_brands' => 'boolean',
         'is_active' => 'boolean',
+        'agreement_metadata' => 'array',
         
         // 💰 Finance & Tax Casting
         'tax_system' => \App\Enums\TaxSystemEnum::class,

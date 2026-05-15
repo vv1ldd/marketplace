@@ -128,6 +128,8 @@ class PartnerRegistrationController extends Controller
                 $user->save();
 
                 // 3. Create LegalEntity (The "Signed" Entity)
+                $signerInfo = $request->input('signer_info', []);
+                
                 LegalEntity::create([
                     'user_id' => $user->id,
                     'name' => $reg['name'],
@@ -137,8 +139,19 @@ class PartnerRegistrationController extends Controller
                     'legal_address' => $reg['address'] ?? null,
                     'tax_system' => $reg['tax_system'] ?? 'OSN',
                     'is_active' => false,
+                    'status' => 'pending',
                     'agreement_signed_at' => now(),
                     'agreement_signature' => 'PASSKEY:' . $passkey->credential_id,
+                    // Store detailed signer info
+                    'director_name' => $signerInfo['role'] === 'ceo' ? $user->name : ($signerInfo['name'] ?? $user->name),
+                    'phone' => $signerInfo['phone'] ?? null,
+                    'agreement_metadata' => [
+                        'signer_role' => $signerInfo['role'] ?? 'ceo',
+                        'poa_number' => $signerInfo['poa_number'] ?? null,
+                        'poa_date' => $signerInfo['poa_date'] ?? null,
+                        'signer_name' => $signerInfo['name'] ?? null,
+                        'l1_address' => $address,
+                    ]
                 ]);
 
                 session()->forget(['partner_registration', 'passkey_options']);
