@@ -139,11 +139,6 @@
             @csrf
             
             <div class="form-group">
-                <label class="form-label">Ваше имя</label>
-                <input type="text" name="first_name" class="form-input" placeholder="Иван Иванов" required value="{{ old('first_name') }}">
-            </div>
-
-            <div class="form-group">
                 <label class="form-label">Email</label>
                 <input type="email" name="email" class="form-input" placeholder="ivan@company.com" required value="{{ old('email') }}">
             </div>

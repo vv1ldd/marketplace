@@ -20,7 +20,6 @@ class PartnerRegistrationController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'first_name' => 'required|string|max:255',
             'email' => 'required|email',
         ]);
 
@@ -34,7 +33,7 @@ class PartnerRegistrationController extends Controller
         if (!$user) {
             $user = DB::transaction(function () use ($request, $email) {
                 $user = User::create([
-                    'first_name' => $request->input('first_name'),
+                    'first_name' => explode('@', $email)[0], // Use email prefix as default name
                     'email' => $email,
                     'password' => Hash::make(Str::random(32)),
                 ]);
