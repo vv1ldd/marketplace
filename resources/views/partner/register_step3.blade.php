@@ -47,6 +47,28 @@
             color: var(--muted);
             margin-bottom: 2rem;
         }
+        .qr-section {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            border: 1px dashed rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .qr-code {
+            width: 100px;
+            height: 100px;
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+        }
+        .qr-text {
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-align: left;
+        }
         .btn-submit {
             background: var(--amber);
             color: black;
@@ -81,6 +103,16 @@
                 Подписать оферту и завершить регистрацию ✍️
             </button>
             <p id="status-msg" style="text-align: center; font-size: 0.8rem; margin-top: 1rem; color: var(--amber); display: none;"></p>
+        </div>
+
+        <div class="qr-section">
+            <div class="qr-code">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ urlencode(url()->current()) }}" alt="QR Code" style="width: 100%; height: 100%;">
+            </div>
+            <div class="qr-text">
+                <strong>Нет сканера на компьютере?</strong><br>
+                Отсканируйте этот код камерой смартфона, чтобы подписать оферту через FaceID или отпечаток пальца.
+            </div>
         </div>
     </div>
 
