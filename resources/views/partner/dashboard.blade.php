@@ -138,7 +138,7 @@
             </div>
         </div>
 
-        <div class="sovereign-card" style="margin-top: 2rem;">
+<div class="sovereign-card" style="margin-top: 2rem;">
             <div class="card-title">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                 Sovereign Manifest
@@ -152,18 +152,31 @@
                 <span class="data-value">{{ $legalEntity->inn }} / {{ $legalEntity->ogrn ?? 'verified' }}</span>
             </div>
             <div class="data-row">
-                <span class="data-label">Статус:</span>
+                <span class="data-label">Статус проверки:</span>
                 <span class="data-value" style="color: var(--amber);">
-                    @if($legalEntity->agreement_signed_at && $legalEntity->bank_account)
-                        Готов к верификации 💎
+                    @if($legalEntity->status === 'active')
+                        <span style="color: #10b981;">АКТИВЕН 💎</span>
+                    @elseif($legalEntity->status === 'awaiting_payment')
+                        ОЖИДАЕТ ОПЛАТЫ СЧЕТА (1 ₽) 🏦
+                    @elseif($legalEntity->status === 'rejected')
+                        <span style="color: #ef4444;">ОТКЛОНЕН ❌</span>
                     @else
-                        Требуются данные ⚠️
+                        НА МОДЕРАЦИИ ⏳
                     @endif
                 </span>
             </div>
-            <div class="data-row">
-                <span class="data-label">L1 Address:</span>
-                <span class="data-value" style="font-family: monospace; font-size: 0.8rem;">{{ Auth::user()->meta['l1_address'] ?? 'pending...' }}</span>
+
+            @if($legalEntity->status === 'awaiting_payment')
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(245, 158, 11, 0.05); border: 1px dashed var(--amber); border-radius: 12px; font-size: 0.85rem;">
+                <strong>Верификация счета:</strong><br>
+                Пожалуйста, оплатите проверочный счет на 1 рубль. <br>
+                <a href="#" style="color: var(--amber); text-decoration: underline; font-weight: 700;">Скачать счет (PDF) 📄</a>
+            </div>
+            @endif
+
+            <div class="data-row" style="margin-top: 1.5rem;">
+                <span class="data-label">Sovereign L1 ID:</span>
+                <span class="data-value" style="font-family: monospace; font-size: 0.75rem; color: #10b981;">{{ Auth::user()->meta['l1_address'] ?? 'not anchored' }}</span>
             </div>
             <div class="l1-badge">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
