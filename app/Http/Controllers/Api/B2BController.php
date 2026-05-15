@@ -10,16 +10,34 @@ class B2BController extends Controller
     public function search(Request $request)
     {
         $inn = $request->get('inn');
+        $token = config('services.dadata.token');
         
+        if (!$token) {
+            \Log::error("DaData Token is missing in config.");
+            return response()->json(['suggestions' => [], 'fallback' => true]);
+        }
+
         try {
-            $dadata = new \Dadata\DadataClient(config('services.dadata.token'), null);
-            $result = $dadata->findById("party", $inn, 1);
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Authorization' => 'Token ' . $token,
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->post('https://suggestions.dadata.ru/suggestions/api/4_1/rs/findById/party', [
+                'query' => $inn,
+                'count' => 1
+            ]);
+
+            if ($response->failed()) {
+                throw new \Exception("DaData API failed: " . $response->body());
+            }
+
+            $result = $response->json()['suggestions'] ?? [];
 
             if (empty($result)) {
                 return response()->json(['suggestions' => [], 'fallback' => true]);
             }
 
-            // Normalize results using our new service
+            // Normalize results using our service
             $normalized = array_map(function($item) {
                 return \App\Services\DaDataNormalizer::normalize($item);
             }, $result);

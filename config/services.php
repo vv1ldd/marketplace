@@ -72,4 +72,8 @@ return [
             )));
         })(),
     ],
+
+    'dadata' => [
+        'token' => env('DADATA_TOKEN'),
+    ],
 ];
