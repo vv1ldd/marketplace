@@ -10,23 +10,24 @@ class B2BController extends Controller
     public function search(Request $request)
     {
         $inn = $request->get('inn');
-        $isIP = strlen($inn) === 12;
         
         // 🧪 DEV OVERRIDE
         if ($inn === '526216895584') {
+            $mockRaw = [
+                'value' => 'ООО "СУВЕРЕННЫЕ ТЕХНОЛОГИИ"',
+                'data' => [
+                    'inn' => '526216895584',
+                    'ogrn' => '1234567890123',
+                    'kpp' => '526201001',
+                    'address' => ['value' => 'г. Нижний Новгород, ул. Суверенная, д. 1'],
+                    'management' => ['name' => 'Иванов Иван Иванович'],
+                    'type' => 'LEGAL',
+                    'state' => ['status' => 'ACTIVE'],
+                    'tax_system' => 'ОСН'
+                ]
+            ];
             return response()->json([
-                'suggestions' => [[
-                    'value' => 'ООО "СУВЕРЕННЫЕ ТЕХНОЛОГИИ"',
-                    'data' => [
-                        'inn' => '526216895584',
-                        'ogrn' => '1234567890123',
-                        'kpp' => '526201001',
-                        'address' => ['value' => 'г. Нижний Новгород, ул. Суверенная, д. 1'],
-                        'management' => ['name' => 'Иванов Иван Иванович'],
-                        'type' => 'LEGAL',
-                        'tax_system' => 'ОСН' // Simulation
-                    ]
-                ]]
+                'suggestions' => [\App\Services\DaDataNormalizer::normalize($mockRaw)]
             ]);
         }
 
@@ -38,12 +39,12 @@ class B2BController extends Controller
                 return response()->json(['suggestions' => [], 'fallback' => true]);
             }
 
-            // Return everything DaData gives us
-            foreach ($result as &$item) {
-                $item['is_ip'] = $isIP;
-            }
+            // Normalize results
+            $normalized = array_map(function($item) {
+                return \App\Services\DaDataNormalizer::normalize($item);
+            }, $result);
 
-            return response()->json(['suggestions' => $result]);
+            return response()->json(['suggestions' => $normalized]);
         } catch (\Exception $e) {
             \Log::error("DaData Error: " . $e->getMessage());
             return response()->json(['suggestions' => [], 'fallback' => true]);

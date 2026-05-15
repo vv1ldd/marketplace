@@ -261,40 +261,28 @@
 
             if (data.suggestions && data.suggestions.length > 0) {
                 const org = data.suggestions[0];
-                const d = org.data;
+                console.log('Normalized Org:', org);
                 
                 nameContainer.style.opacity = '1';
-                nameField.value = org.value;
+                nameField.value = org.name;
                 
                 // Populate Background Data
-                addHidden('legal_name', org.value);
-                addHidden('ogrn', d.ogrn);
-                addHidden('kpp', d.kpp || '');
-                addHidden('address', d.address ? d.address.value : '');
+                addHidden('legal_name', org.name);
+                addHidden('ogrn', org.ogrn);
+                addHidden('kpp', org.kpp || '');
+                addHidden('address', org.address || '');
 
                 // 💰 Deep Search for Tax System
                 taxSection.style.display = 'block';
-                let detectedTax = d.tax_system || (d.finance ? d.finance.tax_system : null);
-                
-                const taxMap = {
-                    'ОСН': 'OSN', 'ОСНО': 'OSN',
-                    'УСН': 'USN', 'УСНО': 'USN',
-                    'ЕНВД': 'OSN',
-                    'ЕСХН': 'USN',
-                    'ПСН': 'USN',
-                    'НПД': 'NPD'
-                };
-
-                const taxValue = detectedTax ? (taxMap[detectedTax.toUpperCase()] || 'OSN') : (org.is_ip ? 'USN' : 'OSN');
-                document.getElementById('tax_system').value = taxValue;
+                document.getElementById('tax_system').value = org.tax_system || 'OSN';
 
                 if (org.is_ip) {
                     fallbackFields.classList.add('fallback-active');
                     document.getElementById('manual-name-group').style.display = 'none';
                     document.getElementById('fallback-message').textContent = 'Для ИП и самозанятых необходимо подтвердить адрес регистрации:';
                     document.getElementById('address-label').textContent = 'Адрес регистрации';
-                    document.getElementById('manual_address').value = d.address ? d.address.value : '';
-                    document.getElementById('manual_ogrn').value = d.ogrn;
+                    document.getElementById('manual_address').value = org.address || '';
+                    document.getElementById('manual_ogrn').value = org.ogrn;
                 } else {
                     fallbackFields.classList.remove('fallback-active');
                     fallbackFields.style.display = 'none';
