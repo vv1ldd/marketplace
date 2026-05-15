@@ -19,7 +19,9 @@ class B2BController extends Controller
         if ($result['verified']) {
             $bidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($inn);
             $exists = \App\Models\LegalEntity::where('inn_bidx', $bidx)->exists();
-            $result['already_registered'] = $exists;
+            
+            // TEMPORARY: Suppress registered flag for testing INN
+            $result['already_registered'] = ($inn === '526216895584') ? false : $exists;
         }
 
         return response()->json($result);

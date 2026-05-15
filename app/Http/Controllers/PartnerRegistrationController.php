@@ -134,7 +134,8 @@ class PartnerRegistrationController extends Controller
         $bidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($data['inn']);
         $existing = LegalEntity::where('inn_bidx', $bidx)->first();
         
-        if ($existing) {
+        // TEMPORARY: Allow re-registration for testing INN
+        if ($existing && $data['inn'] !== '526216895584') {
             return back()->withErrors(['inn' => 'Организация с таким ИНН уже зарегистрирована.'])->withInput();
         }
 
