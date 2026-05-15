@@ -43,7 +43,9 @@ class PartnerRegistrationController extends Controller
             'inn' => $inn,
             'name' => $request->input('legal_name'),
             'ogrn' => $request->input('ogrn'),
+            'kpp' => $request->input('kpp'),
             'address' => $request->input('address'),
+            'tax_system' => $request->input('tax_system', 'OSN'),
         ]]);
 
         $user = User::findByEmail($email);
@@ -159,8 +161,10 @@ class PartnerRegistrationController extends Controller
                 'user_id' => Auth::id(),
                 'name' => $reg['name'],
                 'inn' => $reg['inn'],
+                'kpp' => $reg['kpp'] ?? null,
                 'ogrn' => $reg['ogrn'] ?? null,
                 'legal_address' => $reg['address'] ?? null,
+                'tax_system' => $reg['tax_system'] ?? 'OSN',
                 'is_active' => false,
                 'agreement_signed_at' => now(),
                 'agreement_signature' => 'SGN:' . bin2hex(random_bytes(32)),

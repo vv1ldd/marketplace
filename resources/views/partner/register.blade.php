@@ -157,7 +157,18 @@
                 <input type="email" name="email" class="form-input" placeholder="ivan@company.com" required value="{{ old('email') }}">
             </div>
 
-            <!-- Fallback Fields (Hidden by default) -->
+            <!-- 💰 Tax System (New Section) -->
+            <div id="tax-section" style="margin-top: 1.5rem; display: none; animation: slideDown 0.4s ease forwards;">
+                <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Система налогообложения</label>
+                <select name="tax_system" id="tax_system" class="form-input" style="height: 44px; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: 0.65rem auto;">
+                    <option value="OSN">ОСНО (Общая система)</option>
+                    <option value="USN">УСН (Упрощенная система)</option>
+                    <option value="USN_INCOME">УСН Доходы</option>
+                    <option value="NPD">НПД (Самозанятый)</option>
+                </select>
+            </div>
+
+            <!-- Fallback Fields (Manual Entry for IPs or when DaData fails) -->
             <style>
                 @keyframes slideDown {
                     from { opacity: 0; transform: translateY(-10px); }
@@ -169,10 +180,10 @@
                 }
             </style>
             <div id="fallback-fields" style="display: none; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
-                <p style="font-size: 0.75rem; color: var(--amber); margin-bottom: 1rem;">
+                <p id="fallback-message" style="font-size: 0.75rem; color: var(--amber); margin-bottom: 1rem;">
                     Не удалось автоматически найти данные. Пожалуйста, введите их вручную.
                 </p>
-                <div class="form-group" style="margin-bottom: 1rem;">
+                <div id="manual-name-group" class="form-group" style="margin-bottom: 1rem;">
                     <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Полное название организации</label>
                     <input type="text" name="legal_name" id="manual_legal_name" class="form-input" placeholder='ООО "КОМПАНИЯ"'>
                 </div>
@@ -181,10 +192,12 @@
                     <input type="text" name="ogrn" id="manual_ogrn" class="form-input" placeholder="1234567890123">
                 </div>
                 <div class="form-group">
-                    <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Юридический адрес</label>
+                    <label id="address-label" style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Юридический адрес</label>
                     <textarea name="address" id="manual_address" class="form-input" style="height: 60px;"></textarea>
                 </div>
             </div>
+
+            <div id="background-data"></div> <!-- Container for hidden inputs -->
 
             <button type="submit" class="btn-submit" id="submit-btn">Начать регистрацию →</button>
         </form>
@@ -196,48 +209,86 @@
 </div>
 
 <script>
-    const innField = document.getElementById('inn-field');
-    const nameContainer = document.getElementById('name-container');
-    const nameField = document.getElementById('name-field');
+    const innInput = document.getElementById('inn-field');
     const submitBtn = document.getElementById('submit-btn');
     const fallbackFields = document.getElementById('fallback-fields');
+    const taxSection = document.getElementById('tax-section');
+    const bgData = document.getElementById('background-data');
+    const nameField = document.getElementById('name-field');
+    const nameContainer = document.getElementById('name-container');
+    
+    let typingTimer;
 
-    innField.addEventListener('input', async (e) => {
-        const inn = e.target.value.trim();
-        if (inn.length === 10 || inn.length === 12) {
-            nameContainer.style.display = 'block';
-            nameField.value = "Загрузка...";
-            
-            try {
-                const response = await fetch('/api/b2b/search', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ inn: inn })
-                });
-                
-                const data = await response.json();
-                
-                if (data.verified) {
-                    nameContainer.style.opacity = '1';
-                    nameField.value = data.name;
-                    submitBtn.disabled = false;
-                    fallbackFields.style.display = 'none';
-                } else {
-                    nameField.value = "ИНН не найден";
-                    fallbackFields.classList.add('fallback-active');
-                    submitBtn.disabled = false;
-                }
-            } catch (e) {
-                console.error("Search failed", e);
-            }
-        } else {
-            nameContainer.style.opacity = '0';
-            setTimeout(() => { nameContainer.style.display = 'none'; }, 300);
+    innInput.addEventListener('input', () => {
+        clearTimeout(typingTimer);
+        const inn = innInput.value.trim();
+        if (inn.length >= 10) {
+            typingTimer = setTimeout(searchINN, 500);
         }
     });
+
+    async function searchINN() {
+        const inn = innInput.value.trim();
+        nameContainer.style.display = 'block';
+        nameField.value = "Загрузка...";
+        
+        try {
+            const res = await fetch(`/api/b2b/search?inn=${inn}`);
+            const data = await res.json();
+            bgData.innerHTML = ''; // Clear previous
+
+            if (data.suggestions && data.suggestions.length > 0) {
+                const org = data.suggestions[0];
+                const d = org.data;
+                
+                nameContainer.style.opacity = '1';
+                nameField.value = org.value;
+                
+                // Populate Background Data
+                addHidden('legal_name', org.value);
+                addHidden('ogrn', d.ogrn);
+                addHidden('kpp', d.kpp || '');
+                addHidden('address', d.address ? d.address.value : '');
+
+                // Smart UI Logic
+                taxSection.style.display = 'block';
+                document.getElementById('tax_system').value = org.tax_system_hint || 'OSN';
+
+                if (org.is_ip) {
+                    fallbackFields.classList.add('fallback-active');
+                    document.getElementById('manual-name-group').style.display = 'none';
+                    document.getElementById('fallback-message').textContent = 'Для ИП и самозанятых необходимо подтвердить адрес регистрации:';
+                    document.getElementById('address-label').textContent = 'Адрес регистрации';
+                    document.getElementById('manual_address').value = d.address ? d.address.value : '';
+                    document.getElementById('manual_ogrn').value = d.ogrn;
+                } else {
+                    fallbackFields.classList.remove('fallback-active');
+                    fallbackFields.style.display = 'none';
+                }
+
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            } else if (data.fallback) {
+                nameField.value = "ИНН не найден в реестре";
+                taxSection.style.display = 'block';
+                fallbackFields.classList.add('fallback-active');
+                document.getElementById('manual-name-group').style.display = 'block';
+                document.getElementById('fallback-message').textContent = 'Не удалось найти данные. Пожалуйста, введите их вручную:';
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function addHidden(name, value) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        bgData.appendChild(input);
+    }
 </script>
 
 </body>
