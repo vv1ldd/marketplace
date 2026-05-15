@@ -91,11 +91,16 @@
         const statusMsg = document.getElementById('status-msg');
 
         signBtn.addEventListener('click', async () => {
-            const options = @json($passkeyOptions);
-            console.log("Passkey Options:", options);
+            const optionsRaw = {!! $passkeyOptions !!};
+            console.log("Raw Passkey Options:", optionsRaw);
+            
+            let options = optionsRaw;
+            if (typeof options === 'string') {
+                options = JSON.parse(options);
+            }
             
             if (!options || !options.user) {
-                alert('Ошибка: Данные для регистрации ключа не получены. Попробуйте обновить страницу.');
+                alert('Ошибка: Данные для регистрации ключа не получены.');
                 return;
             }
 

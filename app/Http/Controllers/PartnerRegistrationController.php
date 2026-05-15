@@ -60,9 +60,15 @@ class PartnerRegistrationController extends Controller
 
         Auth::login($user);
 
-        // 🔑 Prepare Passkey options as an array (not string)
+        // 🔑 Prepare Passkey options with a CLEAN rp.id
         $options = app(\Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction::class)->execute($user, false);
-        session(['passkey_options' => $options]);
+        
+        // 🛡️ CRITICAL FIX: rp.id must be a clean domain (no https://)
+        $url = parse_url(config('app.url'), PHP_URL_HOST);
+        $options->rp->id = $url ?: config('app.url');
+        
+        $optionsJson = json_encode($options);
+        session(['passkey_options' => $optionsJson]);
 
         return redirect()->route('partner.register.offer');
     }
