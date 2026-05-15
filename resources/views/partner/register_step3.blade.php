@@ -123,7 +123,7 @@
         const statusMsg = document.getElementById('status-msg');
 
         signBtn.addEventListener('click', async () => {
-            const optionsRaw = {!! $passkeyOptions !!};
+            const optionsRaw = @json($passkeyOptions);
             console.log("Raw Passkey Options:", optionsRaw);
             
             let options = optionsRaw;

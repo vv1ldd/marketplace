@@ -68,8 +68,9 @@ class PartnerRegistrationController extends Controller
         $url = parse_url(config('app.url'), PHP_URL_HOST);
         $optionsArray['rp']['id'] = $url ?: config('app.url');
         
-        // 🔑 3. Store as clean JSON string
-        session(['passkey_options' => json_encode($optionsArray)]);
+        // 🔑 3. Store as clean JSON string (FORCE STRING TYPE)
+        $finalJson = (string) json_encode($optionsArray);
+        session(['passkey_options' => $finalJson]);
 
         return redirect()->route('partner.register.offer');
     }
