@@ -60,17 +60,20 @@ class PartnerRegistrationController extends Controller
 
         Auth::login($user);
 
-        // 🔑 1. Generate options as JSON string (Spatie's native way)
+        // 🔑 1. Generate options as JSON string
         $json = app(\Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction::class)->execute($user, true);
         
-        // 🔑 2. Parse and fix rp.id manually
+        // 🔑 2. Fix rp.id dynamically based on current request host
+        // This is much safer than relying on config('app.url')
+        $host = request()->getHost();
         $optionsArray = json_decode($json, true);
-        $url = parse_url(config('app.url'), PHP_URL_HOST);
-        $optionsArray['rp']['id'] = $url ?: config('app.url');
+        $optionsArray['rp']['id'] = $host;
+        $optionsArray['rp']['name'] = 'Meanly Sovereign Marketplace';
         
-        // 🔑 3. Store as clean JSON string (FORCE STRING TYPE)
-        $finalJson = (string) json_encode($optionsArray);
-        session(['passkey_options' => $finalJson]);
+        // 🛡️ Ensure user.id is a string and stable
+        $optionsArray['user']['id'] = base64_encode((string)$user->id);
+        
+        session(['passkey_options' => json_encode($optionsArray)]);
 
         return redirect()->route('partner.register.offer');
     }
@@ -83,7 +86,8 @@ class PartnerRegistrationController extends Controller
         $reg = session('partner_registration');
         if (!$reg) return redirect()->route('partner.register');
 
-        $agreementText = "Договор на оказание услуг по размещению Товарных предложений... [Полный текст оферты]";
+        $agreement = \App\Models\Agreement::where('is_active', true)->latest('published_at')->first();
+        $agreementText = $agreement ? $agreement->content : "Текст оферты не найден.";
 
         return view('partner.register_step3', [
             'registration' => $reg,
