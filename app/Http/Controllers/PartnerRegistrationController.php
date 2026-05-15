@@ -131,6 +131,12 @@ class PartnerRegistrationController extends Controller
             'inn' => 'required|string|max:20',
         ]);
 
+        // Check if this INN is already registered
+        $existing = LegalEntity::where('inn', $data['inn'])->first();
+        if ($existing) {
+            return back()->withErrors(['inn' => 'Организация с таким ИНН уже зарегистрирована.'])->withInput();
+        }
+
         $user = Auth::user();
 
         $legalEntity = LegalEntity::create([
