@@ -28,7 +28,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
 
     public function getPassKeyId(): string
     {
-        return hash('md5', (string) $this->id);
+        return (string) $this->id;
     }
 
     public function getPassKeyName(): string
