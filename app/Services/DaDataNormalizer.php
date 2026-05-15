@@ -41,6 +41,7 @@ class DaDataNormalizer
         $tax = mb_strtoupper($tax);
         
         if (str_contains($tax, 'ОСН')) return 'OSN';
+        if (str_contains($tax, 'АУСН')) return 'AUSN';
         if (str_contains($tax, 'УСН')) return 'USN';
         if (str_contains($tax, 'НПД')) return 'NPD';
         if (str_contains($tax, 'ЕСХН')) return 'USN';
