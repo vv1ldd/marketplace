@@ -12,13 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('legal_entities', function (Blueprint $table) {
-            $table->timestamp('agreement_signed_at')->nullable();
-            $table->text('agreement_signature')->nullable();
-            $table->string('bank_bic')->nullable();
-            $table->string('bank_account')->nullable();
-            $table->string('ogrn')->nullable();
-            $table->text('legal_address')->nullable();
-            $table->string('status')->default('pending'); // pending, active, rejected
+            if (!Schema::hasColumn('legal_entities', 'status')) {
+                $table->string('status')->default('pending')->after('is_active');
+            }
         });
     }
 

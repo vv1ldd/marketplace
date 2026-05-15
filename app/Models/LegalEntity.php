@@ -44,6 +44,7 @@ class LegalEntity extends Model
         'vat_rate',
         'agreement_signed_at',
         'agreement_signature',
+        'status',
     ];
 
     protected $casts = [

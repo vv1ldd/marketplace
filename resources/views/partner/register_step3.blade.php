@@ -92,10 +92,10 @@
 
         signBtn.addEventListener('click', async () => {
             const options = @json($passkeyOptions);
+            console.log("Passkey Options:", options);
             
-            if (!options) {
-                alert('Сессия истекла. Пожалуйста, начните регистрацию сначала.');
-                window.location.href = "{{ route('partner.register') }}";
+            if (!options || !options.user) {
+                alert('Ошибка: Данные для регистрации ключа не получены. Попробуйте обновить страницу.');
                 return;
             }
 
@@ -105,6 +105,11 @@
             statusMsg.innerText = "Пожалуйста, подтвердите вашу личность с помощью Passkey (FaceID/Fingerprint)";
 
             try {
+                // Ensure user.id and challenge are handled correctly if they came as objects
+                if (options.user.id && typeof options.user.id === 'object') {
+                    console.warn("Options user.id is an object, this might be the cause of e.replace");
+                }
+
                 const attestationResponse = await startRegistration(options);
                 
                 const verifyRes = await fetch("{{ route('partner.register.passkey.store') }}", {
