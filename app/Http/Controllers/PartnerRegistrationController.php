@@ -53,12 +53,12 @@ class PartnerRegistrationController extends Controller
 
                 $user->assignRole('b2b_partner');
                 
-                // Create the Legal Entity immediately
+                // Create the Legal Entity immediately (Pending Moderation)
                 LegalEntity::create([
                     'user_id' => $user->id,
                     'name' => $request->input('legal_name'),
                     'inn' => $inn,
-                    'is_active' => true,
+                    'is_active' => false, // 🛡️ Moderation Required
                     'currency' => 'RUB',
                 ]);
 

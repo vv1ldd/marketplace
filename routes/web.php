@@ -11,6 +11,7 @@ Route::domain(config('app.domain'))->group(function () {
     Route::get('/', fn () => view('landing'))->name('home');
     
     Route::prefix('partner')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard');
         Route::get('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'show'])->name('partner.register');
         Route::post('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'register'])->name('partner.register.submit');
         Route::post('/register/finalize', [\App\Http\Controllers\PartnerRegistrationController::class, 'finalize'])->name('partner.register.finalize');
