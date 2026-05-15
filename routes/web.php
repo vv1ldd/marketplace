@@ -14,11 +14,13 @@ Route::domain(config('app.domain'))->group(function () {
         Route::get('/', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard');
         Route::post('/dashboard/sign', [\App\Http\Controllers\PartnerDashboardController::class, 'signAgreement'])->name('partner.dashboard.sign');
         Route::post('/dashboard/bank', [\App\Http\Controllers\PartnerDashboardController::class, 'updateBank'])->name('partner.dashboard.bank');
+        
+        // 🚀 Registration Flow
         Route::get('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'show'])->name('partner.register');
         Route::post('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'register'])->name('partner.register.submit');
         Route::post('/register/finalize', [\App\Http\Controllers\PartnerRegistrationController::class, 'finalize'])->name('partner.register.finalize');
-        Route::get('/register/step2', [\App\Http\Controllers\PartnerRegistrationController::class, 'showStep2'])->name('partner.register.step2');
-        Route::post('/register/step2', [\App\Http\Controllers\PartnerRegistrationController::class, 'storeStep2'])->name('partner.register.step2.submit');
+        Route::get('/register/offer', [\App\Http\Controllers\PartnerRegistrationController::class, 'showOffer'])->name('partner.register.offer');
+        Route::post('/register/offer', [\App\Http\Controllers\PartnerRegistrationController::class, 'acceptOffer'])->name('partner.register.offer.submit');
     });
 
     Route::post('/passkeys/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'storePasskey'])->name('passkeys.register');

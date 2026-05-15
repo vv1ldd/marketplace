@@ -157,6 +157,25 @@
                 <input type="email" name="email" class="form-input" placeholder="ivan@company.com" required value="{{ old('email') }}">
             </div>
 
+            <!-- Fallback Fields (Hidden by default) -->
+            <div id="fallback-fields" style="display: none; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                <p style="font-size: 0.75rem; color: var(--amber); margin-bottom: 1rem;">
+                    Не удалось автоматически найти данные. Пожалуйста, введите их вручную.
+                </p>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Полное название организации</label>
+                    <input type="text" name="legal_name" id="manual_legal_name" class="form-input" placeholder='ООО "КОМПАНИЯ"'>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">ОГРН</label>
+                    <input type="text" name="ogrn" id="manual_ogrn" class="form-input" placeholder="1234567890123">
+                </div>
+                <div class="form-group">
+                    <label style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; display: block;">Юридический адрес</label>
+                    <textarea name="address" id="manual_address" class="form-input" style="height: 60px;"></textarea>
+                </div>
+            </div>
+
             <button type="submit" class="btn-submit" id="submit-btn">Начать регистрацию →</button>
         </form>
 
@@ -171,6 +190,7 @@
     const nameContainer = document.getElementById('name-container');
     const nameField = document.getElementById('name-field');
     const submitBtn = document.getElementById('submit-btn');
+    const fallbackFields = document.getElementById('fallback-fields');
 
     innField.addEventListener('input', async (e) => {
         const inn = e.target.value.trim();
@@ -194,9 +214,11 @@
                     nameContainer.style.opacity = '1';
                     nameField.value = data.name;
                     submitBtn.disabled = false;
+                    fallbackFields.style.display = 'none';
                 } else {
                     nameField.value = "ИНН не найден";
-                    submitBtn.disabled = true;
+                    fallbackFields.style.display = 'block';
+                    submitBtn.disabled = false;
                 }
             } catch (e) {
                 console.error("Search failed", e);

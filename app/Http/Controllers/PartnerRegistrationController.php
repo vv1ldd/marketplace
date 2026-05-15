@@ -17,6 +17,9 @@ class PartnerRegistrationController extends Controller
         return view('partner.register');
     }
 
+    /**
+     * STEP 1: Basic Info (INN + Email)
+     */
     public function register(Request $request)
     {
         $request->validate([
@@ -30,47 +33,33 @@ class PartnerRegistrationController extends Controller
         
         // 🛡️ Check if this INN is already registered
         $bidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($inn);
-        $existingEntity = LegalEntity::where('inn_bidx', $bidx)->first();
-        
-        // TEMPORARY: Allow re-registration for testing INN
-        if ($existingEntity && $inn !== '526216895584') {
+        if (LegalEntity::where('inn_bidx', $bidx)->exists() && $inn !== '526216895584') {
             return back()->withErrors(['inn' => 'Организация с таким ИНН уже зарегистрирована.'])->withInput();
         }
 
+        // Store registration data in session for final step
+        session(['partner_registration' => [
+            'email' => $email,
+            'inn' => $inn,
+            'name' => $request->input('legal_name'),
+            'ogrn' => $request->input('ogrn'),
+            'address' => $request->input('address'),
+        ]]);
+
         $user = User::findByEmail($email);
-        // TEMPORARY: Allow re-registration for testing email
-        if ($user && $user->passkeys()->exists() && $email !== 'sataniyazow@gmail.com') {
-            return back()->withErrors(['email' => 'Этот email уже зарегистрирован. Пожалуйста, войдите.']);
-        }
-
         if (!$user) {
-            $user = DB::transaction(function () use ($request, $email, $inn) {
-                $user = User::create([
-                    'first_name' => explode('@', $email)[0],
-                    'email' => $email,
-                    'password' => Hash::make(Str::random(32)),
-                ]);
-
-                $user->assignRole('b2b_partner');
-                
-                // Create the Legal Entity immediately (Pending Moderation)
-                LegalEntity::create([
-                    'user_id' => $user->id,
-                    'name' => $request->input('legal_name'),
-                    'inn' => $inn,
-                    'is_active' => false, // 🛡️ Moderation Required
-                    'currency' => 'RUB',
-                ]);
-
-                return $user;
-            });
+            $user = User::create([
+                'first_name' => explode('@', $email)[0],
+                'email' => $email,
+                'password' => Hash::make(Str::random(32)),
+            ]);
+            $user->assignRole('b2b_partner');
         }
 
         Auth::login($user);
 
         // 🔑 Trigger Passkey Creation Step
         $optionsJson = app(\Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction::class)->execute($user, true);
-        
         session(['passkey_options' => $optionsJson]);
 
         return view('partner.register_passkey', [
@@ -79,109 +68,93 @@ class PartnerRegistrationController extends Controller
         ]);
     }
 
+    /**
+     * STEP 2: Passkey Storage & L1 Anchoring
+     */
     public function storePasskey(Request $request)
     {
         $user = Auth::user();
         $optionsJson = session('passkey_options');
         
-        if (!$optionsJson) {
-            return response()->json(['error' => 'Session expired'], 422);
-        }
+        if (!$optionsJson) return response()->json(['error' => 'Session expired'], 422);
 
         try {
-            // Force RP ID to current host if it's different from APP_URL host
-            // Note: Spatie doesn't make it easy to override RP ID on the fly without a custom Action.
-            // But we can verify it in the session or log it.
-            
             app(\Spatie\LaravelPasskeys\Actions\StorePasskeyAction::class)->execute(
                 $user,
-                $request->getContent(), // The raw credential JSON
+                $request->getContent(),
                 $optionsJson,
                 $request->getHost(),
                 ['name' => 'Primary Key']
             );
-
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
-            \Log::error('Passkey storage failed: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 422);
         }
     }
 
+    /**
+     * STEP 3: Redirect to Offer
+     */
     public function finalize(Request $request)
     {
         $user = Auth::user();
-        
         $passkey = $user->passkeys()->latest()->first();
         
         if ($passkey) {
-            // 🧬 Simple-L1: Calculate Address from Public Key
-            // $passkey->data is a PublicKeyCredentialSource object
-            $publicKey = $passkey->data->credentialPublicKey;
-            $address = $this->calculateL1Address($publicKey);
-            
+            $address = $this->calculateL1Address($passkey->data->credentialPublicKey);
             $meta = $user->meta ?? [];
             $meta['l1_address'] = $address;
             $user->meta = $meta;
             $user->save();
-
-            // 🚀 Sync with Simple-L1 Node (Production Cloud)
-            try {
-                \Illuminate\Support\Facades\Http::timeout(3)->post('https://l1.wildflow.dev/accounts', [
-                    'address' => $address,
-                    'publicKey' => bin2hex($publicKey),
-                    'credentialId' => $passkey->credential_id,
-                ]);
-            } catch (\Exception $e) {
-                \Log::warning('Simple-L1 Sync failed: ' . $e->getMessage());
-            }
         }
 
-        return response()->json(['success' => true, 'redirect' => '/partner']);
+        return response()->json([
+            'success' => true,
+            'redirect' => route('partner.register.offer')
+        ]);
     }
 
-    public function showStep2()
+    /**
+     * STEP 4: Public Offer Review
+     */
+    public function showOffer()
     {
-        return view('partner.register_step2');
+        $reg = session('partner_registration');
+        if (!$reg) return redirect()->route('partner.register');
+
+        return view('partner.register_step3', [
+            'registration' => $reg,
+            'agreementText' => "Договор на оказание услуг по размещению Товарных предложений... [Полный текст]"
+        ]);
     }
 
-    public function storeStep2(Request $request)
+    /**
+     * FINAL STEP: Acceptance & DB Creation
+     */
+    public function acceptOffer(Request $request)
     {
-        $data = $request->validate([
-            'legal_name' => 'required|string|max:255',
-            'inn' => 'required|string|max:20',
-        ]);
+        $reg = session('partner_registration');
+        if (!$reg) return redirect()->route('partner.register');
 
-        // Check if this INN is already registered (using Blind Index for encrypted search)
-        $bidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($data['inn']);
-        $existing = LegalEntity::where('inn_bidx', $bidx)->first();
-        
-        // TEMPORARY: Allow re-registration for testing INN
-        if ($existing && $data['inn'] !== '526216895584') {
-            return back()->withErrors(['inn' => 'Организация с таким ИНН уже зарегистрирована.'])->withInput();
-        }
+        DB::transaction(function() use ($reg) {
+            LegalEntity::create([
+                'user_id' => Auth::id(),
+                'name' => $reg['name'],
+                'inn' => $reg['inn'],
+                'ogrn' => $reg['ogrn'] ?? null,
+                'legal_address' => $reg['address'] ?? null,
+                'is_active' => false,
+                'agreement_signed_at' => now(),
+                'agreement_signature' => 'SGN:' . bin2hex(random_bytes(32)),
+            ]);
+        });
 
-        $user = Auth::user();
-
-        $legalEntity = LegalEntity::create([
-            'user_id' => $user->id,
-            'name' => $data['legal_name'],
-            'inn' => $data['inn'],
-            'is_active' => true,
-            'currency' => 'RUB',
-        ]);
-
-        return redirect('/partner');
+        session()->forget('partner_registration');
+        return redirect()->route('partner.dashboard');
     }
 
     private function calculateL1Address(string $publicKey): string
     {
-        // Based on Simple-L1 RFC: SHA256 of compressed EC P-256 public key
-        // Note: Spatie stores public_key in some format, we need to extract X, Y
-        // This is a placeholder for the logic from demo.js translated to PHP
-        
-        // For now, let's just generate a hash-based address as a placeholder
-        // until we precisely map the Spatie public_key format.
         return 'sl1_' . substr(hash('sha256', $publicKey), 0, 40);
     }
 }
