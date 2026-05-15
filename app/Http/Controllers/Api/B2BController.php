@@ -11,10 +11,16 @@ class B2BController extends Controller
     public function search(Request $request, BusinessRegistrationManager $manager)
     {
         $inn = $request->input('inn');
-        \Illuminate\Support\Facades\Log::info("B2B Search Triggered", ['inn' => $inn]);
         
+        // 1. Get official data from DaData
         $result = $manager->searchAndAnchor($inn, 'anonymous');
-        \Illuminate\Support\Facades\Log::info("B2B Search Result", $result);
+        
+        // 2. Check if already exists in our DB (using blind index)
+        if ($result['verified']) {
+            $bidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($inn);
+            $exists = \App\Models\LegalEntity::where('inn_bidx', $bidx)->exists();
+            $result['already_registered'] = $exists;
+        }
 
         return response()->json($result);
     }

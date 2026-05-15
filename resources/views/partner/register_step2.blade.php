@@ -125,15 +125,16 @@
         const innField = document.getElementById('inn-field');
         const nameContainer = document.getElementById('name-container');
         const nameField = document.getElementById('name-field');
+        const submitBtn = document.querySelector('.btn-submit');
 
         innField.addEventListener('input', async (e) => {
             const inn = e.target.value.trim();
-            console.log("INN Input:", inn); // DEBUG
             
             if (inn.length === 10 || inn.length === 12) {
                 nameContainer.style.display = 'block';
                 nameContainer.style.opacity = '0.5';
                 nameField.value = "Загрузка данных...";
+                submitBtn.disabled = true;
 
                 try {
                     const response = await fetch('/api/b2b/search', {
@@ -145,24 +146,40 @@
                         body: JSON.stringify({ inn: inn })
                     });
                     
-                    console.log("API Response Status:", response.status); // DEBUG
                     const data = await response.json();
-                    console.log("API Data:", data); // DEBUG
                     
                     if (data.verified) {
                         nameContainer.style.opacity = '1';
                         nameField.value = data.name;
+                        
+                        if (data.already_registered) {
+                            nameField.style.borderColor = 'rgba(255,0,0,0.5)';
+                            nameField.style.background = 'rgba(255,0,0,0.1)';
+                            nameField.value += " (УЖЕ ЗАРЕГИСТРИРОВАНА)";
+                            submitBtn.innerHTML = "Организация уже в системе 🔒";
+                            submitBtn.style.opacity = '0.5';
+                            submitBtn.disabled = true;
+                        } else {
+                            nameField.style.borderColor = 'rgba(0,255,0,0.2)';
+                            nameField.style.background = 'rgba(0,255,0,0.05)';
+                            submitBtn.innerHTML = "Завершить настройку →";
+                            submitBtn.style.opacity = '1';
+                            submitBtn.disabled = false;
+                        }
                     } else {
                         nameField.value = "Ошибка: " + (data.error || "не найдено");
                         nameContainer.style.opacity = '1';
+                        submitBtn.disabled = true;
                     }
                 } catch (e) {
                     console.error("Fetch Error:", e);
                     nameField.value = "Ошибка сети или сервера";
+                    submitBtn.disabled = true;
                 }
             } else {
                 nameContainer.style.opacity = '0';
                 setTimeout(() => { nameContainer.style.display = 'none'; }, 300);
+                submitBtn.disabled = false;
             }
         });
     </script>
