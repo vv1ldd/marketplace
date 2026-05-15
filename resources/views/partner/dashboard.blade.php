@@ -80,33 +80,66 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             На модерации
         </div>
-        <h1>Почти готово, {{ explode(' ', $legalEntity->name)[0] }}</h1>
+        <h1>Юридическое оформление</h1>
         <p>
-            Ваши суверенные данные успешно заякорены в Simple-L1 Fabric. 
-            Администратор проверяет детали партнерства. Это обычно занимает до 24 часов.
+            Для активации продаж необходимо подписать суверенную оферту и подтвердить расчетный счет.
         </p>
 
-        <div class="sovereign-card">
+        <div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+            <!-- ⚖️ Agreement Section -->
+            <div class="sovereign-card">
+                <div class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Публичная оферта
+                </div>
+                <div style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1.5rem; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 12px; height: 120px; overflow-y: auto;">
+                    Настоящим подтверждаю присоединение к суверенной экосистеме Simple-L1... [Полный текст оферты]
+                </div>
+                <button class="btn-submit" style="margin-top: 0; font-size: 0.8rem; height: 44px;">
+                    Подписать через Passkey ✍️
+                </button>
+            </div>
+
+            <!-- 💰 Banking Section -->
+            <div class="sovereign-card">
+                <div class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    Расчетный счет
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" placeholder="БИК Банка" class="form-input" style="height: 40px; font-size: 0.9rem;">
+                    <input type="text" placeholder="Номер счета (407...)" class="form-input" style="height: 40px; font-size: 0.9rem;">
+                    <button class="btn-submit" style="margin-top: 5px; font-size: 0.8rem; height: 44px; background: transparent; border: 1px solid var(--amber); color: var(--amber);">
+                        Проверить реквизиты 🏦
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sovereign-card" style="margin-top: 2rem;">
             <div class="card-title">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                Identity Manifest
+                Sovereign Manifest
             </div>
             <div class="data-row">
                 <span class="data-label">Организация:</span>
                 <span class="data-value">{{ $legalEntity->name }}</span>
             </div>
             <div class="data-row">
-                <span class="data-label">ИНН:</span>
-                <span class="data-value">{{ $legalEntity->inn }}</span>
+                <span class="data-label">ИНН / ОГРН:</span>
+                <span class="data-value">{{ $legalEntity->inn }} / {{ $legalEntity->ogrn ?? 'verified' }}</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Юр. адрес:</span>
+                <span class="data-value" style="font-size: 0.75rem;">{{ $legalEntity->legal_address ?? 'verified' }}</span>
             </div>
             <div class="data-row">
                 <span class="data-label">L1 Address:</span>
                 <span class="data-value" style="font-family: monospace; font-size: 0.8rem;">{{ Auth::user()->meta['l1_address'] ?? 'pending...' }}</span>
             </div>
-
             <div class="l1-badge">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                VERIFIED & ANCHORED IN SIMPLE-L1 FABRIC
+                ANCHORED IN SIMPLE-L1 FABRIC
             </div>
         </div>
     @else
