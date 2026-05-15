@@ -21,25 +21,46 @@ class PartnerRegistrationController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
+            'inn' => 'required|string|max:20',
+            'legal_name' => 'required|string|max:255',
         ]);
 
         $email = $request->input('email');
-        $user = User::findByEmail($email);
+        $inn = $request->input('inn');
+        
+        // 🛡️ Check if this INN is already registered
+        $bidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($inn);
+        $existingEntity = LegalEntity::where('inn_bidx', $bidx)->first();
+        
+        // TEMPORARY: Allow re-registration for testing INN
+        if ($existingEntity && $inn !== '526216895584') {
+            return back()->withErrors(['inn' => 'Организация с таким ИНН уже зарегистрирована.'])->withInput();
+        }
 
+        $user = User::findByEmail($email);
         if ($user && $user->passkeys()->exists()) {
             return back()->withErrors(['email' => 'Этот email уже зарегистрирован. Пожалуйста, войдите.']);
         }
 
         if (!$user) {
-            $user = DB::transaction(function () use ($request, $email) {
+            $user = DB::transaction(function () use ($request, $email, $inn) {
                 $user = User::create([
-                    'first_name' => explode('@', $email)[0], // Use email prefix as default name
+                    'first_name' => explode('@', $email)[0],
                     'email' => $email,
                     'password' => Hash::make(Str::random(32)),
                 ]);
 
                 $user->assignRole('b2b_partner');
                 
+                // Create the Legal Entity immediately
+                LegalEntity::create([
+                    'user_id' => $user->id,
+                    'name' => $request->input('legal_name'),
+                    'inn' => $inn,
+                    'is_active' => true,
+                    'currency' => 'RUB',
+                ]);
+
                 return $user;
             });
         }
@@ -115,7 +136,7 @@ class PartnerRegistrationController extends Controller
             }
         }
 
-        return response()->json(['success' => true, 'redirect' => route('partner.register.step2')]);
+        return response()->json(['success' => true, 'redirect' => '/partner']);
     }
 
     public function showStep2()

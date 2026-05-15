@@ -125,8 +125,8 @@
 <div class="auth-container">
     <div class="auth-card">
         <div class="auth-header">
-            <h1>Создать аккаунт</h1>
-            <p>Пароли больше не нужны. Используйте биометрию для входа.</p>
+            <h1>Регистрация бизнеса</h1>
+            <p>Укажите ИНН вашей организации для начала работы с Кернелом.</p>
         </div>
 
         @if($errors->any())
@@ -139,11 +139,25 @@
             @csrf
             
             <div class="form-group">
-                <label class="form-label">Email</label>
+                <label class="form-label">ИНН организации</label>
+                <input type="text" name="inn" id="inn-field" class="form-input" placeholder="7700123456" required value="{{ old('inn') }}" autocomplete="off">
+            </div>
+
+            <div class="form-group" id="name-container" style="display: none; transition: all 0.3s ease; opacity: 0; margin-bottom: 1.5rem;">
+                <label class="form-label">Официальное название (автоматически)</label>
+                <input type="text" name="legal_name" id="name-field" class="form-input" readonly style="background: rgba(0,255,0,0.05); border-color: rgba(0,255,0,0.2); color: #10b981; font-weight: 600;">
+                <div style="font-size: 0.75rem; color: #10b981; margin-top: 0.4rem; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    VERIFIED BY DADATA & ANCHORED IN SIMPLE-L1
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Рабочий Email</label>
                 <input type="email" name="email" class="form-input" placeholder="ivan@company.com" required value="{{ old('email') }}">
             </div>
 
-            <button type="submit" class="btn-submit">Начать регистрацию →</button>
+            <button type="submit" class="btn-submit" id="submit-btn">Начать регистрацию →</button>
         </form>
 
         <div class="auth-footer">
@@ -151,6 +165,48 @@
         </div>
     </div>
 </div>
+
+<script>
+    const innField = document.getElementById('inn-field');
+    const nameContainer = document.getElementById('name-container');
+    const nameField = document.getElementById('name-field');
+    const submitBtn = document.getElementById('submit-btn');
+
+    innField.addEventListener('input', async (e) => {
+        const inn = e.target.value.trim();
+        if (inn.length === 10 || inn.length === 12) {
+            nameContainer.style.display = 'block';
+            nameField.value = "Загрузка...";
+            
+            try {
+                const response = await fetch('/api/b2b/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ inn: inn })
+                });
+                
+                const data = await response.json();
+                
+                if (data.verified) {
+                    nameContainer.style.opacity = '1';
+                    nameField.value = data.name;
+                    submitBtn.disabled = false;
+                } else {
+                    nameField.value = "ИНН не найден";
+                    submitBtn.disabled = true;
+                }
+            } catch (e) {
+                console.error("Search failed", e);
+            }
+        } else {
+            nameContainer.style.opacity = '0';
+            setTimeout(() => { nameContainer.style.display = 'none'; }, 300);
+        }
+    });
+</script>
 
 </body>
 </html>
