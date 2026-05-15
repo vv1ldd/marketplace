@@ -131,8 +131,10 @@ class PartnerRegistrationController extends Controller
             'inn' => 'required|string|max:20',
         ]);
 
-        // Check if this INN is already registered
-        $existing = LegalEntity::where('inn', $data['inn'])->first();
+        // Check if this INN is already registered (using Blind Index for encrypted search)
+        $bidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($data['inn']);
+        $existing = LegalEntity::where('inn_bidx', $bidx)->first();
+        
         if ($existing) {
             return back()->withErrors(['inn' => 'Организация с таким ИНН уже зарегистрирована.'])->withInput();
         }
