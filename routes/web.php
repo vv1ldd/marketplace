@@ -12,6 +12,8 @@ Route::domain(config('app.domain'))->group(function () {
     
     Route::prefix('partner')->group(function () {
         Route::get('/', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard');
+        Route::post('/dashboard/sign', [\App\Http\Controllers\PartnerDashboardController::class, 'signAgreement'])->name('partner.dashboard.sign');
+        Route::post('/dashboard/bank', [\App\Http\Controllers\PartnerDashboardController::class, 'updateBank'])->name('partner.dashboard.bank');
         Route::get('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'show'])->name('partner.register');
         Route::post('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'register'])->name('partner.register.submit');
         Route::post('/register/finalize', [\App\Http\Controllers\PartnerRegistrationController::class, 'finalize'])->name('partner.register.finalize');

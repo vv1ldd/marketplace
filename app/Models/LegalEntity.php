@@ -42,6 +42,8 @@ class LegalEntity extends Model
         'tax_rate',
         'is_vat_payer',
         'vat_rate',
+        'agreement_signed_at',
+        'agreement_signature',
     ];
 
     protected $casts = [
@@ -58,6 +60,7 @@ class LegalEntity extends Model
         'tax_rate' => 'decimal:2',
         'is_vat_payer' => 'boolean',
         'vat_rate' => 'decimal:2',
+        'agreement_signed_at' => 'datetime',
 
         'name' => \App\Casts\VaultEncrypted::class . ':name_bidx',
         'short_name' => \App\Casts\VaultEncrypted::class . ':short_name_bidx',
@@ -73,6 +76,7 @@ class LegalEntity extends Model
         'bank_correspondent_account' => \App\Casts\VaultEncrypted::class . ':bank_correspondent_account_bidx',
         'legal_address' => \App\Casts\VaultEncrypted::class . ':legal_address_bidx',
         'postal_address' => \App\Casts\VaultEncrypted::class . ':postal_address_bidx',
+        'agreement_signature' => \App\Casts\VaultEncrypted::class . ':agreement_signature_bidx',
     ];
 
     protected static function booted(): void
