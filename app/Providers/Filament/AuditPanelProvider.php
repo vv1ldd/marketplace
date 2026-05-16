@@ -27,7 +27,6 @@ class AuditPanelProvider extends PanelProvider
             ->id('tribunal')
             ->path(config('app.audit_panel_hosts') ? '' : 'tribunal')
             ->login(\App\Filament\Pages\Auth\Login::class)
-            ->font('Instrument Sans')
             ->colors([
                 'primary' => Color::hex('#f53003'),
                 'danger'  => Color::Rose,

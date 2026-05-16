@@ -30,11 +30,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('ops')
             ->path(config('app.admin_panel_hosts') ? '' : 'ops')
             ->login(\App\Filament\Pages\Auth\Login::class)
-            ->font('Instrument Sans')
             ->colors([
-                'primary' => Color::hex('#f53003')('#f53003'),
+                'primary' => Color::hex('#f53003'),
             ])
-            ->font('Instrument Sans')
             ->brandName('Operations Command')
             ->brandLogo(fn () => new \Illuminate\Support\HtmlString('
                 <div class="flex items-center gap-3">

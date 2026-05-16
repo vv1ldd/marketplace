@@ -27,7 +27,6 @@ class KernelPanelProvider extends PanelProvider
             ->id('kernel')
             ->path(config('app.kernel_panel_hosts') ? '' : 'kernel')
             ->login(\App\Filament\Pages\Auth\Login::class)
-            ->font('Instrument Sans')
             ->colors([
                 'primary' => Color::hex('#f53003'), // Slate Steel
                 'danger'  => Color::Red,

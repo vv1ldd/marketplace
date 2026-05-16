@@ -32,7 +32,6 @@ class PartnerPanelProvider extends PanelProvider
             ->registration(\App\Filament\Partner\Pages\Auth\Register::class)
             ->authGuard('sellers')
             ->databaseNotifications()
-            ->font('Instrument Sans')
             ->colors([
                 'primary' => Color::hex('#f53003'),
             ])

@@ -32,7 +32,6 @@ class ClientPanelProvider extends PanelProvider
             ->passwordReset()
             ->emailVerification()
             ->profile()
-            ->font('Instrument Sans')
             ->colors([
                 'primary' => Color::hex('#f53003'),
             ])

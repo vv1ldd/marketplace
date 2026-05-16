@@ -26,7 +26,6 @@ class SupportPanelProvider extends PanelProvider
             ->id('support')
             ->path(config('app.support_panel_hosts') ? '' : 'support')
             ->login(\App\Filament\Pages\Auth\Login::class)
-            ->font('Instrument Sans')
             ->colors([
                 'primary' => Color::hex('#f53003'), // Sky Cyan for communication/support
                 'danger'  => Color::Rose,

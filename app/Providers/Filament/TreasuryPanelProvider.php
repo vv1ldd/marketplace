@@ -27,7 +27,6 @@ class TreasuryPanelProvider extends PanelProvider
             ->id('treasury')
             ->path(config('app.treasury_panel_hosts') ? '' : 'treasury')
             ->login(\App\Filament\Pages\Auth\Login::class)
-            ->font('Instrument Sans')
             ->colors([
                 'primary' => Color::hex('#f53003'),
                 'danger'  => Color::Rose,
