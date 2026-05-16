@@ -83,9 +83,7 @@ class KernelPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->spa(false);
-
-        ->font('Instrument Sans')
+            ->spa(false)->font('Instrument Sans')
             ->renderHook(
                 'panels::head.done',
                 fn () => new \Illuminate\Support\HtmlString('

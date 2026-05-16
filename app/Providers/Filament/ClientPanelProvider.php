@@ -1,7 +1,7 @@
 <?php
-
+ 
 namespace App\Providers\Filament;
-
+ 
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -19,7 +19,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-
+ 
 class ClientPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -60,34 +60,58 @@ class ClientPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
-
-        // Only apply domain boundary if configured, to isolate Client panel to root retail domain
-        ->font('Instrument Sans')
+            ])
+            ->font('Instrument Sans')
             ->renderHook(
                 'panels::head.done',
                 fn () => new \Illuminate\Support\HtmlString('
                     <style>
-                        .fi-sidebar-item-button-active {
-                            border-radius: 9999px !important;
-                            margin-left: 0.5rem !important;
-                            margin-right: 0.5rem !important;
+                        /* 🌑 Cursor-style Deep Dark UI */
+                        :root {
+                            --brand-bg: #050505;
+                            --brand-card: #0a0a0a;
+                            --brand-border: #161616;
                         }
-                        .fi-layout {
-                            background-color: #050505 !important;
-                        }
+ 
+                        .fi-layout { background-color: var(--brand-bg) !important; }
+                        
                         .fi-sidebar {
-                            background-color: #0a0a0a !important;
-                            border-right: 1px solid #1a1a1a !important;
+                            background-color: var(--brand-card) !important;
+                            border-right: 1px solid var(--brand-border) !important;
                         }
-                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn {
-                            background-color: #0a0a0a !important;
-                            border: 1px solid #1a1a1a !important;
+ 
+                        /* 💊 Refined Sidebar Items (Cursor style) */
+                        .fi-sidebar-item-button {
+                            border-radius: 8px !important;
+                            margin: 0.2rem 0.6rem !important;
+                            transition: all 0.2s ease !important;
+                        }
+ 
+                        .fi-sidebar-item-button-active {
+                            background-color: rgba(255, 255, 255, 0.05) !important;
+                            color: #ffffff !important;
+                        }
+ 
+                        .fi-sidebar-item-button:hover:not(.fi-sidebar-item-button-active) {
+                            background-color: rgba(255, 255, 255, 0.03) !important;
+                        }
+ 
+                        /* 🧩 Clean Minimal Cards */
+                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn, .fi-wi-widget {
+                            background-color: var(--brand-card) !important;
+                            border: 1px solid var(--brand-border) !important;
                             box-shadow: none !important;
+                            border-radius: 12px !important;
                         }
+ 
+                        .fi-ta-header-ctn { border-bottom: 1px solid var(--brand-border) !important; }
+ 
+                        /* High Contrast Text */
+                        .fi-header-heading { letter-spacing: -0.02em; font-weight: 700; }
                     </style>
                 ')
-            )
-            &($panel, array_values(array_filter([config('app.domain')])));
+            );
+ 
+        return FilamentPanelDomain::apply($panel, array_values(array_filter([config('app.domain')])));
     }
 }

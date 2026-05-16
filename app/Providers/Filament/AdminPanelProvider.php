@@ -1,7 +1,7 @@
 <?php
-
+ 
 namespace App\Providers\Filament;
-
+ 
 use App\Support\FilamentPanelDomain;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
@@ -20,7 +20,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-
+ 
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -53,30 +53,16 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->navigationGroups([
-                NavigationGroup::make()
-                    ->label('Мастер-ключ')
-                    ->icon('heroicon-o-key'),
-                NavigationGroup::make()
-                    ->label('Магазины и B2B')
-                    ->icon('heroicon-o-building-storefront'),
-                NavigationGroup::make()
-                    ->label('Каталог и Контент')
-                    ->icon('heroicon-o-square-3-stack-3d'),
-                NavigationGroup::make()
-                    ->label('Система')
-                    ->icon('heroicon-o-presentation-chart-line'),
-                NavigationGroup::make()
-                    ->label('Поддержка')
-                    ->icon('heroicon-o-chat-bubble-left-right'),
-                NavigationGroup::make()
-                    ->label('Администрирование')
-                    ->icon('heroicon-o-cog-6-tooth'),
+                NavigationGroup::make()->label('Мастер-ключ')->icon('heroicon-o-key'),
+                NavigationGroup::make()->label('Магазины и B2B')->icon('heroicon-o-building-storefront'),
+                NavigationGroup::make()->label('Каталог и Контент')->icon('heroicon-o-square-3-stack-3d'),
+                NavigationGroup::make()->label('Система')->icon('heroicon-o-presentation-chart-line'),
+                NavigationGroup::make()->label('Поддержка')->icon('heroicon-o-chat-bubble-left-right'),
+                NavigationGroup::make()->label('Администрирование')->icon('heroicon-o-cog-6-tooth'),
             ])
             ->sidebarCollapsibleOnDesktop()
             ->widgets([
                 \App\Filament\Widgets\SovereignChatWidget::class,
-                //                AccountWidget::class,
-                //                FilamentInfoWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -94,29 +80,35 @@ class AdminPanelProvider extends PanelProvider
                 'panels::head.done',
                 fn () => new \Illuminate\Support\HtmlString('
                     <style>
-                        /* 💊 Pill-shaped Sidebar Active States */
-                        .fi-sidebar-item-button-active {
-                            border-radius: 9999px !important;
-                            margin-left: 0.5rem !important;
-                            margin-right: 0.5rem !important;
+                        :root {
+                            --brand-bg: #050505;
+                            --brand-card: #0a0a0a;
+                            --brand-border: #161616;
                         }
-                        
-                        /* 🌑 Deep Dark Backgrounds */
-                        .fi-layout {
-                            background-color: #050505 !important;
-                        }
-                        
+                        .fi-layout { background-color: var(--brand-bg) !important; }
                         .fi-sidebar {
-                            background-color: #0a0a0a !important;
-                            border-right: 1px solid #1a1a1a !important;
+                            background-color: var(--brand-card) !important;
+                            border-right: 1px solid var(--brand-border) !important;
                         }
-
-                        /* 🧩 Clean Card Aesthetics */
-                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn {
-                            background-color: #0a0a0a !important;
-                            border: 1px solid #1a1a1a !important;
+                        .fi-sidebar-item-button {
+                            border-radius: 8px !important;
+                            margin: 0.2rem 0.6rem !important;
+                            transition: all 0.2s ease !important;
+                        }
+                        .fi-sidebar-item-button-active {
+                            background-color: rgba(255, 255, 255, 0.05) !important;
+                            color: #ffffff !important;
+                        }
+                        .fi-sidebar-item-button:hover:not(.fi-sidebar-item-button-active) {
+                            background-color: rgba(255, 255, 255, 0.03) !important;
+                        }
+                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn, .fi-wi-widget {
+                            background-color: var(--brand-card) !important;
+                            border: 1px solid var(--brand-border) !important;
                             box-shadow: none !important;
+                            border-radius: 12px !important;
                         }
+                        .fi-ta-header-ctn { border-bottom: 1px solid var(--brand-border) !important; }
                     </style>
                 ')
             )
@@ -129,7 +121,7 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->spa(false);
-
+ 
         return FilamentPanelDomain::apply($panel, config('app.admin_panel_hosts', []));
     }
 }
