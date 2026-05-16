@@ -20,6 +20,8 @@
                 --brand-text: #ffffff;
                 --brand-subtext: #888888;
                 --brand-border: #1a1a1a;
+                --cursor-btn-bg: #111111;
+                --cursor-btn-hover: #1a1a1a;
             }
  
             /* 🚀 Fullscreen Escape from Filament Frame */
@@ -64,24 +66,22 @@
                 border: 1px solid var(--brand-border);
                 padding: 4rem 3rem;
                 border-radius: 12px;
-                box-shadow: none !important; /* 🚫 No more stupid shadows */
-                text-align: left;
+                text-align: center; /* Centered like Cursor login */
                 width: 100%;
                 max-width: 440px;
                 position: relative;
             }
  
             .logo-header {
-                position: absolute;
-                top: -5rem;
-                left: 0;
                 display: flex;
                 align-items: center;
+                justify-content: center;
                 gap: 0.6rem;
                 font-weight: 800;
                 font-size: 1.1rem;
                 color: var(--brand-text);
                 letter-spacing: -0.02em;
+                margin-bottom: 4rem;
             }
  
             .logo-mark {
@@ -92,71 +92,69 @@
             }
  
             .auth-title {
-                font-size: 28px;
+                font-size: 24px;
                 font-weight: 600;
                 color: var(--brand-text);
-                margin-bottom: 1rem;
-                letter-spacing: -0.03em;
+                margin-bottom: 0.75rem;
+                letter-spacing: -0.02em;
             }
  
             .auth-subtitle {
                 font-size: 15px;
                 color: var(--brand-subtext);
-                line-height: 1.6;
-                margin-bottom: 3.5rem;
+                line-height: 1.5;
+                margin-bottom: 2.5rem;
             }
  
-            /* 💊 Cursor-style Pill Button (White & Solid) */
+            /* 🕹️ Cursor-style Solid Button */
             .fi-btn, [type="submit"], button {
                 width: 100% !important;
-                height: 48px !important;
-                background-color: #ffffff !important;
-                color: #000000 !important;
-                border-radius: 100px !important;
-                font-weight: 600 !important;
+                height: 44px !important;
+                background-color: var(--cursor-btn-bg) !important;
+                color: var(--brand-text) !important;
+                border-radius: 6px !important;
+                font-weight: 500 !important;
                 font-size: 14px !important;
-                border: none !important;
+                border: 1px solid var(--brand-border) !important;
                 cursor: pointer !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                gap: 8px !important;
-                transition: opacity 0.2s ease !important;
+                gap: 12px !important;
+                transition: background-color 0.2s ease !important;
                 text-transform: none !important;
-                margin-top: 1rem;
+                margin-top: 0.5rem;
             }
  
             button:hover {
-                opacity: 0.9 !important;
-                transform: none !important;
+                background-color: var(--cursor-btn-hover) !important;
+                opacity: 1 !important;
             }
  
-            /* Label for the passkey button inside the component */
-            button span, .auth-interaction button {
-                font-family: inherit !important;
+            /* Add a small key icon effect via CSS if possible, but component has its own */
+            button svg {
+                width: 18px !important;
+                height: 18px !important;
+                opacity: 0.8;
             }
  
             .footer-brand {
-                margin-top: 4rem;
+                margin-top: 3rem;
                 font-size: 11px;
                 color: #222;
                 text-transform: uppercase;
-                letter-spacing: 0.1em;
-                font-weight: 800;
-                text-align: left;
+                letter-spacing: 0.05em;
+                font-weight: 700;
+                text-align: center;
             }
  
-            .node-tag {
-                display: inline-block;
-                background: rgba(255, 255, 255, 0.03);
-                border: 1px solid var(--brand-border);
-                padding: 4px 12px;
-                border-radius: 100px;
-                font-size: 10px;
-                margin-bottom: 2.5rem;
-                color: var(--brand-subtext);
-                font-weight: 700;
-                letter-spacing: 0.05em;
+            .footer-links {
+                margin-top: 1.5rem;
+                display: flex;
+                justify-content: center;
+                gap: 1.5rem;
+                font-size: 11px;
+                color: #444;
             }
         </style>
  
@@ -166,22 +164,23 @@
                 MEANLY
             </div>
  
-            <div class="node-tag">
-                ENVIRONMENT: {{ strtoupper($panelName) }}
-            </div>
- 
-            <h1 class="auth-title">С возвращением.</h1>
+            <h1 class="auth-title">Welcome to {{ $panelName }}</h1>
             <p class="auth-subtitle">
-                Ваша инфраструктура готова к работе. Используйте суверенный ключ доступа для входа в среду {{ $panelName }}.
+                The new way to manage sovereign infrastructure.
             </p>
  
             <div class="auth-interaction">
                 <x-passkeys::authenticate />
             </div>
  
-            <div class="footer-brand">
-                {{ strtoupper($currentPanel) }}.MEANLY.SYSTEMS
+            <div class="footer-links">
+                <span>Terms of Service</span>
+                <span>Privacy Policy</span>
             </div>
+        </div>
+ 
+        <div class="footer-brand">
+            {{ strtoupper($currentPanel) }}.MEANLY.SYSTEMS
         </div>
     </div>
 </x-filament-panels::page.simple>
