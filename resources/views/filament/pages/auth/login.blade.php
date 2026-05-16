@@ -25,35 +25,54 @@
                 }
             }
  
-            /* 🏛️ Aligning with the Landing Style */
-            .fi-simple-main, .fi-simple-page, .fi-simple-main-container {
+            /* 🚀 Fullscreen Escape from Filament Frame */
+            .fi-simple-main {
                 background-color: var(--brand-bg) !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                min-height: 100vh !important;
-                font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
+                max-width: 100vw !important;
+            }
+ 
+            .fi-simple-main-container {
+                box-shadow: none !important;
+                background: transparent !important;
+                border: none !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
             }
  
             .fi-logo, .fi-simple-header { display: none !important; }
  
             .sovereign-auth-wrapper {
                 width: 100%;
-                max-width: 440px;
-                padding: 1.5rem;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: var(--brand-bg);
+                font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
             }
  
             .auth-card {
                 background: var(--brand-card);
                 border: 1px solid var(--brand-border);
-                padding: 3.5rem 2.5rem;
-                border-radius: 12px;
-                box-shadow: 0px 0px 1px 0px rgba(0,0,0,0.03), 0px 1px 2px 0px rgba(0,0,0,0.06);
+                padding: 4rem 3rem;
+                border-radius: 16px;
+                box-shadow: 0px 40px 80px rgba(0, 0, 0, 0.05);
                 text-align: left;
+                width: 100%;
+                max-width: 440px;
             }
  
             .auth-title {
-                font-size: 24px;
+                font-size: 26px;
                 font-weight: 700;
                 color: var(--brand-text);
                 margin-bottom: 0.5rem;
@@ -61,34 +80,33 @@
             }
  
             .auth-subtitle {
-                font-size: 14px;
+                font-size: 15px;
                 color: #706f6c;
                 line-height: 1.6;
-                margin-bottom: 2.5rem;
+                margin-bottom: 3rem;
             }
  
             @media (prefers-color-scheme: dark) {
                 .auth-subtitle { color: #A1A09A; }
+                .auth-card { box-shadow: 0px 40px 80px rgba(0, 0, 0, 0.4); }
             }
  
-            /* 🔴 Brand Button Style */
             .fi-btn, [type="submit"], button {
                 width: 100% !important;
-                height: 48px !important;
+                height: 52px !important;
                 background-color: var(--brand-primary) !important;
                 color: #fff !important;
-                border-radius: 6px !important;
+                border-radius: 8px !important;
                 font-weight: 600 !important;
-                font-size: 14px !important;
+                font-size: 15px !important;
                 border: 1px solid var(--brand-primary) !important;
                 cursor: pointer !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                gap: 8px !important;
+                gap: 10px !important;
                 transition: all 0.2s ease !important;
                 text-transform: none !important;
-                box-shadow: none !important;
             }
  
             button:hover {
@@ -97,8 +115,8 @@
             }
  
             .footer-brand {
-                margin-top: 2.5rem;
-                font-size: 11px;
+                margin-top: 3rem;
+                font-size: 12px;
                 color: #706f6c;
                 text-transform: uppercase;
                 letter-spacing: 0.05em;
@@ -108,23 +126,24 @@
  
             .node-tag {
                 display: inline-block;
-                background: #fafafa;
-                border: 1px solid #e3e3e0;
-                padding: 2px 8px;
-                border-radius: 4px;
+                background: rgba(112, 111, 108, 0.05);
+                border: 1px solid var(--brand-border);
+                padding: 4px 10px;
+                border-radius: 6px;
                 font-size: 10px;
-                margin-bottom: 1.5rem;
+                margin-bottom: 2rem;
                 color: #706f6c;
+                font-weight: 700;
             }
  
             @media (prefers-color-scheme: dark) {
-                .node-tag { background: #161615; border-color: #3E3E3A; color: #A1A09A; }
+                .node-tag { color: #A1A09A; }
             }
         </style>
  
         <div class="auth-card">
             <div class="node-tag">
-                IDENTITY_ANCHOR_NODE: {{ strtoupper($currentPanel) }}
+                ANCHOR: {{ strtoupper($currentPanel) }}
             </div>
  
             <h1 class="auth-title">Welcome back</h1>
