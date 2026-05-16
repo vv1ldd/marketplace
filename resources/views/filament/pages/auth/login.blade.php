@@ -5,116 +5,139 @@
 <x-filament-panels::page.simple>
     <div id="sovereign-auth-root" class="sovereign-auth-wrapper">
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&display=swap');
  
             :root {
-                --primary: #10b981;
-                --primary-glow: rgba(16, 185, 129, 0.4);
-                --bg: #030712;
-                --card-bg: rgba(17, 24, 39, 0.7);
-                --glass-border: rgba(255, 255, 255, 0.08);
+                --brand-primary: #f53003;
+                --brand-bg: #FDFDFC;
+                --brand-text: #1b1b18;
+                --brand-border: #e3e3e0;
+                --brand-card: #ffffff;
             }
  
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --brand-bg: #0a0a0a;
+                    --brand-text: #EDEDEC;
+                    --brand-border: #3E3E3A;
+                    --brand-card: #161615;
+                    --brand-primary: #FF4433;
+                }
+            }
+ 
+            /* 🏛️ Aligning with the Landing Style */
             .fi-simple-main, .fi-simple-page, .fi-simple-main-container {
-                background: radial-gradient(circle at top center, #111827 0%, #030712 100%) !important;
+                background-color: var(--brand-bg) !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
                 min-height: 100vh !important;
+                font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
             }
  
             .fi-logo, .fi-simple-header { display: none !important; }
  
             .sovereign-auth-wrapper {
                 width: 100%;
-                max-width: 480px;
-                padding: 2rem;
-                font-family: 'Plus Jakarta Sans', sans-serif;
+                max-width: 440px;
+                padding: 1.5rem;
             }
  
             .auth-card {
-                background: var(--card-bg);
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
-                border: 1px solid var(--glass-border);
-                padding: 4rem 3rem;
-                border-radius: 32px;
-                box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
-                text-align: center;
-                position: relative;
+                background: var(--brand-card);
+                border: 1px solid var(--brand-border);
+                padding: 3.5rem 2.5rem;
+                border-radius: 12px;
+                box-shadow: 0px 0px 1px 0px rgba(0,0,0,0.03), 0px 1px 2px 0px rgba(0,0,0,0.06);
+                text-align: left;
             }
- 
-            /* ✨ Subtle Animated Border Gradient */
-            .auth-card::after {
-                content: ""; position: absolute; inset: -1px;
-                background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), transparent 40%, transparent 60%, rgba(16, 185, 129, 0.2));
-                border-radius: 32px; z-index: -1;
-            }
- 
-            .badge-sovereign {
-                display: inline-flex; align-items: center; gap: 8px;
-                padding: 0.6rem 1.2rem; background: rgba(16, 185, 129, 0.1);
-                border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 99px;
-                color: var(--primary); font-size: 11px; font-weight: 700;
-                text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2.5rem;
-            }
- 
-            .badge-dot { width: 6px; height: 6px; background: var(--primary); border-radius: 50%; box-shadow: 0 0 10px var(--primary); }
  
             .auth-title {
-                font-size: 32px; font-weight: 800; color: #fff;
-                margin-bottom: 1rem; letter-spacing: -0.03em;
+                font-size: 24px;
+                font-weight: 700;
+                color: var(--brand-text);
+                margin-bottom: 0.5rem;
+                letter-spacing: -0.02em;
             }
  
             .auth-subtitle {
-                font-size: 16px; color: #94a3b8; line-height: 1.6;
-                margin-bottom: 3.5rem; font-weight: 500;
+                font-size: 14px;
+                color: #706f6c;
+                line-height: 1.6;
+                margin-bottom: 2.5rem;
             }
  
-            /* 🟢 Landing Style Premium Button */
+            @media (prefers-color-scheme: dark) {
+                .auth-subtitle { color: #A1A09A; }
+            }
+ 
+            /* 🔴 Brand Button Style */
             .fi-btn, [type="submit"], button {
-                width: 100% !important; height: 64px !important;
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-                color: #fff !important; border-radius: 16px !important;
-                font-weight: 700 !important; font-size: 17px !important;
-                border: none !important; cursor: pointer !important;
-                display: flex !important; align-items: center !important; justify-content: center !important;
-                gap: 12px !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                box-shadow: 0 20px 40px -10px rgba(16, 185, 129, 0.3) !important;
+                width: 100% !important;
+                height: 48px !important;
+                background-color: var(--brand-primary) !important;
+                color: #fff !important;
+                border-radius: 6px !important;
+                font-weight: 600 !important;
+                font-size: 14px !important;
+                border: 1px solid var(--brand-primary) !important;
+                cursor: pointer !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                transition: all 0.2s ease !important;
                 text-transform: none !important;
+                box-shadow: none !important;
             }
  
             button:hover {
-                transform: translateY(-2px) !important;
-                box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.4) !important;
+                filter: brightness(1.1) !important;
+                transform: translateY(-1px) !important;
             }
  
-            .footer-node {
-                margin-top: 3.5rem; font-size: 12px; color: #64748b;
-                display: flex; flex-direction: column; gap: 4px;
+            .footer-brand {
+                margin-top: 2.5rem;
+                font-size: 11px;
+                color: #706f6c;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                font-weight: 700;
+                text-align: center;
             }
  
-            .node-url { color: #fff; font-weight: 700; font-size: 11px; letter-spacing: 0.05em; }
+            .node-tag {
+                display: inline-block;
+                background: #fafafa;
+                border: 1px solid #e3e3e0;
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 10px;
+                margin-bottom: 1.5rem;
+                color: #706f6c;
+            }
+ 
+            @media (prefers-color-scheme: dark) {
+                .node-tag { background: #161615; border-color: #3E3E3A; color: #A1A09A; }
+            }
         </style>
  
         <div class="auth-card">
-            <div class="badge-sovereign">
-                <span class="badge-dot"></span>
-                Sovereign Entry Active
+            <div class="node-tag">
+                IDENTITY_ANCHOR_NODE: {{ strtoupper($currentPanel) }}
             </div>
  
-            <h1 class="auth-title">Consortium Login</h1>
+            <h1 class="auth-title">Welcome back</h1>
             <p class="auth-subtitle">
-                Безопасный доступ к узлу управления через ваш персональный криптографический ключ.
+                Войдите в свою учетную запись, используя суверенный ключ доступа к среде {{ strtoupper($currentPanel) }}.
             </p>
  
-            <div class="login-interaction-zone">
+            <div class="auth-interaction">
                 <x-passkeys::authenticate />
             </div>
  
-            <div class="footer-node">
-                <span>IDENTITY_ANCHOR_NODE</span>
-                <span class="node-url">{{ strtoupper($currentPanel) }}.MEANLY.TEST</span>
+            <div class="footer-brand">
+                {{ strtoupper($currentPanel) }}.MEANLY.TEST
             </div>
         </div>
     </div>
