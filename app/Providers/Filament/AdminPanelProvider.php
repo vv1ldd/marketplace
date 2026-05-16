@@ -89,6 +89,37 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
+            ->font('Instrument Sans')
+            ->renderHook(
+                'panels::head.done',
+                fn () => new \Illuminate\Support\HtmlString('
+                    <style>
+                        /* 💊 Pill-shaped Sidebar Active States */
+                        .fi-sidebar-item-button-active {
+                            border-radius: 9999px !important;
+                            margin-left: 0.5rem !important;
+                            margin-right: 0.5rem !important;
+                        }
+                        
+                        /* 🌑 Deep Dark Backgrounds */
+                        .fi-layout {
+                            background-color: #050505 !important;
+                        }
+                        
+                        .fi-sidebar {
+                            background-color: #0a0a0a !important;
+                            border-right: 1px solid #1a1a1a !important;
+                        }
+
+                        /* 🧩 Clean Card Aesthetics */
+                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn {
+                            background-color: #0a0a0a !important;
+                            border: 1px solid #1a1a1a !important;
+                            box-shadow: none !important;
+                        }
+                    </style>
+                ')
+            )
             ->plugins([
                 \MarcelWeidum\Passkeys\PasskeysPlugin::make(),
             ])

@@ -63,6 +63,31 @@ class ClientPanelProvider extends PanelProvider
             ]);
 
         // Only apply domain boundary if configured, to isolate Client panel to root retail domain
-        return FilamentPanelDomain::apply($panel, array_values(array_filter([config('app.domain')])));
+        ->font('Instrument Sans')
+            ->renderHook(
+                'panels::head.done',
+                fn () => new \Illuminate\Support\HtmlString('
+                    <style>
+                        .fi-sidebar-item-button-active {
+                            border-radius: 9999px !important;
+                            margin-left: 0.5rem !important;
+                            margin-right: 0.5rem !important;
+                        }
+                        .fi-layout {
+                            background-color: #050505 !important;
+                        }
+                        .fi-sidebar {
+                            background-color: #0a0a0a !important;
+                            border-right: 1px solid #1a1a1a !important;
+                        }
+                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn {
+                            background-color: #0a0a0a !important;
+                            border: 1px solid #1a1a1a !important;
+                            box-shadow: none !important;
+                        }
+                    </style>
+                ')
+            )
+            &($panel, array_values(array_filter([config('app.domain')])));
     }
 }
