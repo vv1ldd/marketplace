@@ -9,20 +9,11 @@
  
             :root {
                 --brand-primary: #f53003;
-                --brand-bg: #FDFDFC;
-                --brand-text: #1b1b18;
-                --brand-border: #e3e3e0;
-                --brand-card: #ffffff;
-            }
- 
-            @media (prefers-color-scheme: dark) {
-                :root {
-                    --brand-bg: #0a0a0a;
-                    --brand-text: #EDEDEC;
-                    --brand-border: #3E3E3A;
-                    --brand-card: #161615;
-                    --brand-primary: #FF4433;
-                }
+                --brand-bg: #050505;
+                --brand-card: #0a0a0a;
+                --brand-text: #ffffff;
+                --brand-subtext: #888888;
+                --brand-border: #1a1a1a;
             }
  
             /* 🚀 Fullscreen Escape from Filament Frame */
@@ -54,70 +45,89 @@
                 width: 100%;
                 height: 100vh;
                 display: flex;
+                flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 background-color: var(--brand-bg);
                 font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
+                padding: 2rem;
             }
  
             .auth-card {
                 background: var(--brand-card);
                 border: 1px solid var(--brand-border);
-                padding: 4rem 3rem;
+                padding: 3.5rem 2.5rem;
                 border-radius: 12px;
-                box-shadow: none !important; /* 🚫 No more stupid shadows */
+                box-shadow: 0 40px 100px rgba(0,0,0,0.8);
                 text-align: left;
                 width: 100%;
                 max-width: 440px;
+                position: relative;
+            }
+ 
+            .logo-header {
+                position: absolute;
+                top: -6rem;
+                left: 0;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                font-weight: 800;
+                font-size: 1.1rem;
+                color: var(--brand-text);
+                letter-spacing: -0.02em;
+            }
+ 
+            .logo-mark {
+                width: 10px;
+                height: 10px;
+                background: var(--brand-primary);
+                border-radius: 2px;
             }
  
             .auth-title {
                 font-size: 24px;
-                font-weight: 700;
+                font-weight: 600;
                 color: var(--brand-text);
-                margin-bottom: 0.5rem;
-                letter-spacing: -0.02em;
+                margin-bottom: 0.75rem;
+                letter-spacing: -0.03em;
             }
  
             .auth-subtitle {
-                font-size: 15px;
-                color: #706f6c;
+                font-size: 14px;
+                color: var(--brand-subtext);
                 line-height: 1.6;
                 margin-bottom: 3rem;
             }
  
-            @media (prefers-color-scheme: dark) {
-                .auth-subtitle { color: #A1A09A; }
-                .auth-card { border-color: rgba(255,255,255,0.1); }
-            }
- 
+            /* 💊 Cursor Style Pill Button */
             .fi-btn, [type="submit"], button {
                 width: 100% !important;
-                height: 52px !important;
-                background-color: var(--brand-primary) !important;
-                color: #fff !important;
-                border-radius: 8px !important;
+                height: 48px !important;
+                background-color: var(--brand-text) !important;
+                color: #000 !important;
+                border-radius: 100px !important;
                 font-weight: 600 !important;
-                font-size: 15px !important;
-                border: 1px solid var(--brand-primary) !important;
+                font-size: 14px !important;
+                border: none !important;
                 cursor: pointer !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                gap: 10px !important;
-                transition: all 0.2s ease !important;
+                gap: 8px !important;
+                transition: opacity 0.2s ease !important;
                 text-transform: none !important;
             }
  
             button:hover {
-                filter: brightness(1.1) !important;
-                transform: translateY(-1px) !important;
+                opacity: 0.9 !important;
+                transform: none !important;
             }
  
             .footer-brand {
                 margin-top: 3rem;
-                font-size: 12px;
-                color: #706f6c;
+                font-size: 11px;
+                color: var(--brand-subtext);
                 text-transform: uppercase;
                 letter-spacing: 0.05em;
                 font-weight: 700;
@@ -126,22 +136,24 @@
  
             .node-tag {
                 display: inline-block;
-                background: rgba(112, 111, 108, 0.05);
+                background: rgba(255, 255, 255, 0.03);
                 border: 1px solid var(--brand-border);
                 padding: 4px 10px;
-                border-radius: 6px;
+                border-radius: 100px;
                 font-size: 10px;
                 margin-bottom: 2rem;
-                color: #706f6c;
+                color: var(--brand-subtext);
                 font-weight: 700;
-            }
- 
-            @media (prefers-color-scheme: dark) {
-                .node-tag { color: #A1A09A; }
+                letter-spacing: 0.02em;
             }
         </style>
  
         <div class="auth-card">
+            <div class="logo-header">
+                <div class="logo-mark"></div>
+                MEANLY
+            </div>
+ 
             <div class="node-tag">
                 ANCHOR: {{ strtoupper($currentPanel) }}
             </div>
