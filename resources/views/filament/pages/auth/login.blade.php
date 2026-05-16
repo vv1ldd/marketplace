@@ -64,15 +64,15 @@
                 background: var(--brand-card);
                 border: 1px solid var(--brand-border);
                 padding: 4rem 3rem;
-                border-radius: 16px;
-                box-shadow: 0px 40px 80px rgba(0, 0, 0, 0.05);
+                border-radius: 12px;
+                box-shadow: none !important; /* 🚫 No more stupid shadows */
                 text-align: left;
                 width: 100%;
                 max-width: 440px;
             }
  
             .auth-title {
-                font-size: 26px;
+                font-size: 24px;
                 font-weight: 700;
                 color: var(--brand-text);
                 margin-bottom: 0.5rem;
@@ -88,7 +88,7 @@
  
             @media (prefers-color-scheme: dark) {
                 .auth-subtitle { color: #A1A09A; }
-                .auth-card { box-shadow: 0px 40px 80px rgba(0, 0, 0, 0.4); }
+                .auth-card { border-color: rgba(255,255,255,0.1); }
             }
  
             .fi-btn, [type="submit"], button {
