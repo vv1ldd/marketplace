@@ -27,19 +27,20 @@ class AuditPanelProvider extends PanelProvider
             ->id('tribunal')
             ->path(config('app.audit_panel_hosts') ? '' : 'tribunal')
             ->login(\App\Filament\Pages\Auth\Login::class)
+            ->font('Instrument Sans')
             ->colors([
-                'primary' => Color::Indigo,
+                'primary' => Color::hex('#f53003'),
                 'danger'  => Color::Rose,
                 'success' => Color::Emerald,
             ])
             ->brandName('Integrity Tribunal')
             ->brandLogo(fn () => new \Illuminate\Support\HtmlString('
                 <div class="flex items-center gap-3">
-                    <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 dark:bg-indigo-500/20">
+                    <div class="p-2 rounded-xl bg-[#f53003]/10 text-[#f53003] dark:bg-[#f53003]/20">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12.378 1.602a.75.75 0 0 0-.756 0L3 6.632l9 5.25 9-5.25-8.622-5.03ZM21.75 7.93l-9 5.25v9l8.628-5.032a.75.75 0 0 0 .372-.648V7.93ZM11.25 22.18v-9l-9-5.25v8.59a.75.75 0 0 0 .372.648l8.628 5.033Z" /></svg>
                     </div>
                     <div class="flex flex-col text-left leading-tight">
-                        <span class="text-[10px] font-bold tracking-[0.2em] text-indigo-600 dark:text-indigo-400 uppercase">Meanly Systems</span>
+                        <span class="text-[10px] font-bold tracking-[0.2em] text-[#f53003] dark:text-[#FF4433] uppercase">Meanly Systems</span>
                         <span class="text-lg font-black tracking-wide text-gray-900 dark:text-white uppercase">Integrity Tribunal</span>
                     </div>
                 </div>

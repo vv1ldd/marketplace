@@ -27,19 +27,20 @@ class TreasuryPanelProvider extends PanelProvider
             ->id('treasury')
             ->path(config('app.treasury_panel_hosts') ? '' : 'treasury')
             ->login(\App\Filament\Pages\Auth\Login::class)
+            ->font('Instrument Sans')
             ->colors([
-                'primary' => Color::Emerald,
+                'primary' => Color::hex('#f53003'),
                 'danger'  => Color::Rose,
-                'warning' => Color::Amber, // Represents Gold
+                'warning' => Color::hex('#f53003'), // Represents Gold
             ])
             ->brandName('Treasury Nexus')
             ->brandLogo(fn () => new \Illuminate\Support\HtmlString('
                 <div class="flex items-center gap-3">
-                    <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20">
+                    <div class="p-2 rounded-xl bg-[#f53003]/10 text-[#f53003] dark:bg-[#f53003]/20">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M21 6.375c0 2.692-4.03 4.875-9 4.875S3 9.067 3 6.375 7.03 1.5 12 1.5s9 2.183 9 4.875Z" /><path d="M12 12.75c4.97 0 9-2.183 9-4.875V12c0 2.692-4.03 4.875-9 4.875S3 14.692 3 12V7.875c0 2.692 4.03 4.875 9 4.875Z" /><path d="M12 18.375c4.97 0 9-2.183 9-4.875V18c0 2.692-4.03 4.875-9 4.875S3 20.692 3 18v-4.5c0 2.692 4.03 4.875 9 4.875Z" /></svg>
                     </div>
                     <div class="flex flex-col text-left leading-tight">
-                        <span class="text-[10px] font-bold tracking-[0.2em] text-emerald-600 dark:text-emerald-400 uppercase">Meanly Systems</span>
+                        <span class="text-[10px] font-bold tracking-[0.2em] text-[#f53003] dark:text-[#FF4433] uppercase">Meanly Systems</span>
                         <span class="text-lg font-black tracking-wide text-gray-900 dark:text-white uppercase">The Treasury</span>
                     </div>
                 </div>

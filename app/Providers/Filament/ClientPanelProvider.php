@@ -32,8 +32,9 @@ class ClientPanelProvider extends PanelProvider
             ->passwordReset()
             ->emailVerification()
             ->profile()
+            ->font('Instrument Sans')
             ->colors([
-                'primary' => Color::Sky,
+                'primary' => Color::hex('#f53003'),
             ])
             ->discoverResources(in: app_path('Filament/Client/Resources'), for: 'App\Filament\Client\Resources')
             ->discoverPages(in: app_path('Filament/Client/Pages'), for: 'App\Filament\Client\Pages')
