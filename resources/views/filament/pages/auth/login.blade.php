@@ -207,7 +207,9 @@
                     document.getElementById('entropy-input').value = JSON.stringify(intentEntropy);
                     document.getElementById('response-input').value = JSON.stringify(response);
                     document.getElementById('passkey-login-form').submit();
-                } catch (e) { alert('Auth Error: ' + e.message); }
+                } catch (e) { 
+                    if (e.name !== 'AbortError') alert('Auth Error: ' + e.message);
+                }
             }
  
             function handlePaste(e) { setTimeout(() => manualSubmit(), 100); }
