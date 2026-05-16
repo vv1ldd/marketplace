@@ -1,15 +1,17 @@
 <?php
 
-use App\Http\Controllers\PlayStation\MainController;
+// use App\Http\Controllers\PlayStation\MainController;
 use App\Http\Controllers\WooPriceUpdateController;
 use App\Http\Controllers\Ym\MainController as YmMainController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'ps'], function () {
+/*
     Route::post('all-from-region', [MainController::class, 'allFromRegion']);
     Route::post('detail-from-region', [MainController::class, 'detailFromRegion']);
     Route::get('regions', [MainController::class, 'regions']);
     Route::get('categories', [MainController::class, 'categories']);
+*/
 
     Route::group(['prefix' => 'ym'], function () {
         Route::post('send-items', [YmMainController::class, 'prepareToSendItems']);
@@ -19,7 +21,7 @@ Route::group(['prefix' => 'ps'], function () {
         Route::post('delete-items', [YmMainController::class, 'prepareToDeleteItems']);
     });
 
-    Route::get('prices', [MainController::class, 'prices']);
+//    Route::get('prices', [MainController::class, 'prices']);
 });
 
 Route::group(['prefix' => 'ym'], function () {

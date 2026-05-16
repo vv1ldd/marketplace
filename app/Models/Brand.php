@@ -27,12 +27,16 @@ class Brand extends Model
         'is_active',
         'identity_settings',
         'catalog_group_id',
+        'supported_jurisdictions',
+        'compliance_config',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'identity_settings' => 'array',
         'ym_vendor_names' => 'array',
+        'supported_jurisdictions' => 'array',
+        'compliance_config' => 'array',
     ];
 
     protected static function boot()

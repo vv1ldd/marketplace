@@ -10,6 +10,11 @@ class PartnerDashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
+        
+        if (!$user) {
+            return redirect()->route('filament.partner.auth.login');
+        }
+
         $legalEntity = $user->legalEntities()->first();
 
         $agreement = \App\Models\Agreement::where('is_active', true)->latest('published_at')->first();

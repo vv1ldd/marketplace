@@ -148,68 +148,15 @@
             <p style="white-space: pre-wrap;">{{ $agreementText }}</p>
         </div>
 
-        <!-- 🎭 Signer Authorization Section -->
-        <div class="signer-selection">
-            <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                Полномочия подписанта
+        <!-- 🛡️ Authority Check (Institutional) -->
+        <div style="margin-top: 1rem; margin-bottom: 2rem; padding: 1.25rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.1); border-radius: 16px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.5rem;">
+                <div style="width: 28px; height: 28px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.9rem; font-weight: 800;">✓</div>
+                <div style="font-weight: 800; font-size: 0.85rem; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">Полномочия авторизованы</div>
             </div>
-            
-            <label class="signer-option">
-                <input type="radio" name="signer_role" value="ceo" checked onchange="togglePoA(false)">
-                <div>
-                    <strong>Я — Руководитель компании</strong>
-                    <div style="font-size: 0.75rem; color: var(--muted);">Действую на основании Устава (первое лицо)</div>
-                </div>
-            </label>
-
-            <label class="signer-option">
-                <input type="radio" name="signer_role" value="representative" onchange="togglePoA(true)">
-                <div>
-                    <strong>Действую по доверенности</strong>
-                    <div style="font-size: 0.75rem; color: var(--muted);">Уполномоченный представитель организации</div>
-                </div>
-            </label>
-
-            <div id="poa-form" class="poa-fields">
-                <div class="input-group">
-                    <label>ФИО представителя</label>
-                    <input type="text" id="signer_name" class="input-field" placeholder="Иванов Иван Иванович">
-                </div>
-                <div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div class="input-group">
-                        <label>Номер доверенности</label>
-                        <input type="text" id="poa_number" class="input-field" placeholder="№ 123/2026">
-                    </div>
-                    <div class="input-group">
-                        <label>Дата выдачи</label>
-                        <input type="date" id="poa_date" class="input-field">
-                    </div>
-                </div>
-                <div class="input-group">
-                    <label>Контактный телефон</label>
-                    <input type="tel" id="signer_phone" class="input-field" placeholder="+7 (999) 000-00-00">
-                </div>
-            </div>
-        </div>
-
-        <!-- 🛡️ KYC & Identity Verification Section -->
-        <div class="signer-selection" style="border-color: rgba(16, 185, 129, 0.2); background: rgba(16, 185, 129, 0.02);">
-            <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; color: #10b981;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                KYC: Верификация личности
-            </div>
-            <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem;">
-                Для обеспечения юридической значимости подписи требуется подтверждение личности через скан паспорта и селфи-проверку (Liveness).
+            <p style="font-size: 0.75rem; color: var(--muted2); margin-left: 38px;">
+                Право подписи подтверждено на основе данных государственного реестра и предоставленных полномочий.
             </p>
-            <div style="display: flex; gap: 10px;">
-                <button type="button" class="btn-submit" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; height: 40px; font-size: 0.75rem;">
-                    Загрузить паспорт 📄
-                </button>
-                <button type="button" class="btn-submit" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: #10b981; height: 40px; font-size: 0.75rem;">
-                    Пройти Face-ID 🤳
-                </button>
-            </div>
         </div>
 
         <label class="confirmation-box">
@@ -238,15 +185,23 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@7.2.0/dist/bundle/index.umd.min.js"></script>
+    <script src="https://unpkg.com/@simplewebauthn/browser@13.3.0/dist/bundle/index.umd.min.js"></script>
     <script>
-        const { startRegistration } = SimpleWebAuthnBrowser;
+        const { startAuthentication } = SimpleWebAuthnBrowser;
         const signBtn = document.getElementById('sign-offer-btn');
-        const statusMsg = document.getElementById('status-msg');
         const legalConfirm = document.getElementById('legal-confirm');
+        const statusMsg = document.getElementById('status-msg');
 
-        function togglePoA(show) {
-            document.getElementById('poa-form').style.display = show ? 'flex' : 'none';
+        function toggleSignButton() {
+            if (legalConfirm.checked) {
+                signBtn.disabled = false;
+                signBtn.style.opacity = "1";
+                signBtn.style.cursor = "pointer";
+            } else {
+                signBtn.disabled = true;
+                signBtn.style.opacity = "0.5";
+                signBtn.style.cursor = "not-allowed";
+            }
         }
 
         function toggleSignButton() {
@@ -262,58 +217,58 @@
         }
 
         signBtn.addEventListener('click', async () => {
-            const optionsRaw = @json($passkeyOptions);
-            
-            let options = optionsRaw;
-            if (typeof options === 'string') {
-                options = JSON.parse(options);
-            }
-            
-            if (!options || !options.user) {
-                alert('Ошибка: Данные для регистрации ключа не получены.');
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                alert('Для использования Passkey (FaceID) необходимо защищенное соединение (HTTPS).');
                 return;
             }
 
-            // Gather Signer Info
-            const role = document.querySelector('input[name="signer_role"]:checked').value;
-            const signerInfo = {
-                role: role,
-                name: document.getElementById('signer_name').value,
-                phone: document.getElementById('signer_phone').value,
-                poa_number: document.getElementById('poa_number').value,
-                poa_date: document.getElementById('poa_date').value
-            };
+            const optionsRaw = @json($signingOptions);
+            let options = typeof optionsRaw === 'string' ? JSON.parse(optionsRaw) : optionsRaw;
+            
+            // 🛡️ Ensure RP ID stability
+            options.rpId = window.location.hostname;
 
             signBtn.disabled = true;
             signBtn.innerText = "Подписание... 🛡️";
             statusMsg.style.display = 'block';
-            statusMsg.innerText = "Пожалуйста, подтвердите вашу личность с помощью Passkey (FaceID/Fingerprint)";
+            statusMsg.innerText = "Формирование криптографического интента...";
 
             try {
-                const attestationResponse = await startRegistration(options);
-                
-                const verifyRes = await fetch("{{ route('partner.register.passkey.store') }}", {
+                // 🛠️ Capture high-precision entropy package for the signature
+                const intentEntropy = {
+                    ts: new Date().toISOString(),
+                    ua: navigator.userAgent,
+                    context: 'institutional_agreement_signing'
+                };
+
+                // 🔑 CRYPTOGRAPHIC SIGNATURE (Assertion)
+                const assertionResponse = await startAuthentication({ optionsJSON: options });
+                console.log("Assertion received:", assertionResponse);
+
+                // 📡 Final Institutional Anchoring
+                const signRes = await fetch("{{ route('partner.register.agreement.sign') }}", {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}' 
                     },
                     body: JSON.stringify({
-                        ...attestationResponse,
-                        signer_info: signerInfo
+                        assertion: assertionResponse,
+                        intent_entropy: intentEntropy
                     })
                 });
 
-                const result = await verifyRes.json();
-
+                const result = await signRes.json();
                 if (result.success) {
-                    statusMsg.innerText = "Подпись подтверждена! Создаем организацию...";
-                    window.location.href = result.redirect;
+                    statusMsg.innerText = "Оферта успешно подписана! Входим в периметр...";
+                    setTimeout(() => window.location.href = result.redirect, 1000);
                 } else {
-                    throw new Error(result.error || 'Ошибка верификации');
+                    throw new Error(result.error || 'Ошибка при финализации подписи');
                 }
+
             } catch (error) {
-                console.error(error);
+                console.error("Signature Error:", error);
                 signBtn.disabled = false;
                 signBtn.innerText = "Попробовать снова ✍️";
                 statusMsg.innerText = "Ошибка: " + error.message;

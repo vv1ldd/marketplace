@@ -27,7 +27,7 @@ class ClientPanelProvider extends PanelProvider
         $panel = $panel
             ->id('client')
             ->path('/')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->registration(\App\Filament\Client\Pages\Auth\Register::class)
             ->passwordReset()
             ->emailVerification()

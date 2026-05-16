@@ -26,7 +26,7 @@ class KernelPanelProvider extends PanelProvider
         $panel = $panel
             ->id('kernel')
             ->path(config('app.kernel_panel_hosts') ? '' : 'kernel')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->colors([
                 'primary' => Color::Slate, // Slate Steel
                 'danger'  => Color::Red,

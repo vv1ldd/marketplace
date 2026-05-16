@@ -6,24 +6,33 @@ use App\Http\Middleware\ApplyRedeemThemeFromQuery;
 use App\Http\Controllers\TelemetryController;
 use Illuminate\Support\Facades\Route;
 
+Route::middleware('web')->group(function () {
+    Route::get('passkeys/authentication-options', \Spatie\LaravelPasskeys\Http\Controllers\GeneratePasskeyAuthenticationOptionsController::class)->name('passkeys.authentication_options');
+    Route::post('passkeys/authenticate', \Spatie\LaravelPasskeys\Http\Controllers\AuthenticateUsingPasskeyController::class)->name('passkeys.login');
+});
+
 Route::domain(config('app.domain'))->group(function () {
-    Route::passkeys();
     Route::get('/', fn () => view('landing'))->name('home');
+    Route::get('/login', fn () => redirect()->route('filament.partner.auth.login'))->name('login');
     
     Route::prefix('partner')->group(function () {
-        Route::get('/', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard');
-        Route::post('/dashboard/sign', [\App\Http\Controllers\PartnerDashboardController::class, 'signAgreement'])->name('partner.dashboard.sign');
-        Route::post('/dashboard/bank', [\App\Http\Controllers\PartnerDashboardController::class, 'updateBank'])->name('partner.dashboard.bank');
+        // 🔐 Protected Dashboard
+        Route::middleware(['auth'])->group(function () {
+            Route::get('/', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard');
+            Route::post('/dashboard/sign', [\App\Http\Controllers\PartnerDashboardController::class, 'signAgreement'])->name('partner.dashboard.sign');
+            Route::post('/dashboard/bank', [\App\Http\Controllers\PartnerDashboardController::class, 'updateBank'])->name('partner.dashboard.bank');
+        });
         
-        // 🚀 Registration Flow
+        // 🚀 Public Registration Flow
         Route::get('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'show'])->name('partner.register');
         Route::post('/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'register'])->name('partner.register.submit');
-        Route::post('/register/finalize', [\App\Http\Controllers\PartnerRegistrationController::class, 'finalize'])->name('partner.register.finalize');
         Route::get('/register/offer', [\App\Http\Controllers\PartnerRegistrationController::class, 'showOffer'])->name('partner.register.offer');
-        Route::post('/register/offer', [\App\Http\Controllers\PartnerRegistrationController::class, 'acceptOffer'])->name('partner.register.offer.submit');
+        
+        // 🔐 Sovereign Identity & Signing (Mixed/Session based)
+        Route::post('/register/options', [\App\Http\Controllers\PartnerRegistrationController::class, 'options'])->name('partner.register.options');
+        Route::post('/register/identity', [\App\Http\Controllers\PartnerRegistrationController::class, 'registerIdentity'])->name('partner.register.identity.store');
+        Route::post('/register/sign', [\App\Http\Controllers\PartnerRegistrationController::class, 'signAgreement'])->name('partner.register.agreement.sign');
     });
-
-    Route::post('/passkeys/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'storePasskey'])->name('partner.register.passkey.store');
 });
 
 Route::get('/lang/{locale}', function (string $locale) {

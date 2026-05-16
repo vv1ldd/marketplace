@@ -25,7 +25,7 @@ class SupportPanelProvider extends PanelProvider
         $panel = $panel
             ->id('support')
             ->path(config('app.support_panel_hosts') ? '' : 'support')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->colors([
                 'primary' => Color::Sky, // Sky Cyan for communication/support
                 'danger'  => Color::Rose,

@@ -25,6 +25,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\Event::listen(
+            \Spatie\LaravelPasskeys\Events\PasskeyUsedToAuthenticateEvent::class,
+            \App\Listeners\StoreEntrySignature::class
+        );
+
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Logout::class,
+            \App\Listeners\LogSovereignLogoutIntent::class
+        );
+
         Auth::provider('vault', function ($app, array $config) {
             return new \App\Auth\VaultUserProvider($app['hash'], $config['model']);
         });

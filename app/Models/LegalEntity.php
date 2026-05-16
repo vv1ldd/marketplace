@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class LegalEntity extends Model
 {
     protected $fillable = [
+        'brand_id',
         'seller_id',
         'user_id',
         'name',
@@ -46,6 +47,7 @@ class LegalEntity extends Model
         'agreement_signature',
         'status',
         'agreement_metadata',
+        'vendor_credentials',
     ];
 
     protected $casts = [
@@ -57,6 +59,7 @@ class LegalEntity extends Model
         'allow_all_brands' => 'boolean',
         'is_active' => 'boolean',
         'agreement_metadata' => 'array',
+        'vendor_credentials' => 'array',
         
         // 💰 Finance & Tax Casting
         'tax_system' => \App\Enums\TaxSystemEnum::class,
@@ -90,7 +93,8 @@ class LegalEntity extends Model
             // 📡 AUTO-SYNC to Wildflow Kernel
             try {
                 (new \App\Services\WildflowService())->syncPartner(
-                    (string)$entity->id
+                    $entity, 
+                    $entity->vendor_credentials ?? []
                 );
             } catch (\Exception $e) {
                 \Log::warning("Wildflow Partner Sync failed during registration: " . $e->getMessage());
@@ -106,6 +110,18 @@ class LegalEntity extends Model
                 'changes' => $changes,
                 'original' => array_intersect_key($entity->getOriginal(), $changes)
             ]);
+
+            // 📡 BALANCE & STATUS SYNC: If critical state changed, push to Kernel
+            if (isset($changes['balance']) || isset($changes['available_balance']) || isset($changes['status']) || isset($changes['vendor_credentials'])) {
+                try {
+                    (new \App\Services\WildflowService())->syncPartner(
+                        $entity, 
+                        $entity->vendor_credentials ?? []
+                    );
+                } catch (\Exception $e) {
+                    \Log::warning("Wildflow State Sync failed: " . $e->getMessage());
+                }
+            }
         });
 
         static::saved(function ($entity) {

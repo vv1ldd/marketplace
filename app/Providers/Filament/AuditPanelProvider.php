@@ -26,7 +26,7 @@ class AuditPanelProvider extends PanelProvider
         $panel = $panel
             ->id('tribunal')
             ->path(config('app.audit_panel_hosts') ? '' : 'tribunal')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->colors([
                 'primary' => Color::Indigo,
                 'danger'  => Color::Rose,

@@ -26,7 +26,7 @@ class TreasuryPanelProvider extends PanelProvider
         $panel = $panel
             ->id('treasury')
             ->path(config('app.treasury_panel_hosts') ? '' : 'treasury')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->colors([
                 'primary' => Color::Emerald,
                 'danger'  => Color::Rose,

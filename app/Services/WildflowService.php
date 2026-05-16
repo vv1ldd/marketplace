@@ -180,16 +180,20 @@ class WildflowService
         return $response->json();
     }
  
-    public function syncPartner(string $terminalId): array
+    public function syncPartner(\App\Models\LegalEntity $entity, array $providerCredentials = []): array
     {
         $payload = [
-            'terminal_id' => $terminalId,
+            'terminal_id' => (string)$entity->id,
+            'name'        => $entity->name ?? $entity->short_name,
+            'balance'     => (float)($entity->available_balance ?? $entity->balance ?? 0),
+            'currency'    => $entity->currency ?? 'RUB',
+            'provider_credentials' => $providerCredentials,
         ];
  
         $response = $this->client->post("partners/sync", $payload);
  
         if ($response->failed()) {
-            throw new \RuntimeException("Failed to sync partner: " . $response->body());
+            throw new \RuntimeException("Failed to sync partner in Kernel: " . $response->body());
         }
  
         return $response->json();

@@ -1,0 +1,25 @@
+
+   ReflectionException 
+
+  Class "App\Http\Controllers\PlayStation\MainController" does not exist
+
+  at vendor/laravel/framework/src/Illuminate/Foundation/Console/RouteListCommand.php:255
+    251▕             if ($this->isFrameworkController($route)) {
+    252▕                 return false;
+    253▕             }
+    254▕ 
+  ➜ 255▕             $path = (new ReflectionClass($route->getControllerClass()))
+    256▕                 ->getFileName();
+    257▕         } else {
+    258▕             return false;
+    259▕         }
+
+      [2m+3 vendor frames [22m
+
+  4   [internal]:0
+      Illuminate\Foundation\Console\RouteListCommand::{closure:Illuminate\Foundation\Console\RouteListCommand::getRoutes():117}(Object(Illuminate\Routing\Route))
+      [2m+17 vendor frames [22m
+
+  22  artisan:25
+      Illuminate\Foundation\Application::handleCommand(Object(Symfony\Component\Console\Input\ArgvInput))
+

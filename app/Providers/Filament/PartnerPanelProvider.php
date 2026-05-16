@@ -28,7 +28,7 @@ class PartnerPanelProvider extends PanelProvider
         $panel = $panel
             ->id('partner')
             ->path(config('app.partner_panel_hosts') ? '' : 'partner')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\Login::class)
             ->registration(\App\Filament\Partner\Pages\Auth\Register::class)
             ->authGuard('sellers')
             ->databaseNotifications()
