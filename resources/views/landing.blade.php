@@ -92,8 +92,9 @@
             line-height: 0.95;
             max-width: 1000px;
             margin-bottom: 2rem;
+            color: var(--brand-text);
         }
-        .hero h1 em { font-style: normal; color: var(--brand-primary); }
+        .hero h1 em { font-style: normal; color: var(--brand-text); opacity: 0.9; }
         
         .hero p {
             font-size: clamp(1.1rem, 2vw, 1.4rem);
@@ -105,26 +106,26 @@
         .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
         
         .btn-primary {
-            background: var(--brand-primary); color: #fff;
-            padding: 1rem 2rem; border-radius: 8px;
+            background: var(--brand-card); color: var(--brand-text);
+            padding: 1rem 2rem; border-radius: 8px; border: 1px solid var(--brand-primary);
             font-weight: 700; font-size: 16px; text-decoration: none;
             transition: all .2s;
         }
-        .btn-primary:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .btn-primary:hover { background: var(--brand-primary); color: #fff; transform: translateY(-2px); }
         
         .btn-secondary {
-            background: transparent; color: var(--brand-text);
+            background: transparent; color: var(--brand-subtext);
             padding: 1rem 2rem; border-radius: 8px; border: 1px solid var(--brand-border);
             font-weight: 700; font-size: 16px; text-decoration: none;
             transition: all .2s;
         }
-        .btn-secondary:hover { background: rgba(255,255,255,0.05); }
+        .btn-secondary:hover { border-color: var(--brand-subtext); color: var(--brand-text); }
  
         .hero-stats {
             display: flex; gap: 4rem; margin-top: 5rem; flex-wrap: wrap; justify-content: center;
         }
         .stat { text-align: center; }
-        .stat-num { font-size: 2.2rem; font-weight: 800; color: var(--brand-primary); letter-spacing: -0.02em; }
+        .stat-num { font-size: 2.2rem; font-weight: 800; color: var(--brand-text); letter-spacing: -0.02em; }
         .stat-label { font-size: 11px; color: var(--brand-subtext); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
  
         /* ── SECTIONS ── */
@@ -133,7 +134,7 @@
         
         .section-label {
             font-size: 11px; font-weight: 700; letter-spacing: .05em;
-            text-transform: uppercase; color: var(--brand-primary); margin-bottom: 1.5rem;
+            text-transform: uppercase; color: var(--brand-subtext); margin-bottom: 1.5rem;
         }
         .section-title { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 1.5rem; }
         .section-desc { color: var(--brand-subtext); font-size: 1.1rem; max-width: 600px; }
@@ -148,9 +149,9 @@
             border-radius: 12px; padding: 2.5rem;
             transition: border-color .2s, transform .2s;
         }
-        .how-card:hover { border-color: var(--brand-primary); }
+        .how-card:hover { border-color: var(--brand-border); transform: translateY(-2px); }
         .how-num {
-            font-size: 11px; font-weight: 800; color: var(--brand-primary);
+            font-size: 11px; font-weight: 800; color: var(--brand-subtext);
             margin-bottom: 1.5rem; display: block;
         }
         .how-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem; }
@@ -166,9 +167,9 @@
             border-radius: 12px; padding: 2.5rem;
             transition: border-color .2s;
         }
-        .feature-card:hover { border-color: var(--brand-primary); }
+        .feature-card:hover { border-color: var(--brand-border); }
         .feature-icon {
-            font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--brand-primary); font-weight: 800;
+            font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--brand-text); font-weight: 800;
         }
         .feature-card h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.75rem; }
         .feature-card p { font-size: 14px; color: var(--brand-subtext); line-height: 1.6; }
