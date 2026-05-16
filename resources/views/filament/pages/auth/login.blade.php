@@ -152,6 +152,12 @@
                 <div style="margin-top: 2.5rem; font-size: 12px; color: var(--text-dim);">
                     Узел: <span style="color: #fff; font-weight: 600;">{{ strtoupper($currentPanel) }}.MEANLY.TEST</span>
                 </div>
+ 
+                <div style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem;">
+                    <a href="{{ request()->fullUrlWithQuery(['mode' => 'terminal']) }}" style="font-size: 11px; color: var(--amber); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                        > Switch to Terminal Mode
+                    </a>
+                </div>
             </div>
         @endif
  
