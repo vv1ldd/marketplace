@@ -1,5 +1,11 @@
 @php
     $currentPanel = filament()->getCurrentPanel()->getId();
+    $panelName = match($currentPanel) {
+        'ops' => 'Operations',
+        'partner' => 'Partner',
+        'audit' => 'Audit',
+        default => ucfirst($currentPanel)
+    };
 @endphp
  
 <x-filament-panels::page.simple>
@@ -56,22 +62,22 @@
             .auth-card {
                 background: var(--brand-card);
                 border: 1px solid var(--brand-border);
-                padding: 3.5rem 2.5rem;
-                border-radius: 12px;
+                padding: 4rem 3rem;
+                border-radius: 16px;
                 box-shadow: 0 40px 100px rgba(0,0,0,0.8);
                 text-align: left;
                 width: 100%;
-                max-width: 440px;
+                max-width: 460px;
                 position: relative;
             }
  
             .logo-header {
                 position: absolute;
-                top: -6rem;
+                top: -5rem;
                 left: 0;
                 display: flex;
                 align-items: center;
-                gap: 0.5rem;
+                gap: 0.6rem;
                 font-weight: 800;
                 font-size: 1.1rem;
                 color: var(--brand-text);
@@ -79,72 +85,80 @@
             }
  
             .logo-mark {
-                width: 10px;
-                height: 10px;
+                width: 12px;
+                height: 12px;
                 background: var(--brand-primary);
-                border-radius: 2px;
+                border-radius: 3px;
             }
  
             .auth-title {
-                font-size: 24px;
+                font-size: 28px;
                 font-weight: 600;
                 color: var(--brand-text);
-                margin-bottom: 0.75rem;
+                margin-bottom: 1rem;
                 letter-spacing: -0.03em;
             }
  
             .auth-subtitle {
-                font-size: 14px;
+                font-size: 15px;
                 color: var(--brand-subtext);
                 line-height: 1.6;
-                margin-bottom: 3rem;
+                margin-bottom: 3.5rem;
             }
  
-            /* 💊 Cursor Style Pill Button */
+            /* 🔗 Human Text Button Style */
             .fi-btn, [type="submit"], button {
-                width: 100% !important;
-                height: 48px !important;
-                background-color: var(--brand-text) !important;
-                color: #000 !important;
-                border-radius: 100px !important;
+                width: auto !important;
+                height: auto !important;
+                background-color: transparent !important;
+                color: var(--brand-text) !important;
+                border-radius: 0 !important;
                 font-weight: 600 !important;
-                font-size: 14px !important;
+                font-size: 16px !important;
                 border: none !important;
+                padding: 0 !important;
                 cursor: pointer !important;
-                display: flex !important;
+                display: inline-flex !important;
                 align-items: center !important;
-                justify-content: center !important;
-                gap: 8px !important;
-                transition: opacity 0.2s ease !important;
+                justify-content: flex-start !important;
+                gap: 12px !important;
+                transition: color 0.2s ease, transform 0.2s ease !important;
                 text-transform: none !important;
             }
  
             button:hover {
-                opacity: 0.9 !important;
-                transform: none !important;
+                color: var(--brand-primary) !important;
+                transform: translateX(4px) !important;
+                opacity: 1 !important;
+            }
+ 
+            /* Hide the default icon if it's too clunky, we use our own feel */
+            button svg {
+                width: 20px !important;
+                height: 20px !important;
             }
  
             .footer-brand {
-                margin-top: 3rem;
+                margin-top: 4rem;
                 font-size: 11px;
-                color: var(--brand-subtext);
+                color: #333;
                 text-transform: uppercase;
-                letter-spacing: 0.05em;
-                font-weight: 700;
-                text-align: center;
+                letter-spacing: 0.1em;
+                font-weight: 800;
+                text-align: left;
             }
  
             .node-tag {
                 display: inline-block;
                 background: rgba(255, 255, 255, 0.03);
                 border: 1px solid var(--brand-border);
-                padding: 4px 10px;
+                padding: 4px 12px;
                 border-radius: 100px;
                 font-size: 10px;
-                margin-bottom: 2rem;
+                margin-bottom: 2.5rem;
                 color: var(--brand-subtext);
                 font-weight: 700;
-                letter-spacing: 0.02em;
+                letter-spacing: 0.05em;
             }
         </style>
  
@@ -155,20 +169,21 @@
             </div>
  
             <div class="node-tag">
-                ANCHOR: {{ strtoupper($currentPanel) }}
+                ENVIRONMENT: {{ strtoupper($panelName) }}
             </div>
  
-            <h1 class="auth-title">Welcome back</h1>
+            <h1 class="auth-title">С возвращением.</h1>
             <p class="auth-subtitle">
-                Войдите в свою учетную запись, используя суверенный ключ доступа к среде {{ strtoupper($currentPanel) }}.
+                Ваша инфраструктура готова к работе. Используйте суверенный ключ доступа для входа в среду {{ $panelName }}.
             </p>
  
             <div class="auth-interaction">
+                {{-- This will render the button which we styled as text --}}
                 <x-passkeys::authenticate />
             </div>
  
             <div class="footer-brand">
-                {{ strtoupper($currentPanel) }}.MEANLY.TEST
+                {{ strtoupper($currentPanel) }}.MEANLY.SYSTEMS
             </div>
         </div>
     </div>
