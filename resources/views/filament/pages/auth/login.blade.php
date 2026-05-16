@@ -63,11 +63,11 @@
                 background: var(--brand-card);
                 border: 1px solid var(--brand-border);
                 padding: 4rem 3rem;
-                border-radius: 16px;
-                box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+                border-radius: 12px;
+                box-shadow: none !important; /* 🚫 No more stupid shadows */
                 text-align: left;
                 width: 100%;
-                max-width: 460px;
+                max-width: 440px;
                 position: relative;
             }
  
@@ -106,42 +106,40 @@
                 margin-bottom: 3.5rem;
             }
  
-            /* 🔗 Human Text Button Style */
+            /* 💊 Cursor-style Pill Button (White & Solid) */
             .fi-btn, [type="submit"], button {
-                width: auto !important;
-                height: auto !important;
-                background-color: transparent !important;
-                color: var(--brand-text) !important;
-                border-radius: 0 !important;
+                width: 100% !important;
+                height: 48px !important;
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                border-radius: 100px !important;
                 font-weight: 600 !important;
-                font-size: 16px !important;
+                font-size: 14px !important;
                 border: none !important;
-                padding: 0 !important;
                 cursor: pointer !important;
-                display: inline-flex !important;
+                display: flex !important;
                 align-items: center !important;
-                justify-content: flex-start !important;
-                gap: 12px !important;
-                transition: color 0.2s ease, transform 0.2s ease !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                transition: opacity 0.2s ease !important;
                 text-transform: none !important;
+                margin-top: 1rem;
             }
  
             button:hover {
-                color: var(--brand-primary) !important;
-                transform: translateX(4px) !important;
-                opacity: 1 !important;
+                opacity: 0.9 !important;
+                transform: none !important;
             }
  
-            /* Hide the default icon if it's too clunky, we use our own feel */
-            button svg {
-                width: 20px !important;
-                height: 20px !important;
+            /* Label for the passkey button inside the component */
+            button span, .auth-interaction button {
+                font-family: inherit !important;
             }
  
             .footer-brand {
                 margin-top: 4rem;
                 font-size: 11px;
-                color: #333;
+                color: #222;
                 text-transform: uppercase;
                 letter-spacing: 0.1em;
                 font-weight: 800;
@@ -178,7 +176,6 @@
             </p>
  
             <div class="auth-interaction">
-                {{-- This will render the button which we styled as text --}}
                 <x-passkeys::authenticate />
             </div>
  
