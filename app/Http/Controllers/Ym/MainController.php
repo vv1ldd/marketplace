@@ -838,6 +838,16 @@ class MainController extends Controller
         foreach ($items as $item) {
             $shop = $shops->get($item->bussiness_id);
             $item_stock = $shop ? $shop->ym_stock : $global_stock;
+            if ($shop) {
+                $product = \App\Models\Product::queryByOfferSku($item->sku)
+                    ->where('shop_id', $shop->id)
+                    ->first();
+
+                if ($product) {
+                    $item_stock = app(\App\Services\SellerVoucherStockService::class)
+                        ->capacityForProduct($product, $shop)['total'];
+                }
+            }
             $warehouseId = $shop ? $shop->ym_warehouse_id : Settings::get('YM_WAREHOUSE_ID');
 
             $finished_data[] = [
@@ -1050,6 +1060,23 @@ class MainController extends Controller
                 'status' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
                 'substatus' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
             ]);
+
+            if (
+                in_array($data['notificationType'], ['ORDER_CREATED', 'ORDER_STATUS_UPDATED', 'CHAT_ARBITRAGE_FINISHED'], true)
+                && ! $shop
+            ) {
+                $log->error('Неизвестный campaignId для уведомления заказа', [
+                    'campaign_id' => $data['campaignId'] ?? null,
+                    'notification_type' => $data['notificationType'],
+                ]);
+
+                return response()->json([
+                    'error' => [
+                        'message' => 'Unknown campaignId',
+                        'type' => 'UNKNOWN_CAMPAIGN',
+                    ],
+                ], 400);
+            }
 
             // Log notification to DB
             YmNotification::create([

@@ -111,11 +111,13 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
             ?? $catalog->service_sku;
 
         try {
+            $providerReference = $order_item->providerReference();
+
             // 🛡️ Sovereign Ledger: Record the START of the external order
             app(\App\Services\LedgerService::class)->record($order->shop, 'PROVIDER_ORDER_START', $order_item, [
                 'provider' => $provider->type,
                 'sku' => $catalog->sku,
-                'reference' => $order_item->uuid,
+                'reference' => $providerReference,
             ]);
 
             // 1. Determine exact prices (respect dynamic nominal if stored)
@@ -125,17 +127,22 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
                 : $catalog->purchase_price;
 
             // 1. Create Order
+            $shop = $order->shop;
             $externalOrderId = $driver->createOrder(
                 sku: $numericServiceSku,
-                reference: $order_item->uuid,
+                reference: $providerReference,
                 price: $finalNominal,
                 quantity: $order_item->count,
                 meta: [
                     'buying_price' => $finalBuyPrice,
                     'email' => $customer->email,
                     'pre_order' => (bool) data_get($catalog->data, 'data.pre_order', data_get($catalog->data, 'pre_order', false)),
+                    'seller_id' => $shop ? (string)$shop->id : null,
+                    'seller_name' => $shop?->name,
+                    'terminal_id' => $shop ? (string)$shop->legal_entity_id : null,
                 ]
             );
+            $order_item->update(['provider_order_id' => $externalOrderId ?: $providerReference]);
 
             // 2. Poll for Cards (Adaptive Strategy to combat async delay)
             $codes = [];
@@ -238,6 +245,15 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
     private function applyFallbackSuccess(Order $order, OrderItems $order_item, Customer $customer, string $original_code): void
     {
         $this->captureFundsFromHold($order, $order_item, $customer);
+
+        $order_item->update([
+            'purchase_status' => 'success',
+            'original_code' => $original_code,
+            'purchase_error' => null,
+            'is_activated' => true,
+            'is_redeemed' => true,
+            'activated_at' => now(),
+        ]);
 
         // ⛓️ Sovereign Ledger: Record the SUCCESSFUL REDEEM (Fallback)
         app(\App\Services\LedgerService::class)->record($order->shop, 'VOUCHER_REDEEM_SUCCESS', $order_item, [
@@ -413,7 +429,13 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
         $inventory = \App\Models\ProductInventory::where('order_item_id', $order_item->id)->first();
         $procurement = $inventory?->procurement;
         
-        if ($procurement && $procurement->price_per_item > 0) {
+        if ($inventory?->reserved_amount !== null && ($inventory->reserve_currency ?? 'RUB') === 'RUB') {
+            $costRub = (float) $inventory->reserved_amount;
+            Log::info("Capture: Using exact voucher reservation", [
+                'cost' => $costRub,
+                'reservation_reference' => $inventory->reservation_reference,
+            ]);
+        } elseif ($procurement && $procurement->price_per_item > 0) {
             // Price is stored in cents/integer in Procurement model
             $costRub = ($procurement->price_per_item / 100) * $order_item->count;
             Log::info("Capture: Using exact procurement price", ['cost' => $costRub, 'procurement_id' => $procurement->id]);
@@ -459,6 +481,7 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
                 'customer_id' => $customer->id,
                 'customer_email' => $customer->email,
                 'procurement_id' => $procurement?->id,
+                'reservation_reference' => $inventory?->reservation_reference,
             ]);
         } else {
             // Log warning if for some reason reserved balance was already low

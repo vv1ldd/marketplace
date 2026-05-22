@@ -12,24 +12,58 @@ class WildflowService
     private PendingRequest $client;
     private ?string $financial_secret = null;
 
-    public function __construct(string $overrideToken = null, ?\App\Models\Provider $providerModel = null)
+    public function __construct(?string $overrideToken = null, ?\App\Models\Provider $providerModel = null)
     {
-        $this->base_url = config('services.wildflow.base_url', 'http://api.wildflow.test/api/v1/');
         $providerModel = $providerModel ?? \App\Models\Provider::where('type', 'wildflow')->first();
-        
+
+        $baseUrl = $providerModel->credentials['base_url']
+            ?? config('services.wildflow.base_url')
+            ?? 'http://api.wildflow.test/api/v1/';
+        $this->base_url = rtrim($baseUrl, '/') . '/';
+
         // Highly dynamic token resolution: Override > DB Provider credentials > Config fallback
         $token = $overrideToken 
             ?? $providerModel->credentials['api_key'] 
             ?? config('app.wildflow_token');
 
+        $clientId = $providerModel->credentials['client_id'] ?? null;
         $this->financial_secret = $providerModel->credentials['financial_secret'] ?? null;
  
-        $this->client = Http::withHeaders([
+        $client = Http::withHeaders([
             'Accept' => 'application/json',
             'X-Auth-Token' => $token,
-        ])->timeout(60)
-            ->withoutVerifying()
-            ->baseUrl($this->base_url);
+        ])->timeout(60);
+
+        if (! config('services.wildflow.verify_tls', true)) {
+            $client = $client->withoutVerifying();
+        }
+
+        $this->client = $client
+            ->baseUrl($this->base_url)
+            ->withMiddleware(function (callable $handler) use ($clientId) {
+                return function (\Psr\Http\Message\RequestInterface $request, array $options) use ($handler, $clientId) {
+                    $timestamp = time();
+                    $body = (string)$request->getBody();
+
+                    if ($clientId) {
+                        $request = $request->withHeader('X-Client-Id', (string)$clientId);
+                    }
+
+                    $request = $request->withHeader('X-Financial-Timestamp', (string)$timestamp);
+
+                    if ($this->financial_secret) {
+                        $signature = hash_hmac('sha256', $timestamp . '.' . $body, $this->financial_secret);
+                        $request = $request->withHeader('X-Financial-Signature', $signature);
+                    }
+
+                    return $handler($request, $options);
+                };
+            });
+    }
+
+    public function getClient(): PendingRequest
+    {
+        return $this->client;
     }
 
     public function getExchangeRates(string $provider = 'ezpin'): array
@@ -46,6 +80,9 @@ class WildflowService
     /**
      * 🚀 SHINY CLEAN ORDER PLACEMENT
      * Dropped all hardcoded terminals! Smart Aggregator handles routing.
+     *
+     * @param string|null $sellerId     LegalEntity ID on the marketplace side (for Ledger attribution)
+     * @param string|null $sellerName   Human-readable seller name (optional, for Ledger display)
      */
     public function createOrder(
         string $service_sku,
@@ -55,7 +92,9 @@ class WildflowService
         bool $pre_order = false,
         string $destination = '',
         string $provider = 'ezpin',
-        ?string $terminalId = null
+        ?string $terminalId = null,
+        ?string $sellerId = null,
+        ?string $sellerName = null
     )
     {
         $payload = array_filter([
@@ -65,26 +104,29 @@ class WildflowService
             'pre_order'     => $pre_order,
             'referenceCode' => $order_item_id,
             'destination'   => $destination,
-            'terminal_id'     => $terminalId,
-        ]);
- 
+            'terminal_id'   => $terminalId,
+            // Seller attribution — passed through to Wildflow Kernel Ledger
+            'seller_id'     => $sellerId,
+            'seller_name'   => $sellerName,
+        ], fn ($value) => $value !== null);
+
         \Illuminate\Support\Facades\Log::info("Wildflow Universal Order START [Provider: {$provider}]", ['payload' => $payload]);
- 
+
         // Hit the super-smart dispatcher route!
         $response = $this->client->post("providers/{$provider}/order", $payload);
- 
+
         if ($response->failed()) {
             \Illuminate\Support\Facades\Log::error("Wildflow Universal Order FAILED", [
                 'status' => $response->status(),
-                'body' => $response->body(),
+                'body'   => $response->body(),
                 'payload' => $payload
             ]);
             throw new \RuntimeException("API Error: " . $response->body());
         }
- 
+
         return $response->json('order');
     }
- 
+
     /**
      * 🛡️ AVAILABILITY GUARD
      * Checks if vendor has real items in stock before committing resources.
@@ -101,7 +143,7 @@ class WildflowService
             'quantity' => $quantity,
             'price' => $price,
             'terminal_id' => $terminalId
-        ]);
+        ], fn ($value) => $value !== null);
  
         $response = $this->client->get("providers/{$provider}/check-availability/{$service_sku}", $params);
  
@@ -163,15 +205,9 @@ class WildflowService
             'amount' => (float)$amount,
             'reference' => $reference,
             'terminal_id' => $terminalId,
-        ]);
+        ], fn ($value) => $value !== null);
  
-        $headers = [];
-        if ($this->financial_secret) {
-            $jsonBody = json_encode($payload);
-            $headers['X-Financial-Signature'] = hash_hmac('sha256', $jsonBody, $this->financial_secret);
-        }
- 
-        $response = $this->client->withHeaders($headers)->post("partners/grant-credit", $payload);
+        $response = $this->client->post("partners/grant-credit", $payload);
 
         if ($response->failed()) {
             throw new \RuntimeException("Failed to grant credit: " . $response->body());
@@ -214,22 +250,39 @@ class WildflowService
     {
         $payload = [
             'terminal_id' => $terminalId,
-            'amount' => $amount,
-            'reference' => $reference ?: "Top-up via Marketplace Admin",
+            'amount'      => $amount,
+            'currency'    => 'RUB',
+            'reference'   => $reference ?: "Top-up via Marketplace Admin",
         ];
 
-        $headers = [];
-        if ($this->financial_secret) {
-            $jsonBody = json_encode($payload);
-            $headers['X-Financial-Signature'] = hash_hmac('sha256', $jsonBody, $this->financial_secret);
-        }
-
-        $response = $this->client->withHeaders($headers)->post("partners/top-up", $payload);
+        $response = $this->client->post("partners/top-up", $payload);
 
         if ($response->failed()) {
             throw new \RuntimeException("Failed to top up partner in Kernel: " . $response->body());
         }
 
         return $response->json();
+    }
+
+    public function listPartners(): array
+    {
+        $response = $this->client->get("partners");
+
+        if ($response->failed()) {
+            throw new \RuntimeException("Failed to list partners from Kernel: " . $response->body());
+        }
+
+        return $response->json('data') ?? [];
+    }
+
+    public function deletePartner(string $terminalId): array
+    {
+        $response = $this->client->delete("partners/{$terminalId}");
+
+        if ($response->failed()) {
+            throw new \RuntimeException("Failed to delete partner from Kernel: " . $response->body());
+        }
+
+        return $response->json() ?? [];
     }
 }

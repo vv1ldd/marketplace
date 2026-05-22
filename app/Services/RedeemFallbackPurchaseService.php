@@ -37,13 +37,15 @@ class RedeemFallbackPurchaseService
             return null;
         }
 
-        $service_sku = data_get($catalog, 'data.data.product.sku');
-        $service_price = data_get($catalog, 'data.data.price');
+        $service_sku = $this->serviceSku($catalog);
+        $service_price = data_get($catalog->data, 'data.price')
+            ?? data_get($catalog->data, 'price')
+            ?? $catalog->retail_price;
         if (! $service_sku || $service_price === null) {
             return null;
         }
 
-        $ref = $order_item->uuid . '-fb1';
+        $ref = $order_item->providerReference() . '-fb1';
         $shop = $order_item->order?->shop;
 
         // 🛡️ Sovereign Ledger: Record the FALLBACK TRIGGER
@@ -69,15 +71,16 @@ class RedeemFallbackPurchaseService
 
             // 🚀 JIT MULTI-TENANCY: Pass seller info for auto-registration on Aggregator!
             $externalOrderId = $driver->createOrder(
-                sku: $catalog->sku,
+                sku: $service_sku,
                 reference: $ref,
-                price: $catalog->retail_price,
+                price: (float) $service_price,
                 quantity: $order_item->count,
                 meta: [
                     'type' => $catalog->type ?? 'gift_card',
                     'is_fallback' => true,
                     'seller_id' => $shop?->id,
                     'seller_name' => $shop?->name,
+                    'terminal_id' => $shop ? (string)$shop->legal_entity_id : null,
                 ]
             );
 
@@ -88,6 +91,8 @@ class RedeemFallbackPurchaseService
             $code = !empty($codes) ? $codes[0] : null;
 
             if (filled($code)) {
+                $order_item->update(['provider_order_id' => $externalOrderId ?: $ref]);
+
                 if ($shop) {
                     app(\App\Services\LedgerService::class)->record($shop, 'PROVIDER_ORDER_SUCCESS', $order_item, [
                         'provider' => $provider->type,
@@ -122,5 +127,15 @@ class RedeemFallbackPurchaseService
         }
 
         return null;
+    }
+
+    private function serviceSku(WildflowCatalog $catalog): ?string
+    {
+        return data_get($catalog->data, 'service_sku')
+            ?? data_get($catalog->data, 'data.sku')
+            ?? data_get($catalog->data, 'data.product.sku')
+            ?? data_get($catalog->data, 'product.sku')
+            ?? $catalog->service_sku
+            ?? null;
     }
 }

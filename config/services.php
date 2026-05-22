@@ -62,7 +62,8 @@ return [
     | По умолчанию 1 — MEANLY.
     */
     'wildflow' => [
-        'base_url' => env('APP_WILDFLOW_URL', 'http://api.wildflow.test/api/v1/'),
+        'base_url' => env('APP_WILDFLOW_URL', 'https://api.wildflow.dev/api/v1/'),
+        'verify_tls' => env('WILDFLOW_VERIFY_TLS', true),
         'sku_map_shop_ids' => (function (): array {
             $raw = trim((string) env('WILDFLOW_SKU_MAP_SHOP_IDS', '1'));
 
