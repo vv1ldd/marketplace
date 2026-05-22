@@ -1059,6 +1059,10 @@ class MainController extends Controller
                 'campaignId' => 'nullable|numeric',
                 'status' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
                 'substatus' => 'required_if:notificationType,ORDER_STATUS_UPDATED|string',
+                'fake' => 'nullable|boolean',
+                'is_manual_sync' => 'nullable|boolean',
+                'order_full_info' => 'nullable|array',
+                'client_info' => 'nullable|array',
             ]);
 
             if (

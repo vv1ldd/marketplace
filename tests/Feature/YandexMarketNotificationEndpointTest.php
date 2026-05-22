@@ -3,10 +3,19 @@
 namespace Tests\Feature;
 
 use App\Jobs\ProcessYmNotification;
+use App\Models\ApiApplication;
+use App\Models\Currency;
 use App\Models\LegalEntity;
+use App\Models\Order\Order;
+use App\Models\Order\OrderItems;
 use App\Models\Order\YmNotification;
+use App\Models\Product;
+use App\Models\Provider;
 use App\Models\Shop;
+use App\Models\WildflowCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -98,6 +107,170 @@ class YandexMarketNotificationEndpointTest extends TestCase
 
         $shop->refresh();
         $this->assertNotEmpty($shop->notification_token);
+    }
+
+    public function test_yandex_notification_reaches_ezpin_sandbox_and_activates_redeem_code(): void
+    {
+        config(['queue.default' => 'sync']);
+        Mail::fake();
+        Http::fake([
+            '*/partners/grant-credit' => Http::response(['success' => true, 'reservation_id' => 'YM-HOLD-1'], 200),
+            '*/providers/ezpin-sandbox/order' => Http::response([
+                'order' => ['referenceCode' => 'YM-EZPIN-SANDBOX-ORDER-1'],
+            ], 200),
+            '*/providers/ezpin-sandbox/orders/*/normalized-cards' => Http::response([
+                'cards' => [
+                    ['pin_code' => 'YM-EZPIN-SANDBOX-CODE-001'],
+                ],
+            ], 200),
+        ]);
+
+        $legalEntity = LegalEntity::create([
+            'name' => 'Meanly Yandex E2E',
+            'short_name' => 'Meanly',
+            'inn' => '770000009777',
+            'available_balance' => 1000,
+            'reserved_balance' => 0,
+            'currency' => 'RUB',
+            'is_active' => true,
+        ]);
+
+        $shop = new Shop([
+            'name' => 'Meanly YM E2E',
+            'domain' => 'meanly-yandex-e2e.test',
+            'voucher_prefix' => 'MEAN',
+            'business_id' => 910001,
+            'campaign_id' => 910002,
+            'notification_token' => 'meanly-e2e-token',
+            'api_key' => 'ym-api-key',
+            'is_active' => true,
+            'is_sandbox' => true,
+        ]);
+        $shop->legal_entity_id = $legalEntity->id;
+        $shop->save();
+
+        Currency::updateOrCreate(['code' => 'USD'], [
+            'name' => 'US Dollar',
+            'rate_to_rub' => 85.0,
+            'manual_rate' => 85.0,
+            'is_auto_update' => false,
+        ]);
+
+        $apiToken = 'meanly-e2e-shop-token';
+        ApiApplication::create([
+            'shop_id' => $shop->id,
+            'type' => ApiApplication::TYPE_SHOP,
+            'name' => 'Meanly E2E Redeem API',
+            'token' => $apiToken,
+            'is_active' => true,
+        ]);
+
+        Provider::updateOrCreate(['type' => 'wildflow'], [
+            'name' => 'Wildflow Sandbox Proxy',
+            'is_active' => true,
+            'credentials' => ['api_key' => 'testing-token'],
+            'settings' => ['upstream_provider' => 'ezpin-sandbox'],
+        ]);
+
+        $sku = 'WF-YM-E2E-001';
+        WildflowCatalog::create([
+            'sku' => $sku,
+            'service_sku' => 'EZPIN-YM-E2E-001',
+            'retail_price' => 1,
+            'type' => 'giftcard',
+            'is_active' => true,
+            'data' => [
+                'data' => [
+                    'sku' => 'EZPIN-YM-E2E-001',
+                    'price' => 1.00,
+                ],
+                'product' => [
+                    'title' => 'Yandex E2E Card',
+                    'currency' => ['code' => 'USD'],
+                ],
+            ],
+        ]);
+
+        Product::create([
+            'shop_id' => $shop->id,
+            'sku' => $sku,
+            'wildflow_catalog_sku' => $sku,
+            'name' => 'Yandex E2E Card',
+            'price_rub' => 12000,
+            'type' => 'giftcard',
+            'is_active' => true,
+        ]);
+
+        $sourceOrderId = 9101001;
+        $this->postJson('/api/ym/meanly-e2e-token/notification', [
+            'notificationType' => 'ORDER_CREATED',
+            'orderId' => $sourceOrderId,
+            'campaignId' => $shop->campaign_id,
+            'fake' => true,
+            'is_manual_sync' => true,
+            'order_full_info' => [
+                'id' => $sourceOrderId,
+                'fake' => true,
+                'items' => [[
+                    'id' => 881001,
+                    'offerId' => $sku,
+                    'count' => 1,
+                    'price' => 120,
+                    'buyerPrice' => 120,
+                    'order_item_name' => 'Yandex E2E Card',
+                ]],
+                'buyerTotal' => 120,
+                'currency' => 'RUR',
+            ],
+            'client_info' => [
+                'id' => 'ym-buyer-e2e-9101001',
+                'firstName' => 'Yandex',
+                'lastName' => 'Client',
+                'email' => 'ym-e2e-client@example.test',
+                'phone' => '+79990000001',
+            ],
+        ])->assertOk();
+
+        $order = Order::where('order_id', $sourceOrderId)->firstOrFail();
+        $this->assertTrue($order->isYandexSandboxOrder());
+        $this->assertTrue($order->shouldRedeemThroughProvider());
+
+        $this->postJson('/api/ym/meanly-e2e-token/notification', [
+            'notificationType' => 'ORDER_STATUS_UPDATED',
+            'orderId' => $sourceOrderId,
+            'campaignId' => $shop->campaign_id,
+            'status' => 'PROCESSING',
+            'substatus' => 'STARTED',
+            'is_manual_sync' => true,
+        ])->assertOk();
+
+        $item = OrderItems::where('order_id', $order->id)->firstOrFail();
+        $voucherCode = $item->key;
+        $this->assertNotEmpty($voucherCode);
+
+        $this->withToken($apiToken)
+            ->postJson('/api/redeem/verify-code', ['code' => $voucherCode])
+            ->assertOk()
+            ->assertJsonPath('data.sku', $sku);
+
+        $this->withToken($apiToken)->postJson('/api/redeem/activate', [
+            'code' => $voucherCode,
+            'verification_code' => 'TRUSTED_USER',
+            'email' => 'ym-e2e-client@example.test',
+            'first_name' => 'Yandex',
+            'last_name' => 'Client',
+        ])->assertOk()
+            ->assertJsonPath('status', 'success');
+
+        $item->refresh();
+        $this->assertSame('success', $item->purchase_status);
+        $this->assertSame('YM-EZPIN-SANDBOX-CODE-001', $item->original_code);
+        $this->assertTrue($item->is_activated);
+        $this->assertTrue($item->is_redeemed);
+        $this->assertStringStartsWith('SL1-', $item->provider_order_id);
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/providers/ezpin-sandbox/order'));
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/providers/ezpin-sandbox/orders/'.$item->provider_order_id.'/normalized-cards'));
     }
 
     private function createSellerShop(string $name, int $campaignId, string $token): Shop
