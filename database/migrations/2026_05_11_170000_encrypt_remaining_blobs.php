@@ -10,15 +10,39 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Change columns to TEXT for encryption
-        DB::statement('ALTER TABLE providers MODIFY credentials TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE providers MODIFY settings TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE wildflow_catalogs MODIFY data TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE provider_products MODIFY data TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE products MODIFY data TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE products MODIFY params TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE products MODIFY ym_errors TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE users MODIFY meta TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE customers MODIFY meta TEXT DEFAULT NULL');
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('providers', function (Blueprint $table) {
+                $table->text('credentials')->nullable()->change();
+                $table->text('settings')->nullable()->change();
+            });
+            Schema::table('wildflow_catalogs', function (Blueprint $table) {
+                $table->text('data')->nullable()->change();
+            });
+            Schema::table('provider_products', function (Blueprint $table) {
+                $table->text('data')->nullable()->change();
+            });
+            Schema::table('products', function (Blueprint $table) {
+                $table->text('data')->nullable()->change();
+                $table->text('params')->nullable()->change();
+                $table->text('ym_errors')->nullable()->change();
+            });
+            Schema::table('users', function (Blueprint $table) {
+                $table->text('meta')->nullable()->change();
+            });
+            Schema::table('customers', function (Blueprint $table) {
+                $table->text('meta')->nullable()->change();
+            });
+        } else {
+            DB::statement('ALTER TABLE providers MODIFY credentials TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE providers MODIFY settings TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE wildflow_catalogs MODIFY data TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE provider_products MODIFY data TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE products MODIFY data TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE products MODIFY params TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE products MODIFY ym_errors TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE users MODIFY meta TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE customers MODIFY meta TEXT DEFAULT NULL');
+        }
 
         $vault = app(\App\Services\VaultTransitService::class);
 

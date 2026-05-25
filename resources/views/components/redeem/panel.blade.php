@@ -8,14 +8,14 @@
     $inFrame = (bool) session('is_frame');
 @endphp
 
-<div class="{{ $inFrame ? 'w-full' : 'w-full max-w-2xl mx-auto px-4 py-6 sm:py-10' }}">
+<div class="redeem-panel-shell {{ $inFrame ? 'w-full' : 'w-full max-w-2xl mx-auto px-4 py-6 sm:py-10' }}">
     <div
-        class="overflow-hidden border border-zinc-200/90 bg-white/95 shadow-xl shadow-zinc-900/5 backdrop-blur-xl redeem-dark:border-zinc-700/50 redeem-dark:bg-zinc-900/50 redeem-dark:shadow-2xl redeem-dark:shadow-black/40 {{ $inFrame ? '' : 'rounded-3xl' }}">
+        class="redeem-panel overflow-hidden border border-zinc-200/90 bg-white/95 shadow-xl shadow-zinc-900/5 backdrop-blur-xl redeem-dark:border-zinc-700/50 redeem-dark:bg-zinc-900/50 redeem-dark:shadow-2xl redeem-dark:shadow-black/40 {{ $inFrame ? '' : 'rounded-3xl' }}">
         <div
-            class="border-b border-zinc-200/80 bg-gradient-to-r from-blue-100/90 to-indigo-100/70 px-5 pb-6 pt-8 text-center redeem-dark:border-zinc-700/30 redeem-dark:from-blue-600/20 redeem-dark:to-indigo-600/20">
+            class="redeem-panel-header border-b border-zinc-200/80 bg-gradient-to-r from-blue-100/90 to-indigo-100/70 px-5 pb-6 pt-8 text-center redeem-dark:border-zinc-700/30 redeem-dark:from-blue-600/20 redeem-dark:to-indigo-600/20">
             @if ($icon !== 'none')
                 <div
-                    class="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200/80 redeem-dark:bg-indigo-600/25 redeem-dark:text-indigo-200 redeem-dark:ring-indigo-400/25"
+                    class="redeem-panel-icon mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200/80 redeem-dark:bg-indigo-600/25 redeem-dark:text-indigo-200 redeem-dark:ring-indigo-400/25"
                     aria-hidden="true">
                     @switch($icon)
                         @case('mail')
@@ -44,20 +44,20 @@
                     @endswitch
                 </div>
             @endif
-            <h1 class="text-2xl font-extrabold tracking-tight text-zinc-900 sm:text-3xl redeem-dark:text-white">
+            <h1 class="redeem-panel-title text-2xl font-extrabold tracking-tight text-zinc-900 sm:text-3xl redeem-dark:text-white">
                 {{ $headline }}</h1>
             @isset($lead)
                 <div
-                    class="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-zinc-600 redeem-dark:text-zinc-400">
+                    class="redeem-panel-lead mx-auto mt-3 max-w-xl text-sm leading-relaxed text-zinc-600 redeem-dark:text-zinc-400">
                     {{ $lead }}</div>
             @endisset
             @isset($sublead)
                 <p
-                    class="mx-auto mt-3 max-w-lg text-xs leading-relaxed text-zinc-500 redeem-dark:text-zinc-500">
+                    class="redeem-panel-sublead mx-auto mt-3 max-w-lg text-xs leading-relaxed text-zinc-500 redeem-dark:text-zinc-500">
                     {{ $sublead }}</p>
             @endisset
         </div>
-        <div class="{{ $bodyClass }}">
+        <div class="redeem-panel-body {{ $bodyClass }}">
             {{ $slot }}
         </div>
     </div>

@@ -17,6 +17,7 @@ use App\Models\WildflowCatalog;
 use App\Models\YmSenderLog;
 use App\Services\DescriptionGenerator;
 use App\Services\ImageGenerator;
+use App\Services\CanonicalCategoryResolver;
 use App\Services\MeanlyService;
 use App\Services\Provider\ProviderHub;
 use App\Services\WildflowService;
@@ -406,7 +407,10 @@ class MainController extends Controller
 
             $shop = $shops->get($item->bussiness_id);
             $item_tax = $shop ? $shop->ym_tax : $global_tax;
-            $category_id = $shop && $shop->ym_category_id ? $shop->ym_category_id : $global_category_id;
+            $categoryResolver = app(CanonicalCategoryResolver::class);
+            $canonicalCategory = $item->canonical_category ?: $categoryResolver->forWildflowCatalog($item);
+            $fallbackCategoryId = $shop && $shop->ym_category_id ? $shop->ym_category_id : $global_category_id;
+            $category_id = $categoryResolver->yandexCategoryId($canonicalCategory, $fallbackCategoryId);
 
             $price = round($price * (1 + $item_tax / 100));
 
@@ -695,12 +699,14 @@ class MainController extends Controller
             }
 
             $description = str_replace('facebook', '(соц. сеть на букву ф)', $description);
+            $categoryResolver = app(CanonicalCategoryResolver::class);
+            $categoryId = $categoryResolver->yandexCategoryId('game_wallet_topups', (int) Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 989939)));
 
             $finished_data[] = [
                 'offer' => [
                     'offerId' => $item->sku,
                     'name' => $name,
-                    'marketCategoryId' => (int) Settings::get('YM_CATEGORY_ID', config('services.ym.category_id', 70301474)),
+                    'marketCategoryId' => $categoryId,
                     'pictures' => $pictures ?? [],
                     ...(isset($data['publisherName']) ? ['vendor' => $data['publisherName']] : []),
                     'description' => $description,
@@ -845,7 +851,7 @@ class MainController extends Controller
 
                 if ($product) {
                     $item_stock = app(\App\Services\SellerVoucherStockService::class)
-                        ->capacityForProduct($product, $shop)['total'];
+                        ->capacityForProduct($product, $shop)['physical'];
                 }
             }
             $warehouseId = $shop ? $shop->ym_warehouse_id : Settings::get('YM_WAREHOUSE_ID');

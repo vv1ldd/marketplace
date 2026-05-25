@@ -13,14 +13,23 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->encryptCookies(except: ['theme', 'holiday']);
+
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,
+            \App\Http\Middleware\SetTheme::class,
+            \App\Http\Middleware\EnsureUserHasPasskey::class,
+            \App\Http\Middleware\HolidayContextMiddleware::class,
         ]);
+        $middleware->append(\App\Http\Middleware\TrackMeanlyAnalyticsRequests::class);
         $middleware->append(AllowIframeForRoute::class);
         $middleware->trustProxies(at: '*');
         $middleware->alias([
             'api.redeem.auth' => \App\Http\Middleware\CheckApiApplicationToken::class,
             'api.ledger.auth' => \App\Http\Middleware\CheckApiApplicationToken::class,
+            'plane.guard'     => \App\Http\Middleware\SovereignPlaneGuard::class,
+            // Seller terminal authentication: X-Terminal-Id + X-Terminal-Pin headers
+            'seller.terminal' => \App\Http\Middleware\AuthenticateSellerTerminal::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

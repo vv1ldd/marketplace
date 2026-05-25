@@ -63,6 +63,7 @@ class SalesChannels
     public static function isChannelConfigured(string $key, \App\Models\Shop $shop): bool
     {
         return match ($key) {
+            'meanly_storefront' => true,
             'yandex_market' => filled($shop->campaign_id) && filled($shop->api_key),
             'offline_store' => true,
             'woocommerce' => filled($shop->woo_api_url) && filled($shop->woo_consumer_key),

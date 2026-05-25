@@ -20,6 +20,8 @@ return new class extends Migration {
             $table->uuid('sku');
             $table->integer('count');
             $table->date('activate_till');
+            $table->unsignedBigInteger('type_form_id')->nullable()->default(2);
+            $table->string('original_code')->nullable();
             $table->json('client_info')->nullable();
             $table->timestamp('activated_at')->nullable();
             $table->timestamps();

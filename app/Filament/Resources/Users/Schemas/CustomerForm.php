@@ -48,21 +48,6 @@ class CustomerForm
                             ->disabled($is_update),
                     ]),
 
-                    Grid::make(2)->schema([
-                        TextInput::make('password')
-                            ->password()
-                            ->label(__('admin.users.password'))
-                            ->required()
-                            ->confirmed()
-                            ->revealable()
-                            ->hidden($is_update),
-                        TextInput::make('password_confirmation')
-                            ->password()
-                            ->label(__('admin.users.password_confirmation'))
-                            ->revealable()
-                            ->required()
-                            ->hidden($is_update),
-                    ])
                 ])->columnSpanFull()
             ]);
     }

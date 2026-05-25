@@ -15,7 +15,7 @@
                         <div class="w-2.5 h-2.5 rounded-full bg-green-500" style="box-shadow: 0 0 10px #22c55e;"></div>
                         <div class="flex flex-col">
                             <span class="text-[10px] uppercase font-black tracking-widest leading-none">Neural Link Active</span>
-                            <span class="text-[8px] uppercase font-bold mt-0.5" style="color: rgba(34, 197, 94, 0.6);">Sovereign OS v4.2.0</span>
+                            <span class="text-[8px] uppercase font-bold mt-0.5" style="color: rgba(34, 197, 94, 0.6);">Meanly OS v4.2.0</span>
                         </div>
                     </div>
                     <div class="flex items-center gap-x-4">

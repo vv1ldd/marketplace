@@ -23,6 +23,11 @@ class ProviderHub extends Manager
         return new WildflowDriver();
     }
 
+    public function createWildflowSandboxDriver(): WildflowDriver
+    {
+        return new WildflowDriver();
+    }
+
     /**
      * Get a driver instance for a specific provider model.
      */

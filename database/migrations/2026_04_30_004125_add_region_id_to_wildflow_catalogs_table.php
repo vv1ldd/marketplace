@@ -11,10 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('wildflow_catalogs', 'region_id')) {
+            return;
+        }
+
         Schema::table('wildflow_catalogs', function (Blueprint $table) {
-            $table->bigInteger('region_id')->nullable()->after('brand_id');
-            $table->foreign('region_id')->references('id')->on('mapping_countries')->nullOnDelete();
-            $table->index('region_id');
+            $after = Schema::hasColumn('wildflow_catalogs', 'brand_id') ? 'brand_id' : 'id';
+
+            $table->foreignId('region_id')->nullable()->after($after)->constrained('mapping_countries')->nullOnDelete();
         });
     }
 
@@ -23,9 +27,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasColumn('wildflow_catalogs', 'region_id')) {
+            return;
+        }
+
         Schema::table('wildflow_catalogs', function (Blueprint $table) {
-            $table->dropForeign(['region_id']);
-            $table->dropColumn('region_id');
+            $table->dropConstrainedForeignId('region_id');
         });
     }
 };

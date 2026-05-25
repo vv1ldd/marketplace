@@ -39,9 +39,11 @@ class LedgerAnalystService
         $prompt = $this->buildAnalysisPrompt($shop);
         
         try {
+            $model = config('services.ollama.model');
+            $url = rtrim(config('services.ollama.url'), '/');
             $response = \Illuminate\Support\Facades\Http::timeout(300)
-                ->post('http://localhost:11434/api/generate', [
-                    'model' => 'llama3',
+                ->post("$url/api/generate", [
+                    'model' => $model,
                     'prompt' => $prompt['content'],
                     'stream' => false,
                 ]);
@@ -52,7 +54,7 @@ class LedgerAnalystService
 
             return "Ошибка Ollama: " . $response->body();
         } catch (\Exception $e) {
-            return "Ollama не отвечает. Убедитесь, что она запущена (ollama run llama3). Ошибка: " . $e->getMessage();
+            return "Ollama не отвечает. Убедитесь, что она запущена (ollama run {$model}). Ошибка: " . $e->getMessage();
         }
     }
 
@@ -200,16 +202,18 @@ $transcript
 EOT;
 
         try {
+            $model = config('services.ollama.model');
+            $url = rtrim(config('services.ollama.url'), '/');
             $response = \Illuminate\Support\Facades\Http::timeout(300)
-                ->post('http://localhost:11434/api/generate', [
-                    'model' => 'llama3',
+                ->post("$url/api/generate", [
+                    'model' => $model,
                     'prompt' => $prompt,
                     'stream' => false,
                 ]);
 
             return $response->successful() ? $response->json('response') : "Ошибка: " . $response->body();
         } catch (\Exception $e) {
-            return "Ollama (Llama 3) недоступна для локального инсайта. Ошибка: " . $e->getMessage();
+            return "Ollama ({$model}) недоступна для локального инсайта. Ошибка: " . $e->getMessage();
         }
     }
 
@@ -247,9 +251,11 @@ $systemSnapshot
 EOT;
 
         try {
+            $model = config('services.ollama.model');
+            $url = rtrim(config('services.ollama.url'), '/');
             $response = \Illuminate\Support\Facades\Http::timeout(300)
-                ->post('http://localhost:11434/api/generate', [
-                    'model' => 'llama3',
+                ->post("$url/api/generate", [
+                    'model' => $model,
                     'prompt' => $prompt,
                     'stream' => false,
                 ]);

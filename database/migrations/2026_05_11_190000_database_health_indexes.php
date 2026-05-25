@@ -6,6 +6,14 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private function getTableIndexes(string $table): \Illuminate\Support\Collection
+    {
+        if (DB::getDriverName() === 'sqlite') {
+            return collect(DB::select("PRAGMA index_list('{$table}')"))->pluck('name')->unique();
+        }
+        return collect(DB::select("SHOW INDEX FROM `{$table}`"))->pluck('Key_name')->unique();
+    }
+
     /**
      * Run the migrations.
      */
@@ -14,7 +22,7 @@ return new class extends Migration
         // 1. Optimize Product Inventory lookup
         if (Schema::hasTable('product_inventory')) {
             Schema::table('product_inventory', function (Blueprint $table) {
-                if (!collect(DB::select("SHOW INDEX FROM product_inventory"))->pluck('Key_name')->contains('product_inventory_sku_bidx_index')) {
+                if (!$this->getTableIndexes('product_inventory')->contains('product_inventory_sku_bidx_index')) {
                     $table->index('sku_bidx');
                 }
             });
@@ -23,7 +31,7 @@ return new class extends Migration
         // 2. Optimize Products filtering by shop
         if (Schema::hasTable('products')) {
             Schema::table('products', function (Blueprint $table) {
-                if (!collect(DB::select("SHOW INDEX FROM products"))->pluck('Key_name')->contains('products_shop_id_index')) {
+                if (!$this->getTableIndexes('products')->contains('products_shop_id_index')) {
                     $table->index('shop_id');
                 }
             });

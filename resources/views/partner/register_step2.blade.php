@@ -115,7 +115,7 @@
         <div class="form-group" id="name-container" style="display: none; opacity: 0; transition: all 0.3s;">
             <label class="form-label">Официальное название (автоматически)</label>
             <input type="text" id="name-field" name="legal_name" class="form-input" readonly style="background: rgba(0,255,0,0.05); border-color: rgba(0,255,0,0.2);">
-            <div style="font-size: 10px; color: #0f0; margin-top: 5px; font-weight: 600;">✓ ANCHORED IN SIMPLE-L1 FABRIC</div>
+            <div style="font-size: 10px; color: #0f0; margin-top: 5px; font-weight: 600;">✓ ПРОФИЛЬ ПРОВЕРЕН</div>
         </div>
 
         <button type="submit" class="btn-submit">Завершить настройку →</button>

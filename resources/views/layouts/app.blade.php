@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
 <head>
+    @include('partials.theme-sync')
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -1466,18 +1467,124 @@
         </style>
     @endif
 
+    @if (request()->is('redeem*'))
+        <style>
+            html[data-theme] body.redeem-page {
+                min-height: 100vh;
+                padding: clamp(24px, 5vw, 64px) 24px !important;
+                background:
+                    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--theme-accent) 16%, transparent), transparent 36%),
+                    linear-gradient(135deg, var(--theme-bg), color-mix(in srgb, var(--theme-bg) 82%, var(--theme-surface))) !important;
+                color: var(--theme-text) !important;
+                font-family: var(--theme-ui-font) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root {
+                min-height: calc(100vh - clamp(48px, 10vw, 128px));
+                justify-content: center;
+                color: var(--theme-text) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-panel,
+            html[data-theme] body.redeem-page [data-redeem-awaiting] > div,
+            html[data-theme] body.redeem-page [data-redeem-finish-card] > div {
+                background: var(--theme-surface) !important;
+                border: var(--theme-border-width) solid var(--theme-border) !important;
+                border-radius: var(--theme-radius-lg) !important;
+                box-shadow: var(--theme-card-shadow) !important;
+                color: var(--theme-text) !important;
+                backdrop-filter: var(--theme-backdrop-filter) !important;
+                -webkit-backdrop-filter: var(--theme-backdrop-filter) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-panel-header,
+            html[data-theme] body.redeem-page [data-redeem-finish-card] > div > div:first-child,
+            html[data-theme] body.redeem-page [data-redeem-awaiting] > div {
+                background: linear-gradient(135deg, color-mix(in srgb, var(--theme-accent) 14%, var(--theme-surface)) 0%, var(--theme-surface-muted) 100%) !important;
+                border-color: var(--theme-border) !important;
+                color: var(--theme-text) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-panel-icon,
+            html[data-theme] body.redeem-page [data-redeem-finish-card] [class*="bg-blue-600"],
+            html[data-theme] body.redeem-page [data-redeem-awaiting] [aria-hidden="true"] {
+                background: var(--theme-button-bg) !important;
+                border: var(--theme-border-width) solid var(--theme-accent) !important;
+                color: var(--theme-button-text) !important;
+                box-shadow: var(--theme-control-shadow) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is(h1, h2, h3, label, strong, [class*="text-zinc-900"], [class*="text-zinc-800"]) {
+                color: var(--theme-text) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is(p, span, div, [class*="text-zinc-700"], [class*="text-zinc-600"], [class*="text-zinc-500"]) {
+                border-color: var(--theme-border) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is(.redeem-panel-lead, .redeem-panel-sublead, p, [class*="text-zinc-600"], [class*="text-zinc-500"]) {
+                color: var(--theme-muted) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is(input, select, textarea) {
+                background: var(--theme-control-bg) !important;
+                border: var(--theme-border-width) solid var(--theme-border) !important;
+                border-radius: var(--theme-radius-md) !important;
+                box-shadow: none !important;
+                color: var(--theme-text) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is(input, textarea)::placeholder {
+                color: var(--theme-muted) !important;
+                opacity: 0.72;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is(input:focus, select:focus, textarea:focus) {
+                border-color: var(--theme-accent) !important;
+                outline: 2px solid color-mix(in srgb, var(--theme-accent) 24%, transparent) !important;
+                outline-offset: 2px !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is(button[type="submit"], .btn-submit, a[class*="bg-blue-600"]) {
+                background: var(--theme-button-bg) !important;
+                border: var(--theme-border-width) solid var(--theme-accent) !important;
+                border-radius: var(--theme-radius-md) !important;
+                box-shadow: var(--theme-control-shadow) !important;
+                color: var(--theme-button-text) !important;
+                font-family: var(--theme-ui-font) !important;
+                letter-spacing: var(--theme-letter-spacing) !important;
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is(button[type="submit"]:hover, .btn-submit:hover, a[class*="bg-blue-600"]:hover) {
+                filter: brightness(1.05) saturate(1.08);
+                transform: var(--theme-menu-transform);
+            }
+
+            html[data-theme] body.redeem-page .redeem-root :is([class*="bg-zinc-50"], [class*="bg-zinc-100"], [class*="bg-white"], [class*="bg-zinc-800"], [class*="bg-zinc-900"], [class*="bg-zinc-950"]) {
+                background-color: var(--theme-control-bg) !important;
+                border-color: var(--theme-border) !important;
+                color: var(--theme-text) !important;
+            }
+
+            html[data-theme="retro"] body.redeem-page .redeem-panel,
+            html[data-theme="retro"] body.redeem-page [data-redeem-awaiting] > div,
+            html[data-theme="retro"] body.redeem-page [data-redeem-finish-card] > div {
+                border-width: 2px !important;
+            }
+        </style>
+    @endif
+
     @yield('styles')
 </head>
-<body class="@if(!isset($is_frame) || !$is_frame) bg-[#FDFDFC] dark:bg-[#0a0a0a] text-[#1b1b18] min-h-screen p-6 lg:p-8 @endif flex items-center lg:justify-center flex-col">
+<body data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}" class="@if(request()->is('redeem*')) redeem-page @endif @if(!isset($is_frame) || !$is_frame) bg-[#FDFDFC] dark:bg-[#0a0a0a] text-[#1b1b18] min-h-screen p-6 lg:p-8 @endif flex items-center lg:justify-center flex-col">
+@include('partials.theme-sync-body')
 @if (request()->is('redeem*'))
-    @php($redeemTheme = session('redeem_theme', 'dark'))
     <div
-        class="redeem-root flex w-full flex-col items-center pb-24 {{ $redeemTheme === 'light' ? 'text-zinc-900' : 'text-zinc-100' }}"
-        data-redeem-theme="{{ $redeemTheme }}">
+        class="redeem-root flex w-full flex-col items-center pb-10"
+        data-theme-root>
 @endif
 @yield('content')
 @if (request()->is('redeem*'))
-        <x-redeem.theme-toggle :theme="$redeemTheme" />
     </div>
 @endif
 

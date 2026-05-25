@@ -18,6 +18,16 @@ class AppServiceProvider extends ServiceProvider
     {
         // Suppress annoying notices globally
         error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);
+
+        $this->app->singleton(
+            \Filament\Auth\Http\Responses\Contracts\LoginResponse::class,
+            \App\Http\Responses\LoginResponse::class
+        );
+
+        $this->app->bind(
+            \Spatie\LaravelPasskeys\Actions\FindPasskeyToAuthenticateAction::class,
+            \App\Actions\Auth\CustomFindPasskeyToAuthenticateAction::class
+        );
     }
 
     /**
@@ -57,7 +67,7 @@ class AppServiceProvider extends ServiceProvider
         // Настройка переключателя языков
         if (class_exists(\BezhanSalleh\FilamentLanguageSwitch\LanguageSwitch::class)) {
             \BezhanSalleh\FilamentLanguageSwitch\LanguageSwitch::configureUsing(function (\BezhanSalleh\FilamentLanguageSwitch\LanguageSwitch $switch) {
-                $switch->locales(['ru', 'en', 'es']);
+                $switch->locales(config('app.supported_locales', ['ru', 'en']));
             });
         }
     }

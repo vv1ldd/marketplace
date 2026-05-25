@@ -1,0 +1,45 @@
+{
+  "receipt_id": "rcpt_c259cc368419257bf5d041ba",
+  "receipt_version": "1.0",
+  "constitutional_status": "FINALIZED",
+  "state_description": "The constitutional runtime accepted this settlement as legitimate.",
+  "sl1_address": "sl1_admin_sovereign_identity_43207a27",
+  "intent_id": "intent_base_dep_1248aef",
+  "intent_type": "CROSS_CHAIN_DEPOSIT",
+  "intent_hash": "92e8bc3fc69757699c9ec386c89bd2c51a9243da1eac35e80b9a002254b61972",
+  "settlement": {
+    "network": "base",
+    "asset": "ETH",
+    "amount": "0.5",
+    "tx_hash": "0x5c8e2d7a9b1c3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f",
+    "block_number": 14829374,
+    "confirmations": 6,
+    "explorer_url": "https://basescan.org/tx/0x5c8e2d7a9b1c3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f"
+  },
+  "proof": {
+    "proof_type": "EVM_TRANSACTION_PROOF",
+    "proof_fingerprint": "blake3:4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b",
+    "verified_at": "2026-05-19T06:39:09.801Z"
+  },
+  "attestation": {
+    "quorum_met": true,
+    "validator_count": 3,
+    "accepted": 3,
+    "required": 2,
+    "validators": [
+      "val_alpha",
+      "val_beta",
+      "val_gamma"
+    ]
+  },
+  "constitutional_epoch": 0,
+  "constitution_root": "43207a271dfc2f3a29c43a69159194f0b2d9dff41eb04764aaf8247b4793fbd5",
+  "policy_version": "1.0.2",
+  "state_root": "9de867afb6e3dd3f84dded0f35e4fc168a85969b9ffae29eab60bf1dd17b9523",
+  "intent_created_at": "2026-05-19T06:35:49.801Z",
+  "settlement_fulfilled_at": "2026-05-19T06:39:09.801Z",
+  "issued_at": "2026-05-19T07:05:49.801Z",
+  "issuer_public_key": "3059301306072a8648ce3d020106082a8648ce3d03010703420004dae198594487aaa4defb75a2c596fbfb8670d750ef3a9e3201f16557fc29e7f9b6b6b644b56849fd0d1e536982ac6a4d0336893bd2f3753db94f7ffec2ffb2fc",
+  "receipt_signature": "3044022074225933d4f7cd023f62e5e9594325b9ee61ef5cfb2507ea81e325bf45abc14602206606fd9dc8f39234e4be84a0540b75652e0c437b099ea26b76da93fad40fabd7",
+  "semantic_hash": "ce81c6ed8a822baad789de153d101ac2b5649b42d0a373956911fbcb85bde9d2"
+}

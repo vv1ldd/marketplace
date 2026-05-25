@@ -18,14 +18,24 @@ return new class extends Migration
             });
         }
 
-        // 2. Drop old SKU index via raw SQL (required before TEXT conversion)
-        $indexes = DB::select("SHOW INDEX FROM `{$tableName}` WHERE Key_name = 'product_inventory_sku_index'");
-        if (!empty($indexes)) {
-            DB::statement("ALTER TABLE `{$tableName}` DROP INDEX `product_inventory_sku_index`");
+        // 2. Drop old SKU index via raw SQL or SQLite DROP INDEX
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement("DROP INDEX IF EXISTS product_inventory_sku_index");
+        } else {
+            $indexes = DB::select("SHOW INDEX FROM `{$tableName}` WHERE Key_name = 'product_inventory_sku_index'");
+            if (!empty($indexes)) {
+                DB::statement("ALTER TABLE `{$tableName}` DROP INDEX `product_inventory_sku_index`");
+            }
         }
 
         // 3. Convert sku to TEXT so it can hold vault:local:... tokens
-        DB::statement("ALTER TABLE `{$tableName}` MODIFY `sku` TEXT NOT NULL");
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table($tableName, function (Blueprint $table) {
+                $table->text('sku')->change();
+            });
+        } else {
+            DB::statement("ALTER TABLE `{$tableName}` MODIFY `sku` TEXT NOT NULL");
+        }
 
         // 4. Encrypt existing plaintext SKUs
         $vault = app(\App\Services\VaultTransitService::class);

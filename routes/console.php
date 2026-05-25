@@ -19,6 +19,9 @@ Schedule::command(\App\Console\Commands\NormalizeBrands::class)->hourlyAt(45); /
 
 // 🤖 Auto-healing loop for OOS items
 Schedule::command(\App\Console\Commands\HealOutOfStockItems::class, ['--limit=50'])->everyFifteenMinutes();
+Schedule::command('catalog:refresh-indexing --skip-audit --fail-on-internal-review-rate=35')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();
 
 // Yandex Market Bridge Sync
 Schedule::command('ym:push-catalog')->everyFifteenMinutes();

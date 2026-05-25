@@ -36,10 +36,12 @@ return [
     ],
 
     'ym' => [
-        'api_key' => env('YM_API_KEY', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683'),
+        'api_key' => env('YM_API_KEY'),
         'business_id' => env('YM_BUSINESS_ID', 198666367),
-        'category_id' => env('YM_CATEGORY_ID', 70301474),
+        'campaign_id' => env('YM_CAMPAIGN_ID'),
+        'category_id' => env('YM_CATEGORY_ID', 989939),
         'notification_token' => env('YM_NOTIFICATION_TOKEN'),
+        'verify_tls' => env('YM_VERIFY_TLS', true),
     ],
 
     'tg' => [
@@ -49,6 +51,75 @@ return [
 
     'google_translate' => [
         'api_key' => env('GOOGLE_TRANSLATE_API_KEY'),
+    ],
+
+    'google_analytics' => [
+        'base_url' => env('GOOGLE_ANALYTICS_DATA_BASE_URL', 'https://analyticsdata.googleapis.com'),
+        'property_id' => env('GOOGLE_ANALYTICS_PROPERTY_ID'),
+        'access_token' => env('GOOGLE_ANALYTICS_ACCESS_TOKEN'),
+    ],
+
+    'google_search_console' => [
+        'base_url' => env('GOOGLE_SEARCH_CONSOLE_BASE_URL', 'https://www.googleapis.com'),
+        'site_url' => env('GOOGLE_SEARCH_CONSOLE_SITE_URL'),
+        'access_token' => env('GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN'),
+    ],
+
+    'yandex_webmaster' => [
+        'base_url' => env('YANDEX_WEBMASTER_BASE_URL', 'https://api.webmaster.yandex.net'),
+        'version' => env('YANDEX_WEBMASTER_API_VERSION', 'v4'),
+        'oauth_token' => env('YANDEX_WEBMASTER_OAUTH_TOKEN'),
+    ],
+
+    'bing_web_search' => [
+        'base_url' => env('BING_WEB_SEARCH_BASE_URL', 'https://api.bing.microsoft.com'),
+        'subscription_key' => env('BING_WEB_SEARCH_SUBSCRIPTION_KEY'),
+    ],
+
+    'google_ads' => [
+        'base_url' => env('GOOGLE_ADS_BASE_URL', 'https://googleads.googleapis.com'),
+        'version' => env('GOOGLE_ADS_API_VERSION', 'v24'),
+        'developer_token' => env('GOOGLE_ADS_DEVELOPER_TOKEN'),
+        'access_token' => env('GOOGLE_ADS_ACCESS_TOKEN'),
+        'login_customer_id' => env('GOOGLE_ADS_LOGIN_CUSTOMER_ID'),
+        'customer_id' => env('GOOGLE_ADS_CUSTOMER_ID'),
+    ],
+
+    'yandex_direct' => [
+        'base_url' => env('YANDEX_DIRECT_BASE_URL', 'https://api.direct.yandex.com/json/v5'),
+        'oauth_token' => env('YANDEX_DIRECT_OAUTH_TOKEN'),
+        'client_login' => env('YANDEX_DIRECT_CLIENT_LOGIN'),
+        'accept_language' => env('YANDEX_DIRECT_ACCEPT_LANGUAGE', 'en'),
+    ],
+
+    'yahoo_search' => [
+        'base_url' => env('YAHOO_SEARCH_BASE_URL', 'https://www.searchapi.io/api/v1'),
+        'api_key' => env('SEARCHAPI_API_KEY', env('YAHOO_SEARCH_API_KEY')),
+    ],
+
+    'duckduckgo_search' => [
+        'base_url' => env('DUCKDUCKGO_SEARCH_BASE_URL', 'https://www.searchapi.io/api/v1'),
+        'api_key' => env('SEARCHAPI_API_KEY', env('DUCKDUCKGO_SEARCH_API_KEY')),
+    ],
+
+    'meta_graph' => [
+        'base_url' => env('META_GRAPH_BASE_URL', 'https://graph.facebook.com'),
+        'version' => env('META_GRAPH_API_VERSION', 'v25.0'),
+        'access_token' => env('META_GRAPH_ACCESS_TOKEN'),
+        'ad_account_id' => env('META_GRAPH_AD_ACCOUNT_ID'),
+    ],
+
+    'tiktok_ads' => [
+        'base_url' => env('TIKTOK_ADS_BASE_URL', 'https://business-api.tiktok.com/open_api/v1.3'),
+        'access_token' => env('TIKTOK_ADS_ACCESS_TOKEN'),
+        'advertiser_id' => env('TIKTOK_ADS_ADVERTISER_ID'),
+    ],
+
+    'indexnow' => [
+        'endpoint' => env('INDEXNOW_ENDPOINT', 'https://api.indexnow.org/indexnow'),
+        'host' => env('INDEXNOW_HOST'),
+        'key' => env('INDEXNOW_KEY'),
+        'key_location' => env('INDEXNOW_KEY_LOCATION'),
     ],
 
     'imgbb' => [
@@ -76,5 +147,10 @@ return [
 
     'dadata' => [
         'token' => env('DADATA_TOKEN'),
+    ],
+
+    'ollama' => [
+        'model' => env('OLLAMA_MODEL', 'gemma4'),
+        'url' => env('OLLAMA_URL', 'http://localhost:11434'),
     ],
 ];

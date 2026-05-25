@@ -8,6 +8,7 @@ class Agreement extends Model
 {
     protected $fillable = [
         'name',
+        'type',
         'version',
         'content',
         'is_active',

@@ -254,11 +254,12 @@ class OrdersTable
 
                             $customer = $record->user;
                             $email = $customer?->email ?? 'admin@wildflow.dev';
+                            $providerReference = $item->providerReference() . '-manual';
 
                             // Делаем реальный заказ
                             $externalOrderId = $driver->createOrder(
                                 sku: $catalog->service_sku,
-                                reference: $item->uuid . '_manual',
+                                reference: $providerReference,
                                 price: $catalog->retail_price,
                                 quantity: $item->count,
                                 meta: [

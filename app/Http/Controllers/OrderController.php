@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Helpers\GenerateSecureCode;
 use App\Helpers\NormalizePhone;
 use App\Http\Services\YmService;
 use App\Jobs\SendTelegramJob;
@@ -63,6 +62,27 @@ class OrderController extends Controller
 
             $log->info('status PROCESSING');
 
+            if ($order->items()->exists()) {
+                $log->info('order already has processing items, skipping duplicate voucher issuance', [
+                    'order_id' => $order->order_id,
+                ]);
+
+                $order->update([
+                    'status' => 'PROCESSING',
+                    'sub_status' => $data['substatus'],
+                    'progress_id' => 2,
+                ]);
+
+                return [
+                    'success' => true,
+                    'transaction_ref' => $order->transactionReference(),
+                    'source' => [
+                        'channel' => 'yandex_market',
+                        'order_id' => (string) $data['orderId'],
+                    ],
+                ];
+            }
+
             $order_info = $order->info;
 
             $keys_data = [];
@@ -73,58 +93,9 @@ class OrderController extends Controller
             foreach ($order_info['items'] as $item) {
 
                 $sku = (string) data_get($item, 'offerId');
-                
-                // 🎟 Try to find a pre-generated voucher in stock
-                $inventory = \App\Models\ProductInventory::where('shop_id', $order->shop_id)
-                    ->where('sku', $sku)
-                    ->where('is_used', false)
-                    ->first();
-                
-                if (! $inventory) {
-                    $product_model = \App\Models\Product::with('provider')->queryByOfferSku($sku)->where('shop_id', $order->shop_id)->first();
-                    
-                    $hasActiveProvider = $product_model && $product_model->provider_id && $product_model->provider?->is_active;
-
-                    if ($hasActiveProvider && $order->shop_id >= 1) { // Include shop 1 for testing and main operations
-                        $log->info('Stock empty, attempting auto-replenish', ['sku' => $sku]);
-                        
-                        try {
-                            $catalogItem = \App\Models\WildflowCatalog::where('sku', $product_model->wildflow_catalog_sku ?? $product_model->sku)->first();
-                            $sellerId = $order->shop->sellers()->first()?->id ?? 1; // Fallback to system user if no seller linked
-
-                            if ($catalogItem) {
-                                // Try to buy 1 item into stock automatically
-                                \App\Jobs\AddCatalogItemToShop::dispatchSync(
-                                    catalogItemId: $catalogItem->id,
-                                    shopId: $order->shop_id,
-                                    sellerId: $sellerId,
-                                    count: 1
-                                );
-                                
-                                // Re-search for inventory
-                                $inventory = \App\Models\ProductInventory::where('shop_id', $order->shop_id)
-                                    ->where('sku', $sku)
-                                    ->where('is_used', false)
-                                    ->first();
-                                    
-                                if ($inventory) {
-                                    $log->info('Auto-replenish success, voucher obtained');
-                                    $order->comments()->create([
-                                        'comment' => "📦 Автопополнение: Товар {$sku} автоматически добавлен на склад (баланс позволил).",
-                                    ]);
-                                }
-                            }
-                        } catch (\Exception $e) {
-                            $log->warning('Auto-replenish failed', ['error' => $e->getMessage()]);
-                        }
-                    }
-                }
-
-                if (! $inventory) {
-                    throw new \Exception("Товар {$sku} отсутствует на складе и автопополнение невозможно (проверьте баланс или наличие у поставщика).");
-                }
-
-                $key = $inventory->voucher; // our internal redeem token (not the real Wildflow gift-card code)
+                $issuance = $this->issueMarketplaceVoucherForYandexOrder($order, $item, $log);
+                $inventory = $issuance['inventory'];
+                $key = $issuance['voucher']; // our internal redeem token (not the real Wildflow gift-card code)
 
                 $keys_data[] = [
                     'id' => data_get($item, 'id'),
@@ -144,11 +115,13 @@ class OrderController extends Controller
                     'order_id' => $order->id,
                     'activate_till' => now()->addYear()->format('Y-m-d'),
                     'sku' => $sku,
+                    'nominal_amount' => $issuance['nominal_amount'],
+                    'nominal_currency' => $issuance['nominal_currency'],
                     'count' => data_get($item, 'count'),
                     'price_rub' => data_get($item, 'price') * 100,
                     'price_try' => data_get($item, 'buyerPrice') * 100,
                     'type_form_id' => $type_form_id,
-                    'purchase_status' => 'pending',
+                    'purchase_status' => 'none',
                 ]);
 
                 // If we used a pre-generated code, link it to this item
@@ -164,13 +137,15 @@ class OrderController extends Controller
                         'order_id' => $order->id,
                         'order_item_id' => $orderItem->id,
                         'sku' => $inventory->sku,
+                        'voucher_delivery' => 'yandex_market_slip',
                     ]);
 
-                    // 💰 Sovereign Ledger: Record the FINANCE_CAPTURE (Since we just delivered the code to Yandex)
-                    app(\App\Services\LedgerService::class)->record($order->shop, 'FINANCE_CAPTURE', $order, [
+                    app(\App\Services\LedgerService::class)->record($order->shop, 'VOUCHER_SLIP_ISSUED', $orderItem, [
                         'order_id' => $order->id,
                         'inventory_id' => $inventory->id,
                         'sku' => $inventory->sku,
+                        'channel' => 'yandex_market',
+                        'provider_code_pending' => true,
                     ]);
 
                     // 📊 Stock Management: Check rules (notifications, auto-replenish)
@@ -187,9 +162,11 @@ class OrderController extends Controller
 
                 \DB::beginTransaction();
 
-                // OrderItems already created above
-                
-                $service->provideOrderDigitalCodes(keys: $keys_data, campaignId: $data['campaignId'], orderId: $data['orderId']);
+                // OrderItems already created above. Synthetic/manual sync keeps local state deterministic
+                // without sending duplicate slips to Yandex Market.
+                if (! data_get($data, 'is_manual_sync', false)) {
+                    $service->provideOrderDigitalCodes(keys: $keys_data, campaignId: $data['campaignId'], orderId: $data['orderId']);
+                }
 
                 $order->update([
                     'status' => 'PROCESSING',
@@ -213,7 +190,7 @@ class OrderController extends Controller
 
             $order = Order::where('order_id', $data['orderId'])->first();
 
-            if (isset($order->chat_id) && $order->chat_id) {
+            if (isset($order->chat_id) && $order->chat_id && method_exists($service, 'sendMessage')) {
                 try {
                     $service->sendMessage($order->chat_id, view('chat.finish_message', ['shop' => $order->shop])->render());
                     $log->debug('success send YM finish Message');
@@ -227,11 +204,23 @@ class OrderController extends Controller
             $log->info('success');
 
             if (! data_get($data, 'is_manual_sync', false)) {
-                SendTelegramJob::dispatchSync(order_id: $data['orderId'], status: 'new');
+                try {
+                    SendTelegramJob::dispatchSync(order_id: $data['orderId'], status: 'new');
+                } catch (\Throwable $telegramError) {
+                    $log->warning('telegram notification skipped', [
+                        'order_id' => $data['orderId'],
+                        'error' => $telegramError->getMessage(),
+                    ]);
+                }
             }
 
             return [
                 'success' => true,
+                'transaction_ref' => $order->transactionReference(),
+                'source' => [
+                    'channel' => 'yandex_market',
+                    'order_id' => (string) $data['orderId'],
+                ],
             ];
 
         } elseif ($data['status'] === 'DELIVERY' || $data['status'] === 'DELIVERED') {
@@ -291,6 +280,120 @@ class OrderController extends Controller
         }
     }
 
+    private function issueMarketplaceVoucherForYandexOrder(Order $order, array $item, mixed $log): array
+    {
+        $sku = (string) data_get($item, 'offerId');
+        $quantity = max(1, (int) data_get($item, 'count', 1));
+        $skuBidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($sku);
+        $reservationReference = implode(':', [
+            'ym',
+            $order->order_id,
+            data_get($item, 'id', 'item'),
+            hash('sha256', $sku),
+        ]);
+
+        $product = \App\Models\Product::queryByOfferSku($sku)
+            ->with('provider')
+            ->where('shop_id', $order->shop_id)
+            ->first();
+
+        $catalog = null;
+        if ($product) {
+            $catalogSku = $product->wildflow_catalog_sku ?: $product->sku;
+            $catalog = \App\Models\WildflowCatalog::where('sku', $catalogSku)->first();
+        }
+
+        if (! $product || ! $catalog) {
+            throw new \Exception("Товар {$sku} не связан с активным Wildflow-каталогом, voucher для Яндекс.Маркета создать нельзя.");
+        }
+
+        $legalEntity = $order->shop?->legalEntity;
+        if (! $legalEntity) {
+            throw new \Exception("Для магазина заказа {$order->order_id} не найдено юридическое лицо.");
+        }
+
+        $nominalAmount = (float) ($catalog->retail_price ?: data_get($item, 'price', 0));
+        $nominalCurrency = $catalog->currency_code ?: 'RUB';
+        $rate = app(\App\Services\FinanceService::class)->getRate($nominalCurrency);
+        $holdAmountRub = round($nominalAmount * $rate * $quantity, 2);
+
+        $inventory = \App\Models\ProductInventory::where('reservation_reference', $reservationReference)->first();
+        if (! $inventory) {
+            $inventory = \App\Models\ProductInventory::where('shop_id', $order->shop_id)
+                ->where('sku_bidx', $skuBidx)
+                ->where('is_used', false)
+                ->where('status', 'available')
+                ->whereNull('reservation_reference')
+                ->first();
+        }
+
+        if (! $inventory) {
+            $voucher = \App\Services\VoucherEngine::issueDeterministic(
+                issuerPrefix: $order->shop?->voucher_prefix ?: 'YM',
+                sku: $sku,
+                reference: $reservationReference,
+                issuedAt: $order->created_at ?? now(),
+            );
+
+            $inventory = \App\Models\ProductInventory::create([
+                'shop_id' => $order->shop_id,
+                'warehouse_id' => \App\Models\Warehouse::where('shop_id', $order->shop_id)->where('is_main', true)->value('id'),
+                'sku' => $sku,
+                'nominal_amount' => $nominalAmount,
+                'nominal_currency' => $nominalCurrency,
+                'voucher' => $voucher,
+                'is_used' => false,
+                'status' => 'available',
+                'expires_at' => now()->addYear(),
+            ]);
+        }
+
+        if ($inventory->reservation_reference !== $reservationReference) {
+            if ((float) $legalEntity->available_balance < $holdAmountRub) {
+                throw new \Exception(
+                    "Недостаточно средств для резервирования voucher по заказу Яндекс.Маркета. Требуется "
+                    .number_format($holdAmountRub, 2).' RUB, доступно '
+                    .number_format((float) $legalEntity->available_balance, 2).' RUB.'
+                );
+            }
+
+            $inventory->update([
+                'reservation_reference' => $reservationReference,
+                'reserved_amount' => $holdAmountRub,
+                'reserve_currency' => 'RUB',
+                'reserved_at' => now(),
+                'nominal_amount' => $inventory->nominal_amount ?: $nominalAmount,
+                'nominal_currency' => $inventory->nominal_currency ?: $nominalCurrency,
+            ]);
+
+            $legalEntity->decrement('available_balance', $holdAmountRub);
+            $legalEntity->increment('reserved_balance', $holdAmountRub);
+
+            app(\App\Services\LedgerService::class)->record($order->shop, 'FINANCE_HOLD', $inventory, [
+                'amount_rub' => $holdAmountRub,
+                'order_id' => $order->id,
+                'sku' => $sku,
+                'count' => $quantity,
+                'reservation_reference' => $reservationReference,
+                'context' => 'yandex_market_voucher_slip',
+            ]);
+        }
+
+        $log->info('Reserved marketplace voucher for Yandex slip', [
+            'order_id' => $order->order_id,
+            'sku' => $sku,
+            'hold_amount_rub' => $holdAmountRub,
+            'reservation_reference' => $reservationReference,
+        ]);
+
+        return [
+            'inventory' => $inventory,
+            'voucher' => $inventory->voucher,
+            'nominal_amount' => $nominalAmount,
+            'nominal_currency' => $nominalCurrency,
+        ];
+    }
+
     public function created(array $data): array
     {
         $log = $this->log;
@@ -312,19 +415,26 @@ class OrderController extends Controller
         $shop = isset($data['shop_id']) ? \App\Models\Shop::find($data['shop_id']) : null;
         $service = new YmService($shop);
 
-        $isSandbox = ($shop && $shop->is_sandbox) || !empty($data['fake']);
+        $hasEmbeddedOrderInfo = ! empty($data['order_full_info']);
+        $isSandbox = (($shop && $shop->is_sandbox) || ! empty($data['fake'])) && $hasEmbeddedOrderInfo;
 
         if ($isSandbox) {
             $order_full_info = $data['order_full_info'] ?? [];
             $items = data_get($order_full_info, 'items', []);
             $client_info = $data['client_info'] ?? [];
+            if ($shop?->is_sandbox) {
+                data_set($order_full_info, 'redeem_live_provider', true);
+            }
             $log->debug('sandbox mode: using fake order data', ['order_full_info' => $order_full_info, 'client_info' => $client_info]);
         } else {
             try {
                 $order_full_info = $service->getOrder(orderId: $data['orderId'], campaignId: $data['campaignId']);
+                if ($shop?->is_sandbox && data_get($order_full_info, 'fake')) {
+                    data_set($order_full_info, 'redeem_live_provider', true);
+                }
                 $items = data_get($order_full_info, 'items');
                 $log->debug('order_full_info', [$order_full_info]);
-            } catch (ConnectionException $e) {
+            } catch (\Throwable $e) {
                 $log->error('order_full_info', [
                     'exception' => $e->getMessage(),
                 ]);
@@ -338,15 +448,12 @@ class OrderController extends Controller
             try {
                 $client_info = $service->getOrderBuyerInfo(orderId: $data['orderId'], campaignId: $data['campaignId']);
                 $log->debug('client_info', [$client_info]);
-            } catch (ConnectionException $e) {
-                $log->error('getOrderBuyerInfo', [
+            } catch (\Throwable $e) {
+                $client_info = data_get($order_full_info, 'buyer', []);
+                $log->warning('getOrderBuyerInfo failed, using order buyer fallback', [
                     'exception' => $e->getMessage(),
+                    'client_info' => $client_info,
                 ]);
-
-                return [
-                    'success' => false,
-                    'error' => $e->getMessage(),
-                ];
             }
         }
 
@@ -367,16 +474,18 @@ class OrderController extends Controller
         $is_manual_sync = data_get($data, 'is_manual_sync', false);
 
         if (! $is_manual_sync) {
-            try {
-                $chat_id = $service->newChat($data['orderId']);
-                $log->debug('chat_id YM', [$chat_id]);
-            } catch (ConnectionException $e) {
-                $log->error('newChat', [
-                    'exception' => $e->getMessage(),
-                ]);
+            if (method_exists($service, 'newChat')) {
+                try {
+                    $chat_id = $service->newChat($data['orderId']);
+                    $log->debug('chat_id YM', [$chat_id]);
+                } catch (ConnectionException $e) {
+                    $log->error('newChat', [
+                        'exception' => $e->getMessage(),
+                    ]);
+                }
             }
 
-            if (isset($chat_id)) {
+            if (isset($chat_id) && method_exists($service, 'sendMessage')) {
                 try {
                     $service->sendMessage($chat_id, view('chat.start_message', ['shop' => $shop])->render());
                     $log->debug('success send YM Message');
@@ -404,7 +513,7 @@ class OrderController extends Controller
             ]);
 
             // ⛓️ Sovereign Ledger: Record the initial order receipt (Yandex)
-            app(\App\Services\LedgerService::class)->record($new_order->shop, 'ORDER_RECEIVE', $new_order, [
+            $receiveEntry = app(\App\Services\LedgerService::class)->record($new_order->shop, 'ORDER_RECEIVE', $new_order, [
                 'external_id' => $data['orderId'],
                 'channel' => 'yandex',
                 'is_test' => data_get($order_full_info, 'fake', false),
@@ -422,7 +531,9 @@ class OrderController extends Controller
             if (data_get($order_full_info, 'fake')) {
                 $new_order->comments()->create([
                     'user_id' => null,
-                    'comment' => '⚠️ Внимание! Это тестовый заказ Яндекс.Маркета (Sandbox). Реальная закупка товара производиться не будет.',
+                    'comment' => data_get($order_full_info, 'redeem_live_provider')
+                        ? '🧪 Это тестовый заказ Яндекс.Маркета. Клиентский voucher будет обменян на код через sandbox provider на /redeem.'
+                        : '⚠️ Внимание! Это тестовый заказ Яндекс.Маркета (Sandbox). Реальная закупка товара производиться не будет.',
                 ]);
             }
         } catch (\Exception $e) {
@@ -446,16 +557,22 @@ class OrderController extends Controller
             }
 
             try {
-                \App\Models\Product::updateOrCreate([
-                    'sku' => $sku,
-                ], [
+                $productPayload = [
                     'price_rub' => data_get($item, 'price') * 100,
                     'price_try' => data_get($item, 'buyerPrice') * 100,
-                    'name' => data_get($item, 'order_item_name'),
                     'is_manual' => 1,
                     'type_form_id' => str_starts_with($sku, 'VOUCHER-') ? 2 : 1,
-                    'type' => str_starts_with($sku, 'VOUCHER-') ? 'voucher' : 'game',
-                ]);
+                    'type' => str_starts_with($sku, 'VOUCHER-') ? 'voucher' : 'giftcard',
+                ];
+
+                $itemName = data_get($item, 'order_item_name') ?? data_get($item, 'offerName');
+                if ($itemName) {
+                    $productPayload['name'] = $itemName;
+                }
+
+                \App\Models\Product::updateOrCreate([
+                    'sku' => $sku,
+                ], $productPayload);
             } catch (\Exception  $e) {
 
                 $log->error('update product error, but continue', [
@@ -473,7 +590,11 @@ class OrderController extends Controller
 
         return [
             'success' => true,
-            'order_id' => $order_id,
+            'transaction_ref' => $receiveEntry->transactionReference(),
+            'source' => [
+                'channel' => 'yandex_market',
+                'order_id' => (string) $data['orderId'],
+            ],
         ];
     }
 

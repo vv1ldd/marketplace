@@ -11,10 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('currencies', 'trust_tier')) {
+            return;
+        }
+
         Schema::table('currencies', function (Blueprint $table) {
-            $table->unsignedTinyInteger('trust_tier')->default(3)->after('liquidity_stress_index');
+            $trustAfter = Schema::hasColumn('currencies', 'liquidity_stress_index') ? 'liquidity_stress_index' : 'id';
+            $signalsAfter = Schema::hasColumn('currencies', 'exchange_coverage') ? 'exchange_coverage' : 'confidence_score';
+
+            $table->unsignedTinyInteger('trust_tier')->default(3)->after($trustAfter);
             $table->decimal('confidence_score', 5, 4)->default(0.5)->after('trust_tier');
-            $table->json('telemetry_signals')->nullable()->after('exchange_coverage');
+            $table->json('telemetry_signals')->nullable()->after($signalsAfter);
         });
     }
 
@@ -23,6 +30,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasColumn('currencies', 'trust_tier')) {
+            return;
+        }
+
         Schema::table('currencies', function (Blueprint $table) {
             $table->dropColumn(['trust_tier', 'confidence_score', 'telemetry_signals']);
         });

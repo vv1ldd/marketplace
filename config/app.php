@@ -82,6 +82,31 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
+    'supported_locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('APP_SUPPORTED_LOCALES', 'ru,en,es,tk,uz,ka,hy,kk,tr'))))),
+
+    'locale_labels' => [
+        'ru' => 'Русский',
+        'en' => 'English',
+        'es' => 'Español',
+        'tk' => 'Türkmen',
+        'uz' => 'Oʻzbek',
+        'ka' => 'ქართული',
+        'hy' => 'Հայերեն',
+        'kk' => 'Қазақша',
+        'tr' => 'Türkçe',
+    ],
+
+    'supported_themes' => array_values(array_filter(array_map('trim', explode(',', (string) env('APP_SUPPORTED_THEMES', 'consortium,partner,retro,nordic,synthwave,carbon'))))),
+    'theme_fallback' => env('APP_THEME_FALLBACK', 'consortium'),
+    'theme_labels' => [
+        'consortium' => 'Flagship',
+        'partner' => 'Partner',
+        'retro' => 'Retro',
+        'nordic' => 'Nordic',
+        'synthwave' => 'Synthwave',
+        'carbon' => 'Carbon',
+    ],
+
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*
@@ -124,6 +149,7 @@ return [
     ],
 
     'domain' => env('APP_DOMAIN', '1gros.local'),
+    'production_domain' => env('APP_PRODUCTION_DOMAIN', env('APP_DOMAIN', '1gros.local')),
 
     /**
      * Хосты Filament-панелей (без схемы). Пусто — панели доступны с любого Host (удобно для localhost).

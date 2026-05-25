@@ -9,14 +9,14 @@ return [
     ],
 
     'hero' => [
-        'badge'         => '🛡️ Sovereign B2B Platform',
+        'badge'         => 'Digital commerce platform',
         'title'         => 'Sell digital goods on :highlight',
         'highlight'     => 'autopilot',
         'desc'          => 'Meanly automates the full sales cycle for gift cards and activation codes across marketplaces — from order receipt to code delivery.',
         'cta_primary'   => 'Open Partner Dashboard',
         'cta_secondary' => 'How it Works',
         'stat_channels' => 'Sales Channels',
-        'stat_crypto'   => 'Data Encryption',
+        'stat_crypto'   => 'Data Protection',
         'stat_api'      => 'Integrations',
         'stat_realtime' => 'Analytics',
     ],
@@ -39,10 +39,10 @@ return [
         'desc'  => 'Tools that truly save time and reduce operational errors.',
         'items' => [
             ['icon' => '🤖', 'title' => 'Auto-Activation',   'desc' => 'Codes are issued automatically after order confirmation — no operator needed.'],
-            ['icon' => '📊', 'title' => 'Analytics & Ledger', 'desc' => 'Full transaction history with a deterministic audit log in real time.'],
+            ['icon' => '📊', 'title' => 'Order Analytics', 'desc' => 'Clear order, code delivery, and operations history in one interface.'],
             ['icon' => '🔌', 'title' => 'Multi-Channel',      'desc' => 'Yandex Market, WooCommerce, Telegram — all orders in one interface.'],
-            ['icon' => '🛡️', 'title' => 'PII Encryption',     'desc' => 'Buyer data stored encrypted. Search via blind indexes without decryption.'],
-            ['icon' => '🌍', 'title' => 'Multi-Currency',     'desc' => 'RUB, TRY, USDT and more with automatic conversion at live rates.'],
+            ['icon' => '🛡️', 'title' => 'Data Protection',     'desc' => 'Buyer contacts and order data are protected and shown only to the right roles.'],
+            ['icon' => '🌍', 'title' => 'Multiple Currencies',     'desc' => 'RUB, TRY and other currencies with automatic conversion at current rates.'],
             ['icon' => '🧪', 'title' => 'Sandbox Mode',       'desc' => 'Test integrations and APIs on real infrastructure without risk to live data.'],
         ],
     ],
@@ -54,12 +54,12 @@ return [
 
     'security' => [
         'label' => 'Security',
-        'title' => 'Sovereign Architecture',
+        'title' => 'Reliable daily operations',
         'items' => [
-            ['title' => 'Vault Transit Encryption', 'desc' => 'All personal data encrypted via HashiCorp Vault or AES-256-CBC. The app never holds keys.'],
-            ['title' => 'Blind Index Auth',          'desc' => 'Authentication against encrypted fields via HMAC-SHA256 — no full-table decryption.'],
-            ['title' => 'Deterministic Ledger',      'desc' => 'Every action recorded with a state hash. Tampering is impossible.'],
-            ['title' => 'Multi-Guard Auth',          'desc' => 'Separate guards for Admins and Partners with fully isolated sessions.'],
+            ['title' => 'Personal data protection', 'desc' => 'Contacts, orders, and service data are handled safely and shown only where needed.'],
+            ['title' => 'Secure sign-in',          'desc' => 'Sign-in and important actions use passwordless confirmation that is simple for the user.'],
+            ['title' => 'Operations history',      'desc' => 'Important actions are saved in a clear activity history for fast support and control.'],
+            ['title' => 'Access control',          'desc' => 'Owners, team members, and support staff can have different levels of access.'],
         ],
     ],
 

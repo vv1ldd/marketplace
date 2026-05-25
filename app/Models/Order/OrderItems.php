@@ -80,6 +80,29 @@ class OrderItems extends Model
         return static::with($relations)->where('key_bidx', $bidx)->first();
     }
 
+    /**
+     * Public support reference for customer-facing screens.
+     *
+     * Prefer the Simple Layer 1 ledger fingerprint so support can resolve it by hash prefix.
+     * Fall back to a deterministic HMAC without exposing the internal UUID.
+     */
+    public function supportReference(): string
+    {
+        return $this->transactionReference();
+    }
+
+    public function transactionReference(): string
+    {
+        return app(\App\Services\SimpleLayer1TransactionReferenceService::class)->forModel($this);
+    }
+
+    public function providerReference(): string
+    {
+        return filled($this->provider_order_id)
+            ? (string) $this->provider_order_id
+            : $this->transactionReference();
+    }
+
     public function order(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Order::class, 'order_id', 'id');
@@ -119,7 +142,13 @@ class OrderItems extends Model
 
         $product = $this->relationLoaded('game') ? $this->game : $this->game()->first();
         if ($product instanceof Product) {
-            return ! $product->skipsPlaystationRedeemAccountForm();
+            if ($product->wildflow_catalog_sku || $product->provider_id) {
+                return false;
+            }
+
+            return method_exists($product, 'skipsPlaystationRedeemAccountForm')
+                ? ! $product->skipsPlaystationRedeemAccountForm()
+                : true;
         }
 
         return ! str_starts_with($sku, 'VOUCHER-');

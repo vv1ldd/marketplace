@@ -2,7 +2,7 @@
  
 namespace App\Providers\Filament;
  
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -26,15 +26,32 @@ class ClientPanelProvider extends PanelProvider
     {
         $panel = $panel
             ->id('client')
-            ->path('/')
-            ->login(\App\Filament\Pages\Auth\Login::class)
+            ->path('cabinet')
+
             ->registration(\App\Filament\Client\Pages\Auth\Register::class)
             ->passwordReset()
             ->emailVerification()
-            ->profile()
+            ->userMenuItems([
+                'profile' => \Filament\Navigation\MenuItem::make()
+                    ->label('Профиль')
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn () => \App\Filament\Client\Pages\EditProfile::getUrl()),
+            ])
             ->colors([
                 'primary' => Color::hex('#f53003'),
             ])
+            ->brandName('Meanly Systems')
+            ->brandLogo(fn () => new \Illuminate\Support\HtmlString('
+                <div class="flex items-center gap-3">
+                    <div class="p-1.5 rounded-lg bg-[#f53003]">
+                        <div class="w-3 h-3 bg-white rounded-sm"></div>
+                    </div>
+                    <div class="flex flex-col text-left leading-tight">
+                        <span class="text-[10px] font-bold tracking-[0.2em] text-[#f53003] uppercase">Meanly Systems</span>
+                        <span class="text-lg font-black tracking-wide text-white uppercase">Client Terminal</span>
+                    </div>
+                </div>
+            '))
             ->discoverResources(in: app_path('Filament/Client/Resources'), for: 'App\Filament\Client\Resources')
             ->discoverPages(in: app_path('Filament/Client/Pages'), for: 'App\Filament\Client\Pages')
             ->pages([
@@ -60,55 +77,22 @@ class ClientPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                \App\Http\Middleware\EnsureUserHasPasskey::class,
             ])
             ->font('Instrument Sans')
             ->renderHook(
-                'panels::head.done',
+                'panels::head.end',
                 fn () => new \Illuminate\Support\HtmlString('
-                    <style>
-                        /* 🌑 Cursor-style Deep Dark UI */
-                        :root {
-                            --brand-bg: #050505;
-                            --brand-card: #0a0a0a;
-                            --brand-border: #161616;
-                        }
- 
-                        .fi-layout { background-color: var(--brand-bg) !important; }
-                        
-                        .fi-sidebar {
-                            background-color: var(--brand-card) !important;
-                            border-right: 1px solid var(--brand-border) !important;
-                        }
- 
-                        /* 💊 Refined Sidebar Items (Cursor style) */
-                        .fi-sidebar-item-button {
-                            border-radius: 8px !important;
-                            margin: 0.2rem 0.6rem !important;
-                            transition: all 0.2s ease !important;
-                        }
- 
-                        .fi-sidebar-item-button-active {
-                            background-color: rgba(255, 255, 255, 0.05) !important;
-                            color: #ffffff !important;
-                        }
- 
-                        .fi-sidebar-item-button:hover:not(.fi-sidebar-item-button-active) {
-                            background-color: rgba(255, 255, 255, 0.03) !important;
-                        }
- 
-                        /* 🧩 Clean Minimal Cards */
-                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn, .fi-wi-widget {
-                            background-color: var(--brand-card) !important;
-                            border: 1px solid var(--brand-border) !important;
-                            box-shadow: none !important;
-                            border-radius: 12px !important;
-                        }
- 
-                        .fi-ta-header-ctn { border-bottom: 1px solid var(--brand-border) !important; }
- 
-                        /* High Contrast Text */
-                        .fi-header-heading { letter-spacing: -0.02em; font-weight: 700; }
-                    </style>
+                    <link rel="stylesheet" href="/css/filament-theme.css?v=' . filemtime(public_path('css/filament-theme.css')) . '">
+                    <script>
+                        (function() {
+                            const savedTheme = localStorage.getItem("theme") || "consortium";
+                            document.documentElement.setAttribute("data-theme", savedTheme);
+                            document.addEventListener("DOMContentLoaded", () => {
+                                document.body.setAttribute("data-theme", savedTheme);
+                            });
+                        })();
+                    </script>
                 ')
             );
  

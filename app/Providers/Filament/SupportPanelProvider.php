@@ -1,9 +1,9 @@
 <?php
-
+ 
 namespace App\Providers\Filament;
-
+ 
 use App\Support\FilamentPanelDomain;
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -17,7 +17,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-
+ 
 class SupportPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -25,9 +25,9 @@ class SupportPanelProvider extends PanelProvider
         $panel = $panel
             ->id('support')
             ->path(config('app.support_panel_hosts') ? '' : 'support')
-            ->login(\App\Filament\Pages\Auth\Login::class)
+
             ->colors([
-                'primary' => Color::hex('#f53003'), // Sky Cyan for communication/support
+                'primary' => Color::hex('#f53003'),
                 'danger'  => Color::Rose,
                 'success' => Color::Emerald,
             ])
@@ -48,12 +48,8 @@ class SupportPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Support/Pages'), for: 'App\Filament\Support\Pages')
             ->discoverWidgets(in: app_path('Filament/Support/Widgets'), for: 'App\Filament\Support\Widgets')
             ->navigationGroups([
-                NavigationGroup::make()
-                    ->label('Поддержка')
-                    ->icon('heroicon-o-chat-bubble-left-right'),
-                NavigationGroup::make()
-                    ->label('Клиенты')
-                    ->icon('heroicon-o-user-group'),
+                NavigationGroup::make()->label('Поддержка')->icon('heroicon-o-chat-bubble-left-right'),
+                NavigationGroup::make()->label('Клиенты')->icon('heroicon-o-user-group'),
             ])
             ->sidebarCollapsibleOnDesktop()
             ->middleware([
@@ -67,36 +63,29 @@ class SupportPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
-            ->profile()
+            ->profile(isSimple: false)
             ->maxContentWidth('full')
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->spa(false)->font('Instrument Sans')
+            ->spa(false)
+            ->font('Instrument Sans')
             ->renderHook(
-                'panels::head.done',
+                'panels::head.end',
                 fn () => new \Illuminate\Support\HtmlString('
-                    <style>
-                        .fi-sidebar-item-button-active {
-                            border-radius: 9999px !important;
-                            margin-left: 0.5rem !important;
-                            margin-right: 0.5rem !important;
-                        }
-                        .fi-layout {
-                            background-color: #050505 !important;
-                        }
-                        .fi-sidebar {
-                            background-color: #0a0a0a !important;
-                            border-right: 1px solid #1a1a1a !important;
-                        }
-                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn {
-                            background-color: #0a0a0a !important;
-                            border: 1px solid #1a1a1a !important;
-                            box-shadow: none !important;
-                        }
-                    </style>
+                    <link rel="stylesheet" href="/css/filament-theme.css?v=' . filemtime(public_path('css/filament-theme.css')) . '">
+                    <script>
+                        (function() {
+                            const savedTheme = localStorage.getItem("theme") || "consortium";
+                            document.documentElement.setAttribute("data-theme", savedTheme);
+                            document.addEventListener("DOMContentLoaded", () => {
+                                document.body.setAttribute("data-theme", savedTheme);
+                            });
+                        })();
+                    </script>
                 ')
-            )
-            &($panel, config('app.support_panel_hosts', []));
+            );
+ 
+        return FilamentPanelDomain::apply($panel, config('app.support_panel_hosts', []));
     }
 }

@@ -23,7 +23,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
 
     public function getPassKeyDisplayName(): string
     {
-        return $this->first_name ?? $this->email ?? "User #{$this->id}";
+        return $this->first_name ? "@{$this->first_name}" : ($this->email ?? "User #{$this->id}");
     }
 
     public function getPassKeyId(): string
@@ -33,7 +33,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
 
     public function getPassKeyName(): string
     {
-        return $this->email ?? "user-{$this->id}";
+        return $this->first_name ? "@{$this->first_name}" : ($this->email ?? "user-{$this->id}");
     }
 
     /**
@@ -53,6 +53,8 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
         'meta',
         'source_site',
         'source_user_id',
+        'password_login_enabled',
+        'theme',
     ];
 
     /**
@@ -87,6 +89,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'password_login_enabled' => 'boolean',
             'meta' => \App\Casts\VaultEncryptedJson::class,
             'email' => \App\Casts\VaultEncrypted::class . ':email_bidx',
             'phone' => \App\Casts\VaultEncrypted::class . ':phone_bidx',
@@ -267,6 +270,11 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
 
     public function getFullName(): string
     {
+        // 🛍️ If we are in the B2C Customer context, prefer their original Nickname
+        if (isset($this->meta['nickname']) && !request()->is('partner*') && !request()->is('admin*')) {
+            return $this->meta['nickname'];
+        }
+
         $full_name = $this->first_name;
 
         if ($this->last_name) {

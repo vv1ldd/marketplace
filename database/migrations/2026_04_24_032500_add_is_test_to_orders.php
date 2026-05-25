@@ -11,8 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('orders', 'is_test')) {
+            return;
+        }
+
         Schema::table('orders', function (Blueprint $column) {
-            $column->boolean('is_test')->default(false)->after('shop_id');
+            $after = Schema::hasColumn('orders', 'shop_id') ? 'shop_id' : 'id';
+
+            $column->boolean('is_test')->default(false)->after($after);
         });
     }
 
@@ -21,6 +27,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasColumn('orders', 'is_test')) {
+            return;
+        }
+
         Schema::table('orders', function (Blueprint $column) {
             $column->dropColumn('is_test');
         });

@@ -48,7 +48,6 @@ class WildflowDevCommand extends Command
                 break;
             default:
                 $this->error("❌ Unknown action: {$action}. Supported actions: shield, status, setup");
-
                 return 1;
         }
 
@@ -60,7 +59,7 @@ class WildflowDevCommand extends Command
      */
     protected function executeShielding(?string $target, string $user, string $port)
     {
-        $this->info('🛡️ Compiling Master Shielding Script...');
+        $this->info("🛡️ Compiling Master Shielding Script...");
 
         // Complete, self-contained invulnerable node bash configuration
         $bashScript = <<<'BASH'
@@ -146,17 +145,17 @@ BASH;
 
         if ($target) {
             $this->info("🚀 Dispatching shield payload to remote VDS: [{$user}@{$target}] on port {$port}...");
-
+            
             // Build temporary file to stream over SSH
             $tempFile = tempnam(sys_get_temp_dir(), 'wildflow_shield_');
             file_put_contents($tempFile, $bashScript);
 
-            $sshCommand = "ssh -p {$port} -o StrictHostKeyChecking=no {$user}@{$target} 'bash -s' < ".escapeshellarg($tempFile);
-
+            $sshCommand = "ssh -p {$port} -o StrictHostKeyChecking=no {$user}@{$target} 'bash -s' < " . escapeshellarg($tempFile);
+            
             $descriptorSpec = [
                 0 => ['pipe', 'r'],
                 1 => ['pipe', 'w'],
-                2 => ['pipe', 'w'],
+                2 => ['pipe', 'w']
             ];
 
             $process = proc_open($sshCommand, $descriptorSpec, $pipes);
@@ -172,19 +171,19 @@ BASH;
             }
             unlink($tempFile);
         } else {
-            $this->warn('⚠️ Target IP not specified with --target. Shielding local development machine...');
-            if ($this->confirm('Do you want to shield this local host machine now?')) {
+            $this->warn("⚠️ Target IP not specified with --target. Shielding local development machine...");
+            if ($this->confirm("Do you want to shield this local host machine now?")) {
                 $tempFile = tempnam(sys_get_temp_dir(), 'wildflow_shield_');
                 file_put_contents($tempFile, $bashScript);
                 chmod($tempFile, 0755);
 
-                $localCommand = 'sudo '.escapeshellarg($tempFile);
+                $localCommand = "sudo " . escapeshellarg($tempFile);
                 passthru($localCommand);
                 unlink($tempFile);
             }
         }
 
-        $this->info('🏆 Shielding execution completed!');
+        $this->info("🏆 Shielding execution completed!");
     }
 
     /**
@@ -194,12 +193,12 @@ BASH;
     {
         $host = $target ?? '127.0.0.1';
         $this->info("🔍 Auditing Sovereign Infrastructure Status for: [{$host}]...");
-
-        $this->line('- L1 Clearing Gateway: <fg=green>ACTIVE</fg=green>');
-        $this->line('- Passkey Signatures: <fg=green>ENABLED</fg=green>');
-        $this->line('- Node Firewall (UFW): <fg=green>SHIELDED</fg=green>');
-        $this->line('- Docker Container Guard: <fg=green>SECURED (10MB Cap)</fg=green>');
-        $this->line('🏆 Node Audit Summary: <fg=green>HEALTHY (0 integrity issues found)</fg=green>');
+        
+        $this->line("- L1 Clearing Gateway: <fg=green>ACTIVE</fg=green>");
+        $this->line("- Passkey Signatures: <fg=green>ENABLED</fg=green>");
+        $this->line("- Node Firewall (UFW): <fg=green>SHIELDED</fg=green>");
+        $this->line("- Docker Container Guard: <fg=green>SECURED (10MB Cap)</fg=green>");
+        $this->line("🏆 Node Audit Summary: <fg=green>HEALTHY (0 integrity issues found)</fg=green>");
     }
 
     /**
@@ -207,7 +206,7 @@ BASH;
      */
     protected function executeSetupInfo()
     {
-        $this->info('ℹ️ Wildflow Dev Infrastructure Setup guide:');
-        $this->line('Run `php artisan wildflow:dev shield --target=<vds_ip>` to turn any fresh VDS into a shielded, secure sovereign node.');
+        $this->info("ℹ️ Wildflow Dev Infrastructure Setup guide:");
+        $this->line("Run `php artisan wildflow:dev shield --target=<vds_ip>` to turn any fresh VDS into a shielded, secure sovereign node.");
     }
 }

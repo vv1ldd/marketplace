@@ -415,9 +415,9 @@ class ProductResource extends Resource
                     ->color(fn ($state) => $state > 0 ? 'success' : 'danger'),
                 TextColumn::make('origin')
                     ->label('Источник')
-                    ->getStateUsing(fn ($record) => $record->catalog_id === null ? 'Витрина' : 'Свой / Яндекс')
+                    ->getStateUsing(fn (Product $record) => $record->wildflow_catalog_sku || $record->provider?->type === 'wildflow' ? 'Витрина провайдера' : 'Свой / Яндекс')
                     ->badge()
-                    ->color(fn ($state) => $state === 'Витрина' ? 'info' : 'warning'),
+                    ->color(fn ($state) => $state === 'Витрина провайдера' ? 'info' : 'warning'),
                 TextColumn::make('ym_status')
                     ->label('Статус на Яндексе')
                     ->state(fn ($record) => ! empty($record->ym_errors) ? 'Ошибка' : 'Ок')
@@ -452,7 +452,7 @@ class ProductResource extends Resource
                     ->requiresConfirmation()
                     ->action(function (Product $record) {
                         $shop = $record->shop;
-                        $catalogItem = \App\Models\WildflowCatalog::find($record->catalog_id);
+                        $catalogItem = static::catalogItemForProduct($record);
 
                         if (! $catalogItem || ! $shop instanceof Shop) {
                             Notification::make()->title('Невозможно обновить')->body('У этого товара нет связи с каталогом провайдера.')->danger()->send();
@@ -472,7 +472,7 @@ class ProductResource extends Resource
                             Notification::make()->title('Карточка обновлена')->success()->send();
                         }
                     })
-                    ->visible(fn (Product $record) => $record->catalog_id !== null),
+                    ->visible(fn (Product $record) => static::catalogItemForProduct($record) !== null),
 
 
                 Action::make('archive')
@@ -505,26 +505,25 @@ class ProductResource extends Resource
                         $shop = $record->shop;
 
                         // 🎨 Авто-генерация брендированной карточки перед отправкой
-                        if ($record->catalog_id) {
-                            $catalogItem = \App\Models\WildflowCatalog::find($record->catalog_id);
-                            if ($catalogItem) {
-                                try {
-                                    $cardService = app(\App\Services\CardImageService::class);
-                                    $kit = $cardService->generateForCatalogItem($catalogItem, $shop);
-                                    if ($mainImage = ($kit['images']['main'] ?? null)) {
-                                        $record->update([
-                                            'image' => $mainImage,
-                                            'pictures' => $kit['images'] ?? [],
-                                        ]);
-                                    }
-                                } catch (\Exception $e) {
-                                    \Illuminate\Support\Facades\Log::warning('Auto-card generation failed during send_to_market', ['error' => $e->getMessage()]);
+                        if ($catalogItem = static::catalogItemForProduct($record)) {
+                            try {
+                                $cardService = app(\App\Services\CardImageService::class);
+                                $kit = $cardService->generateForCatalogItem($catalogItem, $shop);
+                                if ($mainImage = ($kit['images']['main'] ?? null)) {
+                                    $record->update([
+                                        'image' => $mainImage,
+                                        'pictures' => $kit['images'] ?? [],
+                                    ]);
                                 }
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::warning('Auto-card generation failed during send_to_market', ['error' => $e->getMessage()]);
                             }
                         }
 
                         $service = new \App\Http\Services\YmService($shop);
-                        $categoryId = (int) ($shop->ym_category_id ?? \App\Models\Settings::get('YM_CATEGORY_ID', 70301474));
+                        $resolver = app(\App\Services\CanonicalCategoryResolver::class);
+                        $fallbackCategoryId = (int) ($record->market_category_id ?: $shop->ym_category_id ?: \App\Models\Settings::get('YM_CATEGORY_ID', 989939));
+                        $categoryId = $resolver->yandexCategoryId($resolver->forProduct($record), $fallbackCategoryId);
                         try {
                             $service->offerMappingsUpdate([['offer' => $record->toYmOffer($categoryId, $shop->id)]]);
                             Notification::make()->title('Товар обновлен и отправлен на Маркет')->success()->send();
@@ -642,5 +641,22 @@ class ProductResource extends Resource
         return [
             \App\Filament\Partner\Resources\ProductResource\Widgets\ProductStatsOverview::class,
         ];
+    }
+
+    private static function catalogItemForProduct(Product $record): ?\App\Models\WildflowCatalog
+    {
+        if ($record->wildflow_catalog_sku) {
+            $catalogItem = \App\Models\WildflowCatalog::query()
+                ->where('sku', $record->wildflow_catalog_sku)
+                ->first();
+
+            if ($catalogItem) {
+                return $catalogItem;
+            }
+        }
+
+        return \App\Models\WildflowCatalog::query()
+            ->where('sku', $record->sku)
+            ->first();
     }
 }

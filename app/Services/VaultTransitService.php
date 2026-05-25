@@ -20,6 +20,15 @@ class VaultTransitService
         $this->keyName = (string)config('vault.transit.key_name');
     }
 
+    protected function getLocalKey(): string
+    {
+        $appKey = config('app.key');
+        if (str_starts_with($appKey, 'base64:')) {
+            $appKey = base64_decode(substr($appKey, 7));
+        }
+        return hash('sha256', $appKey, true); // Cryptographically secure 32-byte key
+    }
+
     public function encrypt(?string $plaintext): ?string
     {
         if (blank($plaintext)) {
@@ -27,7 +36,11 @@ class VaultTransitService
         }
 
         if ($this->driver === 'local') {
-            return 'vault:local:' . \Illuminate\Support\Facades\Crypt::encryptString($plaintext);
+            $key = $this->getLocalKey();
+            $nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
+            $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt($plaintext, '', $nonce, $key);
+            
+            return 'vault:local-xchacha20:' . base64_encode($nonce . $ciphertext);
         }
 
         // Vault expects base64 encoded plaintext
@@ -64,11 +77,25 @@ class VaultTransitService
             return $ciphertext;
         }
 
+        if (str_starts_with($ciphertext, 'vault:local-xchacha20:')) {
+            try {
+                $raw = base64_decode(str_replace('vault:local-xchacha20:', '', $ciphertext));
+                $nonce = substr($raw, 0, SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
+                $encrypted = substr($raw, SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
+                
+                $key = $this->getLocalKey();
+                return sodium_crypto_aead_xchacha20poly1305_ietf_decrypt($encrypted, '', $nonce, $key);
+            } catch (\Exception $e) {
+                Log::error('Local XChaCha20 Decryption Failed', ['message' => $e->getMessage()]);
+                return '*** ENCRYPTED PII ***';
+            }
+        }
+
         if (str_starts_with($ciphertext, 'vault:local:')) {
             try {
                 return \Illuminate\Support\Facades\Crypt::decryptString(str_replace('vault:local:', '', $ciphertext));
             } catch (\Exception $e) {
-                Log::error('Local Vault Decryption Failed', ['message' => $e->getMessage()]);
+                Log::error('Local Legacy Vault Decryption Failed', ['message' => $e->getMessage()]);
                 return '*** ENCRYPTED PII ***';
             }
         }

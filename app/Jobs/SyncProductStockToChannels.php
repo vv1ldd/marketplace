@@ -42,9 +42,8 @@ class SyncProductStockToChannels implements ShouldQueue
             return;
         }
 
-        $stockCount = \App\Models\WarehouseStock::where('warehouse_id', $masterWarehouse->id)
-            ->where('product_id', $product->id)
-            ->value('count') ?? 0;
+        $capacity = app(\App\Services\SellerVoucherStockService::class)->capacityForProduct($product, $shop);
+        $stockCount = $capacity['total'];
 
         // 2. Sync to Yandex Market if enabled
         $yandexChannel = $product->salesChannels()
@@ -71,7 +70,7 @@ class SyncProductStockToChannels implements ShouldQueue
                     ]];
                     
                     $service->updateStocks(['skus' => $payload]);
-                    Log::info("Dynamic Sync: Pushed Master Stock ({$stockCount}) to Yandex (Warehouse {$ymWarehouseId}) for SKU {$product->sku}");
+                    Log::info("Dynamic Sync: Pushed Voucher Capacity ({$stockCount}) to Yandex (Warehouse {$ymWarehouseId}) for SKU {$product->sku}", $capacity);
                 } catch (\Exception $e) {
                     Log::error("Dynamic Sync Error (Yandex): " . $e->getMessage());
                 }

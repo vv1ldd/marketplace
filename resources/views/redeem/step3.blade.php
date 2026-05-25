@@ -4,7 +4,7 @@
 
 @section('content')
     @php
-        $order_item_uuid = session('order_item_info')['uuid'] ?? request()->query('uuid');
+        $order_item_uuid = session('order_item_info')['uuid'] ?? null;
         $order_item = $order_item_uuid
             ? \App\Models\Order\OrderItems::where('uuid', $order_item_uuid)->with(['game', 'order.shop'])->first()
             : null;
@@ -31,7 +31,7 @@
 
         <form class="space-y-5" method="POST" action="{{ route('redeem.activation.submit') }}">
             @csrf
-            <input type="hidden" name="uuid" value="{{ $order_item_uuid }}" />
+            <input type="hidden" name="intent" value="{{ request()->query('intent') ?? session('order_item_info.intent_token') ?? '' }}" />
 
             @if($redeemVisualSrc)
                 <div class="mb-6 flex justify-center">
@@ -380,6 +380,7 @@
         </form>
         <form id="resend-form" method="POST" action="{{ route('redeem.resend') }}" class="hidden">
             @csrf
+            <input type="hidden" name="intent" value="{{ request()->query('intent') ?? session('order_item_info.intent_token') ?? '' }}" />
         </form>
     </x-redeem.panel>
 

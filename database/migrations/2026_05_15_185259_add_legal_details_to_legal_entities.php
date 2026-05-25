@@ -15,6 +15,9 @@ return new class extends Migration
             if (!Schema::hasColumn('legal_entities', 'status')) {
                 $table->string('status')->default('pending')->after('is_active');
             }
+            if (!Schema::hasColumn('legal_entities', 'agreement_signed_at')) {
+                $table->timestamp('agreement_signed_at')->nullable()->after('status');
+            }
         });
     }
 

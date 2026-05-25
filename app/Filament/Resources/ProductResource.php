@@ -346,7 +346,9 @@ class ProductResource extends Resource
                             return;
                         }
                         $service = new \App\Http\Services\YmService($shop);
-                        $categoryId = (int) ($shop->ym_category_id ?? \App\Models\Settings::get('YM_CATEGORY_ID', 70301474));
+                        $resolver = app(\App\Services\CanonicalCategoryResolver::class);
+                        $fallbackCategoryId = (int) ($record->market_category_id ?: $shop->ym_category_id ?: \App\Models\Settings::get('YM_CATEGORY_ID', 989939));
+                        $categoryId = $resolver->yandexCategoryId($resolver->forProduct($record), $fallbackCategoryId);
                         try {
                             $service->offerMappingsUpdate([['offer' => $record->toYmOffer($categoryId, $shop->id)]]);
                             Notification::make()->title('Товар отправлен')->success()->send();

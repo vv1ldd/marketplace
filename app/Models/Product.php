@@ -40,6 +40,15 @@ class Product extends Model
             if (empty($product->meta_description) && ! empty($product->description)) {
                 $product->meta_description = \Illuminate\Support\Str::limit(strip_tags($product->description), 160);
             }
+
+            if (empty($product->canonical_category)) {
+                $product->canonical_category = app(\App\Services\CanonicalCategoryResolver::class)->fromPayload($product->data ?? [], [
+                    $product->name,
+                    $product->category,
+                    $product->vendor,
+                    $product->type,
+                ]);
+            }
         });
     }
 
@@ -61,11 +70,14 @@ class Product extends Model
         'description',
         'type',
         'category',
+        'canonical_category',
         'category_id',
         'market_category_name',
         'market_category_id',
         'price_rub',
         'old_price_rub',
+        'purchase_price',
+        'purchase_currency',
         'purchase_price_rub',
         'additional_expenses_rub',
         'price_competitiveness',
@@ -626,6 +638,7 @@ class Product extends Model
 
     public function toYmOffer(int $marketCategoryId, ?int $shopId = null): array
     {
+        $marketCategoryId = (int) ($marketCategoryId ?: $this->market_category_id);
         $data = $this->data;
         $name = $this->name;
         $richDescription = json_decode($this->rich_description ?? '', true);
@@ -657,9 +670,13 @@ class Product extends Model
         $regionCode = $wfCatalog?->region?->code ?? data_get($wfProduct, 'regions.0.code', '');
         $regionName = $wfCatalog?->region?->name_ru ?? data_get($wfProduct, 'regions.0.name', 'все страны');
 
+        $ymNominalRub = $this->resolveYmNominalRub($wfItem);
+
         // Digital version parameters
         $params[] = ['parameter_id' => 37693330, 'value' => 'электронный ключ'];
-        $params[] = ['parameter_id' => 37821410, 'value' => (int) ($wfItem['data']['price'] ?? 0)];
+        if ($ymNominalRub >= 21) {
+            $params[] = ['parameter_id' => 37821410, 'value' => $ymNominalRub];
+        }
         $params[] = ['parameter_id' => 37919770, 'value' => 'в течение 1 месяца'];
         $params[] = ['parameter_id' => 37972050, 'value' => 'без сервиса активации'];
         $params[] = [
@@ -891,6 +908,14 @@ class Product extends Model
             }
         }
 
+        if ($marketCategoryId === 989939) {
+            $giftCertificateParameterIds = [37821410, 37693330, 16382542, 200];
+            $params = array_values(array_filter(
+                $params,
+                fn (array $param): bool => in_array((int) ($param['parameter_id'] ?? 0), $giftCertificateParameterIds, true)
+            ));
+        }
+
         $offer = [
             'offer_id' => $this->sku,
             'name' => $name,
@@ -938,6 +963,48 @@ class Product extends Model
         }
 
         return $offer;
+    }
+
+    private function resolveYmNominalRub(array $wfItem): int
+    {
+        $nominal = $this->nominal_value;
+
+        if ($nominal <= 0) {
+            $nominal = (float) (
+                data_get($wfItem, 'face_value')
+                ?? data_get($wfItem, 'data.face_value')
+                ?? data_get($wfItem, 'price')
+                ?? data_get($wfItem, 'data.price')
+                ?? data_get($wfItem, 'min_price')
+                ?? data_get($wfItem, 'data.min_price')
+                ?? 0
+            );
+        }
+
+        if ($nominal <= 0) {
+            return 0;
+        }
+
+        $currency = strtoupper((string) (
+            $this->purchase_currency
+            ?: data_get($wfItem, 'currency')
+            ?: data_get($wfItem, 'data.currency')
+            ?: data_get($wfItem, 'product.currency.code')
+            ?: data_get($wfItem, 'data.product.currency.code')
+            ?: 'RUB'
+        ));
+
+        try {
+            $rate = app(FinanceService::class)->getRate($currency);
+        } catch (\Throwable) {
+            $rate = $currency === 'RUB' ? 1.0 : 0.0;
+        }
+
+        if ($rate <= 0) {
+            return 0;
+        }
+
+        return (int) round($nominal * $rate);
     }
 
     public function catalog(): BelongsTo

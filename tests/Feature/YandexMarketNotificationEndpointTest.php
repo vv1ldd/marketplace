@@ -109,6 +109,42 @@ class YandexMarketNotificationEndpointTest extends TestCase
         $this->assertNotEmpty($shop->notification_token);
     }
 
+    public function test_yandex_market_setup_works_for_managed_legal_entity_and_keeps_existing_api_key_when_blank(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $entity = LegalEntity::create([
+            'name' => 'Managed Seller Legal Entity',
+            'inn' => '770000000556',
+            'is_active' => true,
+        ]);
+        $user->managedLegalEntities()->attach($entity->id, ['role' => 'owner']);
+
+        $shop = new Shop([
+            'name' => 'Managed Seller Shop',
+            'domain' => 'managed-seller.test',
+            'is_active' => true,
+            'api_key' => 'existing-yandex-key',
+        ]);
+        $shop->legal_entity_id = $entity->id;
+        $shop->save();
+
+        $this->withoutMiddleware()
+            ->actingAs($user)
+            ->postJson(route('partner.dashboard.shop.yandex_market', $shop), [
+                'business_id' => 789,
+                'campaign_id' => 987,
+                'api_key' => null,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('shop.business_id', 789)
+            ->assertJsonPath('shop.campaign_id', 987)
+            ->assertJsonPath('shop.is_configured', true);
+
+        $shop->refresh();
+        $this->assertSame('existing-yandex-key', $shop->api_key);
+    }
+
     public function test_yandex_notification_reaches_ezpin_sandbox_and_activates_redeem_code(): void
     {
         config(['queue.default' => 'sync']);

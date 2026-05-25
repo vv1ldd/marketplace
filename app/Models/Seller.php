@@ -13,9 +13,27 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-class Seller extends Authenticatable implements FilamentUser, HasName, HasTenants
+use Spatie\LaravelPasskeys\Models\Concerns\HasPasskeys;
+use Spatie\LaravelPasskeys\Models\Concerns\InteractsWithPasskeys;
+
+class Seller extends Authenticatable implements FilamentUser, HasName, HasTenants, HasPasskeys
 {
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable, HasRoles, InteractsWithPasskeys;
+
+    public function getPassKeyDisplayName(): string
+    {
+        return $this->first_name ? "@{$this->first_name}" : ($this->email ?? "Seller #{$this->id}");
+    }
+
+    public function getPassKeyId(): string
+    {
+        return (string) $this->id;
+    }
+
+    public function getPassKeyName(): string
+    {
+        return $this->first_name ? "@{$this->first_name}" : ($this->email ?? "seller-{$this->id}");
+    }
 
     protected $fillable = [
         'first_name',
@@ -25,6 +43,7 @@ class Seller extends Authenticatable implements FilamentUser, HasName, HasTenant
         'email',
         'password',
         'is_active',
+        'password_login_enabled',
     ];
 
     protected $hidden = [
@@ -36,6 +55,7 @@ class Seller extends Authenticatable implements FilamentUser, HasName, HasTenant
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'is_active' => 'boolean',
+        'password_login_enabled' => 'boolean',
         'email' => \App\Casts\VaultEncrypted::class . ':email_bidx',
         'phone' => \App\Casts\VaultEncrypted::class . ':phone_bidx',
         'first_name' => \App\Casts\VaultEncrypted::class . ':first_name_bidx',

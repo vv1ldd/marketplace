@@ -16,7 +16,7 @@ return [
         'cta_primary'   => 'Hamkor kabinetini ochish',
         'cta_secondary' => 'Qanday ishlaydi',
         'stat_channels' => 'Sotuv kanallari',
-        'stat_crypto'   => 'Ma\'lumotlarni shifrlash',
+        'stat_crypto'   => 'Ma\'lumotlarni himoya qilish',
         'stat_api'      => 'Integratsiyalar',
         'stat_realtime' => 'Analitika',
     ],
@@ -39,10 +39,10 @@ return [
         'desc'  => 'Vaqtni tejaydigan va operatsion xatolarni kamaytiradigan vositalar.',
         'items' => [
             ['icon' => '🤖', 'title' => 'Avto-faollashtirish', 'desc' => 'Kodlar buyurtma tasdiqlangandan so\'ng operator ishtirokisiz avtomatik beriladi.'],
-            ['icon' => '📊', 'title' => 'Analitika va Ledger', 'desc' => 'Har bir tranzaksiyaning batafsil tarixi va real vaqtdagi audit jurnali.'],
+            ['icon' => '📊', 'title' => 'Buyurtmalar analitikasi', 'desc' => 'Buyurtmalar, kod berish va operatsiyalar tarixi bitta interfeysda.'],
             ['icon' => '🔌', 'title' => 'Ko\'p kanallilik',    'desc' => 'Yandex Market, WooCommerce, Telegram — barcha buyurtmalar bir interfeysda.'],
-            ['icon' => '🛡️', 'title' => 'PII shifrlash',      'desc' => 'Xaridor ma\'lumotlari shifrlangan holda saqlanadi. Blind index orqali qidiruv.'],
-            ['icon' => '🌍', 'title' => 'Ko\'p valyutalilik', 'desc' => 'RUB, TRY, USDT va boshqalar — dolzarb kurs bo\'yicha avtomatik konvertatsiya.'],
+            ['icon' => '🛡️', 'title' => 'Ma\'lumotlarni himoya qilish',      'desc' => 'Xaridor kontaktlari va buyurtma ma\'lumotlari faqat kerakli rollarga ko\'rinadi.'],
+            ['icon' => '🌍', 'title' => 'Turli valyutalar', 'desc' => 'RUB, TRY va boshqa valyutalar — dolzarb kurs bo\'yicha avtomatik konvertatsiya.'],
             ['icon' => '🧪', 'title' => 'Sandbox rejimi',    'desc' => 'Integratsiyalar va API-larni real infratuzilmada xavfsiz sinab ko\'ring.'],
         ],
     ],
@@ -54,12 +54,12 @@ return [
 
     'security' => [
         'label' => 'Xavfsizlik',
-        'title' => 'Suveren arxitektura',
+        'title' => 'Har kuni ishonchli ishlash',
         'items' => [
-            ['title' => 'Vault Shifrlash',     'desc' => 'Barcha shaxsiy ma\'lumotlar HashiCorp Vault yoki AES-256-CBC orqali shifrlanadi.'],
-            ['title' => 'Blind Index Auth',    'desc' => 'Shifrlangan maydonlar bo\'yicha HMAC-SHA256 orqali autentifikatsiya.'],
-            ['title' => 'Deterministik Ledger', 'desc' => 'Har bir amal holat xeshi bilan audit jurnaliga yoziladi. Soxtalashtirish imkonsiz.'],
-            ['title' => 'Multi-Guard Auth',    'desc' => 'Adminlar va Hamkorlar uchun alohida seansli gvardiyalar.'],
+            ['title' => 'Shaxsiy ma\'lumotlarni himoya qilish',     'desc' => 'Kontaktlar, buyurtmalar va xizmat ma\'lumotlari xavfsiz qayta ishlanadi.'],
+            ['title' => 'Xavfsiz kirish',    'desc' => 'Kirish va muhim harakatlar oddiy parolsiz tasdiqlash bilan himoyalanadi.'],
+            ['title' => 'Operatsiyalar tarixi', 'desc' => 'Muhim harakatlar nazorat va yordam uchun tushunarli tarixda saqlanadi.'],
+            ['title' => 'Kirish huquqlarini boshqarish',    'desc' => 'Egalari, xodimlar va qo\'llab-quvvatlash uchun turli huquqlar berilishi mumkin.'],
         ],
     ],
 

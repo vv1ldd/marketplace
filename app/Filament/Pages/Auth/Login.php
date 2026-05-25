@@ -5,6 +5,8 @@ namespace App\Filament\Pages\Auth;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse;
+use Illuminate\Validation\ValidationException;
 
 class Login extends BaseLogin
 {
@@ -20,37 +22,61 @@ class Login extends BaseLogin
         return null;
     }
 
-    /**
-     * Restore legacy fields
-     */
     public function form(Schema $schema): Schema
     {
-        return $schema->components([
-            \Filament\Forms\Components\TextInput::make('email')
-                ->label('Email')
-                ->email()
-                ->required()
-                ->autocomplete('username'),
-            \Filament\Forms\Components\TextInput::make('password')
-                ->label('Пароль')
-                ->password()
-                ->required()
-                ->autocomplete('current-password'),
-        ]);
+        return $schema->components([]);
     }
 
-    /**
-     * Show submit button for legacy login
-     */
     protected function hasFullWidthFormActions(): bool
     {
-        return true;
+        return false;
     }
 
     public function getFormActions(): array
     {
-        return [
-            $this->getAuthenticateFormAction(),
-        ]; 
+        return [];
+    }
+
+    public function authenticate(): ?LoginResponse
+    {
+        throw ValidationException::withMessages([
+            'data' => 'Вход по паролю отключен. Используйте Passkey или одноразовую ссылку миграции.',
+        ]);
+    }
+
+    public function register(): void
+    {
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            // Generate a premium cybernetic nickname
+            $prefixes = ['nomad', 'agent', 'citizen', 'pioneer', 'sovereign', 'beacon', 'vector', 'prime', 'architect', 'quantum'];
+            $nickname = $prefixes[array_rand($prefixes)] . '_' . rand(1000, 9999);
+            
+            // Ensure unique nickname
+            while (\App\Models\User::where('first_name', $nickname)->exists()) {
+                $nickname = $prefixes[array_rand($prefixes)] . '_' . rand(1000, 9999);
+            }
+
+            $email = $nickname . '@meanly.local';
+
+            $user = \App\Models\User::create([
+                'first_name' => $nickname,
+                'email' => $email,
+                'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32)),
+                'password_login_enabled' => false,
+            ]);
+ 
+            $user->assignRole('customer');
+ 
+            // Store registration context for L1 anchoring (Step 2)
+            session(['partner_registration' => [
+                'email' => $user->email,
+                'name' => $user->first_name,
+                'is_b2b' => false,
+            ]]);
+
+            \Illuminate\Support\Facades\Auth::login($user);
+            
+            $this->redirect('/partner/register/enroll');
+        });
     }
 }

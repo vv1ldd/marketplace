@@ -38,17 +38,22 @@ return new class extends Migration
 
     private function dropIndexIfExists(string $table, string $index): void
     {
-        $conn = Schema::getConnection();
-        $dbName = $conn->getDatabaseName();
-        
-        $exists = DB::select("
-            SELECT 1 FROM information_schema.statistics 
-            WHERE table_schema = ? 
-            AND table_name = ? 
-            AND index_name = ?
-        ", [$dbName, $table, $index]);
+        $exists = false;
+        if (DB::getDriverName() === 'sqlite') {
+            $exists = !collect(DB::select("PRAGMA index_list('{$table}')"))->where('name', $index)->isEmpty();
+        } else {
+            $conn = Schema::getConnection();
+            $dbName = $conn->getDatabaseName();
+            
+            $exists = !empty(DB::select("
+                SELECT 1 FROM information_schema.statistics 
+                WHERE table_schema = ? 
+                AND table_name = ? 
+                AND index_name = ?
+            ", [$dbName, $table, $index]));
+        }
 
-        if (!empty($exists)) {
+        if ($exists) {
             Schema::table($table, function (Blueprint $table) use ($index) {
                 $table->dropIndex($index);
             });

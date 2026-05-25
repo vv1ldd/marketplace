@@ -5,7 +5,7 @@ namespace App\Providers\Filament;
 use App\Models\LegalEntity;
 use App\Models\Shop;
 use App\Support\FilamentPanelDomain;
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -27,23 +27,29 @@ class PartnerPanelProvider extends PanelProvider
     {
         $panel = $panel
             ->id('partner')
-            ->path(config('app.partner_panel_hosts') ? '' : 'partner')
-            ->login(\App\Filament\Pages\Auth\Login::class)
+            ->path(config('app.partner_panel_hosts') ? '' : 'partner-old')
+
             ->registration(\App\Filament\Partner\Pages\Auth\Register::class)
             ->authGuard('sellers')
             ->databaseNotifications()
+            ->userMenuItems([
+                'profile' => \Filament\Navigation\MenuItem::make()
+                    ->label('Профиль')
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn () => \App\Filament\Partner\Pages\EditProfile::getUrl()),
+            ])
             ->colors([
                 'primary' => Color::hex('#f53003'),
             ])
             ->brandName('Consortium Terminal')
             ->brandLogo(fn () => new \Illuminate\Support\HtmlString('
                 <div class="flex items-center gap-3">
-                    <div class="p-2 rounded-xl bg-[#f53003]/10 text-[#f53003] dark:bg-[#f53003]/20">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM6.262 6.072a8.25 8.25 0 1 0 10.56 10.864.75.75 0 1 1 1.25.832 9.75 9.75 0 1 1-12.375-12.393.75.75 0 1 1 .565 1.392l-.003.005-.001.001a.748.748 0 0 1-.564-1.392-.75.75 0 0 1 .567-.309Zm6.238 1.428a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-1.5 0v-.75a.75.75 0 0 1 .75-.75ZM12 9.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 0-1.5h-2.25V10.5A.75.75 0 0 0 12 9.75Z" clip-rule="evenodd" /></svg>
+                    <div class="p-1.5 rounded-lg bg-[#f53003]">
+                        <div class="w-3 h-3 bg-white rounded-sm"></div>
                     </div>
                     <div class="flex flex-col text-left leading-tight">
-                        <span class="text-[10px] font-bold tracking-[0.2em] text-[#f53003] dark:text-[#FF4433] uppercase">Meanly Systems</span>
-                        <span class="text-lg font-black tracking-wide text-gray-900 dark:text-white uppercase">Consortium</span>
+                        <span class="text-[10px] font-bold tracking-[0.2em] text-[#f53003] uppercase">Meanly Systems</span>
+                        <span class="text-lg font-black tracking-wide text-white uppercase">Consortium</span>
                     </div>
                 </div>
             '))
@@ -58,10 +64,10 @@ class PartnerPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
             ])
             ->middleware([
-                \App\Http\Middleware\SovereignContextMiddleware::class,
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                \App\Http\Middleware\SyncSovereignGuards::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
@@ -71,45 +77,26 @@ class PartnerPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                \App\Http\Middleware\SovereignContextMiddleware::class,
+                \App\Http\Middleware\EnsureUserHasPasskey::class,
             ])
             ->tenantMiddleware([
                 \Filament\Http\Middleware\AuthenticateSession::class,
             ], isPersistent: true)
             ->font('Instrument Sans')
             ->renderHook(
-                'panels::head.done',
+                'panels::head.end',
                 fn () => new \Illuminate\Support\HtmlString('
-                    <style>
-                        :root {
-                            --brand-bg: #050505;
-                            --brand-card: #0a0a0a;
-                            --brand-border: #161616;
-                        }
-                        .fi-layout { background-color: var(--brand-bg) !important; }
-                        .fi-sidebar {
-                            background-color: var(--brand-card) !important;
-                            border-right: 1px solid var(--brand-border) !important;
-                        }
-                        .fi-sidebar-item-button {
-                            border-radius: 8px !important;
-                            margin: 0.2rem 0.6rem !important;
-                            transition: all 0.2s ease !important;
-                        }
-                        .fi-sidebar-item-button-active {
-                            background-color: rgba(255, 255, 255, 0.05) !important;
-                            color: #ffffff !important;
-                        }
-                        .fi-sidebar-item-button:hover:not(.fi-sidebar-item-button-active) {
-                            background-color: rgba(255, 255, 255, 0.03) !important;
-                        }
-                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn, .fi-wi-widget {
-                            background-color: var(--brand-card) !important;
-                            border: 1px solid var(--brand-border) !important;
-                            box-shadow: none !important;
-                            border-radius: 12px !important;
-                        }
-                        .fi-ta-header-ctn { border-bottom: 1px solid var(--brand-border) !important; }
-                    </style>
+                    <link rel="stylesheet" href="/css/filament-theme.css?v=' . filemtime(public_path('css/filament-theme.css')) . '">
+                    <script>
+                        (function() {
+                            const savedTheme = localStorage.getItem("theme") || "consortium";
+                            document.documentElement.setAttribute("data-theme", savedTheme);
+                            document.addEventListener("DOMContentLoaded", () => {
+                                document.body.setAttribute("data-theme", savedTheme);
+                            });
+                        })();
+                    </script>
                 ')
             );
  

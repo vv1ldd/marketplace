@@ -80,19 +80,21 @@ class LedgerService
             }
 
             // 2. Build the Document of Intent (Deterministic Packet)
+            $enrichedPayload = array_merge($payload, [
+                'kernel_fp' => $fingerprint->getHash(),
+                'roles' => $roles ?? []
+            ]);
+
             $data = [
                 'prev' => $previousFingerprint,
                 'type' => $eventType,
                 'entity_id' => (string) $entity?->getKey(),
                 'entity_type' => $entity ? get_class($entity) : null,
-                'payload' => $payload,
+                'payload' => $enrichedPayload,
                 'ts' => $createdAt,
                 'source' => $triggerSource,
                 'in' => $inputData,
                 'out' => $outputState,
-                // ⚓ THE DETERMINISTIC ANCHOR
-                'kernel_fp' => $fingerprint->getHash(),
-                'roles' => $roles ?? []
             ];
 
             $canonicalJson = $encoder->encode($data);
@@ -105,18 +107,13 @@ class LedgerService
                 'event_type' => $eventType,
                 'entity_type' => $entity ? get_class($entity) : null,
                 'entity_id' => $entity?->getKey(),
-                'payload' => $payload,
+                'payload' => $enrichedPayload,
                 'trigger_source' => $triggerSource,
                 'input_data' => $inputData,
                 'output_state' => $outputState,
                 'fingerprint' => $entryFingerprint,
                 'previous_fingerprint' => $previousFingerprint,
                 'created_at' => $createdAt,
-                // Add metadata to prove determinism
-                'meta' => array_merge($payload['meta'] ?? [], [
-                    'kernel_fingerprint' => $fingerprint->getHash(),
-                    'determinism' => 'strict-mdk-v1.1'
-                ])
             ]);
         });
     }

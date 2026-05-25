@@ -6,10 +6,18 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private function getTableIndexes(string $table): \Illuminate\Support\Collection
+    {
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+            return collect(\Illuminate\Support\Facades\DB::select("PRAGMA index_list('{$table}')"))->pluck('name')->unique();
+        }
+        return collect(\Illuminate\Support\Facades\DB::select("SHOW INDEX FROM `{$table}`"))->pluck('Key_name')->unique();
+    }
+
     public function up(): void
     {
         // 1. Products table
-        $indexes = collect(DB::select("SHOW INDEX FROM products"))->pluck('Key_name')->unique();
+        $indexes = $this->getTableIndexes('products');
         Schema::table('products', function (Blueprint $table) use ($indexes) {
             if ($indexes->contains('products_wildflow_catalog_sku_index')) {
                 $table->dropIndex('products_wildflow_catalog_sku_index');
@@ -31,7 +39,7 @@ return new class extends Migration
         });
 
         // 2. Wildflow Catalogs table
-        $indexes = collect(DB::select("SHOW INDEX FROM wildflow_catalogs"))->pluck('Key_name')->unique();
+        $indexes = $this->getTableIndexes('wildflow_catalogs');
         Schema::table('wildflow_catalogs', function (Blueprint $table) use ($indexes) {
             if ($indexes->contains('wildflow_catalogs_service_sku_unique')) {
                 $table->dropUnique('wildflow_catalogs_service_sku_unique');
@@ -45,7 +53,7 @@ return new class extends Migration
         });
 
         // 3. Provider Products table
-        $indexes = collect(DB::select("SHOW INDEX FROM provider_products"))->pluck('Key_name')->unique();
+        $indexes = $this->getTableIndexes('provider_products');
         Schema::table('provider_products', function (Blueprint $table) use ($indexes) {
             // Ensure provider_id has an index before dropping the unique one that covers it
             if (!$indexes->contains('provider_products_provider_id_index')) {
@@ -99,7 +107,7 @@ return new class extends Migration
             $table->index('market_sku', 'provider_products_market_sku_index');
             $table->unique(['provider_id', 'sku'], 'provider_products_provider_id_sku_unique');
             
-            if (collect(DB::select("SHOW INDEX FROM provider_products"))->pluck('Key_name')->contains('provider_products_provider_id_index')) {
+            if ($this->getTableIndexes('provider_products')->contains('provider_products_provider_id_index')) {
                 $table->dropIndex('provider_products_provider_id_index');
             }
         });

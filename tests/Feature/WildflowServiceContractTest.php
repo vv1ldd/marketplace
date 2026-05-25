@@ -71,6 +71,53 @@ class WildflowServiceContractTest extends TestCase
         });
     }
 
+    public function test_sync_partner_sends_l1_address(): void
+    {
+        config(['services.wildflow.verify_tls' => false]);
+
+        $provider = Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Wildflow Contract',
+                'is_active' => true,
+                'credentials' => [
+                    'base_url' => 'https://api.wildflow.test/api/v1/',
+                    'api_key' => 'wf-token',
+                    'client_id' => 'wf-client',
+                    'financial_secret' => 'wf-secret',
+                ],
+            ]
+        );
+
+        Http::fake([
+            'https://api.wildflow.test/api/v1/partners/sync' => Http::response([
+                'success' => true,
+                'message' => 'Partner synchronized successfully',
+            ], 200),
+        ]);
+
+        $entity = new \App\Models\LegalEntity();
+        $entity->id = 99;
+        $entity->name = 'Test Partner';
+        $entity->available_balance = 1000.00;
+        $entity->currency = 'RUB';
+        $entity->agreement_metadata = ['l1_address' => 'sl1_e5b0faf926b528b3cfeb384c3111f1816ef00999'];
+
+        $service = new WildflowService(providerModel: $provider);
+        $service->syncPartner($entity);
+
+        Http::assertSent(function (Request $request) {
+            $payload = $request->data();
+
+            return str_ends_with($request->url(), '/api/v1/partners/sync')
+                && $payload['terminal_id'] === '99'
+                && $payload['name'] === 'Test Partner'
+                && (float)$payload['balance'] === 1000.00
+                && $payload['currency'] === 'RUB'
+                && $payload['l1_address'] === 'sl1_e5b0faf926b528b3cfeb384c3111f1816ef00999';
+        });
+    }
+
     private function firstHeader(Request $request, string $name): ?string
     {
         $value = $request->header($name);

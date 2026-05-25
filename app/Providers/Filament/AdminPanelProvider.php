@@ -4,7 +4,7 @@ namespace App\Providers\Filament;
  
 use App\Support\FilamentPanelDomain;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -29,19 +29,19 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('ops')
             ->path(config('app.admin_panel_hosts') ? '' : 'ops')
-            ->login(\App\Filament\Pages\Auth\Login::class)
+
             ->colors([
                 'primary' => Color::hex('#f53003'),
             ])
             ->brandName('Operations Command')
             ->brandLogo(fn () => new \Illuminate\Support\HtmlString('
                 <div class="flex items-center gap-3">
-                    <div class="p-2 rounded-xl bg-[#f53003]/10 text-[#f53003] dark:bg-[#f53003]/20">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M11.828 2.25c-.916 0-1.699.663-1.85 1.567l-.091.549a.798.798 0 0 1-.517.608 7.47 7.47 0 0 0-.438.21 7.574 7.574 0 0 0-.438.21.798.798 0 0 1-.76.006l-.507-.293a1.875 1.875 0 0 0-2.56.935l-.56 1.536a1.875 1.875 0 0 0 .935 2.56l.507.293c.272.157.44.448.44.76 0 .28-.052.56-.154.816a.798.798 0 0 1-.608.517l-.549.091a1.875 1.875 0 0 0-1.567 1.85v1.12c0 .916.663 1.699 1.567 1.85l.549.091c.28.047.517.237.608.517.102.256.154.536.154.816 0 .312-.168.603-.44.76l-.507.293a1.875 1.875 0 0 0-.935 2.56l.56 1.536a1.875 1.875 0 0 0 2.56.935l.507-.293a.798.798 0 0 1 .76-.006c.145.083.291.153.438.21.147.057.293.127.438.21a.798.798 0 0 1 .517.608l.091.549c.15.904.934 1.567 1.85 1.567h1.12c.916 0 1.699-.663 1.85-1.567l.091-.549a.798.798 0 0 1 .517-.608c.145-.083.291-.153.438-.21.147-.057.293-.127.438-.21a.798.798 0 0 1 .76-.006l.507.293a1.875 1.875 0 0 0 2.56-.935l.56-1.536a1.875 1.875 0 0 0-.935-2.56l-.507-.293a.798.798 0 0 1-.44-.76 7.99 7.99 0 0 0 .154-.816.798.798 0 0 1 .608-.517l.549-.091a1.875 1.875 0 0 0 1.567-1.85v-1.12c0-.916-.663-1.699-1.567-1.85l-.549-.091a.798.798 0 0 1-.608-.517 7.99 7.99 0 0 0-.154-.816.798.798 0 0 1 .44-.76l.507-.293a1.875 1.875 0 0 0 .935-2.56l-.56-1.536a1.875 1.875 0 0 0-2.56-.935l-.507.293a.798.798 0 0 1-.76.006 7.574 7.574 0 0 0-.438-.21 7.47 7.47 0 0 0-.438-.21.798.798 0 0 1-.517-.608l-.091-.549A1.875 1.875 0 0 0 13.312 2.25h-1.484ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" /></svg>
+                    <div class="p-1.5 rounded-lg bg-[#f53003]">
+                        <div class="w-3 h-3 bg-white rounded-sm"></div>
                     </div>
                     <div class="flex flex-col text-left leading-tight">
-                        <span class="text-[10px] font-bold tracking-[0.2em] text-[#f53003] dark:text-[#FF4433] uppercase">Meanly Systems</span>
-                        <span class="text-lg font-black tracking-wide text-gray-900 dark:text-white uppercase">Operations</span>
+                        <span class="text-[10px] font-bold tracking-[0.2em] text-[#f53003] uppercase">Meanly Systems</span>
+                        <span class="text-lg font-black tracking-wide text-white uppercase">Operations</span>
                     </div>
                 </div>
             '))
@@ -77,45 +77,84 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->font('Instrument Sans')
             ->renderHook(
-                'panels::head.done',
+                'panels::head.end',
                 fn () => new \Illuminate\Support\HtmlString('
-                    <style>
-                        :root {
-                            --brand-bg: #050505;
-                            --brand-card: #0a0a0a;
-                            --brand-border: #161616;
+                    <link rel="stylesheet" href="/css/filament-theme.css?v=' . filemtime(public_path('css/filament-theme.css')) . '">
+                    <script>
+                        (function() {
+                            const savedTheme = localStorage.getItem("theme") || "consortium";
+                            document.documentElement.setAttribute("data-theme", savedTheme);
+                            document.addEventListener("DOMContentLoaded", function() {
+                                document.body.setAttribute("data-theme", savedTheme);
+                            });
+                        })();
+                    </script>
+                ')
+            )
+            ->renderHook(
+                'panels::user-menu.before',
+                fn () => new \Illuminate\Support\HtmlString('
+                    <!-- 🎨 Premium Admin 3-Skin Switcher Pill -->
+                    <div class="skin-switcher-pill mr-4 hidden items-center gap-1.5 bg-black/20 dark:bg-black/40 border border-white/5 dark:border-white/10 rounded-full p-1 text-[10px] font-extrabold uppercase">
+                        <button onclick="setTheme(\'partner\')" class="skin-btn px-3 py-1 rounded-full cursor-pointer transition-all duration-200 hover:text-white" id="skin-btn-partner" style="letter-spacing: 0.5px;">Partner 🌟</button>
+                        <button onclick="setTheme(\'consortium\')" class="skin-btn px-3 py-1 rounded-full cursor-pointer transition-all duration-200 hover:text-white" id="skin-btn-consortium" style="letter-spacing: 0.5px;">Flagship 🚩</button>
+                        <button onclick="setTheme(\'retro\')" class="skin-btn px-3 py-1 rounded-full cursor-pointer transition-all duration-200 hover:text-white" id="skin-btn-retro" style="letter-spacing: 0.5px;">Retro ⚡</button>
+                    </div>
+                    <script>
+                        function setTheme(theme) {
+                            localStorage.setItem("theme", theme);
+                            document.cookie = "theme=" + theme + "; path=/; max-age=31536000; SameSite=Lax";
+                            document.documentElement.setAttribute("data-theme", theme);
+                            document.body.setAttribute("data-theme", theme);
+                            updateActiveThemeButton();
                         }
-                        .fi-layout { background-color: var(--brand-bg) !important; }
-                        .fi-sidebar {
-                            background-color: var(--brand-card) !important;
-                            border-right: 1px solid var(--brand-border) !important;
+                        function checkSettingsPage() {
+                            const pill = document.querySelector(".skin-switcher-pill");
+                            if (pill) {
+                                if (window.location.pathname.includes("/profile")) {
+                                    pill.style.display = "flex";
+                                } else {
+                                    pill.style.display = "none";
+                                }
+                            }
                         }
-                        .fi-sidebar-item-button {
-                            border-radius: 8px !important;
-                            margin: 0.2rem 0.6rem !important;
-                            transition: all 0.2s ease !important;
+                        function updateActiveThemeButton() {
+                            const currentTheme = localStorage.getItem("theme") || "consortium";
+                            document.querySelectorAll(".skin-btn").forEach(btn => {
+                                btn.classList.remove("active-skin", "bg-[#f53003]", "text-white", "bg-[#ff9f0a]", "text-black", "bg-[#7c3aed]", "text-white");
+                                btn.style.background = "transparent";
+                                btn.style.color = "";
+                            });
+                            
+                            const activeBtn = document.getElementById("skin-btn-" + currentTheme);
+                            if (activeBtn) {
+                                activeBtn.classList.add("active-skin");
+                                if (currentTheme === "partner") {
+                                    activeBtn.style.background = "#ff9f0a";
+                                    activeBtn.style.color = "#000000";
+                                } else if (currentTheme === "retro") {
+                                    activeBtn.style.background = "#7c3aed";
+                                    activeBtn.style.color = "#ffffff";
+                                } else {
+                                    activeBtn.style.background = "#f53003";
+                                    activeBtn.style.color = "#ffffff";
+                                }
+                            }
                         }
-                        .fi-sidebar-item-button-active {
-                            background-color: rgba(255, 255, 255, 0.05) !important;
-                            color: #ffffff !important;
-                        }
-                        .fi-sidebar-item-button:hover:not(.fi-sidebar-item-button-active) {
-                            background-color: rgba(255, 255, 255, 0.03) !important;
-                        }
-                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn, .fi-wi-widget {
-                            background-color: var(--brand-card) !important;
-                            border: 1px solid var(--brand-border) !important;
-                            box-shadow: none !important;
-                            border-radius: 12px !important;
-                        }
-                        .fi-ta-header-ctn { border-bottom: 1px solid var(--brand-border) !important; }
-                    </style>
+                        document.addEventListener("DOMContentLoaded", () => {
+                            updateActiveThemeButton();
+                            checkSettingsPage();
+                        });
+                        window.addEventListener("load", checkSettingsPage);
+                        setTimeout(checkSettingsPage, 100);
+                        setTimeout(updateActiveThemeButton, 500); 
+                    </script>
                 ')
             )
             ->plugins([
                 \MarcelWeidum\Passkeys\PasskeysPlugin::make(),
             ])
-            ->profile()
+            ->profile(isSimple: false)
             ->maxContentWidth('full')
             ->authMiddleware([
                 Authenticate::class,

@@ -120,7 +120,7 @@ class LedgerApiController extends Controller
         $perPage = min((int) ($validated['per_page'] ?? 50), 100);
 
         $query = OrderItems::query()
-            ->with(['order:id,order_id,uuid,status,sub_status,code_activated'])
+            ->with(['order:id,order_id,status,sub_status,code_activated'])
             ->where(function ($q) {
                 $q->where('is_redeemed', true)->orWhere('is_activated', true);
             });
@@ -144,8 +144,7 @@ class LedgerApiController extends Controller
             $order = $item->order;
 
             return [
-                'order_item_id' => $item->id,
-                'order_item_uuid' => $item->uuid,
+                'transaction_ref' => $item->transactionReference(),
                 'redeem_code_masked' => $this->maskRedeemKey($item->key),
                 'sku_marketplace' => $item->sku,
                 'quantity' => $item->count,
@@ -156,9 +155,8 @@ class LedgerApiController extends Controller
                 'type_form_id' => $item->type_form_id ?? null,
                 'client_contact' => $this->safeClientInfo($item->client_info),
                 'order' => $order ? [
-                    'internal_id' => $order->id,
-                    'order_uuid' => $order->uuid,
-                    'external_order_id' => $order->order_id,
+                    'transaction_ref' => $order->transactionReference(),
+                    'source_order_id' => $order->order_id,
                     'status' => $order->status,
                     'sub_status' => $order->sub_status,
                     'code_activated' => (bool) $order->code_activated,
@@ -175,6 +173,35 @@ class LedgerApiController extends Controller
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
             ],
+        ]);
+    }
+
+    public function trace(Request $request, string $reference): JsonResponse
+    {
+        $ledgerShopId = $request->attributes->get('ledger_shop_id');
+
+        $whitelist = config('app.ledger_ip_whitelist');
+        if ($ledgerShopId === null && $whitelist && ! in_array($request->ip(), explode(',', $whitelist))) {
+            return response()->json(['error' => 'Unauthorized IP: '.$request->ip()], 403);
+        }
+
+        $legalEntityId = null;
+        if ($ledgerShopId !== null) {
+            $legalEntityId = Shop::query()->whereKey($ledgerShopId)->value('legal_entity_id');
+        }
+
+        $trace = app(\App\Services\SimpleLayer1TraceService::class)->trace($reference, $legalEntityId);
+
+        if (! $trace) {
+            return response()->json([
+                'status' => 'not_found',
+                'message' => 'Simple Layer 1 transaction reference not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'trace' => $trace,
         ]);
     }
 

@@ -95,11 +95,17 @@ class OrderService
         // 🛡️ Resolve SKU for the provider
         $catalogSku = $product->wildflow_catalog_sku ?? $product->sku;
         
+        // Resolve shop for seller attribution
+        $shop = $item->order?->shop;
+
         // 🚀 Dynamic Denomination Logic
         // For Steam/Roblox/etc, we might need a custom amount instead of simple count
         $meta = [
             'type' => $product->type ?? 'gift_card',
             'email' => data_get($item->client_info, 'email') ?? 'sataniyazow@gmail.com',
+            'seller_id' => $shop ? (string)$shop->id : null,
+            'seller_name' => $shop?->name,
+            'terminal_id' => $shop ? (string)$shop->legal_entity_id : null,
         ];
 
         // If the item has a specific 'amount' or 'denomination' in its info, we use it
@@ -117,12 +123,12 @@ class OrderService
         }
 
         // 🛡️ Sovereign Ledger: Record the START of the external order
-        $shop = $item->order?->shop;
+        $providerReference = $item->providerReference();
         if ($shop) {
             app(\App\Services\LedgerService::class)->record($shop, 'PROVIDER_ORDER_START', $item, [
                 'provider' => $provider->type,
                 'sku' => $catalogSku,
-                'reference' => $item->uuid,
+                'reference' => $providerReference,
             ]);
         }
 
@@ -130,7 +136,7 @@ class OrderService
             // 1. Create order at Provider
             $externalOrderId = $driver->createOrder(
                 sku: $catalogSku,
-                reference: $item->uuid,
+                reference: $providerReference,
                 price: (float)($product->retail_price ?? 0),
                 quantity: (int)$item->count,
                 meta: $meta

@@ -39,7 +39,7 @@ class OrderResource extends Resource
                 Section::make('Детали заказа')
                     ->schema([
                         Grid::make(3)->schema([
-                            Html::make(fn ($record) => $record->id)->label('Номер заказа'),
+                            Html::make(fn ($record) => $record->transactionReference())->label('SL1 транзакция'),
                             Html::make(fn ($record) => $record->created_at->format('d.m.Y H:i'))->label('Дата'),
                             Html::make(fn ($record) => $record->progress?->name)->label('Статус'),
                         ]),
@@ -69,7 +69,9 @@ class OrderResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')->label('№')->sortable(),
+                TextColumn::make('transaction_ref')
+                    ->label('SL1 транзакция')
+                    ->state(fn (Order $record) => $record->transactionReference()),
                 TextColumn::make('created_at')->label('Дата')->dateTime('d.m.Y H:i')->sortable(),
                 TextColumn::make('progress.name')->label('Статус')
                     ->badge()

@@ -80,10 +80,15 @@ class StocksRelationManager extends RelationManager
                         }
 
                         $service = new YmService($shop);
-                        $skus = $stocks->map(function ($stock) use ($product) {
+                        $skus = $stocks->map(function ($stock) use ($product, $shop) {
+                            $ymWarehouseId = $stock->warehouse->ym_id ?: $shop?->ym_warehouse_id;
+                            if (! $ymWarehouseId) {
+                                return null;
+                            }
+
                             return [
                                 'sku' => $product->sku,
-                                'warehouseId' => (int) $stock->warehouse->ym_id,
+                                'warehouseId' => (int) $ymWarehouseId,
                                 'items' => [
                                     [
                                         'count' => (int) $stock->count,
@@ -92,10 +97,16 @@ class StocksRelationManager extends RelationManager
                                     ],
                                 ],
                             ];
-                        })->toArray();
+                        })->filter()->values()->toArray();
+
+                        if (empty($skus)) {
+                            Notification::make()->title('Не указан склад Яндекс для синхронизации')->warning()->send();
+
+                            return;
+                        }
 
                         try {
-                            $service->updateStocks($skus);
+                            $service->updateStocks(['skus' => $skus]);
 
                             $product->stocks()->update(['synced_at' => now()]);
 

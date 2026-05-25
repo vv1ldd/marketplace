@@ -9,9 +9,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Orders and OrderItems: Encrypt JSON blobs using direct SQL
-        DB::statement('ALTER TABLE orders MODIFY info TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE order_items MODIFY client_info TEXT DEFAULT NULL');
+        // 1. Orders and OrderItems: Encrypt JSON blobs using Schema builder or direct SQL
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('orders', function (Blueprint $table) {
+                $table->text('info')->nullable()->change();
+            });
+            Schema::table('order_items', function (Blueprint $table) {
+                $table->text('client_info')->nullable()->change();
+            });
+        } else {
+            DB::statement('ALTER TABLE orders MODIFY info TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE order_items MODIFY client_info TEXT DEFAULT NULL');
+        }
 
         // 2. Add Blind Indices for names in Users, Sellers, Customers
         foreach (['users', 'sellers', 'customers'] as $tableName) {

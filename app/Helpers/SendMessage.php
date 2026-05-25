@@ -24,8 +24,7 @@ class SendMessage
 
             $client_info = $order->client_info;
 
-            $message = "Новый заказ № {$order->id}\n";
-            $message .= "Заказ № {$order->order_id}\n";
+            $message = "Новая SL1 транзакция {$order->transactionReference()}\n";
             $message .= "Статус: {$order->status}\n";
             $message .= "-------\n";
 
@@ -48,8 +47,7 @@ class SendMessage
             }
         } else if ($status === 'send_form') {
 
-            $message .= "Активация по заказу № {$order->id}\n";
-            $message .= "Заказ № {$order->order_id}\n";
+            $message .= "Активация по SL1 транзакции {$order_item->transactionReference()}\n";
             $message .= "Активировано sku: {$order_item->sku}\n";
             $message .= "-------\n";
             $message .= "Данные заполненной формы:\n";

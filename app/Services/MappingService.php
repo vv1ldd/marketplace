@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Brand;
 use App\Models\ProviderBrandMapping;
+use App\Models\ProviderCategoryMapping;
 use Illuminate\Support\Str;
 
 class MappingService
@@ -11,7 +12,7 @@ class MappingService
     /**
      * Resolve Master Brand ID from provider data.
      */
-    public static function resolveBrand(int $providerId, ?string $externalName, ?string $sku = null, ?string $title = null): ?int
+    public static function resolveBrand(int $providerId, ?string $externalName, ?string $sku = null, ?string $title = null, ?string $providerCategoryName = null): ?int
     {
         if (empty($externalName) && empty($sku) && empty($title)) {
             return null;
@@ -19,11 +20,16 @@ class MappingService
 
         // 1. Try Exact Mapping
         if ($externalName) {
-            $mapping = ProviderBrandMapping::where('provider_id', $providerId)
+            $mapping = ProviderBrandMapping::with('brand')
+                ->where('provider_id', $providerId)
                 ->where('external_name', $externalName)
                 ->first();
 
             if ($mapping && $mapping->brand_id) {
+                if ($mapping->brand) {
+                    self::ensureBrandCatalogGroup($mapping->brand, $providerId, $externalName, $title, $providerCategoryName);
+                }
+
                 return $mapping->brand_id;
             }
         }
@@ -47,7 +53,7 @@ class MappingService
                 
                 // 🔑 Попытаемся угадать группу при создании
                 if (!$brand->catalog_group_id) {
-                    $groupId = self::guessGroupIdByName($cleanedName, $title);
+                    $groupId = self::resolveCatalogGroupId($providerId, $providerCategoryName ?? $externalName, $cleanedName, $title);
                     if ($groupId) {
                         $brand->update(['catalog_group_id' => $groupId]);
                     }
@@ -67,6 +73,7 @@ class MappingService
                 $extracted = self::cleanBrandName($matches[1]);
                 if (strlen($extracted) >= 2) {
                     $brand = Brand::firstOrCreate(['name' => $extracted]);
+                    self::ensureBrandCatalogGroup($brand, $providerId, $externalName, $title, $providerCategoryName);
                     $brandId = $brand->id;
                 }
             } else {
@@ -79,7 +86,7 @@ class MappingService
                         
                         // 🔑 Попытаемся угадать группу при создании
                         if (!$brand->catalog_group_id) {
-                            $groupId = self::guessGroupIdByName($extracted, $title);
+                            $groupId = self::resolveCatalogGroupId($providerId, $providerCategoryName ?? $externalName, $extracted, $title);
                             if ($groupId) {
                                 $brand->update(['catalog_group_id' => $groupId]);
                             }
@@ -100,6 +107,38 @@ class MappingService
         }
 
         return $brandId;
+    }
+
+    public static function resolveCatalogGroupId(int $providerId, ?string $providerCategoryName, ?string $brandName = null, ?string $context = null): ?int
+    {
+        $providerCategoryName = trim((string) $providerCategoryName);
+        if ($providerCategoryName !== '') {
+            $mappedGroupId = ProviderCategoryMapping::query()
+                ->where('provider_id', $providerId)
+                ->where('provider_category_name', $providerCategoryName)
+                ->value('catalog_group_id');
+
+            if ($mappedGroupId) {
+                return (int) $mappedGroupId;
+            }
+        }
+
+        $brandName = trim((string) $brandName);
+        $context = trim(($providerCategoryName !== '' ? $providerCategoryName.' ' : '').(string) $context);
+
+        return self::guessGroupIdByName($brandName, $context);
+    }
+
+    protected static function ensureBrandCatalogGroup(Brand $brand, int $providerId, ?string $externalName = null, ?string $title = null, ?string $providerCategoryName = null): void
+    {
+        if ($brand->catalog_group_id) {
+            return;
+        }
+
+        $groupId = self::resolveCatalogGroupId($providerId, $providerCategoryName ?? $externalName, $brand->name, $title);
+        if ($groupId) {
+            $brand->update(['catalog_group_id' => $groupId]);
+        }
     }
 
     protected static function guessBrandByKeywords(string $searchString): ?int
@@ -123,42 +162,149 @@ class MappingService
         return null;
     }
 
+    private static function catalogGroupId(string $slug, string $name, int $fallbackId): int
+    {
+        static $cache = [];
+
+        $key = $slug.'|'.$name;
+        if (! array_key_exists($key, $cache)) {
+            $cache[$key] = (int) \App\Models\CatalogGroup::query()
+                ->where('slug', $slug)
+                ->orWhere('name', $name)
+                ->firstOrCreate(
+                    ['slug' => $slug],
+                    [
+                        'name' => $name,
+                        'sort_order' => $fallbackId,
+                        'is_active' => true,
+                    ],
+                )
+                ->id;
+        }
+
+        return $cache[$key];
+    }
+
     /**
-     * Угадываем ID группы на основе имени бренда или контекста
-     * Catalog Groups: 1=Игры, 2=Подписки, 3=Пополнение счета, 4=Софт
+     * Угадываем main category по бренду и контексту провайдера.
      */
     public static function guessGroupIdByName(string $brandName, ?string $context = ''): ?int
     {
         $name = mb_strtolower($brandName);
         $ctx = mb_strtolower($context ?? '');
+        $haystack = trim($name.' '.$ctx);
 
-        // 1. Пополнение счета (Самая большая категория)
-        $walletKeywords = ['apple', 'itunes', 'google', 'playstation', 'psn', 'xbox', 'nintendo', 'steam', 'amazon', 'razer', 'binance', 'visa', 'mastercard', 'roblox', 'robux'];
-        foreach ($walletKeywords as $kw) {
-            if (str_contains($name, $kw)) return 3;
+        $gamesId = self::catalogGroupId('igry', 'Игры', 1);
+        $subscriptionsId = self::catalogGroupId('podpiski', 'Подписки', 2);
+        $topupId = self::catalogGroupId('popolnenie-sceta', 'Пополнение счета', 3);
+        $financeId = self::catalogGroupId('finansy', 'Финансы', 6);
+        $softId = self::catalogGroupId('soft', 'Софт', 4);
+        $retailId = self::catalogGroupId('riteil', 'Ритейл', 5);
+
+        $matches = static function (array $keywords) use ($haystack): bool {
+            foreach ($keywords as $kw) {
+                if (str_contains($haystack, $kw)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        $gameKeywords = [
+            'playstation', 'psn', 'xbox', 'nintendo', 'steam', 'razer gold', 'roblox', 'robux',
+            'riot', 'valorant', 'league of legends', 'blizzard', 'battle.net', 'battlenet',
+            'ubisoft', 'epic games', 'rockstar', 'minecraft', 'pubg', 'free fire', 'fortnite',
+            'electronic arts', 'ea sports', 'ea play', 'fifa', 'fc 24', 'fc 25', 'final fantasy',
+            'mobile legends', 'genshin', 'gamestop', 'game over', 'lego', 'xsolla',
+            'gocash game card', 'game key', 'gaming',
+        ];
+        if ($matches($gameKeywords) || str_contains($ctx, 'game key') || str_contains($ctx, 'dlc')) {
+            return $gamesId;
         }
 
-        // 2. Подписки
-        $subKeywords = ['netflix', 'spotify', 'tinder', 'bumble', 'discord', 'nitro', 'crunchyroll', 'disney', 'hulu', 'paramount', 'youtube', 'premium', 'plus'];
-        foreach ($subKeywords as $kw) {
-            if (str_contains($name, $kw) || str_contains($ctx, 'subscription') || str_contains($ctx, 'membership')) return 2;
+        $softKeywords = [
+            'microsoft', 'office', 'windows', 'adobe', 'kaspersky', 'mcafee', 'norton',
+            'bitdefender', 'antivirus', 'vpn', 'zoom', 'software', 'license', 'licence',
+        ];
+        if ($matches($softKeywords)) {
+            return $softId;
         }
 
-        // 3. Игры (Ключи и т.д.)
-        $gameKeywords = ['electronic arts', 'riot', 'blizzard', 'ubisoft', 'epic games', 'rockstar', 'minecraft', 'pubg', 'free fire', 'valorant', 'fortnite', 'ea sports', 'fifa', 'fc 24', 'fc 25'];
-        foreach ($gameKeywords as $kw) {
-            if (str_contains($name, $kw) || str_contains($ctx, 'key') || str_contains($ctx, 'game key')) return 1;
+        $subscriptionKeywords = [
+            'netflix', 'spotify', 'tinder', 'bumble', 'discord', 'nitro', 'crunchyroll',
+            'disney', 'hulu', 'paramount', 'youtube premium', 'apple music', 'deezer',
+            'tidal', 'anghami', 'indieflix', 'britbox', 'starzplay', 'dazn',
+            'abbonamenti', 'kobo', 'subscription', 'membership',
+        ];
+        if ($matches($subscriptionKeywords)) {
+            return $subscriptionsId;
         }
 
-        // 4. Софт
-        $softKeywords = ['microsoft', 'office', 'adobe', 'kaspersky', 'mcafee', 'norton', 'vpn', 'windows'];
-        foreach ($softKeywords as $kw) {
-            if (str_contains($name, $kw) || str_contains($ctx, 'software') || str_contains($ctx, 'license')) return 4;
+        $financeKeywords = [
+            'cryptovoucher', 'crypto voucher', 'rewarble crypto', 'binance',
+            'visa', 'mastercard', 'american express', 'amex', 'flexepin',
+            'gcodes', 'gate giftcard', 'skrill', 'payoneer', 'bitsa', 'bitnovo',
+            'neosurf', 'cashtocode', 'icash', 'cashu', 'phonepe', 'payment',
+            'finance', 'financial', 'crypto', 'voucher money',
+        ];
+        if ($matches($financeKeywords)) {
+            return $financeId;
         }
 
-        // Fallback по контексту (если в имени ничего нет)
-        if (str_contains($ctx, 'topup') || str_contains($ctx, 'wallet') || str_contains($ctx, 'gift card')) return 3;
-        if (str_contains($ctx, 'game') || str_contains($ctx, 'dlc')) return 1;
+        $topupKeywords = [
+            'itunes', 'google play', 'app store', 'etisalat', 'du ', 'o2 ',
+            'lycamobile', 'lebara', 'salik', 'cafu', 'alosim', 'esimchoice',
+            'airalo', 'wallet', 'topup', 'top-up', 'airtime',
+        ];
+        if ($matches($topupKeywords)) {
+            return $topupId;
+        }
+
+        $retailKeywords = [
+            'amazon', 'ebay', 'walmart', 'target', 'best buy', 'apple', 'google', 'huawei',
+            'ikea', 'carrefour', 'bol.com', 'coolblue', 'mediamarkt', 'decathlon',
+            'maisons du monde', 'lowe', "lowe's", 'toom', 'croma', 'tmall',
+            'fnac', 'otto', 'cyberport', 'monoprix', 'groupon', 'instacart',
+            'trony', 'saturn', 'mediaworld', 'conrad', 'obi', 'iper', 'rossmann',
+            'macy', "macy's", 'morrisons', 'your gift choice', 'tj maxx', 'tk maxx',
+            'marshalls', 'homegoods',
+            'mango', 'zara', 'h&m', 'hm ', 'shein', 'primark', 'calzedonia', 'foot locker',
+            'nike', 'adidas', 'columbia', 'bata', 'allbirds', 'intersport', 'sephora', 'swarovski',
+            'nykaa', 'forzieri', 'nelly.com', 'zappos', 'bonobo', 'pantaloons',
+            'ernsting', 'bijou brigitte', 'apparel group', 'asos', 'bréal', 'breal',
+            'tommy john',
+            'home centre', 'homecenter', 'lifestyle', 'tata cliq', 'saks', 'zalando',
+            'nordstrom', 'frasers', 'myntra', 'old navy', 'joyalukkas', 'nahdi',
+            'huygens', 'naturasi', 'but ', 'luxe', 'regal', 'inno', 'chubbies',
+            'thirdlove', 'crutchfield', 'thredup', 'mister spex', 'booksvenue',
+            'brandat international', 'douglas',
+            'hobbycraft', 'pet corner', 'solo stove', 'fashion',
+            'beauty', 'retail', 'grocery', 'market', 'store', 'shop', 'book',
+            'starbucks', 'mcdonald', 'burger king', 'kfc', 'subway', 'pizza hut',
+            'outback', 'hellofresh', 'hello fresh', 'deliveroo', 'uber eats', 'swiggy',
+            'zomato', 'talabat', 'careem', 'ole & steen', 'panera bread',
+            'coffee bean', 'cold stone', 'red robin', 'not just desserts',
+            'laithwaite', 'zafran', 'cofe', 'just eat', 'eataly', 'joe & seph',
+            'iceland', 'food', 'restaurant',
+            'bloom & wild', 'flowers',
+            'airbnb', 'hotels.com', 'expedia', 'stubhub', 'tripgift', 'almosafer',
+            'taj hotels', 'fairmont', 'global hotel', 'hotelsgift', 'swissôtel',
+            'swissotel', 'dreamdays', 'mydays', 'jochen schweizer', 'inspire travel',
+            'sanctifly', 'lastminute', 'celebrity cruises', 'esso', 'fuel', 'jet ski',
+            'water sports', 'apnea zone', 'heli dubai', 'love boats', 'elite pearl yachts',
+            'zofeur', 'cap adrénaline', 'cap adrenaline', 'experience', 'cinema',
+            'reel cinemas', 'book my show', 'nationwidetickets', 'ownersbox',
+            'wellbeing', 'wellness', 'beutics', 'rayya wellness', 'champneys',
+            'la feltrinelli', 'feltrinelli',
+        ];
+        if ($matches($retailKeywords)) {
+            return $retailId;
+        }
+
+        if (str_contains($ctx, 'gift card') || str_contains($ctx, 'giftcard') || str_contains($ctx, 'gift-card') || str_contains($ctx, 'voucher')) {
+            return $retailId;
+        }
 
         return null;
     }

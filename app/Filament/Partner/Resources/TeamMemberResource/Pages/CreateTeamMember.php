@@ -29,6 +29,7 @@ class CreateTeamMember extends CreateRecord
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'password' => Hash::make(Str::random(16)),
+                'password_login_enabled' => false,
             ]);
             
             // Assign base manager role if using Spatie Permissions

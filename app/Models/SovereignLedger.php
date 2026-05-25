@@ -52,4 +52,9 @@ class SovereignLedger extends Model
     {
         return $this->morphTo();
     }
+
+    public function transactionReference(): string
+    {
+        return app(\App\Services\SimpleLayer1TransactionReferenceService::class)->forModel($this);
+    }
 }

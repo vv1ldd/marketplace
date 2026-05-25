@@ -26,45 +26,86 @@ class CodeController extends Controller
     {
         \Log::info('REDEEM_SESS: checkEmail START. SessionID=' . session()->getId() . ' | hasInfo=' . (session()->has('order_item_info') ? 'YES' : 'NO'));
         
-        $data = $request->validate(['email' => 'required|email']);
+        $data = $request->validate([
+            'email' => 'required|email',
+            'intent' => 'nullable|string'
+        ]);
 
-        $uuid = session('order_item_info')['uuid'] ?? $request->input('uuid');
+        $intentToken = $request->input('intent') ?? $request->query('intent') ?? session('order_item_info.intent_token');
+        $intent = $intentToken ? \Illuminate\Support\Facades\Cache::get("activation_intent:{$intentToken}") : null;
+
+        $uuid = $intent ? $intent['order_item_uuid'] : (session('order_item_info')['uuid'] ?? $request->input('uuid'));
 
         if (! $uuid) {
-            \Log::warning('REDEEM_SESS: checkEmail FAILED. No UUID in session or request.');
+            \Log::warning('REDEEM_SESS: checkEmail FAILED. No UUID in session, request, or intent.');
             return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
-        if (! session()->has('order_item_info')) {
-            session()->put('order_item_info', ['uuid' => $uuid]);
+        $email = $data['email'];
+        $verificationCode = rand(100000, 999999);
+
+        if ($intent) {
+            $intent['email'] = $email;
+            $intent['verification_code'] = $verificationCode;
+            \Illuminate\Support\Facades\Cache::put("activation_intent:{$intentToken}", $intent, 7200);
         }
 
-        session()->put('user_exists', User::findByEmail($data['email']) !== null);
-        session()->put('client_email', $data['email']);
-
-        $verificationCode = rand(100000, 999999);
+        // Keep session synchronized for backward compatibility
+        if (! session()->has('order_item_info')) {
+            session()->put('order_item_info', [
+                'uuid' => $uuid,
+                'intent_token' => $intentToken
+            ]);
+        }
+        session()->put('user_exists', User::findByEmail($email) !== null);
+        session()->put('client_email', $email);
         session()->put('verification_code', $verificationCode);
 
-        Mail::to($data['email'])->send(new VerificationCodeMail($verificationCode));
+        Mail::to($email)->send(new VerificationCodeMail($verificationCode));
 
-        return redirect()->temporarySignedRoute('redeem.activation', now()->addHours(), ['uuid' => $uuid]);
+        return redirect()->temporarySignedRoute('redeem.activation', now()->addHours(2), [
+            'intent' => $intentToken
+        ]);
     }
 
     public function getViewForm(Request $request): Factory|View
     {
-        $uuid = session('order_item_info.uuid') ?? $request->query('uuid');
-        
-        if (! $uuid && ! session()->has('order_item_info')) {
-             // Fallback to step 1 if everything is lost
-             return view('redeem.step1', ['prefix' => '', 'redeemShop' => null]); 
+        $intentToken = $request->query('intent') ?? $request->input('intent') ?? session('order_item_info.intent_token');
+        $intent = $intentToken ? \Illuminate\Support\Facades\Cache::get("activation_intent:{$intentToken}") : null;
+
+        if ($intent) {
+            $uuid = $intent['order_item_uuid'];
+            $client_email = $intent['email'];
+            $client_info = $intent['client_info'] ?? null;
+
+            if (! session()->has('order_item_info')) {
+                $order_item = OrderItems::where('uuid', $uuid)->first();
+                if ($order_item) {
+                    session()->put('order_item_info', [
+                        'uuid' => $order_item->uuid,
+                        'type_form_id' => $order_item->type_form_id,
+                        'intent_token' => $intentToken,
+                    ]);
+                }
+            }
+            if (! session()->has('client_email')) {
+                session()->put('client_email', $client_email);
+            }
+        } else {
+            $uuid = session('order_item_info.uuid') ?? $request->query('uuid');
+            
+            if (! $uuid && ! session()->has('order_item_info')) {
+                 // Fallback to step 1 if everything is lost
+                 return view('redeem.step1', ['prefix' => '', 'redeemShop' => null]); 
+            }
+
+            $order_item_info = session('order_item_info') ?? ['uuid' => $uuid];
+            $client_info = $order_item_info['client_info'] ?? null;
+            $client_email = session('client_email');
         }
 
-        $order_item_info = session('order_item_info') ?? ['uuid' => $uuid];
-        $client_info = $order_item_info['client_info'] ?? null;
-        $client_email = session('client_email');
-
         $redeemCollectExtendedProfile = false;
-        if ($uuid = data_get($order_item_info, 'uuid')) {
+        if ($uuid) {
             $redeemCollectExtendedProfile = OrderItems::with(['game', 'order.shop'])
                 ->where('uuid', $uuid)
                 ->first()
@@ -76,12 +117,22 @@ class CodeController extends Controller
 
     public function resendCode(Request $request): RedirectResponse
     {
-        $email = session('client_email');
+        $intentToken = $request->input('intent') ?? $request->query('intent') ?? session('order_item_info.intent_token');
+        $intent = $intentToken ? \Illuminate\Support\Facades\Cache::get("activation_intent:{$intentToken}") : null;
+
+        $email = $intent ? $intent['email'] : session('client_email');
+
         if (! $email) {
             return redirect()->route('redeem.code')->withErrors(['code' => 'Сессия истекла']);
         }
 
         $verificationCode = rand(100000, 999999);
+
+        if ($intent) {
+            $intent['verification_code'] = $verificationCode;
+            \Illuminate\Support\Facades\Cache::put("activation_intent:{$intentToken}", $intent, 7200);
+        }
+
         session()->put('verification_code', $verificationCode);
 
         Mail::to($email)->send(new VerificationCodeMail($verificationCode));
@@ -95,7 +146,24 @@ class CodeController extends Controller
             return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
-        $uuid = session('order_item_info.uuid') ?? $request->query('uuid');
+        $intentToken = $request->query('intent');
+        $intent = $intentToken ? \Illuminate\Support\Facades\Cache::get("activation_intent:{$intentToken}") : null;
+
+        if ($intent) {
+            $uuid = $intent['order_item_uuid'];
+            if (! session()->has('order_item_info')) {
+                $order_item = OrderItems::where('uuid', $uuid)->first();
+                if ($order_item) {
+                    session()->put('order_item_info', [
+                        'uuid' => $order_item->uuid,
+                        'type_form_id' => $order_item->type_form_id,
+                        'intent_token' => $intentToken,
+                    ]);
+                }
+            }
+        } else {
+            $uuid = session('order_item_info.uuid') ?? $request->query('uuid');
+        }
         
         if (! $uuid) {
             \Log::warning('REDEEM_SESS: getEmailView FAILED. No UUID.');
@@ -206,14 +274,17 @@ class CodeController extends Controller
     {
         \Log::info('REDEEM_SESS: sendForm START. SessionID=' . session()->getId() . ' | hasInfo=' . (session()->has('order_item_info') ? 'YES' : 'NO'));
 
-        $uuid = session('order_item_info')['uuid'] ?? $request->input('uuid');
+        $intentToken = $request->input('intent') ?? $request->query('intent') ?? session('order_item_info.intent_token');
+        $intent = $intentToken ? \Illuminate\Support\Facades\Cache::get("activation_intent:{$intentToken}") : null;
+
+        $uuid = $intent ? $intent['order_item_uuid'] : (session('order_item_info')['uuid'] ?? $request->input('uuid'));
         
         if (! $uuid) {
-            \Log::warning('REDEEM_SESS: sendForm FAILED. No UUID in session or request.');
+            \Log::warning('REDEEM_SESS: sendForm FAILED. No UUID in session, request, or intent.');
             return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
         }
 
-        \Log::info('REDEEM_SESS: sendForm PROCEEDING. UUID=' . $uuid);
+        \Log::info('REDEEM_SESS: sendForm PROCEEDING. UUID=' . $uuid . ' | Intent=' . ($intentToken ?? 'NONE'));
 
         $order_item = OrderItems::with(['game', 'order.shop'])->where('uuid', $uuid)->first();
         if (! $order_item) {
@@ -227,6 +298,7 @@ class CodeController extends Controller
             'email' => 'required|email',
             'verification_code' => 'required|integer',
             'deliver_to_chat' => 'nullable|string|in:on',
+            'intent' => 'nullable|string'
         ];
 
         if ($redeemCollectExtendedProfile) {
@@ -254,17 +326,20 @@ class CodeController extends Controller
             $data['phone'] = $request->input('phone');
         }
 
-        $sessionCode = session('verification_code');
+        $sessionCode = $intent ? $intent['verification_code'] : session('verification_code');
         $localBypassCode = app()->environment('local')
             ? trim((string) config('app.redeem_local_verification_code'))
             : '';
         $localBypass = $localBypassCode !== ''
             && (string) $data['verification_code'] === $localBypassCode;
 
-        if (! $localBypass && (int) $data['verification_code'] !== (int) $sessionCode && app()->environment('production')) {
+        if (! $localBypass && (int) $data['verification_code'] !== (int) $sessionCode) {
             return back()->withErrors(['verification_code' => 'Неверный код подтверждения']);
         }
 
+        if ($intentToken) {
+            \Illuminate\Support\Facades\Cache::forget("activation_intent:{$intentToken}");
+        }
         session()->forget('verification_code');
 
         $data['uuid'] = $uuid;
@@ -369,7 +444,7 @@ class CodeController extends Controller
                 $order = $order_item->order;
                 $original_code = null;
 
-                if ($order->isYandexSandboxOrder()) {
+                if ($order->isYandexSandboxOrder() && ! $order->shouldRedeemThroughProvider()) {
                     \Log::info('Активация пропущен: Яндекс.Маркет sandbox', ['uuid' => $order_item->uuid]);
                     $order->comments()->create([
                         'user_id' => $user->id,
@@ -531,18 +606,33 @@ class CodeController extends Controller
 
         $order_item->update(['is_redeemed' => true]);
 
+        // Generate Activation Intent Token!
+        $intentToken = 'ACT-' . strtoupper(\Illuminate\Support\Str::random(32));
+        \Illuminate\Support\Facades\Cache::put("activation_intent:{$intentToken}", [
+            'token' => $intentToken,
+            'order_item_uuid' => $order_item->uuid,
+            'email' => null,
+            'verification_code' => null,
+            'is_verified' => false,
+            'redeem_started_at' => now()->toIso8601String(),
+            'client_info' => [],
+        ], 7200);
+
         session()->put('order_item_info', [
             'uuid' => $order_item->uuid,
             'type_form_id' => $order_item->type_form_id,
+            'intent_token' => $intentToken,
         ]);
         
-        \Log::info('REDEEM_SESS: checkCode SUCCESS. SessionID=' . session()->getId() . ' | UUID=' . $order_item->uuid);
+        \Log::info('REDEEM_SESS: checkCode SUCCESS. SessionID=' . session()->getId() . ' | UUID=' . $order_item->uuid . ' | Intent=' . $intentToken);
 
         if (! $order_item->redeem_started_at) {
             $order_item->update(['redeem_started_at' => now()]);
         }
 
-        return redirect()->temporarySignedRoute('redeem.email', now()->addHours(), ['uuid' => $order_item->uuid]);
+        return redirect()->temporarySignedRoute('redeem.email', now()->addHours(2), [
+            'intent' => $intentToken
+        ]);
     }
 
     public function getCodeView(Request $request): \Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View

@@ -13,8 +13,7 @@ class StoreEntrySignature
         $passkey = $event->passkey;
 
         // 🛡️ Calculate L1 Address from Public Key stored in Passkey data
-        $publicKey = $passkey->data->credentialPublicKey ?? '';
-        $l1Address = 'sl1_' . substr(hash('sha256', $publicKey), 0, 40);
+        $l1Address = app(\App\Services\L1IdentityService::class)->addressFromPasskey($passkey);
 
         EntrySignature::create([
             'user_id' => $passkey->authenticatable_id,
@@ -47,5 +46,14 @@ class StoreEntrySignature
         // ⚓ Issue Sovereign Mandate for this session
         session(['sovereign_mandate_id' => $ledgerEntry->id]);
         session(['sovereign_mandate_hash' => $ledgerEntry->fingerprint]);
+
+        // 🔐 Seamless Guard Synchronization: If B2B partner, log into sellers guard as well
+        $user = $passkey->authenticatable;
+        if ($user) {
+            $seller = \App\Models\Seller::findByEmail($user->email);
+            if ($seller) {
+                \Illuminate\Support\Facades\Auth::guard('sellers')->login($seller);
+            }
+        }
     }
 }

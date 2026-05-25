@@ -21,9 +21,14 @@ class CheckApiApplicationToken
             return response()->json(['message' => 'Unauthorized: Token missing'], 401);
         }
 
-        $application = ApiApplication::where('token', $token)
-            ->where('is_active', true)
-            ->first();
+        $applicationQuery = ApiApplication::query()->where('is_active', true);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('api_applications', 'token_bidx')) {
+            $applicationQuery->where('token_bidx', app(\App\Services\VaultTransitService::class)->computeBlindIndex($token));
+        } else {
+            $applicationQuery->where('token', $token);
+        }
+
+        $application = $applicationQuery->first();
 
         if (! $application) {
             return response()->json(['message' => 'Unauthorized: Invalid or inactive token'], 401);

@@ -88,7 +88,7 @@ class DistributeStockToChannels implements ShouldQueue
     private function dispatchChannelPush(Warehouse $warehouse): void
     {
         match ($warehouse->channel) {
-            'yandex_market' => PushStockToYandex::dispatch($this->shop, $warehouse),
+            'yandex_market' => PushStockToYandex::dispatch($this->shop, $warehouse, $this->productId),
             // 'ozon'          => PushStockToOzon::dispatch($this->shop, $warehouse),
             // 'wildberries'   => PushStockToWildberries::dispatch($this->shop, $warehouse),
             default         => null,

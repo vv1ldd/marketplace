@@ -10,17 +10,35 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Shops: Encrypt Credentials
-        DB::statement('ALTER TABLE shops MODIFY api_key TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE shops MODIFY client_secret TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE shops MODIFY woo_consumer_secret TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE shops MODIFY smtp_password TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE shops MODIFY telegram_bot_token TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE shops MODIFY notification_token TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE shops MODIFY import_token TEXT DEFAULT NULL');
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('shops', function (Blueprint $table) {
+                $table->text('api_key')->nullable()->change();
+                $table->text('client_secret')->nullable()->change();
+                $table->text('woo_consumer_secret')->nullable()->change();
+                $table->text('smtp_password')->nullable()->change();
+                $table->text('telegram_bot_token')->nullable()->change();
+                $table->text('notification_token')->nullable()->change();
+                $table->text('import_token')->nullable()->change();
+            });
+            Schema::table('order_comments', function (Blueprint $table) {
+                $table->text('comment')->nullable()->change();
+            });
+            Schema::table('ticket_messages', function (Blueprint $table) {
+                $table->text('message')->nullable()->change();
+            });
+        } else {
+            DB::statement('ALTER TABLE shops MODIFY api_key TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE shops MODIFY client_secret TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE shops MODIFY woo_consumer_secret TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE shops MODIFY smtp_password TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE shops MODIFY telegram_bot_token TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE shops MODIFY notification_token TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE shops MODIFY import_token TEXT DEFAULT NULL');
 
-        // 2. Communications: Encrypt Comments and Messages
-        DB::statement('ALTER TABLE order_comments MODIFY comment TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE ticket_messages MODIFY message TEXT DEFAULT NULL');
+            // 2. Communications: Encrypt Comments and Messages
+            DB::statement('ALTER TABLE order_comments MODIFY comment TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE ticket_messages MODIFY message TEXT DEFAULT NULL');
+        }
 
         $vault = app(\App\Services\VaultTransitService::class);
 

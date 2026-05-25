@@ -47,34 +47,9 @@ class SovereignContextMiddleware
             }
         }
 
-        // Only target the Partner panel for automatic context switching
+        // Redirect any standard Filament partner panel access directly to the custom themed SPA B2B dashboard
         if (Filament::getCurrentPanel()?->getId() === 'partner') {
-            $user = auth()->user();
-            
-            // Assuming the seller has at least one shop linked
-            // We use the first active shop to determine the region
-            $shop = $user?->shops()->where('is_active', true)->first();
-            
-            if ($shop) {
-                $region = strtoupper(trim($shop->shop_region ?? 'RU'));
-                
-                $currencyBase = match ($region) {
-                    'TR', 'TK' => 'TRY',
-                    'ES'       => 'EUR',
-                    'GE'       => 'GEL',
-                    'US'       => 'USD',
-                    default    => 'RUB',
-                };
-                
-                // Set the default base if it's not already manually overridden in this session
-                if (!session()->has('currency_base')) {
-                    session(['currency_base' => $currencyBase]);
-                    
-                    // Also set a default pair for the region to make it "live" immediately
-                    $defaultTarget = ($currencyBase === 'RUB') ? 'USD' : 'RUB';
-                    session(['currency_target' => $defaultTarget]);
-                }
-            }
+            return redirect()->route('partner.dashboard');
         }
 
         return $next($request);

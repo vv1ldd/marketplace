@@ -56,6 +56,23 @@ class VoucherEngine
         return self::generate($issuerPrefix, $sku, $secret, branded: true);
     }
 
+    public static function issueDeterministic(
+        ?string $issuerPrefix,
+        ?string $sku,
+        string $reference,
+        ?\DateTimeInterface $issuedAt = null,
+        ?string $secret = null
+    ): string {
+        $issuer = strtoupper(substr(preg_replace('/[^A-Z0-9]/i', '', $issuerPrefix ?? 'WLD'), 0, 4));
+        $secret = $secret ?? config('app.key', 'sovereign-fallback');
+        $epoch36 = self::epochSegment($issuedAt);
+        $skuTag = self::skuTag($sku, $secret);
+        $entropy = self::hexToAlphabet(hash_hmac('sha256', "voucher|{$issuer}|{$sku}|{$reference}", $secret), 6);
+        $body = implode('-', [$issuer, $epoch36, $skuTag, $entropy]);
+
+        return "{$body}-".self::checksum($body);
+    }
+
     /**
      * Generate a DIRECT CHANNEL voucher (with SVC prefix).
      * For platform-level channels: Telegram Bot, VK Store, WhatsApp, etc.
@@ -168,9 +185,10 @@ class VoucherEngine
      * Encode current time (minute-level precision) in Base36 uppercase.
      * Keeps temporal traceability without exposing exact seconds.
      */
-    private static function epochSegment(): string
+    private static function epochSegment(?\DateTimeInterface $issuedAt = null): string
     {
-        $minuteEpoch = (int) floor(time() / 60);
+        $timestamp = $issuedAt ? $issuedAt->getTimestamp() : time();
+        $minuteEpoch = (int) floor($timestamp / 60);
         return strtoupper(base_convert((string)$minuteEpoch, 10, 36));
     }
 

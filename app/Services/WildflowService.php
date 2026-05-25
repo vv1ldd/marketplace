@@ -218,6 +218,9 @@ class WildflowService
  
     public function syncPartner(\App\Models\LegalEntity $entity, array $providerCredentials = []): array
     {
+        $l1Address = $entity->agreement_metadata['l1_address']
+            ?? ($entity->user?->meta['l1_address'] ?? null);
+
         $payload = [
             'terminal_id' => (string)$entity->id,
             'name'        => $entity->name ?? $entity->short_name,
@@ -225,6 +228,10 @@ class WildflowService
             'currency'    => $entity->currency ?? 'RUB',
             'provider_credentials' => $providerCredentials,
         ];
+
+        if ($l1Address) {
+            $payload['l1_address'] = $l1Address;
+        }
  
         $response = $this->client->post("partners/sync", $payload);
  

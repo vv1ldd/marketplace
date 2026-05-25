@@ -74,7 +74,9 @@ class ProviderProductResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->where('is_active', true);
+        $query = parent::getEloquentQuery()
+            ->where('is_active', true)
+            ->whereHas('provider', fn (Builder $providerQuery) => $providerQuery->where('is_active', true));
         $tenant = Filament::getTenant();
 
         if ($tenant instanceof \App\Models\LegalEntity) {
@@ -135,7 +137,7 @@ class ProviderProductResource extends Resource
                                     ->color('info'),
                                 TextEntry::make('upc')
                                     ->label('UPC / Баркод')
-                                ->getStateUsing(fn ($record) => $record->getUpcForShop(Filament::getTenant()->shops()->first()))
+                                    ->getStateUsing(fn ($record) => $record->getUpcForShop(static::firstTenantShop()))
                                     ->copyable(),
                                 TextEntry::make('activation_url')
                                     ->label('Ссылка на активацию')
@@ -227,7 +229,7 @@ class ProviderProductResource extends Resource
                         $shop = $tenant instanceof \App\Models\LegalEntity ? $tenant->shops()->first() : $tenant;
                         if (!$shop) return '—';
 
-                        $wf = \App\Models\WildflowCatalog::where('sku', $record->market_sku ?? $record->sku)->first();
+                        $wf = \App\Models\WildflowCatalog::where('sku', $record->market_sku ?: $record->sku)->first();
 
                         if (!$wf) {
                             return number_format((float) $record->purchase_price, 2).' '.$record->currency;
@@ -301,14 +303,14 @@ class ProviderProductResource extends Resource
                     ->button()
                     ->modalHeading(fn ($record) => $shopHasWildflowProduct($record) ? 'Пополнение стока' : 'Куда публиковать товар')
                     ->schema(function (\App\Models\ProviderProduct $record) use ($shopHasWildflowProduct) {
-                        $wf = WildflowCatalog::where('sku', $record->market_sku ?? $record->sku)->first();
+                        $wf = WildflowCatalog::where('sku', $record->market_sku ?: $record->sku)->first();
                         $isVariable = $wf?->is_variable_price ?? false;
 
                         $fields = [];
 
                         $fields[] = \Filament\Forms\Components\Select::make('shop_id')
                             ->label('Выберите магазин')
-                            ->options(fn() => Filament::getTenant()->shops()->pluck('name', 'id'))
+                            ->options(fn() => static::tenantShopOptions())
                             ->required()
                             ->live();
 
@@ -358,9 +360,23 @@ class ProviderProductResource extends Resource
                         return $fields;
                     })
                     ->action(function (\App\Models\ProviderProduct $record, array $data) {
-                        $shop = Shop::find($data['shop_id']);
-                        $seller = auth()->user();
-                        $selectedChannels = SalesChannels::normalizeSelection($data['sales_channels'] ?? []);
+                        $shop = static::resolveTenantShop((int) ($data['shop_id'] ?? 0));
+                        if (! $shop) {
+                            Notification::make()
+                                ->title('Магазин недоступен')
+                                ->body('Выбранный магазин не принадлежит текущему бизнес-профилю или отключен.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $seller = auth('sellers')->user() ?? auth()->user();
+                        $configuredChannels = array_keys(SalesChannels::optionsForUi($shop));
+                        $selectedChannels = array_values(array_intersect(
+                            SalesChannels::normalizeSelection($data['sales_channels'] ?? []),
+                            $configuredChannels,
+                        ));
                         $count = (int) ($data['count'] ?? 0);
                         $amount = isset($data['amount']) ? (float) $data['amount'] : null;
 
@@ -369,7 +385,7 @@ class ProviderProductResource extends Resource
                             $job = new AddCatalogItemToShop(
                                 $record->id,
                                 $shop->id,
-                                $seller->id,
+                                (int) $seller?->id,
                                 $selectedChannels,
                                 $count,
                                 $amount
@@ -399,16 +415,16 @@ class ProviderProductResource extends Resource
                     ->modalHeading(fn ($record) => 'Разовая закупка: '.$record->name)
                     ->modalDescription('Будет создан ваучер, готовый к активации. Ссылка на активацию появится после оплаты.')
                     ->schema(function (\App\Models\ProviderProduct $record) {
-                        $wf = WildflowCatalog::where('sku', $record->market_sku)->first();
+                        $wf = WildflowCatalog::where('sku', $record->market_sku ?: $record->sku)->first();
                         $isVariable = $wf?->is_variable_price ?? false;
                         
-                        $shops = Shop::where('is_active', true)->get()->pluck('name', 'id');
+                        $shops = collect(static::tenantShopOptions());
                         
                         $fields = [];
 
                         $fields[] = \Filament\Forms\Components\Select::make('shop_id')
                             ->label('Для магазина')
-                            ->options($shops)
+                            ->options($shops->all())
                             ->required()
                             ->default(array_key_first($shops->toArray()) ?? null);
 
@@ -451,18 +467,17 @@ class ProviderProductResource extends Resource
                         return $fields;
                     })
                     ->action(function (\App\Models\ProviderProduct $record, array $data) {
-                        $wf = WildflowCatalog::where('sku', $record->market_sku)->first();
+                        $wf = WildflowCatalog::where('sku', $record->market_sku ?: $record->sku)->first();
 
                         if (!$wf) {
                             Notification::make()->title('Ошибка')->body('Товар не найден в каталоге Wildflow.')->danger()->send();
                             return;
                         }
 
-                        $shopId = $data['shop_id'] ?? null;
-                        $shop = Shop::find($shopId);
+                        $shop = static::resolveTenantShop((int) ($data['shop_id'] ?? 0));
 
                         if (!$shop) {
-                             Notification::make()->title('Ошибка')->body('Магазин не найден.')->danger()->send();
+                             Notification::make()->title('Ошибка')->body('Магазин не найден или недоступен текущему бизнес-профилю.')->danger()->send();
                              return;
                         }
 
@@ -674,5 +689,65 @@ class ProviderProductResource extends Resource
         return [
             'index' => ProviderProductResource\Pages\ListProviderProducts::route('/'),
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function tenantShopOptions(): array
+    {
+        $tenant = Filament::getTenant();
+
+        if ($tenant instanceof \App\Models\LegalEntity) {
+            return $tenant->shops()
+                ->where('is_active', true)
+                ->pluck('name', 'id')
+                ->all();
+        }
+
+        if ($tenant instanceof Shop && $tenant->is_active) {
+            return [$tenant->id => $tenant->name];
+        }
+
+        return [];
+    }
+
+    private static function resolveTenantShop(int $shopId): ?Shop
+    {
+        if ($shopId <= 0) {
+            return null;
+        }
+
+        $tenant = Filament::getTenant();
+        $query = Shop::query()
+            ->whereKey($shopId)
+            ->where('is_active', true);
+
+        if ($tenant instanceof \App\Models\LegalEntity) {
+            $query->where('legal_entity_id', $tenant->id);
+        } elseif ($tenant instanceof Shop) {
+            $query->whereKey($tenant->id);
+        } else {
+            return null;
+        }
+
+        return $query->first();
+    }
+
+    private static function firstTenantShop(): ?Shop
+    {
+        $tenant = Filament::getTenant();
+
+        if ($tenant instanceof \App\Models\LegalEntity) {
+            return $tenant->shops()
+                ->where('is_active', true)
+                ->first();
+        }
+
+        if ($tenant instanceof Shop && $tenant->is_active) {
+            return $tenant;
+        }
+
+        return null;
     }
 }

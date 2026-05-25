@@ -9,12 +9,20 @@ class B2BController extends Controller
 {
     public function search(Request $request)
     {
-        $inn = $request->get('inn');
+        $inn = preg_replace('/\D+/', '', (string) $request->get('inn', ''));
+        if (!in_array(strlen($inn), [10, 12], true)) {
+            return response()->json(['suggestions' => [], 'fallback' => true, 'npd' => null]);
+        }
+
         $token = config('services.dadata.token');
         
         if (!$token) {
             \Log::error("DaData Token is missing in config.");
-            return response()->json(['suggestions' => [], 'fallback' => true]);
+            $npd = strlen($inn) === 12
+                ? app(\App\Services\NpdStatusService::class)->check($inn)
+                : null;
+
+            return response()->json(['suggestions' => [], 'fallback' => true, 'npd' => $npd]);
         }
 
         try {
@@ -34,7 +42,11 @@ class B2BController extends Controller
             $result = $response->json()['suggestions'] ?? [];
 
             if (empty($result)) {
-                return response()->json(['suggestions' => [], 'fallback' => true]);
+                $npd = strlen($inn) === 12
+                    ? app(\App\Services\NpdStatusService::class)->check($inn)
+                    : null;
+
+                return response()->json(['suggestions' => [], 'fallback' => true, 'npd' => $npd]);
             }
 
             // Normalize results using our service
@@ -45,7 +57,11 @@ class B2BController extends Controller
             return response()->json(['suggestions' => $normalized]);
         } catch (\Exception $e) {
             \Log::error("DaData Error: " . $e->getMessage());
-            return response()->json(['suggestions' => [], 'fallback' => true]);
+            $npd = strlen($inn) === 12
+                ? app(\App\Services\NpdStatusService::class)->check($inn)
+                : null;
+
+            return response()->json(['suggestions' => [], 'fallback' => true, 'npd' => $npd]);
         }
     }
 }

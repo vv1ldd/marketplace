@@ -48,12 +48,17 @@ class LegalEntity extends Model
         'status',
         'agreement_metadata',
         'vendor_credentials',
+        'native_token_balance',
+        'native_token_reserved',
+        'native_token_currency',
     ];
 
     protected $casts = [
         'available_balance' => 'decimal:2',
         'reserved_balance' => 'decimal:2',
         'balance' => 'decimal:2',
+        'native_token_balance' => 'decimal:4',
+        'native_token_reserved' => 'decimal:4',
         'allowed_categories' => 'array',
         'allowed_brands' => 'array',
         'allow_all_brands' => 'boolean',
@@ -112,7 +117,7 @@ class LegalEntity extends Model
             ]);
 
             // 📡 BALANCE & STATUS SYNC: If critical state changed, push to Kernel
-            if (isset($changes['balance']) || isset($changes['available_balance']) || isset($changes['status']) || isset($changes['vendor_credentials'])) {
+            if (isset($changes['balance']) || isset($changes['available_balance']) || isset($changes['status']) || isset($changes['vendor_credentials']) || isset($changes['agreement_metadata'])) {
                 try {
                     (new \App\Services\WildflowService())->syncPartner(
                         $entity, 
@@ -140,6 +145,14 @@ class LegalEntity extends Model
         });
     }
 
+    public static function findByInn(string $inn): ?self
+    {
+        $salt = config('vault.blind_index.salt', 'default-salt');
+        $bidx = hash_hmac('sha256', strtolower(trim($inn)), $salt);
+ 
+        return static::where('inn_bidx', $bidx)->first();
+    }
+
     public function seller(): BelongsTo
     {
         return $this->belongsTo(Seller::class);
@@ -153,6 +166,16 @@ class LegalEntity extends Model
     public function shops(): HasMany
     {
         return $this->hasMany(Shop::class);
+    }
+
+    public function sovereignRequests(): HasMany
+    {
+        return $this->hasMany(SovereignBalanceRequest::class);
+    }
+
+    public function migrationPills(): HasMany
+    {
+        return $this->hasMany(LegalEntityMigrationPill::class);
     }
 
     public function sellers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
@@ -172,6 +195,25 @@ class LegalEntity extends Model
     public function country(): BelongsTo
     {
         return $this->belongsTo(MappingCountry::class, 'country_id');
+    }
+
+    /**
+     * Все API-терминалы продавца на платформе marketplace.
+     * Каждый терминал имеет terminal_id + PIN для аутентификации.
+     */
+    public function terminals(): HasMany
+    {
+        return $this->hasMany(SellerTerminal::class);
+    }
+
+    /**
+     * Первичный активный терминал (самый новый действующий).
+     */
+    public function activeTerminal(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(SellerTerminal::class)
+            ->where('is_active', true)
+            ->latest();
     }
 
     /**
@@ -228,5 +270,27 @@ class LegalEntity extends Model
         $walletCurrency = $this->currency ?? 'RUB';
         
         return $finance->convert($sellerPriceInProductCurrency, $productCurrency, $walletCurrency);
+    }
+
+    /**
+     * Deduct Native Network Token balance.
+     */
+    public function deductNativeBalance(float $amount): void
+    {
+        if ($this->native_token_balance < $amount) {
+            throw new \Exception("Недостаточно средств в нативных токенах. Требуется " . number_format($amount, 4) . " SL1, доступно " . number_format($this->native_token_balance, 4) . " SL1.");
+        }
+        $this->decrement('native_token_balance', $amount);
+    }
+
+    /**
+     * Deduct standard fiat RUB balance.
+     */
+    public function deductRubBalance(float $amount): void
+    {
+        if ($this->available_balance < $amount) {
+            throw new \Exception("Недостаточно средств. Требуется " . number_format($amount, 2) . " RUB, доступно " . number_format($this->available_balance, 2) . " RUB.");
+        }
+        $this->decrement('available_balance', $amount);
     }
 }

@@ -31,7 +31,7 @@ Route::group(['prefix' => 'ym'], function () {
     Route::post('send-stock-items-wildflow', [YmMainController::class, 'prepareSendStockItemsWildflow']);
 });
 
-Route::get('update-woo-prices', [WooPriceUpdateController::class, 'update']);
+// Route::get('update-woo-prices', [WooPriceUpdateController::class, 'update']);
 
 Route::group(['prefix' => 'redeem', 'middleware' => 'api.redeem.auth:shop'], function () {
     Route::post('verify-code', [\App\Http\Controllers\Api\RedeemApiController::class, 'verifyCode']);
@@ -43,6 +43,7 @@ Route::group(['prefix' => 'redeem', 'middleware' => 'api.redeem.auth:shop'], fun
 Route::group(['prefix' => 'ledger', 'middleware' => 'api.ledger.auth:ledger'], function () {
     Route::get('catalog-map', [\App\Http\Controllers\Api\LedgerApiController::class, 'catalogMap']);
     Route::get('redeem-events', [\App\Http\Controllers\Api\LedgerApiController::class, 'redeemEvents']);
+    Route::get('trace/{reference}', [\App\Http\Controllers\Api\LedgerApiController::class, 'trace']);
 });
 
 Route::get('image-generate', [YmMainController::class, 'imageGenerate']);
@@ -50,7 +51,7 @@ Route::get('description-generate', [YmMainController::class, 'descriptionGenerat
 
 Route::post('telegram/webhook/{token}', [\App\Http\Controllers\TelemetryController::class, 'telegramWebhook']);
 
-Route::post('webhooks/fazer', [\App\Http\Controllers\Api\Webhooks\FazerWebhookController::class, 'handle']);
+// Route::post('webhooks/fazer', [\App\Http\Controllers\Api\Webhooks\FazerWebhookController::class, 'handle']);
 
 /** Unified provider catalog — GET /api/catalog/products?token=xxx&provider=fazer */
 Route::prefix('catalog')->group(function () {
@@ -64,3 +65,15 @@ Route::prefix('catalog')->group(function () {
 // 2. запускаем orders/{referenceCode} -> отправляем оригинал клиенту при активации
 Route::post('/telemetry/report', [App\Http\Controllers\Api\TelemetryController::class, 'report']);
 Route::post('/b2b/search', [App\Http\Controllers\Api\B2BController::class, 'search']);
+
+// Festive Holiday Google-Doodle-style API
+Route::get('/holidays/active', [\App\Http\Controllers\Api\HolidayApiController::class, 'getActiveHoliday']);
+
+/** Seller Terminal API endpoints protected by seller.terminal middleware */
+Route::group(['prefix' => 'seller', 'middleware' => 'seller.terminal'], function () {
+    Route::get('balance',           [\App\Http\Controllers\Api\SellerOrderController::class, 'balance']);
+    Route::get('catalog',           [\App\Http\Controllers\Api\SellerOrderController::class, 'catalog']);
+    Route::post('order',            [\App\Http\Controllers\Api\SellerOrderController::class, 'createOrder']);
+    Route::get('order/{reference}', [\App\Http\Controllers\Api\SellerOrderController::class, 'showOrder']);
+});
+

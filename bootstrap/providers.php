@@ -8,4 +8,5 @@ return [
     App\Providers\Filament\AuditPanelProvider::class,
     App\Providers\Filament\TreasuryPanelProvider::class,
     App\Providers\Filament\KernelPanelProvider::class,
+    App\Providers\Filament\SupportPanelProvider::class,
 ];

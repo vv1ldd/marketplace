@@ -85,16 +85,18 @@ $lastUserMsg
 EOT;
 
         try {
+            $model = config('services.ollama.model');
+            $url = rtrim(config('services.ollama.url'), '/');
             $response = \Illuminate\Support\Facades\Http::timeout(300)
-                ->post('http://localhost:11434/api/generate', [
-                    'model' => 'llama3',
+                ->post("$url/api/generate", [
+                    'model' => $model,
                     'prompt' => $prompt,
                     'stream' => false,
                 ]);
 
             $aiContent = $response->successful() ? $response->json('response') : "Извините, возникла ошибка связи с мозговым центром.";
         } catch (\Exception $e) {
-            $aiContent = "Я временно не могу связаться с Ollama. Проверьте запуск Llama 3.";
+            $aiContent = "Я временно не могу связаться с Ollama. Проверьте запуск модели {$model}.";
         }
 
         $this->chatHistory[] = [

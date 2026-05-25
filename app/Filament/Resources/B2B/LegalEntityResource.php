@@ -6,6 +6,7 @@ use App\Filament\Resources\B2B\Pages\CreateLegalEntity;
 use App\Filament\Resources\B2B\Pages\EditLegalEntity;
 use App\Filament\Resources\B2B\Pages\ListLegalEntities;
 use App\Filament\Resources\B2B\RelationManagers\ShopsRelationManager;
+use App\Filament\Resources\B2B\RelationManagers\SovereignBalanceRequestsRelationManager;
 use App\Models\LegalEntity;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -70,7 +71,7 @@ class LegalEntityResource extends Resource
                     ->color('gray')
                     ->sortable(),
                 TextColumn::make('kernel_balance')
-                    ->label('Кернел Баланс')
+                    ->label('Баланс в Кернеле (USD)')
                     ->getStateUsing(function (LegalEntity $record) {
                         try {
                             $data = (new \App\Services\WildflowService())->getPartner((string)$record->id);
@@ -79,7 +80,7 @@ class LegalEntityResource extends Resource
                             return 'Error';
                         }
                     })
-                    ->money('RUB')
+                    ->money('USD')
                     ->color('success'),
                 TextColumn::make('reserved_balance')
                     ->label('Холды (RUB)')
@@ -120,12 +121,20 @@ class LegalEntityResource extends Resource
                             
                             // 2. Update Local Mirror
                             $record->increment('available_balance', $amount);
+                            $record->increment('balance', $amount);
                             
                             // 3. Local Ledger Record
                             $shop = $record->shops()->first() ?? \App\Models\Shop::first();
                             if ($shop) {
                                 app(\App\Services\LedgerService::class)->record($shop, 'FINANCE_TOPUP', $record, [
+                                    'asset' => 'RUBT',
                                     'amount' => $amount,
+                                    'amount_rub' => $amount,
+                                    'token_amount' => $amount,
+                                    'currency' => 'RUB',
+                                    'token_currency' => 'RUBT',
+                                    'backing_currency' => 'RUB',
+                                    'backing_ratio' => 1,
                                     'comment' => $reference,
                                     'new_balance' => $record->available_balance,
                                     'admin_id' => auth()->id(),
@@ -152,7 +161,7 @@ class LegalEntityResource extends Resource
                     ->color('info')
                     ->action(function (LegalEntity $record) {
                         try {
-                            (new \App\Services\WildflowService())->syncPartner((string)$record->id);
+                            (new \App\Services\WildflowService())->syncPartner($record, $record->vendor_credentials ?? []);
                             
                             \Filament\Notifications\Notification::make()
                                 ->title('Синхронизация успешна')
@@ -167,6 +176,29 @@ class LegalEntityResource extends Resource
                                 ->send();
                         }
                     }),
+                \Filament\Actions\Action::make('migrationPill')
+                    ->label('Migration pill')
+                    ->icon('heroicon-m-key')
+                    ->color('warning')
+                    ->action(function (LegalEntity $record) {
+                        [$pill, $token] = app(\App\Services\LegalEntityMigrationPillService::class)->issueForOwner(
+                            legalEntity: $record,
+                            targetDomain: config('app.production_domain', config('app.domain')),
+                            issuedBy: auth()->user(),
+                            issuedIp: request()->ip(),
+                            expiresAt: now()->addMinutes(30),
+                        );
+
+                        $url = app(\App\Services\LegalEntityMigrationPillService::class)->migrationUrl($token, $pill->target_domain);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Одноразовая таблетка выпущена')
+                            ->body($url)
+                            ->success()
+                            ->persistent()
+                            ->send();
+                    })
+                    ->visible(fn (): bool => ! app()->isProduction() && config('app.env') !== 'production'),
                 \Filament\Actions\EditAction::make(),
                 \Filament\Actions\DeleteAction::make(),
             ])
@@ -185,6 +217,7 @@ class LegalEntityResource extends Resource
         return [
             ShopsRelationManager::class,
             \App\Filament\Resources\B2B\RelationManagers\ManagersRelationManager::class,
+            SovereignBalanceRequestsRelationManager::class,
         ];
     }
 

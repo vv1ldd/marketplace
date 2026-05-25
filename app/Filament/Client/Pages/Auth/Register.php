@@ -3,43 +3,68 @@
 namespace App\Filament\Client\Pages\Auth;
 
 use Filament\Auth\Pages\Register as BaseRegister;
-use Illuminate\Database\Eloquent\Model;
-
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Str;
+use App\Models\User;
 
 class Register extends BaseRegister
 {
+    protected string $view = 'filament.pages.auth.register';
+
+    public string $step = 'email'; // 'email' or 'sent'
+    public string $magicLink = '';
+    public string $rawBlueprint = '';
+
     public function form(Schema $schema): Schema
     {
         return $schema
             ->schema([
-                \Filament\Forms\Components\TextInput::make('first_name')
-                    ->label('Никнейм')
-                    ->prefix('@')
-                    ->placeholder('имя_в_сети')
+                TextInput::make('email')
+                    ->label('Ваш Email 🛡️')
+                    ->email()
                     ->required()
-                    ->maxLength(255),
+                    ->placeholder('mail@example.com')
+                    ->autocomplete('email'),
             ])
             ->statePath('data');
     }
 
-    protected function handleRegistration(array $data): Model
+    public function register(): ?\Filament\Auth\Http\Responses\Contracts\RegistrationResponse
     {
-        // Генерируем технический email и случайный пароль
-        $data['email'] = Str::slug($data['first_name']) . '@' . Str::random(8) . '.local';
-        $data['password'] = Str::random(32);
+        // 1. Get and validate form data
+        $data = $this->form->getState();
+        $email = $data['email'];
 
-        $user = static::getUserModel()::create($data);
+        // 2. Ensure email is strictly unique in our system
+        if (User::where('email', $email)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'data.email' => 'Этот email уже зарегистрирован. Пожалуйста, войдите в систему.',
+            ]);
+        }
 
-        $user->assignRole('customer');
+        // 3. Generate secure token
+        $token = bin2hex(random_bytes(32));
 
-        return $user;
-    }
+        // 4. Assemble Sovereign Intent Blueprint
+        $blueprint = [
+            'schema' => 'meanly:l1:identity:activation:v1',
+            'email' => $email,
+            'timestamp' => now()->toIso8601String(),
+            'salt' => bin2hex(random_bytes(16)),
+            'authority' => 'meanly.systems',
+            'is_b2b' => false,
+        ];
 
-    protected function getRedirectUrl(): string
-    {
-        // Перенаправляем в профиль для регистрации Passkey
-        return '/profile';
+        // 5. Save in Cache for 15 minutes
+        \Illuminate\Support\Facades\Cache::put("intent:{$token}", $blueprint, now()->addMinutes(15));
+
+        // 6. Generate magic link & raw blueprint JSON
+        $this->magicLink = route('register.verify', ['token' => $token]);
+        $this->rawBlueprint = json_encode($blueprint, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        // 7. Transition state
+        $this->step = 'sent';
+
+        return null;
     }
 }

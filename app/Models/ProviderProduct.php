@@ -11,6 +11,16 @@ class ProviderProduct extends Model
 
     protected static function booted(): void
     {
+        static::saving(function ($item) {
+            if (empty($item->canonical_category)) {
+                $item->canonical_category = app(\App\Services\CanonicalCategoryResolver::class)->fromPayload($item->data ?? [], [
+                    $item->name,
+                    $item->category,
+                    $item->reward_type,
+                ]);
+            }
+        });
+
         static::updated(function ($item) {
             $changes = $item->getChanges();
             unset($changes['updated_at']);
@@ -33,6 +43,7 @@ class ProviderProduct extends Model
         'market_sku',
         'name',
         'category',
+        'canonical_category',
         'reward_type',
         'purchase_price',
         'retail_price',
@@ -70,6 +81,12 @@ class ProviderProduct extends Model
     public function region()
     {
         return $this->belongsTo(MappingCountry::class, 'region_id');
+    }
+
+    public function canonicalIdentitySource()
+    {
+        return $this->hasOne(CanonicalProductIdentitySource::class, 'source_id')
+            ->where('source_type', CanonicalProductIdentitySource::SOURCE_PROVIDER_PRODUCT);
     }
 
     /**

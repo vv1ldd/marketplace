@@ -40,13 +40,54 @@ class SovereignPathfinder extends Page implements HasForms
 
     public function mount(): void
     {
-        $this->form->fill([
-            'from_code' => 'RUB',
-            'to_code' => 'USD',
-            'amount' => 1000,
-        ]);
+        $user = auth()->user();
+        $currencies = \App\Models\Currency::all();
+        $flags = [
+            'USD' => '🇺🇸', 'EUR' => '🇪🇺', 'RUB' => '🇷🇺', 'TRY' => '🇹🇷',
+            'GBP' => '🇬🇧', 'CNY' => '🇨🇳', 'KZT' => '🇰🇿', 'AED' => '🇦🇪',
+            'THB' => '🇹🇭', 'GEL' => '🇬🇪', 'AMD' => '🇦🇲', 'BYN' => '🇧🇾',
+        ];
         
-        $this->calculateRoutes();
+        $currencyOptions = $currencies->map(function ($c) use ($flags) {
+            $flag = $flags[$c->code] ?? '🏳️';
+            return [
+                'code' => $c->code,
+                'name' => $c->name,
+                'flag' => $flag
+            ];
+        })->toArray();
+
+        // Calculate initial cross-rate matrix
+        $sortedCurrencies = ['USD', 'EUR', 'RUB', 'AED', 'TRY', 'GBP', 'CAD', 'SGD', 'KRW'];
+        $matrixCurrencies = \App\Models\Currency::where('is_auto_update', true)->pluck('code')->toArray();
+        $sorted = [];
+        foreach ($sortedCurrencies as $p) {
+            if (in_array($p, $matrixCurrencies)) $sorted[] = $p;
+        }
+        foreach ($matrixCurrencies as $c) {
+            if ($c !== 'EZD' && !in_array($c, $sorted)) $sorted[] = $c;
+        }
+        $matrixCurrencies = array_slice($sorted, 0, 15);
+        
+        $service = app(SovereignCrossRateService::class);
+        $matrix = [];
+        foreach ($matrixCurrencies as $rowCode) {
+            foreach ($matrixCurrencies as $colCode) {
+                if ($rowCode === $colCode) {
+                    $matrix[$rowCode][$colCode] = 1.0;
+                } else {
+                    $matrix[$rowCode][$colCode] = $service->getRate($rowCode, $colCode, 'sovereign');
+                }
+            }
+        }
+
+        response()->view('ops.treasury', [
+            'user' => $user,
+            'currencyOptions' => $currencyOptions,
+            'matrixCurrencies' => $matrixCurrencies,
+            'matrix' => $matrix,
+        ])->send();
+        exit;
     }
 
     public function form(Schema $form): Schema

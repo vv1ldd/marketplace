@@ -11,6 +11,8 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Set;
 use App\Services\DaDataService;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class Register extends BaseRegister
 {
@@ -75,8 +77,6 @@ class Register extends BaseRegister
 
                 $this->getNameFormComponent()->label('Ваше имя / Псевдоним'),
                 $this->getEmailFormComponent(),
-                $this->getPasswordFormComponent(),
-                $this->getPasswordConfirmationFormComponent(),
             ])
             ->statePath('data');
     }
@@ -91,7 +91,9 @@ class Register extends BaseRegister
             session(['pending_country' => $data['country_code']]);
         }
 
-        // Creates seller using standard flow
+        $data['password'] = Hash::make(Str::random(64));
+        $data['password_login_enabled'] = false;
+
         return parent::handleRegistration($data);
     }
 }

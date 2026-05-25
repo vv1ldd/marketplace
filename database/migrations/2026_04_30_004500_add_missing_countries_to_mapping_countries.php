@@ -12,9 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('mapping_countries', function (Blueprint $table) {
-            $table->string('code', 10)->change();
-        });
+        if (DB::getDriverName() !== 'sqlite') {
+            Schema::table('mapping_countries', function (Blueprint $table) {
+                $table->string('code', 10)->change();
+            });
+        }
 
         $countries = [
             ['code' => 'BE', 'name_ru' => 'Бельгия'],

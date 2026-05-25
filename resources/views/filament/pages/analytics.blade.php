@@ -109,9 +109,74 @@
 
 
     <div class="dashboard-grid mt-6" id="analytics-unified-grid">
-        
+        <!-- 1. Meanly Analytics Overview -->
+        <div class="widget-container col-span-12 fi-wi-widget" data-id="meanly-analytics-overview" id="widget-meanly-analytics-overview">
+            <div class="widget-controls">
+                <div class="widget-drag-handle" title="Перетащить"><x-filament::icon icon="heroicon-m-bars-2" class="w-4 h-4" /></div>
+                <div class="control-divider"></div>
+                <button onclick="changeWidgetWidth('meanly-analytics-overview', 6)">½</button>
+                <button onclick="changeWidgetWidth('meanly-analytics-overview', 12)">Full</button>
+            </div>
+            <div class="h-full">
+                @livewire(\App\Filament\Widgets\MeanlyAnalyticsOverviewWidget::class)
+            </div>
+        </div>
 
-        <!-- 3. SalesChart -->
+        <!-- 2. Active Alerts -->
+        <div class="widget-container col-span-12 fi-wi-widget" data-id="meanly-operational-alerts" id="widget-meanly-operational-alerts">
+            <div class="widget-controls">
+                <div class="widget-drag-handle" title="Перетащить"><x-filament::icon icon="heroicon-m-bars-2" class="w-4 h-4" /></div>
+                <div class="control-divider"></div>
+                <button onclick="changeWidgetWidth('meanly-operational-alerts', 6)">½</button>
+                <button onclick="changeWidgetWidth('meanly-operational-alerts', 12)">Full</button>
+            </div>
+            <div class="h-full">
+                @livewire(\App\Filament\Widgets\MeanlyOperationalAlertsWidget::class)
+            </div>
+        </div>
+
+        <!-- 3. Slow Requests -->
+        <div class="widget-container col-span-6 fi-wi-widget" data-id="meanly-analytics-slow" id="widget-meanly-analytics-slow">
+            <div class="widget-controls">
+                <div class="widget-drag-handle" title="Перетащить"><x-filament::icon icon="heroicon-m-bars-2" class="w-4 h-4" /></div>
+                <div class="control-divider"></div>
+                <button onclick="changeWidgetWidth('meanly-analytics-slow', 4)">⅓</button>
+                <button onclick="changeWidgetWidth('meanly-analytics-slow', 6)">½</button>
+                <button onclick="changeWidgetWidth('meanly-analytics-slow', 12)">Full</button>
+            </div>
+            <div class="h-full">
+                @livewire(\App\Filament\Widgets\MeanlyAnalyticsSlowRequestsWidget::class)
+            </div>
+        </div>
+
+        <!-- 4. Errors -->
+        <div class="widget-container col-span-6 fi-wi-widget" data-id="meanly-analytics-errors" id="widget-meanly-analytics-errors">
+            <div class="widget-controls">
+                <div class="widget-drag-handle" title="Перетащить"><x-filament::icon icon="heroicon-m-bars-2" class="w-4 h-4" /></div>
+                <div class="control-divider"></div>
+                <button onclick="changeWidgetWidth('meanly-analytics-errors', 4)">⅓</button>
+                <button onclick="changeWidgetWidth('meanly-analytics-errors', 6)">½</button>
+                <button onclick="changeWidgetWidth('meanly-analytics-errors', 12)">Full</button>
+            </div>
+            <div class="h-full">
+                @livewire(\App\Filament\Widgets\MeanlyAnalyticsErrorsWidget::class)
+            </div>
+        </div>
+
+        <!-- 5. Stuck Fulfillment -->
+        <div class="widget-container col-span-12 fi-wi-widget" data-id="meanly-fulfillment-stuck" id="widget-meanly-fulfillment-stuck">
+            <div class="widget-controls">
+                <div class="widget-drag-handle" title="Перетащить"><x-filament::icon icon="heroicon-m-bars-2" class="w-4 h-4" /></div>
+                <div class="control-divider"></div>
+                <button onclick="changeWidgetWidth('meanly-fulfillment-stuck', 6)">½</button>
+                <button onclick="changeWidgetWidth('meanly-fulfillment-stuck', 12)">Full</button>
+            </div>
+            <div class="h-full">
+                @livewire(\App\Filament\Widgets\MeanlyFulfillmentStuckWidget::class)
+            </div>
+        </div>
+
+        <!-- 6. SalesChart -->
         <div class="widget-container col-span-6 fi-wi-widget" data-id="sales-chart" id="widget-sales-chart">
             <div class="widget-controls">
                 <div class="widget-drag-handle" title="Перетащить"><x-filament::icon icon="heroicon-m-bars-2" class="w-4 h-4" /></div>

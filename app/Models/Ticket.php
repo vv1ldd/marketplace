@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Order\Order;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +11,7 @@ class Ticket extends Model
 {
     protected $fillable = [
         'shop_id',
+        'order_id',
         'user_id',
         'seller_id',
         'subject',
@@ -25,6 +27,11 @@ class Ticket extends Model
     public function shop(): BelongsTo
     {
         return $this->belongsTo(Shop::class);
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
     }
 
     public function legalEntity(): \Illuminate\Database\Eloquent\Relations\HasOneThrough

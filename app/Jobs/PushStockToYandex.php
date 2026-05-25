@@ -22,13 +22,29 @@ class PushStockToYandex implements ShouldQueue
     public function __construct(
         public readonly \App\Models\Shop $shop,
         public readonly Warehouse $warehouse,
+        public readonly ?int $productId = null,
     ) {}
 
     public function handle(): void
     {
-        $stocks = WarehouseStock::where('warehouse_id', $this->warehouse->id)
-            ->with('product')
-            ->get();
+        $ymWarehouseId = $this->warehouse->ym_id ?: $this->shop->ym_warehouse_id;
+        if (! $ymWarehouseId) {
+            Log::warning('PushStockToYandex: YM warehouse id is not configured', [
+                'shop_id' => $this->shop->id,
+                'warehouse_id' => $this->warehouse->id,
+            ]);
+
+            return;
+        }
+
+        $stocksQuery = WarehouseStock::where('warehouse_id', $this->warehouse->id)
+            ->with('product');
+
+        if ($this->productId) {
+            $stocksQuery->where('product_id', $this->productId);
+        }
+
+        $stocks = $stocksQuery->get();
 
         if ($stocks->isEmpty()) {
             Log::info('PushStockToYandex: нет остатков для отправки', [
@@ -40,10 +56,10 @@ class PushStockToYandex implements ShouldQueue
         $service = new YmService($this->shop);
 
         // Формат для YM API: [['sku' => 'ABC', 'warehouseId' => 123, 'items' => [['type' => 'FIT', 'count' => N]]]]
-        $payload = $stocks->filter(fn ($s) => $s->product !== null)
+        $payload = $stocks->filter(fn ($s) => $s->product !== null && filled($s->product->sku))
             ->map(fn ($s) => [
                 'sku'         => $s->product->sku,
-                'warehouseId' => $this->warehouse->ym_id,
+                'warehouseId' => (int) $ymWarehouseId,
                 'items'       => [
                     ['type' => 'FIT', 'count' => $s->count],
                 ],
@@ -51,8 +67,19 @@ class PushStockToYandex implements ShouldQueue
             ->values()
             ->all();
 
+        if (empty($payload)) {
+            Log::info('PushStockToYandex: нет валидных SKU для отправки', [
+                'shop_id' => $this->shop->id,
+                'warehouse_id' => $this->warehouse->id,
+                'product_id' => $this->productId,
+                'stock_count' => $stocks->count(),
+            ]);
+
+            return;
+        }
+
         try {
-            $service->updateStocks($payload);
+            $service->updateStocks(['skus' => $payload]);
 
             WarehouseStock::where('warehouse_id', $this->warehouse->id)
                 ->update(['synced_at' => now()]);

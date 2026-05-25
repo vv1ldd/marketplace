@@ -14,7 +14,7 @@
 
         <form class="space-y-5" method="POST" action="{{ route('redeem.email.submit') }}">
             @csrf
-            <input type="hidden" name="uuid" value="{{ session('order_item_info')['uuid'] ?? '' }}" />
+            <input type="hidden" name="intent" value="{{ request()->query('intent') ?? session('order_item_info.intent_token') ?? '' }}" />
             <div class="w-full">
                 @if (session('is_frame'))
                     <input hidden name="is_frame" value="1" />

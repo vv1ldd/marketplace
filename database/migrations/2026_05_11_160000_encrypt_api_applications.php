@@ -7,21 +7,38 @@ use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
+    private function getTableIndexes(string $table): \Illuminate\Support\Collection
+    {
+        if (DB::getDriverName() === 'sqlite') {
+            return collect(DB::select("PRAGMA index_list('{$table}')"))->pluck('name')->unique();
+        }
+        return collect(DB::select("SHOW INDEX FROM `{$table}`"))->pluck('Key_name')->unique();
+    }
+
     public function up(): void
     {
         // 1. Drop existing unique index before changing type
-        $indexes = collect(DB::select('SHOW INDEX FROM api_applications'))->pluck('Key_name')->unique();
+        $indexes = $this->getTableIndexes('api_applications');
         if ($indexes->contains('api_applications_token_unique')) {
             Schema::table('api_applications', function (Blueprint $table) {
                 $table->dropUnique('api_applications_token_unique');
             });
         }
 
-        // 2. ApiApplications: Use direct SQL for modifications
-        DB::statement('ALTER TABLE api_applications MODIFY token TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE api_applications MODIFY first_name TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE api_applications MODIFY last_name TEXT DEFAULT NULL');
-        DB::statement('ALTER TABLE api_applications MODIFY phone TEXT DEFAULT NULL');
+        // 2. ApiApplications: Use direct SQL for modifications, or Schema builder for SQLite
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::table('api_applications', function (Blueprint $table) {
+                $table->text('token')->nullable()->change();
+                $table->text('first_name')->nullable()->change();
+                $table->text('last_name')->nullable()->change();
+                $table->text('phone')->nullable()->change();
+            });
+        } else {
+            DB::statement('ALTER TABLE api_applications MODIFY token TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE api_applications MODIFY first_name TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE api_applications MODIFY last_name TEXT DEFAULT NULL');
+            DB::statement('ALTER TABLE api_applications MODIFY phone TEXT DEFAULT NULL');
+        }
 
         Schema::table('api_applications', function (Blueprint $table) {
             if (!Schema::hasColumn('api_applications', 'token_bidx')) {

@@ -20,6 +20,17 @@ class WildflowCatalog extends Model
 
     protected static function booted(): void
     {
+        static::saving(function ($item) {
+            if (empty($item->canonical_category)) {
+                $item->canonical_category = app(\App\Services\CanonicalCategoryResolver::class)->fromPayload($item->data ?? [], [
+                    $item->title,
+                    $item->category,
+                    $item->reward_type,
+                    $item->type,
+                ]);
+            }
+        });
+
         static::created(function ($item) {
             app(\App\Services\LedgerService::class)->recordGlobal('CATALOG_ITEM_CREATED', $item, [
                 'sku' => $item->sku,

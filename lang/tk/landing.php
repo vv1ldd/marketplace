@@ -16,7 +16,7 @@ return [
         'cta_primary'   => 'Hyzmatdaş kabinetini aç',
         'cta_secondary' => 'Nähili işleýär',
         'stat_channels' => 'Satuw kanallary',
-        'stat_crypto'   => 'Maglumat şifrleme',
+        'stat_crypto'   => 'Maglumat goragy',
         'stat_api'      => 'Integrasiýalar',
         'stat_realtime' => 'Analitika',
     ],
@@ -39,10 +39,10 @@ return [
         'desc'  => 'Wagty hakykatdan tygşytlaýan we operasion ýalňyşlyklary azaldýan gurallar.',
         'items' => [
             ['icon' => '🤖', 'title' => 'Awtomatik işjeňleşdirme', 'desc' => 'Sargyt tassyklanandan soň kodlar awtomatiki berilýär — operator gerek däl.'],
-            ['icon' => '📊', 'title' => 'Analitika we Ledger',      'desc' => 'Her amalýatyň doly taryhy, hakyky wagtda anyklaşdyrylan audit žurnaly.'],
+            ['icon' => '📊', 'title' => 'Sargyt analitikasy',      'desc' => 'Sargytlar, kod bermek we amallar taryhy bir ýerde.'],
             ['icon' => '🔌', 'title' => 'Köp kanal',                'desc' => 'Ýandeks Bazar, WooCommerce, Telegram — ähli sargytlar bir ýerde.'],
-            ['icon' => '🛡️', 'title' => 'PII Şifrleme',             'desc' => 'Alyjy maglumatlary şifrlenip saklanýar. Şifrleşdirmesiz kör indeks gözlegi.'],
-            ['icon' => '🌍', 'title' => 'Köp walýuta',              'desc' => 'RUB, TRY, USDT we beýlekiler — awtomatik konwertasiýa bilen.'],
+            ['icon' => '🛡️', 'title' => 'Maglumat goragy',             'desc' => 'Alyjy kontaktlary we sargyt maglumatlary diňe degişli rollara görünýär.'],
+            ['icon' => '🌍', 'title' => 'Dürli walýutalar',              'desc' => 'RUB, TRY we beýlekiler — awtomatik konwertasiýa bilen.'],
             ['icon' => '🧪', 'title' => 'Sandbox režimi',           'desc' => 'Hakyky infrastruktura üçin integrasiýalary we API-leri howpsuz synla.'],
         ],
     ],
@@ -54,12 +54,12 @@ return [
 
     'security' => [
         'label' => 'Howpsuzlyk',
-        'title' => 'Özbaşdak arhitektura',
+        'title' => 'Her gün ygtybarly iş',
         'items' => [
-            ['title' => 'Vault Şifrleme',     'desc' => 'Ähli şahsy maglumatlar HashiCorp Vault ýa-da AES-256-CBC arkaly şifrlenýär. Programma açarlary saklamaýar.'],
-            ['title' => 'Kör Indeks Auth',    'desc' => 'Şifrlenmiş meýdanlara görä HMAC-SHA256 arkaly tanamak — tablisany şifrlemezden.'],
-            ['title' => 'Anyklaşdyrylan Ledger', 'desc' => 'Her hereket ýagdaý hash-y bilen audit žurnalyna ýazylýar. Galplaşdyrmak mümkin däl.'],
-            ['title' => 'Köp Garawul Auth',   'desc' => 'Adminler we Hyzmatdaşlar üçin doly izolýasiýa edilen aýry seanslary bolan garawullar.'],
+            ['title' => 'Şahsy maglumat goragy',     'desc' => 'Kontaktlar, sargytlar we hyzmat maglumatlary howpsuz işlenýär.'],
+            ['title' => 'Howpsuz giriş',    'desc' => 'Giriş we möhüm hereketler ýönekeý parolsuz tassyklama bilen goralýar.'],
+            ['title' => 'Amallar taryhy', 'desc' => 'Möhüm hereketler gözegçilik we goldaw üçin düşnükli taryhda saklanýar.'],
+            ['title' => 'Elýeterliligi dolandyrmak',   'desc' => 'Eýeler, işgärler we goldaw üçin dürli hukuklar berlip bilner.'],
         ],
     ],
 

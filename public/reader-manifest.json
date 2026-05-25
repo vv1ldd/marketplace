@@ -1,0 +1,16 @@
+{
+  "name": "Simple Phone Terminal",
+  "short_name": "Sovereign Reader",
+  "start_url": "/reader",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "description": "Constitutional Legitimacy Verification Terminal",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij48cmVjdCB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0xMjgsMjRBMTA0LDEwNCwwLDEsMCwyMzIsMTI4LDEwNC4xMSwxMDQuMTEsMCwwLDAsMTI4LDI0Wm0wLDE5MmE4OCw4OCwwLDEsMSw4OC04OEE4OC4xLDg4LjEsMCwwLDEsMTI4LDIxNloiIGZpbGw9IiNmZmZmZmYiLz48L3N2Zz4=",
+      "sizes": "256x256",
+      "type": "image/svg+xml"
+    }
+  ]
+}

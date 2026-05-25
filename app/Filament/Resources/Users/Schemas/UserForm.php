@@ -39,20 +39,6 @@ class UserForm
                     ])->columnSpanFull(),
 
                     Grid::make()->schema([
-                        TextInput::make('password')
-                            ->password()
-                            ->label(__('admin.users.password'))
-                            ->required()
-                            ->confirmed()
-                            ->revealable()
-                            ->hidden($is_update),
-                        TextInput::make('password_confirmation')
-                            ->password()
-                            ->label(__('admin.users.password_confirmation'))
-                            ->revealable()
-                            ->required()
-                            ->hidden($is_update),
-
                         Select::make('roles')
                             ->label(__('admin.users.roles'))
                             ->relationship('roles', 'name', fn ($query) => $is_super_admin ? $query : $query->where('name', '<>', 'super_admin'))
@@ -62,8 +48,6 @@ class UserForm
                             ->searchable()
                             ->default($schema->getModel() === \App\Models\Seller::class ? ['b2b_partner'] : null)
                             ->hidden($schema->getModel() === \App\Models\Seller::class),
-
-
                     ]),
                 ])->columnSpanFull(),
             ]);

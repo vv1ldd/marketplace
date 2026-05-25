@@ -32,7 +32,7 @@ class YmService
         } else {
             $this->ym_business_id = (int) Settings::get('YM_BUSINESS_ID', config('services.ym.business_id', 143486522));
             $this->campaign_id = (int) Settings::get('YM_CAMPAIGN_ID', config('services.ym.campaign_id', 143486522));
-            $api_key = Settings::get('YM_API_KEY', config('services.ym.api_key', 'ACMA:3mHDTfT7sVhGMb6xtQXGOoq5RzpHvLCjTq12Jd1M:bf243683'));
+            $api_key = trim((string) Settings::get('YM_API_KEY', config('services.ym.api_key')));
         }
 
         $this->config = Configuration::getDefaultConfiguration()
@@ -41,7 +41,7 @@ class YmService
 
         $this->httpClient = new Client([
             'timeout' => 60,
-            'verify' => false,
+            'verify' => (bool) config('services.ym.verify_tls', true),
         ]);
     }
 
@@ -259,6 +259,10 @@ class YmService
     public function updateStocks(array $requestBodyArray)
     {
         $api = new \AppYandexSdk\Api\StocksApi($this->httpClient, $this->config);
+
+        if (! array_key_exists('skus', $requestBodyArray)) {
+            $requestBodyArray = ['skus' => $requestBodyArray];
+        }
 
         $requestBody = new \AppYandexSdk\Model\UpdateStocksRequest($requestBodyArray);
 

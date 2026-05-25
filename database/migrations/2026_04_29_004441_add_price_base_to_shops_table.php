@@ -11,8 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('shops', 'price_base')) {
+            return;
+        }
+
         Schema::table('shops', function (Blueprint $table) {
-            $table->string('price_base')->default('purchase')->after('markup_percent');
+            $after = Schema::hasColumn('shops', 'markup_percent') ? 'markup_percent' : 'id';
+
+            $table->string('price_base')->default('purchase')->after($after);
         });
     }
 
@@ -21,6 +27,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasColumn('shops', 'price_base')) {
+            return;
+        }
+
         Schema::table('shops', function (Blueprint $table) {
             $table->dropColumn('price_base');
         });

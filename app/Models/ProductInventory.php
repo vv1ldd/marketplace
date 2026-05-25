@@ -22,6 +22,10 @@ class ProductInventory extends Model
         'voucher',   // OUR internal redeem token (GenerateSecureCode). NOT the Wildflow gift-card code.
         'is_used',
         'order_item_id',
+        'reservation_reference',
+        'reserved_amount',
+        'reserve_currency',
+        'reserved_at',
         'expires_at',
         'status',
         'liquidated_at',
@@ -34,6 +38,8 @@ class ProductInventory extends Model
         'expires_at' => 'timestamp',
         'sku'        => \App\Casts\VaultEncrypted::class . ':sku_bidx',
         'nominal_amount' => 'decimal:2',
+        'reserved_amount' => 'decimal:2',
+        'reserved_at' => 'datetime',
     ];
 
     public function shop(): BelongsTo
@@ -73,6 +79,11 @@ class ProductInventory extends Model
         return $this->morphMany(SovereignLedger::class, 'entity');
     }
 
+    public function transactionReference(): string
+    {
+        return app(\App\Services\SimpleLayer1TransactionReferenceService::class)->forModel($this);
+    }
+
     protected static function booted()
     {
         static::saved(function ($inventory) {
@@ -107,6 +118,7 @@ class ProductInventory extends Model
         if ($this->status === 'liquidated') {
             return;
         }
+        $storedReason = \Illuminate\Support\Str::limit($reason, 240, '...');
 
         $orderItem = $this->orderItem;
         $order = $orderItem?->order;
@@ -119,9 +131,7 @@ class ProductInventory extends Model
             $catalog = WildflowCatalog::where('sku', $catalogSku)->first();
             
             if ($catalog) {
-                $financeService = app(\App\Services\FinanceService::class);
-                $rate = $financeService->getRate($catalog->currency_code);
-                $costRub = $catalog->retail_price * $rate * ($orderItem->count ?? 1);
+                $costRub = $this->reservedAmountRub($orderItem, $catalog);
 
                 // Check if we already captured? If status is 'sold', we might need to refund available_balance.
                 // If status is 'reserved', we just move back from reserved to available.
@@ -138,6 +148,8 @@ class ProductInventory extends Model
                         'amount_rub' => $costRub,
                         'reason' => $reason,
                         'order_id' => $order->id,
+                        'order_item_id' => $orderItem?->id,
+                        'reservation_reference' => $this->reservation_reference,
                     ]);
                 }
             }
@@ -148,7 +160,7 @@ class ProductInventory extends Model
             'status' => 'liquidated',
             'is_used' => true, // Don't allow using it anymore
             'liquidated_at' => now(),
-            'liquidation_reason' => $reason,
+            'liquidation_reason' => $storedReason,
         ]);
 
         // ⛓️ Sovereign Ledger: Record the LIQUIDATION
@@ -177,9 +189,7 @@ class ProductInventory extends Model
             $catalog = WildflowCatalog::where('sku', $catalogSku)->first();
             
             if ($catalog) {
-                $financeService = app(\App\Services\FinanceService::class);
-                $rate = $financeService->getRate($catalog->currency_code);
-                $costRub = $catalog->retail_price * $rate * ($orderItem->count ?? 1);
+                $costRub = $this->reservedAmountRub($orderItem, $catalog);
 
                 $legalEntity->increment('available_balance', $costRub);
                 $legalEntity->decrement('reserved_balance', $costRub);
@@ -195,6 +205,8 @@ class ProductInventory extends Model
                     'amount_rub' => $costRub,
                     'reason' => $reason,
                     'order_id' => $order?->id,
+                    'order_item_id' => $orderItem?->id,
+                    'reservation_reference' => $this->reservation_reference,
                 ]);
             }
         }
@@ -211,5 +223,24 @@ class ProductInventory extends Model
             'reason' => $reason,
             'sku' => $this->sku,
         ]);
+    }
+
+    private function reservedAmountRub(?OrderItems $orderItem, ?WildflowCatalog $catalog): float
+    {
+        if ($this->reserved_amount !== null && ($this->reserve_currency ?? 'RUB') === 'RUB') {
+            return (float) $this->reserved_amount;
+        }
+
+        if ($this->reserved_amount !== null && $this->reserve_currency) {
+            return (float) $this->reserved_amount * app(\App\Services\FinanceService::class)->getRate($this->reserve_currency);
+        }
+
+        if (! $catalog) {
+            return 0.0;
+        }
+
+        $rate = app(\App\Services\FinanceService::class)->getRate($catalog->currency_code);
+
+        return (float) $catalog->retail_price * $rate * ($orderItem->count ?? 1);
     }
 }

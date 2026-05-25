@@ -8,6 +8,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Set;
@@ -196,6 +201,62 @@ class LegalEntitySchema
                                 ->default('privileged')
                                 ->required(),
                         ]),
+                ])->collapsible(),
+
+            Section::make('Комплаенс-контроль подписанта (ЭЦП / Доверенность)')
+                ->icon('heroicon-o-shield-check')
+                ->columns(2)
+                ->schema([
+                    Placeholder::make('signer_role_display')
+                        ->label('Роль подписанта')
+                        ->content(fn ($record) => $record && isset($record->agreement_metadata['signer_role'])
+                            ? ($record->agreement_metadata['signer_role'] === 'ceo' ? '👔 Руководитель компании (CEO)' : '📜 Представитель по доверенности')
+                            : 'Не указана'),
+
+                    Placeholder::make('signer_name_display')
+                        ->label('ФИО подписанта')
+                        ->content(fn ($record) => $record && isset($record->agreement_metadata['signer_name']) ? $record->agreement_metadata['signer_name'] : ($record->director_name ?? 'Не указано')),
+
+                    Placeholder::make('l1_address_display')
+                        ->label('Суверенный L1-адрес (ЭЦП)')
+                        ->content(fn ($record) => $record && isset($record->agreement_metadata['l1_address']) ? $record->agreement_metadata['l1_address'] : 'Не сгенерирован'),
+
+                    Placeholder::make('passkey_id_display')
+                        ->label('ID Passkey-ключа')
+                        ->content(fn ($record) => $record && isset($record->agreement_metadata['passkey_id']) ? $record->agreement_metadata['passkey_id'] : 'Не привязан'),
+
+                    // 🛡️ Блок автоматизации комплаенса и проверки доверенностей
+                    Fieldset::make('Верификация полномочий (ФНС / Нотариат)')
+                        ->visible(fn ($record) => $record && isset($record->agreement_metadata['signer_role']) && $record->agreement_metadata['signer_role'] === 'representative')
+                        ->schema([
+                            Toggle::make('agreement_metadata.poa_verified')
+                                ->label('Доверенность верифицирована модератором')
+                                ->default(false)
+                                ->live(),
+
+                            DatePicker::make('agreement_metadata.poa_expires_at')
+                                ->label('Срок действия доверенности')
+                                ->live(),
+
+                            TextInput::make('agreement_metadata.poa_guid')
+                                ->label('GUID МЧД в реестре ФНС / Номер реестра нотариусов')
+                                ->placeholder('Напр. 49302b1f-e8b2-4cd8-8685-6b3a3c20021b')
+                                ->live(),
+
+                            Actions::make([
+                                FormAction::make('openFnsRegistry')
+                                    ->label('Проверить МЧД в ФНС')
+                                    ->icon('heroicon-m-arrow-top-right-on-square')
+                                    ->color('primary')
+                                    ->url(fn ($record) => 'https://mchd.nalog.ru/', shouldOpenInNewTab: true),
+
+                                FormAction::make('openNotaryRegistry')
+                                    ->label('Проверить у нотариусов')
+                                    ->icon('heroicon-m-arrow-top-right-on-square')
+                                    ->color('info')
+                                    ->url(fn ($record) => 'https://reestr-dover.ru/', shouldOpenInNewTab: true),
+                            ])->columnSpanFull(),
+                        ])->columnSpanFull(),
                 ])->collapsible(),
         ];
     }

@@ -14,6 +14,7 @@
     $redeemPurchaseFailed = $order_item->purchase_status === 'failed';
     $redeemPurchaseManualPending = $order_item->purchase_status === 'manual' && ! filled($order_item->original_code);
     $isDevAsyncRedeemDemoOrder = (bool) ($order_item->order?->isDevAsyncRedeemDemo());
+    $supportReference = $order_item->supportReference();
 @endphp
 
 @section('content')
@@ -39,7 +40,7 @@
                     </div>
                 </div>
             @endif
-            <p class="mt-10 font-mono text-xs uppercase text-zinc-500 redeem-dark:text-zinc-600">UUID: {{ $order_item->uuid }}</p>
+            <p class="mt-10 font-mono text-xs uppercase text-zinc-500 redeem-dark:text-zinc-600">Код поддержки: {{ $supportReference }}</p>
             @if(app()->environment('local') && config('queue.default') === 'database')
                 <p class="text-xs text-amber-500/90 mt-6 max-w-md mx-auto leading-relaxed">
                     <strong>Local:</strong> при <code class="text-amber-400/90">QUEUE_CONNECTION=database</code> фоновый job не выполнится сам — запустите в терминале
@@ -95,7 +96,7 @@
             Заявка зафиксирована в системе, наши специалисты уже разбираются. Проверьте почту чуть позже.
         </x-slot>
         
-        <p class="text-xs text-zinc-600 font-mono uppercase pt-2">UUID: {{ $order_item->uuid }}</p>
+        <p class="text-xs text-zinc-600 font-mono uppercase pt-2">Код поддержки: {{ $supportReference }}</p>
         <a href="{{ route('redeem.code') }}"
             class="mx-auto inline-flex w-full min-w-0 items-center justify-center rounded-xl border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold text-zinc-800 shadow-md transition-colors hover:bg-zinc-50 sm:w-auto sm:min-w-[240px] redeem-dark:border-zinc-600 redeem-dark:bg-zinc-800 redeem-dark:text-white redeem-dark:shadow-lg redeem-dark:shadow-black/20 redeem-dark:hover:bg-zinc-700">
             Вернуться на главную
@@ -109,7 +110,7 @@
         <x-slot name="sublead">
             При необходимости мы свяжемся с вами по указанному email.
         </x-slot>
-        <p class="text-xs text-zinc-600 font-mono uppercase pt-2">UUID: {{ $order_item->uuid }}</p>
+        <p class="text-xs text-zinc-600 font-mono uppercase pt-2">Код поддержки: {{ $supportReference }}</p>
         <a href="{{ route('redeem.code') }}"
             class="inline-flex items-center justify-center w-full sm:w-auto sm:min-w-[200px] mx-auto bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-blue-900/20">
             На главную
@@ -172,8 +173,8 @@
                 </div>
             </div>
             <div class="border-t border-zinc-200/90 bg-zinc-50/90 p-6 text-center redeem-dark:border-zinc-800/50 redeem-dark:bg-zinc-950/50">
-                <p class="text-xs text-zinc-500">Возникли проблемы? Укажите UUID:</p>
-                <p class="mt-1 font-mono text-xs uppercase text-zinc-600 redeem-dark:text-zinc-600">{{ $order_item->uuid }}</p>
+                <p class="text-xs text-zinc-500">Возникли проблемы? Укажите код поддержки заказа:</p>
+                <p class="mt-1 font-mono text-xs uppercase text-zinc-600 redeem-dark:text-zinc-600">{{ $supportReference }}</p>
             </div>
         </div>
     </div>
@@ -308,8 +309,8 @@
 
         <!-- Footer Help -->
         <div class="border-t border-zinc-200/90 bg-zinc-50/90 p-6 text-center redeem-dark:border-zinc-800/50 redeem-dark:bg-zinc-950/50">
-            <p class="text-xs text-zinc-500">Возникли проблемы? Напишите в нашу службу поддержки, указав UUID заказа:</p>
-            <p class="mt-1 font-mono text-xs uppercase text-zinc-600 redeem-dark:text-zinc-600">{{ $order_item->uuid }}</p>
+            <p class="text-xs text-zinc-500">Возникли проблемы? Напишите в нашу службу поддержки, указав код поддержки заказа:</p>
+            <p class="mt-1 font-mono text-xs uppercase text-zinc-600 redeem-dark:text-zinc-600">{{ $supportReference }}</p>
         </div>
     </div>
 </div>

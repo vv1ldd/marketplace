@@ -2,6 +2,13 @@
 
 return [
     'channels' => [
+        'meanly_storefront' => [
+            'label' => 'Meanly Storefront',
+            'icon' => 'MS',
+            'enabled' => true,
+            'implemented' => true,
+            'group' => 'owned',
+        ],
         'yandex_market' => [
             'label' => 'Яндекс Маркет',
             'icon' => '🟡',

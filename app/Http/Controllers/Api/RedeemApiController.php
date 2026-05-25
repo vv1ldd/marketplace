@@ -11,8 +11,6 @@ use App\Mail\VerificationCodeMail;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\WildflowCatalog;
-use App\Services\Provider\ProviderHub;
-use App\Services\WildflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
@@ -60,7 +58,7 @@ class RedeemApiController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => [
-                'uuid' => $order_item->uuid,
+                'transaction_ref' => $order_item->transactionReference(),
                 'sku' => $order_item->sku,
                 'type_form_id' => $order_item->type_form_id,
             ],
@@ -232,12 +230,16 @@ class RedeemApiController extends Controller
 
         $order->update(['user_id' => $user->id]);
 
-        $order_item->update([
+        $activationUpdate = [
             'is_activated' => true,
             'client_info' => $data,
             'activated_at' => now(),
-            'type_id' => $data['type_id'],
-        ]);
+        ];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('order_items', 'type_id')) {
+            $activationUpdate['type_id'] = $data['type_id'];
+        }
+
+        $order_item->update($activationUpdate);
 
         // Активацияка: Wildflow или dev-демо без каталога (как в CodeController)
         $product = WildflowCatalog::findForOrderOfferSku($order_item->sku);
@@ -247,15 +249,13 @@ class RedeemApiController extends Controller
             || $order->isYandexSandboxOrder();
 
         if ($runPurchaseFlow) {
-            $service_sku = $product ? data_get($product, 'data.data.product.sku') : 'redeem-demo';
-            $service_price = $product ? data_get($product, 'data.data.price') : 0;
-            $wf_service = new WildflowService;
+            $provider = null;
 
             try {
                 $original_code = null;
                 $deferItemPurchaseUpdate = false;
 
-                if ($order->isYandexSandboxOrder()) {
+                if ($order->isYandexSandboxOrder() && ! $order->shouldRedeemThroughProvider()) {
                     $original_code = 'GIFTCARD_EXAMPLE';
                     $order->comments()->create([
                         'user_id' => null,
@@ -275,55 +275,16 @@ class RedeemApiController extends Controller
                         'user_id' => null,
                         'comment' => '✅ Симуляция активацияа (dev_simulation): '.\Illuminate\Support\Str::mask($original_code, '*', 4, -4),
                     ]);
-                    $hub = app(ProviderHub::class);
-                    $provider = $order_item->game->provider ?? \App\Models\Provider::where('type', 'wildflow')->first();
-                    $driver = $hub->forProvider($provider);
+                } else {
+                    $order_item->update(['purchase_status' => 'pending']);
+                    ProcessRedeemWildflowPurchase::dispatchSync($order_item->id, $user->id, false);
 
-                    // 🛡️ Sovereign Ledger: Record API Purchase START
-                    app(\App\Services\LedgerService::class)->record($order->shop, 'PROVIDER_ORDER_START', $order_item, [
-                        'provider' => $provider->type,
-                        'via' => 'api',
-                        'reference' => $order_item->uuid,
+                    $order->comments()->create([
+                        'user_id' => null,
+                        'comment' => '✅ API redeem: запущена закупка Wildflow/Sandbox и получение кода.',
                     ]);
 
-                    // 1. Create order
-                    $externalOrderId = $driver->createOrder(
-                        sku: $product->sku,
-                        reference: $order_item->uuid,
-                        price: (float)($product->retail_price ?? 0),
-                        quantity: (int)$order_item->count,
-                        meta: [
-                            'type' => $product->type ?? 'gift_card',
-                            'email' => $data['email'] ?? 'sataniyazow@gmail.com',
-                        ]
-                    );
-
-                    sleep(1);
-
-                    // 2. Fetch the cards
-                    $codes = $driver->getCodes($externalOrderId);
-                    $original_code = !empty($codes) ? $codes[0] : null;
-
-                    if ($original_code) {
-                        // ⛓️ Sovereign Ledger: Record API Purchase SUCCESS
-                        app(\App\Services\LedgerService::class)->record($order->shop, 'PROVIDER_ORDER_SUCCESS', $order_item, [
-                            'provider' => $provider->type,
-                            'external_id' => $externalOrderId,
-                            'via' => 'api',
-                        ]);
-
-                        $order->comments()->create([
-                            'user_id' => null,
-                            'comment' => "✅ Автоматическая выдача кода ({$provider->name}): ".\Illuminate\Support\Str::mask($original_code, '*', 4, -4),
-                        ]);
-                    } else {
-                        // ⛓️ Sovereign Ledger: Record empty codes failure
-                        app(\App\Services\LedgerService::class)->record($order->shop, 'PROVIDER_ORDER_FAILED', $order_item, [
-                            'provider' => $provider->type,
-                            'message' => 'Empty codes list',
-                            'via' => 'api',
-                        ]);
-                    }
+                    $deferItemPurchaseUpdate = true;
                 }
 
                 if (! $deferItemPurchaseUpdate) {
@@ -385,7 +346,15 @@ class RedeemApiController extends Controller
 
         $order->update($order_update_data);
 
-        SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
+        try {
+            SendTelegramJob::dispatchSync(order_id: $order->order_id, status: 'send_form', order_item_id: $order_item->id);
+        } catch (\Throwable $telegramError) {
+            \Log::warning('Redeem API telegram notification skipped', [
+                'order_id' => $order->order_id,
+                'order_item_id' => $order_item->id,
+                'error' => $telegramError->getMessage(),
+            ]);
+        }
 
         // Clear cache
         Cache::forget("redeem_verification:{$code}");

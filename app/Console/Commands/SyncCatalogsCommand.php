@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\WildflowCatalog;
 use App\Models\WildflowSkuAlias;
 use App\Services\BrandActivationUrlResolver;
+use App\Services\CanonicalCategoryResolver;
 use App\Services\MappingService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -72,25 +73,10 @@ class SyncCatalogsCommand extends Command
         $this->brandNameUpperById = [];
         $this->currencyCache = \App\Models\Currency::pluck('id', 'code')->toArray();
 
-        $token = $provider->credentials['api_key'] ?? config('app.wildflow_token');
-        $baseUrl = $provider->credentials['base_url'] ?? 'https://api.wildflow.dev/api/v1';
-
-        $client = \Illuminate\Support\Facades\Http::withHeaders([
-            'Accept' => 'application/json',
-            'X-Auth-Token' => $token,
-        ])
-            ->timeout(60)
-            ->withoutVerifying()
-            ->baseUrl($baseUrl);
+        $wildflowService = new \App\Services\WildflowService(overrideToken: null, providerModel: $provider);
+        $client = $wildflowService->getClient();
 
         $financeService = app(\App\Services\FinanceService::class);
-
-        // 🧹 PRE-FLIGHT SAFETY RESET
-        // Soft-deactivate all to let parseCatalog naturally re-enable active ones!
-        $this->info("Pre-reset: Soft-deactivating current products...");
-        \App\Models\ProviderProduct::where('provider_id', $provider->id)->update(['is_active' => false]);
-        \App\Models\WildflowCatalog::where('provider_id', $provider->id)->update(['is_active' => false]);
-        \App\Models\Product::where('provider_id', $provider->id)->update(['is_active' => false]);
 
         // 🌊 THE ULTIMATE COLLAPSE: Only one unified entry stream handles EVERYTHING!
         $this->parseCatalog($client, 'unified_catalog', $provider, $financeService);
@@ -136,7 +122,7 @@ class SyncCatalogsCommand extends Command
         $providerSlug = $provider->type === 'wildflow' ? 'ezpin' : $provider->type;
         $endpoint = "providers/{$providerSlug}/unified-catalog";
 
-        $response = $client->get($endpoint);
+        $response = $client->get($endpoint, ['include_inactive' => 1]);
         $items = $response->json('items') ?? [];
         
         $this->info("Unified Catalog returned ".count($items).' total normalized items.');
@@ -169,6 +155,7 @@ class SyncCatalogsCommand extends Command
 
         $rows = [];
         $skuMigrations = [];
+        $categoryResolver = app(CanonicalCategoryResolver::class);
 
         foreach ($items as $item) {
             // 🛡️ OBLIGATORIO PRICE VALIDATION
@@ -204,6 +191,12 @@ class SyncCatalogsCommand extends Command
             }
             $this->previousCatalogSkusByService[$serviceSkuBidx] = $newSku;
 
+            $isItemActive = ($item['is_available'] ?? false) && (($item['status'] ?? '') === 'active');
+
+            if (!$isItemActive) {
+                \App\Models\WildflowCatalog::applyProviderOutOfStockToSku($newSku, 'sync');
+            }
+
             $rows[] = [
                 'provider_id' => $provider->id,
                 'service_sku' => $vault->encrypt($serviceSku),
@@ -211,7 +204,8 @@ class SyncCatalogsCommand extends Command
                 'sku' => $newSku,
                 'data' => json_encode($item),
                 'type' => $item['inventory_type'] ?? $type, // Dynamic stream identity!
-                'is_active' => true,
+                'canonical_category' => $categoryResolver->fromPayload($item, [$item['inventory_type'] ?? $type]),
+                'is_active' => $isItemActive,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -219,12 +213,23 @@ class SyncCatalogsCommand extends Command
             $this->receivedSkus[] = $newSku;
         }
 
+        if (count($rows) === 0) {
+            $this->error("No valid catalog rows parsed for {$type}. Existing products were left untouched.");
+            return false;
+        }
+
+        // Soft-deactivate only after a valid upstream payload has been parsed.
+        $this->info("Pre-reset: Soft-deactivating current products...");
+        \App\Models\ProviderProduct::where('provider_id', $provider->id)->update(['is_active' => false]);
+        \App\Models\WildflowCatalog::where('provider_id', $provider->id)->update(['is_active' => false]);
+        \App\Models\Product::where('provider_id', $provider->id)->update(['is_active' => false]);
+
         $this->info("Upserting ".count($rows)." catalog rows to database (chunked)...");
         foreach (array_chunk($rows, 500) as $chunk) {
             WildflowCatalog::upsert(
                 $chunk,
                 ['provider_id', 'service_sku_bidx'],
-                ['service_sku', 'sku', 'data', 'type', 'is_active', 'updated_at']
+                ['service_sku', 'sku', 'data', 'type', 'canonical_category', 'is_active', 'updated_at']
             );
         }
 
@@ -250,6 +255,21 @@ class SyncCatalogsCommand extends Command
             $serviceSku = (string) ($item['service_sku'] ?? $item['data']['sku'] ?? $item['data']['service_sku'] ?? 'UNKNOWN');
             $newSku = $row['sku']; // The resolved WFC SKU stored in our loop memory
             $rawEzpinItem = $item['raw_data'] ?? []; // Peak inside raw feed if needed
+            $preOrderSupported = $this->firstBool(
+                data_get($item, 'provider_purchase.pre_order'),
+                data_get($item, '_wildflow_purchase.pre_order'),
+                data_get($item, 'purchase.pre_order'),
+                data_get($item, 'pre_order'),
+                data_get($item, 'product.pre_order'),
+                data_get($rawEzpinItem, 'pre_order'),
+                data_get($rawEzpinItem, 'product.pre_order'),
+                false
+            );
+            $item['pre_order'] = $preOrderSupported;
+            if (! isset($item['provider_purchase']) || ! is_array($item['provider_purchase'])) {
+                $item['provider_purchase'] = [];
+            }
+            $item['provider_purchase']['pre_order'] = $preOrderSupported;
 
             // 🌟 PURE ARCHITECTURAL ELEGANCE: Direct Flat Extractions
             // 🌟 ROBUST RESOLUTION: Extract values utilizing deep defensive checks covering ALL JSON structures
@@ -260,6 +280,7 @@ class SyncCatalogsCommand extends Command
             
             $currencyCode = $item['currency'] ?? $item['data']['currency']['code'] ?? 'USD';
             $externalBrandName = $item['brand'] ?? $item['category'] ?? $item['data']['categories'][0]['name'] ?? 'WILDFLOW GIFTS';
+            $providerCategoryName = $item['category'] ?? $item['data']['categories'][0]['name'] ?? $externalBrandName;
 
             // Calculated values ensuring stability for ranged products: Always lean on Min Price!
             $retailPrice = ($minPrice > 0) ? $minPrice : $maxPrice;
@@ -324,7 +345,8 @@ class SyncCatalogsCommand extends Command
                 $provider->id,
                 $externalBrandName,
                 $row['sku'],
-                $title
+                $title,
+                $providerCategoryName
             );
 
             // Fallback resolution attempts
@@ -455,6 +477,7 @@ class SyncCatalogsCommand extends Command
                 'name' => $name,
                 'type' => 'giftcard',
                 'category' => $category,
+                'canonical_category' => $row['canonical_category'] ?? $categoryResolver->fromPayload($item, [$category]),
                 'purchase_price' => (float)$retailPrice,   // Float
                 'purchase_currency' => $currencyCode,
                 'base_price' => (float)$purchasePrice,     // Float
@@ -475,6 +498,8 @@ class SyncCatalogsCommand extends Command
                 'sku'            => $serviceSku,
                 'market_sku'     => $newSku,
                 'name'           => $title,
+                'category'       => $category,
+                'canonical_category' => $row['canonical_category'] ?? $categoryResolver->fromPayload($item, [$category]),
                 'purchase_price' => (float) $purchasePrice,
                 'retail_price'   => (float) $retailPrice,
                 'min_price'      => $minPrice,
@@ -482,7 +507,7 @@ class SyncCatalogsCommand extends Command
                 'currency'       => $currencyCode,
                 'brand_id'       => $brandId,
                 'region_id'      => $regionId,
-                'is_active'      => true,
+                'is_active'      => (bool)$row['is_active'],
                 'data'           => json_encode($item), // Using sanitized slim array!
                 'updated_at'     => now(),
                 'created_at'     => now(),
@@ -509,6 +534,8 @@ class SyncCatalogsCommand extends Command
                     'market_sku'     => $vault->encrypt($pp['market_sku']), // 🛡️ LOCK DOWN!
                     'market_sku_bidx'=> $vault->computeBlindIndex($pp['market_sku']),
                     'name'           => $pp['name'],
+                    'category'       => $pp['category'] ?? null,
+                    'canonical_category' => $pp['canonical_category'] ?? null,
                     'purchase_price' => $pp['purchase_price'],
                     'retail_price'   => $pp['retail_price'] ?? 0,
                     'min_price'      => $pp['min_price'],
@@ -527,7 +554,7 @@ class SyncCatalogsCommand extends Command
                 $processedChunk,
                 ['provider_id', 'sku_bidx'], // Unique Index
                 [
-                    'sku', 'market_sku', 'market_sku_bidx', 'name', 'purchase_price', 'retail_price', 
+                    'sku', 'market_sku', 'market_sku_bidx', 'name', 'category', 'canonical_category', 'purchase_price', 'retail_price', 
                     'min_price', 'max_price', 'currency', 'brand_id', 'region_id', 'is_active', 'data', 'updated_at'
                 ]
             );
@@ -595,6 +622,37 @@ class SyncCatalogsCommand extends Command
         $serviceSku = trim($serviceSku);
 
         return 'WFC-'.substr(hash('sha256', $serviceSku), 0, 16);
+    }
+
+    private function firstBool(mixed ...$values): bool
+    {
+        foreach ($values as $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            if (is_bool($value)) {
+                return $value;
+            }
+
+            if (is_numeric($value)) {
+                return (int) $value === 1;
+            }
+
+            if (is_string($value)) {
+                $normalized = strtolower(trim($value));
+                if (in_array($normalized, ['1', 'true', 'yes', 'y', 'on'], true)) {
+                    return true;
+                }
+                if (in_array($normalized, ['0', 'false', 'no', 'n', 'off', ''], true)) {
+                    return false;
+                }
+            }
+
+            return (bool) $value;
+        }
+
+        return false;
     }
 
     /**

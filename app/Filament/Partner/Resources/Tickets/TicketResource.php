@@ -77,6 +77,9 @@ class TicketResource extends Resource
                                             TextEntry::make('subject')
                                                 ->label('Тема')
                                                 ->weight('bold'),
+                                            TextEntry::make('order.order_id')
+                                                ->label('Заказ')
+                                                ->placeholder('Не привязан'),
                                             TextEntry::make('status')
                                                 ->label('Статус')
                                                 ->badge()
@@ -121,6 +124,11 @@ class TicketResource extends Resource
             ->columns([
                 TextColumn::make('subject')
                     ->label('Тема')
+                    ->searchable(),
+
+                TextColumn::make('order.order_id')
+                    ->label('Заказ')
+                    ->placeholder('—')
                     ->searchable(),
 
                 TextColumn::make('status')

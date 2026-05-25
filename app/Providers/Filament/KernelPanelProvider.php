@@ -1,10 +1,10 @@
 <?php
-
+ 
 namespace App\Providers\Filament;
-
+ 
 use App\Support\FilamentPanelDomain;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -18,7 +18,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-
+ 
 class KernelPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -26,9 +26,9 @@ class KernelPanelProvider extends PanelProvider
         $panel = $panel
             ->id('kernel')
             ->path(config('app.kernel_panel_hosts') ? '' : 'kernel')
-            ->login(\App\Filament\Pages\Auth\Login::class)
+
             ->colors([
-                'primary' => Color::hex('#f53003'), // Slate Steel
+                'primary' => Color::hex('#f53003'),
                 'danger'  => Color::Red,
                 'warning' => Color::Orange,
             ])
@@ -36,7 +36,7 @@ class KernelPanelProvider extends PanelProvider
             ->brandLogo(fn () => new \Illuminate\Support\HtmlString('
                 <div class="flex items-center gap-3">
                     <div class="p-2 rounded-xl bg-[#f53003]/10 text-[#f53003] dark:bg-[#f53003]/20">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12.75 2.75a.75.75 0 0 0-1.5 0V4.5h1.5V2.75ZM12.75 19.5v1.75a.75.75 0 0 1-1.5 0V19.5h1.5ZM4.5 11.25V9.75H2.75a.75.75 0 0 0 0 1.5H4.5ZM21.25 11.25a.75.75 0 0 0 0-1.5H19.5v1.5h1.75ZM6 6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v12a2.25 2.25 0 0 1-2.25 2.25h-7.5A2.25 2.25 0 0 1 6 18V6Zm3 3a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 9 15h6a1.5 1.5 0 0 0 1.5-1.5v-3A1.5 1.5 0 0 0 15 9H9Z" /></svg>
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12.75 2.75a.75.75 0 0 0-1.5 0V4.5h1.5V2.75ZM12.75 19.5v1.75a.75.75 0 0 1-1.5 0V19.5h1.5ZM4.5 11.25V9.75H2.75a.75.75 0 0 0 0 1.5H4.5ZM21.25 11.25a.75.75 0 0 0 0-1.5H19.5v1.5h1.75ZM6 6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v12a2.25 2.25 0 0 1-2.25 2.25h-7.5A2.25 2.25 0 0 1 6 18V6ZM3 3a1.5 1.5 0 0 0-1.5 1.5v3A1.5 1.5 0 0 0 9 15h6a1.5 1.5 0 0 0 1.5-1.5v-3A1.5 1.5 0 0 0 15 9H9Z" /></svg>
                     </div>
                     <div class="flex flex-col text-left leading-tight">
                         <span class="text-[10px] font-bold tracking-[0.2em] text-[#f53003] dark:text-[#FF4433] uppercase">Meanly Systems</span>
@@ -49,15 +49,9 @@ class KernelPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Kernel/Pages'), for: 'App\Filament\Kernel\Pages')
             ->discoverWidgets(in: app_path('Filament/Kernel/Widgets'), for: 'App\Filament\Kernel\Widgets')
             ->navigationGroups([
-                NavigationGroup::make()
-                    ->label('System Toplogy')
-                    ->icon('heroicon-o-server-stack'),
-                NavigationGroup::make()
-                    ->label('Liquidity Gateways')
-                    ->icon('heroicon-o-cpu-chip'),
-                NavigationGroup::make()
-                    ->label('Internal Registers')
-                    ->icon('heroicon-o-folder-open'),
+                NavigationGroup::make()->label('System Toplogy')->icon('heroicon-o-server-stack'),
+                NavigationGroup::make()->label('Liquidity Gateways')->icon('heroicon-o-cpu-chip'),
+                NavigationGroup::make()->label('Internal Registers')->icon('heroicon-o-folder-open'),
             ])
             ->sidebarCollapsibleOnDesktop()
             ->middleware([
@@ -78,36 +72,29 @@ class KernelPanelProvider extends PanelProvider
                     ->modelLabel(__('admin.users.role'))
                     ->pluralModelLabel(__('admin.users.roles')),
             ])
-            ->profile()
+            ->profile(isSimple: false)
             ->maxContentWidth('full')
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->spa(false)->font('Instrument Sans')
+            ->spa(false)
+            ->font('Instrument Sans')
             ->renderHook(
-                'panels::head.done',
+                'panels::head.end',
                 fn () => new \Illuminate\Support\HtmlString('
-                    <style>
-                        .fi-sidebar-item-button-active {
-                            border-radius: 9999px !important;
-                            margin-left: 0.5rem !important;
-                            margin-right: 0.5rem !important;
-                        }
-                        .fi-layout {
-                            background-color: #050505 !important;
-                        }
-                        .fi-sidebar {
-                            background-color: #0a0a0a !important;
-                            border-right: 1px solid #1a1a1a !important;
-                        }
-                        .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-card-ctn {
-                            background-color: #0a0a0a !important;
-                            border: 1px solid #1a1a1a !important;
-                            box-shadow: none !important;
-                        }
-                    </style>
+                    <link rel="stylesheet" href="/css/filament-theme.css?v=' . filemtime(public_path('css/filament-theme.css')) . '">
+                    <script>
+                        (function() {
+                            const savedTheme = localStorage.getItem("theme") || "consortium";
+                            document.documentElement.setAttribute("data-theme", savedTheme);
+                            document.addEventListener("DOMContentLoaded", () => {
+                                document.body.setAttribute("data-theme", savedTheme);
+                            });
+                        })();
+                    </script>
                 ')
-            )
-            &($panel, config('app.kernel_panel_hosts', []));
+            );
+ 
+        return FilamentPanelDomain::apply($panel, config('app.kernel_panel_hosts', []));
     }
 }

@@ -6,12 +6,20 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
 return new class extends Migration {
+    private function getTableIndexes(string $table): \Illuminate\Support\Collection
+    {
+        if (DB::getDriverName() === 'sqlite') {
+            return collect(DB::select("PRAGMA index_list('{$table}')"))->pluck('name')->unique();
+        }
+        return collect(DB::select("SHOW INDEX FROM `{$table}`"))->pluck('Key_name')->unique();
+    }
+
     /**
      * Run the migrations.
      */
     public function up(): void
     {
-        $indexes = collect(DB::select("SHOW INDEX FROM wildflow_catalogs"))->pluck('Key_name')->unique();
+        $indexes = $this->getTableIndexes('wildflow_catalogs');
 
         Schema::table('wildflow_catalogs', function (Blueprint $table) use ($indexes) {
             if (!Schema::hasColumn('wildflow_catalogs', 'provider_id')) {

@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Http\Services\YmService;
 use App\Models\Product;
 use App\Models\ProductSalesChannel;
 use App\Models\Provider;
@@ -10,7 +9,7 @@ use App\Models\ProviderProduct;
 use App\Models\Shop;
 use App\Models\WildflowCatalog;
 use App\Models\WildflowSkuAlias;
-use App\Services\CardImageService;
+use App\Services\CanonicalCategoryResolver;
 use App\Services\FinanceService;
 use App\Services\StandardizationService;
 use App\Support\SalesChannels;
@@ -34,13 +33,19 @@ class AddCatalogItemToShop implements ShouldQueue
         public readonly array $salesChannels = ['yandex_market'],
         public readonly int $count = 0,
         public readonly ?float $amount = null,
+        public readonly ?string $passkeyCredentialId = null,
+        public readonly string $paymentMethod = 'rub_token',
+        public readonly ?array $simpleLayerOneProof = null,
     ) {}
 
     public function handle(): void
     {
         try {
             $shop = Shop::find($this->shopId);
-            $providerProduct = ProviderProduct::find($this->catalogItemId);
+            $providerProduct = ProviderProduct::query()
+                ->whereKey($this->catalogItemId)
+                ->where('is_active', true)
+                ->first();
 
             if (! $shop || ! $providerProduct) {
                 Log::error('AddCatalogItemToShop: shop or provider product not found', [
@@ -59,7 +64,14 @@ class AddCatalogItemToShop implements ShouldQueue
             $catalogItem = null;
             if ($provider?->type === 'wildflow') {
                 $searchSku = !empty($providerProduct->market_sku) ? $providerProduct->market_sku : $providerProduct->sku;
-                $catalogItem = WildflowCatalog::where('sku', $searchSku)->first();
+                $catalogItem = WildflowCatalog::query()
+                    ->where('sku', $searchSku)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (! $catalogItem) {
+                    throw new \RuntimeException('Товар провайдера больше не доступен в активном каталоге.');
+                }
             }
 
             $isVariable = $catalogItem?->is_variable_price ?? false;
@@ -121,14 +133,24 @@ class AddCatalogItemToShop implements ShouldQueue
             }
 
             // --- 3. Upsert Product (короткий offer SKU + wildflow_catalog_sku для провайдера и старых заказов) ---
-            $defaultCategoryId = (int) ($shop->ym_category_id ?? \App\Models\Settings::get('YM_CATEGORY_ID', 70301474));
+            $categoryResolver = app(CanonicalCategoryResolver::class);
+            $canonicalCategory = $categoryResolver->forProviderProduct($providerProduct, $catalogItem);
+            $defaultCategoryId = (int) ($shop->ym_category_id ?: \App\Models\Settings::get('YM_CATEGORY_ID', 989939));
+            $marketCategoryId = $this->resolveYandexMarketCategoryId($providerProduct, $catalogItem, $defaultCategoryId, $canonicalCategory);
+            $globalCatalogId = \App\Models\Catalog::query()
+                ->where('type', 'global')
+                ->value('id');
+            $localCategoryId = \App\Models\Category::query()
+                ->where('ym_id', $marketCategoryId)
+                ->value('id');
 
             $catalogSku = !empty($providerProduct->market_sku) ? $providerProduct->market_sku : $providerProduct->sku;
+            $catalogSkuBidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($catalogSku);
             $existing = Product::query()
                 ->where('shop_id', $shop->id)
                 ->where('provider_id', $provider?->id)
-                ->where(function ($q) use ($catalogSku) {
-                    $q->where('wildflow_catalog_sku', $catalogSku)
+                ->where(function ($q) use ($catalogSku, $catalogSkuBidx) {
+                    $q->where('wildflow_catalog_sku_bidx', $catalogSkuBidx)
                         ->orWhere(function ($q2) use ($catalogSku) {
                             $q2->whereNull('wildflow_catalog_sku')->where('sku', $catalogSku);
                         });
@@ -150,16 +172,19 @@ class AddCatalogItemToShop implements ShouldQueue
             $payload = [
                 'wildflow_catalog_sku' => $catalogSku,
                 'sku' => $offerSku,
-                'catalog_id' => 1,
+                'catalog_id' => $globalCatalogId,
+                'provider_id' => $provider?->id,
                 'brand_id' => $providerProduct->brand_id,
-                'category_id' => 3629,
-                'market_category_id' => $catalogItem->market_category_id ?? $defaultCategoryId,
+                'category_id' => $localCategoryId,
+                'market_category_id' => $marketCategoryId,
                 'name' => $name,
                 'type' => 'giftcard',
-                'category' => 'Подарочные карты',
+                'category' => $categoryResolver->label($canonicalCategory),
+                'canonical_category' => $canonicalCategory,
                 'purchase_price' => (int) ($retailPrice * 100),
                 'purchase_currency' => $providerProduct->currency,
                 'base_price' => (int) ($basePurchasePrice * 100),
+                'purchase_price_rub' => (int) round($purchasePriceRub * 100),
                 'price_rub' => $priceRub,
                 'barcode' => $catalogItem ? $catalogItem->getUpcForShop($shop) : '1'.str_pad($providerProduct->id, 11, '0', STR_PAD_LEFT),
                 'is_active' => true,
@@ -174,9 +199,7 @@ class AddCatalogItemToShop implements ShouldQueue
                 }
                 $product = $existing->refresh();
             } else {
-                $product = Product::create(array_merge($payload, [
-                    'provider_id' => $provider?->id,
-                ]));
+                $product = Product::create($payload);
             }
 
             WildflowSkuAlias::syncForProduct($product);
@@ -185,43 +208,33 @@ class AddCatalogItemToShop implements ShouldQueue
             $selectedChannels = SalesChannels::normalizeSelection($this->salesChannels);
             $this->syncSalesChannels($shop, $product, $selectedChannels);
 
-            // --- 5. Generate full product kit (Images, Title, Description) ---
-            $cardService = app(CardImageService::class);
-            $videoService = app(\App\Services\VideoInstructionService::class);
-
-            $kit = $catalogItem ? $cardService->generateForCatalogItem($catalogItem, $shop) : [];
-
-            $mainImage = $kit['images']['main'] ?? $providerProduct->image;
-
+            // Heavy card/video enrichment runs after the response; checkout should only block on ledger + stock.
             $product->update([
-                'image' => $mainImage,
-                'pictures' => $kit['images'] ?? [],
-                'name' => isset($kit['title']) && !$isVariable ? $kit['title'] : $name,
-                'description' => $kit['description'] ?? null,
+                'image' => $product->image ?: $providerProduct->image,
+                'name' => $product->name ?: $name,
             ]);
 
-            // Generate Video
-            try {
-                $videoUrl = $videoService->generateForProduct($product);
-                if ($videoUrl) {
-                    $product->update(['videos' => [$videoUrl]]);
-                }
-            } catch (\Exception $e) {
-                Log::warning('AddCatalogItemToShop: video generation failed', ['error' => $e->getMessage()]);
+            EnrichCatalogProductMedia::dispatch(
+                $product->id,
+                $providerProduct->id,
+                $catalogItem?->id,
+                $shop->id,
+                $isVariable,
+                $name
+            )->afterResponse();
+
+            if (in_array('yandex_market', $selectedChannels, true)) {
+                PushProductToYandex::dispatch($product->id, $shop->id);
             }
 
             // --- 5.5 🛡️ Pre-Flight Stock Check (SafeGuard) ---
             if ($this->count > 0 && $catalogItem) {
                  try {
-                     $vault = app(\App\Services\VaultTransitService::class);
-                     $serviceSku = $vault->decrypt($catalogItem->service_sku);
-                     $wfService = new \App\Services\WildflowService();
-                     
-                     $availability = $wfService->checkAvailability(
-                         service_sku: (string)$serviceSku,
-                         quantity: $this->count,
-                         price: $isVariable ? (float)$retailPrice : null,
-                         terminalId: (string)$this->sellerId
+                     $availability = app(\App\Services\StorefrontStockAvailabilityService::class)->check(
+                         $catalogItem,
+                         $this->count,
+                         $isVariable ? (float)$retailPrice : null,
+                         (string)$this->sellerId
                      );
 
                      if (!$availability['available']) {
@@ -236,7 +249,11 @@ class AddCatalogItemToShop implements ShouldQueue
                              \Log::warning('Failed to record stock deficit into ledger', ['err' => $ledgerEx->getMessage()]);
                          }
 
-                         throw new \Exception("Пополнение отменено: Товара временно нет в наличии у поставщика или запрошенное количество ({$this->count}) недоступно.");
+                         $reason = ($availability['source'] ?? null) === 'provider_auth_failed'
+                            ? ($availability['error'] ?? 'Не удалось подтвердить сток у провайдера.')
+                            : "Товара временно нет в наличии у поставщика или запрошенное количество ({$this->count}) недоступно.";
+
+                         throw new \Exception("Пополнение отменено: {$reason}");
                      }
                  } catch (\Exception $e) {
                      if (str_contains($e->getMessage(), 'Пополнение отменено')) {
@@ -255,31 +272,66 @@ class AddCatalogItemToShop implements ShouldQueue
                 if ($legalEntity) {
                     // Используем уже вычисленную цену селлера (priceRub / 100)
                     $totalCostRub = ($priceRub / 100) * $this->count;
+                    $paymentMethod = $this->normalizedPaymentMethod();
+                    $sl1RubRate = (float) config('sl1_tokenomics.rub_rate', 100.0);
+                    $sl1Amount = round($totalCostRub / max($sl1RubRate, 0.0001), 4);
+                    $gasFeeSl1 = $paymentMethod === 'native_token' ? 0.0015 : 0.0;
 
-                    if ($legalEntity->available_balance < $totalCostRub) {
-                        throw new \Exception('Недостаточно средств на балансе для резервирования стока (Требуется: '.number_format($totalCostRub, 2).' RUB)');
+                    if ($paymentMethod === 'native_token') {
+                        $balances = app(\App\Services\L1StateService::class)->reconstructBalance($legalEntity);
+                        $availableSl1 = (float) ($balances['sl1_available_balance'] ?? $balances['native_available_balance'] ?? 0);
+                        $totalCostSl1 = $sl1Amount + $gasFeeSl1;
+
+                        if ($availableSl1 < $totalCostSl1) {
+                            throw new \Exception('Недостаточно SL1 для резервирования стока (Требуется: '.number_format($totalCostSl1, 4).' SL1)');
+                        }
+
+                        $legalEntity->decrement('native_token_balance', $totalCostSl1);
+                        $legalEntity->increment('native_token_reserved', $sl1Amount);
+                    } else {
+                        $balances = app(\App\Services\L1StateService::class)->reconstructBalance($legalEntity);
+                        $availableRubt = (float) ($balances['rubt_available_balance'] ?? $balances['available_balance'] ?? 0);
+
+                        if ($availableRubt < $totalCostRub) {
+                            throw new \Exception('Недостаточно RUBT на балансе для резервирования стока (Требуется: '.number_format($totalCostRub, 2).' RUBT)');
+                        }
+
+                        // Move tokenized RUB from Available to Reserved (The HOLD)
+                        $legalEntity->decrement('available_balance', $totalCostRub);
+                        $legalEntity->increment('reserved_balance', $totalCostRub);
+                        
+                        // Keep 'balance' field in sync for legacy total-spend projections.
+                        $legalEntity->decrement('balance', $totalCostRub);
                     }
-
-                    // Move money from Available to Reserved (The HOLD)
-                    $legalEntity->decrement('available_balance', $totalCostRub);
-                    $legalEntity->increment('reserved_balance', $totalCostRub);
-                    
-                    // Keep 'balance' field in sync (legacy total)
-                    $legalEntity->decrement('balance', $totalCostRub);
 
                     // ⛓️ Sovereign Ledger: Record the FINANCE_HOLD
                     app(\App\Services\LedgerService::class)->record($shop, 'FINANCE_HOLD', $product, [
+                        'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
                         'amount_rub' => $totalCostRub,
-                        'available_before' => $legalEntity->available_balance + $totalCostRub,
-                        'available_after' => $legalEntity->available_balance,
+                        'token_amount' => $paymentMethod === 'native_token' ? $sl1Amount : $totalCostRub,
+                        'sl1_amount' => $paymentMethod === 'native_token' ? $sl1Amount : 0.0,
+                        'gas_fee' => $gasFeeSl1,
+                        'payment_method' => $paymentMethod,
+                        'available_before' => $paymentMethod === 'native_token'
+                            ? ($balances['sl1_available_balance'] ?? $balances['native_available_balance'] ?? 0)
+                            : ($legalEntity->available_balance + $totalCostRub),
+                        'available_after' => $paymentMethod === 'native_token'
+                            ? (($balances['sl1_available_balance'] ?? $balances['native_available_balance'] ?? 0) - $sl1Amount - $gasFeeSl1)
+                            : $legalEntity->available_balance,
                         'count' => $this->count,
-                        'context' => 'stock_replenish'
+                        'context' => 'stock_replenish',
+                        'signature_method' => 'passkey',
+                        'assertion_id' => $this->passkeyCredentialId,
+                        'simple_layer_one' => $this->simpleLayerOneProof,
+                        'tx_hash' => $this->simpleLayerOneProof['tx_hash'] ?? null,
+                        'tx_nonce' => $this->simpleLayerOneProof['tx_nonce'] ?? null,
                     ]);
 
                     \Log::info('Finance: Funds held for stock purchase', [
                         'shop_id' => $shop->id,
                         'sku' => $product->sku,
                         'amount_rub' => $totalCostRub,
+                        'payment_method' => $paymentMethod,
                         'count' => $this->count,
                     ]);
                 }
@@ -287,9 +339,44 @@ class AddCatalogItemToShop implements ShouldQueue
 
             // --- 7. 🎟 Generate Vouchers ---
             if ($this->count > 0) {
-                $masterWarehouse = \App\Models\Warehouse::where('shop_id', $shop->id)
+                $masterWarehouse = \App\Models\Warehouse::query()
+                    ->where('shop_id', $shop->id)
                     ->where('is_main', true)
+                    ->whereNull('channel')
                     ->first();
+
+                if (! $masterWarehouse) {
+                    $masterWarehouse = \App\Models\Warehouse::create([
+                        'shop_id' => $shop->id,
+                        'ym_id' => null,
+                        'name' => 'Мастер-склад',
+                        'type' => 'master',
+                        'is_active' => true,
+                        'is_main' => true,
+                        'channel' => null,
+                        'channel_quota' => 100,
+                    ]);
+                }
+
+                if (
+                    in_array('yandex_market', $selectedChannels, true)
+                    && $shop->ym_warehouse_id
+                ) {
+                    \App\Models\Warehouse::query()->updateOrCreate(
+                        [
+                            'shop_id' => $shop->id,
+                            'channel' => 'yandex_market',
+                        ],
+                        [
+                            'ym_id' => (int) $shop->ym_warehouse_id,
+                            'name' => 'Yandex Market',
+                            'type' => 'channel',
+                            'is_active' => true,
+                            'is_main' => false,
+                            'channel_quota' => 100,
+                        ]
+                    );
+                }
 
                 if ($masterWarehouse) {
                     // 📝 Create Procurement Record for History
@@ -304,10 +391,31 @@ class AddCatalogItemToShop implements ShouldQueue
                     ]);
 
                     // ⛓️ Sovereign Ledger: Record the REPLENISH
+                    $totalCostRub = ($priceRub / 100) * $this->count;
+                    $paymentMethod = $this->normalizedPaymentMethod();
+                    $sl1Amount = round($totalCostRub / max((float) config('sl1_tokenomics.rub_rate', 100.0), 0.0001), 4);
                     app(\App\Services\LedgerService::class)->record($shop, 'STOCK_REPLENISH', $procurement, [
                         'count' => $this->count,
                         'sku' => $product->sku,
+                        'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+                        'amount_rub' => $totalCostRub,
+                        'token_amount' => $paymentMethod === 'native_token' ? $sl1Amount : $totalCostRub,
+                        'sl1_amount' => $paymentMethod === 'native_token' ? $sl1Amount : 0.0,
+                        'payment_method' => $paymentMethod,
+                        'signature_method' => 'passkey',
+                        'assertion_id' => $this->passkeyCredentialId,
+                        'simple_layer_one' => $this->simpleLayerOneProof,
+                        'tx_hash' => $this->simpleLayerOneProof['tx_hash'] ?? null,
+                        'tx_nonce' => $this->simpleLayerOneProof['tx_nonce'] ?? null,
                     ]);
+
+                    if ($shop->legalEntity) {
+                        if ($paymentMethod === 'native_token') {
+                            $shop->legalEntity->decrement('native_token_reserved', $sl1Amount);
+                        } else {
+                            $shop->legalEntity->decrement('reserved_balance', $totalCostRub);
+                        }
+                    }
 
                     for ($i = 0; $i < $this->count; $i++) {
                         \App\Models\ProductInventory::create([
@@ -331,20 +439,10 @@ class AddCatalogItemToShop implements ShouldQueue
                         ]
                     );
 
-                    // Trigger distribution to channels
-                    \App\Jobs\DistributeStockToChannels::dispatch($shop);
+                    // Push only the purchased SKU to channels asynchronously. The Simple Layer One
+                    // transaction is already finalized; channel sync should not block checkout UX.
+                    \App\Jobs\DistributeStockToChannels::dispatch($shop, productId: $product->id);
                 }
-            }
-
-            // --- 7. Push to Yandex Market ---
-            $ymResult = null;
-            if (
-                in_array('yandex_market', $selectedChannels, true)
-                && $shop->campaign_id
-                && $shop->api_key
-                && $shop->business_id
-            ) {
-                $ymResult = $this->pushToYandexMarket($shop, $product);
             }
 
             // --- 8. Notify seller in Filament ---
@@ -354,10 +452,8 @@ class AddCatalogItemToShop implements ShouldQueue
                 if ($this->count > 0) {
                     $body .= " и сгенерировано {$this->count} ваучеров.";
                 }
-                if ($ymResult === true) {
-                    $body .= ' Карточка отправлена на Яндекс Маркет.';
-                } elseif ($ymResult === false) {
-                    $body .= ', но при отправке на ЯМ возникла ошибка — проверьте кабинет.';
+                if ($this->count > 0 && count($selectedChannels) > 0) {
+                    $body .= ' Синхронизация каналов продаж поставлена в очередь.';
                 }
 
                 Notification::make()
@@ -382,27 +478,17 @@ class AddCatalogItemToShop implements ShouldQueue
         }
     }
 
-    private function pushToYandexMarket(Shop $shop, Product $product): bool
+    private function normalizedPaymentMethod(): string
     {
-        try {
-            $service = new YmService($shop);
-            $categoryId = (int) ($shop->ym_category_id ?? \App\Models\Settings::get('YM_CATEGORY_ID', 70301474));
+        return $this->paymentMethod === 'native_token' ? 'native_token' : 'rub_token';
+    }
 
-            $offer = $product->toYmOffer($categoryId, $shop->id);
+    private function resolveYandexMarketCategoryId(ProviderProduct $providerProduct, ?WildflowCatalog $catalogItem, int $defaultCategoryId, ?string $canonicalCategory = null): int
+    {
+        $resolver = app(CanonicalCategoryResolver::class);
+        $category = $canonicalCategory ?: $resolver->forProviderProduct($providerProduct, $catalogItem);
 
-            $service->offerMappingsUpdate([['offer' => $offer]]);
-
-            $product->update(['send_to_ym_at' => now()]);
-
-            return true;
-        } catch (\Throwable $e) {
-            Log::error('AddCatalogItemToShop: YM push failed', [
-                'sku' => $product->sku,
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
+        return $resolver->yandexCategoryId($category, $catalogItem?->market_category_id ?: $defaultCategoryId);
     }
 
     /**
@@ -410,7 +496,8 @@ class AddCatalogItemToShop implements ShouldQueue
      */
     private function syncSalesChannels(Shop $shop, Product $product, array $selectedChannels): void
     {
-        $knownChannels = array_keys(SalesChannels::optionsForUi());
+        $knownChannels = array_keys(SalesChannels::optionsForUi($shop));
+        $selectedChannels = array_values(array_intersect($selectedChannels, $knownChannels));
 
         foreach ($knownChannels as $channel) {
             ProductSalesChannel::query()->updateOrCreate(

@@ -41,6 +41,7 @@ class Order extends Model
         'cost_currency',
         'cost_amount_base',
         'margin_base',
+        'search_log_id',
     ];
 
     protected $casts = [
@@ -56,6 +57,17 @@ class Order extends Model
         'cost_amount_base' => 'decimal:2',
         'margin_base' => 'decimal:2',
     ];
+
+    public function searchLog(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CatalogSearchLog::class);
+    }
+
+    public function searchAttributions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Order\OrderSearchAttribution::class);
+    }
+
 
     public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
@@ -130,6 +142,16 @@ class Order extends Model
         return $this->hasMany(OrderComment::class);
     }
 
+    public function supportTicket(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\Ticket::class);
+    }
+
+    public function transactionReference(): string
+    {
+        return app(\App\Services\SimpleLayer1TransactionReferenceService::class)->forModel($this);
+    }
+
     public function ymNotifications(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(YmNotification::class, 'order_id', 'order_id');
@@ -141,6 +163,13 @@ class Order extends Model
     public function isYandexSandboxOrder(): bool
     {
         return (bool) data_get($this->info, 'fake', false);
+    }
+
+    public function shouldRedeemThroughProvider(): bool
+    {
+        return ! $this->isYandexSandboxOrder()
+            || (bool) data_get($this->info, 'redeem_live_provider', false)
+            || (bool) data_get($this->info, 'wildflow_sandbox_e2e', false);
     }
 
     /**

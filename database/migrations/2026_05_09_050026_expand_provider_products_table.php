@@ -23,8 +23,7 @@ return new class extends Migration
             if (Schema::hasColumn('provider_products', 'region_id')) {
                 $table->dropColumn('region_id');
             }
-            $table->bigInteger('region_id')->after('brand_id')->unsigned(false)->nullable();
-            $table->foreign('region_id')->references('id')->on('mapping_countries')->nullOnDelete();
+            $table->foreignId('region_id')->after('brand_id')->nullable()->constrained('mapping_countries')->nullOnDelete();
 
             if (!Schema::hasColumn('provider_products', 'category')) {
                 $table->string('category')->after('name')->nullable();
@@ -61,8 +60,7 @@ return new class extends Migration
                 $table->dropColumn('brand_id');
             }
             if (Schema::hasColumn('provider_products', 'region_id')) {
-                $table->dropForeign(['region_id']);
-                $table->dropColumn('region_id');
+                $table->dropConstrainedForeignId('region_id');
             }
             $table->dropColumn(['category', 'reward_type', 'retail_price', 'image', 'activation_url', 'redemption_instructions']);
         });

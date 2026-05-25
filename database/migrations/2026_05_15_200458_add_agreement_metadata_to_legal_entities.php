@@ -11,13 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('legal_entities', 'agreement_metadata')) {
+            return;
+        }
+
         Schema::table('legal_entities', function (Blueprint $table) {
-            $table->json('agreement_metadata')->nullable()->after('agreement_signature');
+            $after = Schema::hasColumn('legal_entities', 'agreement_signature') ? 'agreement_signature' : 'agreement_signed_at';
+
+            $table->json('agreement_metadata')->nullable()->after($after);
         });
     }
 
     public function down(): void
     {
+        if (! Schema::hasColumn('legal_entities', 'agreement_metadata')) {
+            return;
+        }
+
         Schema::table('legal_entities', function (Blueprint $table) {
             $table->dropColumn('agreement_metadata');
         });
