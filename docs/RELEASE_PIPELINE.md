@@ -3,8 +3,19 @@
 Launch-critical local checks:
 
 ```bash
+php artisan meanly:llm-health
 php artisan meanly:seo-readiness
 php artisan meanly:launch-readiness --quick --run-tests
+```
+
+Cloud LLM providers:
+
+```bash
+LLM_PROVIDER=openai
+LLM_FALLBACK_PROVIDERS=anthropic,local
+LLM_CLOUD_REQUIRED=true
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
 ```
 
 Post-deployment Gate 2 checks:

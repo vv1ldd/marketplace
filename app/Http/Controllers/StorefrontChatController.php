@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Services\AppStoreLookupService;
 use App\Services\CanonicalStorefrontHomepageService;
+use App\Services\Llm\LlmProviderManager;
 use App\Services\MeanlyAnalyticsService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 
 class StorefrontChatController extends Controller
 {
@@ -22,6 +22,7 @@ class StorefrontChatController extends Controller
         Request $request,
         CanonicalStorefrontHomepageService $homepageService,
         AppStoreLookupService $appStoreLookup,
+        LlmProviderManager $llm,
     )
     {
         $message = $request->input('message');
@@ -92,141 +93,92 @@ class StorefrontChatController extends Controller
             })->take(50)->values()->toArray();
         }
 
-        // 3. Формируем промпт
-        $model = config('services.ollama.model', 'gemma4');
-        $ollamaUrl = config('services.ollama.url', 'http://localhost:11434');
-
         $prompt = $this->buildSystemPrompt($catalog, $message, $chatHistory, $externalResults);
         $products = $this->productSuggestions($catalog);
+        $response = $llm->generateText($prompt, [
+            'timeout' => 60,
+            'temperature' => 0.2,
+            'max_tokens' => 900,
+            'system' => 'You are Meanly AI, a concise marketplace shopping assistant.',
+        ]);
+        $model = trim($response->provider.':'.($response->model ?? ''), ':');
 
-        try {
-            $response = Http::timeout(60)
-                ->post(rtrim($ollamaUrl, '/') . '/api/generate', [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
+        if ($response->ok) {
+            $answer = $this->ensureProductSuggestionsInResponse($response->text, $products, $externalResults);
 
-            if ($response->successful()) {
-                $answer = $this->ensureProductSuggestionsInResponse(
-                    (string) $response->json('response'),
-                    $products,
-                    $externalResults,
-                );
-
-                app(MeanlyAnalyticsService::class)->track('ai.chat.completed', [
-                    'message_length' => mb_strlen((string) $message),
-                    'catalog_candidates' => count($catalog),
-                    'products_count' => count($products),
-                    'external_results_count' => count($externalResults),
-                    'model' => $model,
-                    'model_unavailable' => false,
-                ], [
-                    'event_type' => 'ai',
-                    'surface' => 'ai',
-                    'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'response' => $answer,
-                    'external_results' => $externalResults,
-                    'products' => $products,
-                    'model' => $model
-                ]);
-            }
-
-            if ($products !== []) {
-                app(MeanlyAnalyticsService::class)->track('ai.chat.fallback', [
-                    'message_length' => mb_strlen((string) $message),
-                    'catalog_candidates' => count($catalog),
-                    'products_count' => count($products),
-                    'external_results_count' => count($externalResults),
-                    'model' => $model,
-                    'model_unavailable' => true,
-                    'upstream_status' => $response->status(),
-                ], [
-                    'event_type' => 'ai',
-                    'surface' => 'ai',
-                    'severity' => 'warning',
-                    'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'response' => $this->fallbackProductResponse($products, $externalResults),
-                    'external_results' => $externalResults,
-                    'products' => $products,
-                    'model' => $model,
-                    'model_unavailable' => true,
-                ]);
-            }
-
-            app(MeanlyAnalyticsService::class)->track('ai.chat.failed', [
+            app(MeanlyAnalyticsService::class)->track('ai.chat.completed', [
                 'message_length' => mb_strlen((string) $message),
                 'catalog_candidates' => count($catalog),
                 'products_count' => count($products),
                 'external_results_count' => count($externalResults),
                 'model' => $model,
-                'upstream_status' => $response->status(),
+                'provider' => $response->provider,
+                'fallback_used' => $response->fallbackUsed,
+                'model_unavailable' => false,
             ], [
                 'event_type' => 'ai',
                 'surface' => 'ai',
-                'severity' => 'error',
-                'status_code' => 500,
                 'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             ]);
 
             return response()->json([
-                'success' => false,
-                'error' => 'Ошибка Ollama: ' . $response->body()
-            ], 500);
-
-        } catch (\Exception $e) {
-            if ($products !== []) {
-                app(MeanlyAnalyticsService::class)->trackException($e, 'ai.chat.fallback_exception', [
-                    'message_length' => mb_strlen((string) $message),
-                    'catalog_candidates' => count($catalog),
-                    'products_count' => count($products),
-                    'external_results_count' => count($externalResults),
-                    'model' => $model,
-                    'model_unavailable' => true,
-                ], [
-                    'event_type' => 'ai',
-                    'surface' => 'ai',
-                    'severity' => 'warning',
-                    'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'response' => $this->fallbackProductResponse($products, $externalResults),
-                    'external_results' => $externalResults,
-                    'products' => $products,
-                    'model' => $model,
-                    'model_unavailable' => true,
-                ]);
-            }
-
-            app(MeanlyAnalyticsService::class)->trackException($e, 'ai.chat.exception', [
-                'message_length' => mb_strlen((string) $message),
-                'catalog_candidates' => count($catalog),
-                'products_count' => count($products),
-                'external_results_count' => count($externalResults),
+                'success' => true,
+                'response' => $answer,
+                'external_results' => $externalResults,
+                'products' => $products,
                 'model' => $model,
-            ], [
-                'event_type' => 'ai',
-                'surface' => 'ai',
-                'severity' => 'error',
-                'status_code' => 500,
-                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                'provider' => $response->provider,
+                'fallback_used' => $response->fallbackUsed,
             ]);
-
-            return response()->json([
-                'success' => false,
-                'error' => "Не удалось связаться с локальным ИИ-сервером Ollama. Убедитесь, что Ollama запущен и загружена модель {$model}. Детали ошибки: " . $e->getMessage()
-            ], 500);
         }
+
+        if ($products !== []) {
+            app(MeanlyAnalyticsService::class)->track('ai.chat.fallback', [
+                'message_length' => mb_strlen((string) $message),
+                'catalog_candidates' => count($catalog),
+                'products_count' => count($products),
+                'external_results_count' => count($externalResults),
+                'model' => $model,
+                'provider' => $response->provider,
+                'model_unavailable' => true,
+                'error' => $response->error,
+            ], [
+                'event_type' => 'ai',
+                'surface' => 'ai',
+                'severity' => 'warning',
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'response' => $this->fallbackProductResponse($products, $externalResults),
+                'external_results' => $externalResults,
+                'products' => $products,
+                'model' => $model,
+                'model_unavailable' => true,
+            ]);
+        }
+
+        app(MeanlyAnalyticsService::class)->track('ai.chat.failed', [
+            'message_length' => mb_strlen((string) $message),
+            'catalog_candidates' => count($catalog),
+            'products_count' => count($products),
+            'external_results_count' => count($externalResults),
+            'model' => $model,
+            'provider' => $response->provider,
+            'error' => $response->error,
+        ], [
+            'event_type' => 'ai',
+            'surface' => 'ai',
+            'severity' => 'error',
+            'status_code' => 500,
+            'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'error' => 'Не удалось связаться с LLM provider layer: '.$response->error,
+        ], 500);
     }
 
     /**

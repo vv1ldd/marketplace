@@ -8,8 +8,8 @@ use App\Models\User;
 use App\Models\LegalEntity;
 use App\Models\WarehouseStock;
 use App\Models\Order\Order;
+use App\Services\Llm\LlmProviderManager;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
 
 class PartnerAnalystService
 {
@@ -21,24 +21,15 @@ class PartnerAnalystService
         set_time_limit(0);
         $prompt = $this->buildAnalysisPrompt($shop);
         
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
+        $response = app(LlmProviderManager::class)->generateText($prompt, [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a private B2B marketplace operations analyst. Answer in Russian.',
+        ]);
 
-            if ($response->successful()) {
-                return $response->json('response');
-            }
-
-            return "Ошибка Ollama: " . $response->body();
-        } catch (\Exception $e) {
-            return "Ollama не отвечает. Убедитесь, что модель {$model} запущена локально. Детали: " . $e->getMessage();
-        }
+        return $response->ok
+            ? $response->text
+            : "LLM provider layer недоступен ({$response->provider}). Детали: {$response->error}";
     }
 
     /**
@@ -222,23 +213,14 @@ $message
 ТВОЯ ЗАДАЧА: Дать интеллектуальный ответ на основе контекста кабинета партнера.
 EOT;
 
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
+        $response = app(LlmProviderManager::class)->generateText($prompt, [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a private B2B marketplace assistant. Answer in Russian.',
+        ]);
 
-            if ($response->successful()) {
-                return $response->json('response');
-            }
-
-            return "Извините, возникла ошибка связи с мозговым центром.";
-        } catch (\Exception $e) {
-            return "Я временно не могу связаться с Ollama. Проверьте запуск модели {$model} (Детали ошибки: " . $e->getMessage() . ")";
-        }
+        return $response->ok
+            ? $response->text
+            : "Я временно не могу связаться с LLM provider layer ({$response->provider}). Детали: {$response->error}";
     }
 }

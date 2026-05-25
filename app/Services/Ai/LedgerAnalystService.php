@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\Shop;
 use App\Models\SovereignLedger;
+use App\Services\Llm\LlmProviderManager;
 use Carbon\Carbon;
 
 class LedgerAnalystService
@@ -31,31 +32,22 @@ class LedgerAnalystService
     }
 
     /**
-     * Выполняет запрос к локальной Ollama (Llama 3)
+     * Выполняет запрос через LLM provider layer.
      */
     public function analyze(\App\Models\Shop $shop): string
     {
         set_time_limit(0);
         $prompt = $this->buildAnalysisPrompt($shop);
         
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = \Illuminate\Support\Facades\Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt['content'],
-                    'stream' => false,
-                ]);
+        $response = app(LlmProviderManager::class)->generateText($prompt['content'], [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a sovereign marketplace ledger analyst. Answer in Russian.',
+        ]);
 
-            if ($response->successful()) {
-                return $response->json('response');
-            }
-
-            return "Ошибка Ollama: " . $response->body();
-        } catch (\Exception $e) {
-            return "Ollama не отвечает. Убедитесь, что она запущена (ollama run {$model}). Ошибка: " . $e->getMessage();
-        }
+        return $response->ok
+            ? $response->text
+            : "LLM provider layer недоступен ({$response->provider}). Ошибка: {$response->error}";
     }
 
     /**
@@ -201,24 +193,17 @@ $transcript
 Отвечай на РУССКОМ языке, максимально технично.
 EOT;
 
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = \Illuminate\Support\Facades\Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
+        $response = app(LlmProviderManager::class)->generateText($prompt, [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a sovereign currency strategist. Answer in Russian.',
+        ]);
 
-            return $response->successful() ? $response->json('response') : "Ошибка: " . $response->body();
-        } catch (\Exception $e) {
-            return "Ollama ({$model}) недоступна для локального инсайта. Ошибка: " . $e->getMessage();
-        }
+        return $response->ok ? $response->text : "LLM provider layer недоступен: {$response->error}";
     }
 
     /**
-     * Анализ глобальных валютных рисков через Ollama
+     * Анализ глобальных валютных рисков через LLM provider layer.
      */
     public function analyzeGlobalCurrencies(): string
     {
@@ -250,20 +235,13 @@ $systemSnapshot
 Отвечай на РУССКОМ языке, в стиле разведсводки (Intelligence Report). Лаконично и по существу.
 EOT;
 
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = \Illuminate\Support\Facades\Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
+        $response = app(LlmProviderManager::class)->generateText($prompt, [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a sovereign global liquidity risk analyst. Answer in Russian.',
+        ]);
 
-            return $response->successful() ? $response->json('response') : "Ошибка: " . $response->body();
-        } catch (\Exception $e) {
-            return "Ollama недоступна: " . $e->getMessage();
-        }
+        return $response->ok ? $response->text : "LLM provider layer недоступен: {$response->error}";
     }
 
     /**

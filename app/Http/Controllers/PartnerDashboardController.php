@@ -3674,7 +3674,7 @@ class PartnerDashboardController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => true,
-                'content' => "Я временно не могу связаться с Ollama. Проверьте запуск Llama 3 (Детали ошибки: " . $e->getMessage() . ")",
+                'content' => "Я временно не могу связаться с LLM provider layer. Проверьте локальный или облачный провайдер (Детали ошибки: " . $e->getMessage() . ")",
                 'time' => now()->format('H:i')
             ]);
         }

@@ -6,7 +6,6 @@ use App\Models\SovereignLedger;
 use App\Services\LedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 
 class TribunalDashboardController extends Controller
 {
@@ -114,29 +113,22 @@ class TribunalDashboardController extends Controller
 $message
 EOT;
 
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
+        $response = app(\App\Services\Llm\LlmProviderManager::class)->generateText($prompt, [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a sovereign ledger audit oracle. Answer in Russian.',
+        ]);
 
-            if ($response->successful()) {
-                return response()->json([
-                    'success' => true,
-                    'response' => $response->json('response')
-                ]);
-            }
-
-            return response()->json(['error' => "Ошибка связи с ядром {$model}."], 500);
-        } catch (\Exception $e) {
+        if ($response->ok) {
             return response()->json([
                 'success' => true,
-                'response' => "Ядро ИИ временно отключено от трибунала. Криптографические реестры тем не менее остаются полностью валидными. (Детали: " . $e->getMessage() . ")"
+                'response' => $response->text,
             ]);
         }
+
+        return response()->json([
+            'success' => true,
+            'response' => "Ядро ИИ временно отключено от трибунала. Криптографические реестры тем не менее остаются полностью валидными. (Provider: {$response->provider})",
+        ]);
     }
 }

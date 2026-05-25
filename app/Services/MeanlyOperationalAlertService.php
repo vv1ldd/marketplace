@@ -125,7 +125,7 @@ class MeanlyOperationalAlertService
                 severity: $aiWarnings['count'] >= 5 ? 'critical' : 'warning',
                 surface: 'ai',
                 title: 'Meanly AI degraded',
-                description: 'AI чаще уходит в fallback/error. Нужно проверить Ollama и retrieval.',
+                description: 'AI чаще уходит в fallback/error. Нужно проверить LLM providers и retrieval.',
                 occurrenceCount: $aiWarnings['count'],
                 threshold: 1,
                 context: $aiWarnings,

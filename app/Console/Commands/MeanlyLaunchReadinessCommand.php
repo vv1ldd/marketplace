@@ -7,6 +7,7 @@ use App\Models\LegalEntityMigrationPill;
 use App\Models\MeanlyOperationalAlert;
 use App\Models\OpportunityCase;
 use App\Models\User;
+use App\Services\Llm\LlmProviderManager;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,7 @@ class MeanlyLaunchReadinessCommand extends Command
         $this->checkDemandAndOpportunity();
         $this->checkRoutes();
         $this->checkSitemapsAndLlms();
+        $this->checkLlmProviders();
         $this->checkQueues();
         $this->checkAlerts();
 
@@ -331,6 +333,27 @@ class MeanlyLaunchReadinessCommand extends Command
             $missing === [] ? 'pass' : 'fail',
             $missing === [] ? 'Sitemap and LLM route names are registered.' : 'Missing: '.implode(', ', $missing),
         );
+    }
+
+    private function checkLlmProviders(): void
+    {
+        try {
+            $manager = app(LlmProviderManager::class);
+            $configured = $manager->configuredProviderNames();
+            $cloudConfigured = $manager->cloudConfigured();
+            $cloudRequired = (bool) config('llm.cloud_required', false);
+
+            $this->addCheck(
+                'llm providers',
+                $configured === [] || ($cloudRequired && ! $cloudConfigured) ? 'fail' : 'pass',
+                'default='.(string) config('llm.default', 'local')
+                    .', configured='.($configured === [] ? 'none' : implode(',', $configured))
+                    .', cloud_configured='.($cloudConfigured ? 'yes' : 'no')
+                    .', cloud_required='.($cloudRequired ? 'yes' : 'no'),
+            );
+        } catch (Throwable $e) {
+            $this->addCheck('llm providers', 'fail', $e->getMessage());
+        }
     }
 
     private function checkQueues(): void

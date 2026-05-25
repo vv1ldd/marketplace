@@ -84,20 +84,14 @@ $lastUserMsg
 ТВОЯ ЗАДАЧА: Дать интеллектуальный ответ на основе контекста системы.
 EOT;
 
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = \Illuminate\Support\Facades\Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
-
-            $aiContent = $response->successful() ? $response->json('response') : "Извините, возникла ошибка связи с мозговым центром.";
-        } catch (\Exception $e) {
-            $aiContent = "Я временно не могу связаться с Ollama. Проверьте запуск модели {$model}.";
-        }
+        $response = app(\App\Services\Llm\LlmProviderManager::class)->generateText($prompt, [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a private marketplace operations terminal. Answer in Russian.',
+        ]);
+        $aiContent = $response->ok
+            ? $response->text
+            : "Я временно не могу связаться с LLM provider layer ({$response->provider}).";
 
         $this->chatHistory[] = [
             'role' => 'assistant',

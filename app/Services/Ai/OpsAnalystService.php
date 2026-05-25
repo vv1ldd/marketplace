@@ -7,8 +7,8 @@ use App\Models\SovereignLedger;
 use App\Models\User;
 use App\Models\LegalEntity;
 use App\Models\Order\Order;
+use App\Services\Llm\LlmProviderManager;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
 
 class OpsAnalystService
 {
@@ -69,24 +69,15 @@ $transcript
 Отвечай строго на РУССКОМ языке, лаконично, в стиле приватного операционного консультанта.
 EOT;
 
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
+        $response = app(LlmProviderManager::class)->generateText($prompt, [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a private global marketplace operations auditor. Answer in Russian.',
+        ]);
 
-            if ($response->successful()) {
-                return $response->json('response');
-            }
-
-            return "Ошибка Ollama: " . $response->body();
-        } catch (\Exception $e) {
-            return "Ollama не отвечает. Убедитесь, что модель {$model} запущена локально. Детали: " . $e->getMessage();
-        }
+        return $response->ok
+            ? $response->text
+            : "LLM provider layer недоступен ({$response->provider}). Детали: {$response->error}";
     }
 
     /**
@@ -143,23 +134,14 @@ $message
 ТВОЯ ЗАДАЧА: Дать интеллектуальный и полезный ответ на основе операционного контекста всей платформы Meanly.
 EOT;
 
-        try {
-            $model = config('services.ollama.model');
-            $url = rtrim(config('services.ollama.url'), '/');
-            $response = Http::timeout(300)
-                ->post("$url/api/generate", [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'stream' => false,
-                ]);
+        $response = app(LlmProviderManager::class)->generateText($prompt, [
+            'timeout' => 300,
+            'temperature' => 0.2,
+            'system' => 'You are a private global marketplace operations assistant. Answer in Russian.',
+        ]);
 
-            if ($response->successful()) {
-                return $response->json('response');
-            }
-
-            return "Извините, возникла ошибка связи с операционным ядром.";
-        } catch (\Exception $e) {
-            return "Я временно не могу связаться с Ollama. Проверьте запуск модели {$model} (Детали: " . $e->getMessage() . ")";
-        }
+        return $response->ok
+            ? $response->text
+            : "Я временно не могу связаться с LLM provider layer ({$response->provider}). Детали: {$response->error}";
     }
 }
