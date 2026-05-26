@@ -2,13 +2,7 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Models\Contracts\HasName;
-use Filament\Models\Contracts\HasTenants;
-use Filament\Panel;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -16,14 +10,14 @@ use Spatie\Permission\Traits\HasRoles;
 use Spatie\LaravelPasskeys\Models\Concerns\InteractsWithPasskeys;
 use Spatie\LaravelPasskeys\Models\Concerns\HasPasskeys;
 
-class User extends Authenticatable implements FilamentUser, HasName, HasTenants, HasPasskeys
+class User extends Authenticatable implements HasPasskeys
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles, InteractsWithPasskeys;
 
     public function getPassKeyDisplayName(): string
     {
-        return $this->first_name ? "@{$this->first_name}" : ($this->email ?? "User #{$this->id}");
+        return $this->profileDisplayName();
     }
 
     public function getPassKeyId(): string
@@ -33,7 +27,58 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
 
     public function getPassKeyName(): string
     {
-        return $this->first_name ? "@{$this->first_name}" : ($this->email ?? "user-{$this->id}");
+        return $this->profileDisplayName();
+    }
+
+    public function profileDisplayName(): string
+    {
+        $metadataName = trim((string) data_get($this->meta, 'display_name', ''));
+        if ($metadataName !== '') {
+            return $metadataName;
+        }
+
+        $name = trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->last_name,
+        ])));
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        if ($this->email) {
+            return (string) $this->email;
+        }
+
+        $suffix = strtoupper((string) data_get($this->meta, 'profile_suffix', substr(hash('crc32b', (string) $this->id), -4)));
+
+        return "Meanly Profile {$suffix}";
+    }
+
+    public function sovereignIdentityAddress(): ?string
+    {
+        $address = (string) data_get($this->meta, 'entity_l1_address', data_get($this->meta, 'l1_address', ''));
+
+        return preg_match('/^sl1e_[a-f0-9]{39}$/i', $address) ? $address : null;
+    }
+
+    public function hasSovereignIdentity(): bool
+    {
+        return $this->sovereignIdentityAddress() !== null;
+    }
+
+    public function primarySellerAccount(): ?Seller
+    {
+        $entity = $this->managedLegalEntities()
+            ->whereNotNull('legal_entities.seller_id')
+            ->latest('legal_entities.created_at')
+            ->first();
+
+        if ($entity?->seller_id) {
+            return Seller::find($entity->seller_id);
+        }
+
+        return $this->email ? Seller::findByEmail($this->email) : null;
     }
 
     /**
@@ -124,51 +169,14 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
         return $this->hasRole('customer');
     }
 
-    public function canAccessPanel(Panel $panel): bool
-    {
-        // Sovereign access for Super Admin (God Mode)
-        if ($this->hasRole('super_admin')) {
-            return true;
-        }
-
-        $id = $panel->getId();
-
-        // 🍊 Operations Command
-        if ($id === 'ops') {
-            return $this->hasAnyRole(['manager', 'executor', 'support']);
-        }
-
-        // 🏦 Treasury Nexus
-        if ($id === 'treasury') {
-            return $this->hasRole('treasurer');
-        }
-
-        // 🏛️ Integrity Tribunal
-        if ($id === 'tribunal') {
-            return $this->hasRole('auditor');
-        }
-
-        // ⚙️ System Kernel
-        if ($id === 'kernel') {
-            return $this->hasAnyRole(['telemetry_monitor', 'system_engineer']);
-        }
-
-        // 🤝 Consortium Terminal (requires B2B partner status OR system clearance)
-        if ($id === 'partner') {
-            return $this->isSystemUser() || $this->isB2BPartner();
-        }
-
-        // 📱 End User Portal
-        if ($id === 'client') {
-            return true;
-        }
-
-        return false;
-    }
-
     public function isSystemUser(): bool
     {
         return $this->hasAnyRole(static::SYSTEM_ROLES);
+    }
+
+    public function hasOpsSovereignAccess(): bool
+    {
+        return $this->hasRole('super_admin') && $this->hasSovereignIdentity();
     }
 
     public function isClient(): bool
@@ -188,11 +196,6 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
         });
     }
 
-    public function getFilamentName(): string
-    {
-        return $this->first_name ?? 'Аноним';
-    }
-
     /**
      * @param string $phone
      * @return bool
@@ -208,8 +211,13 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
     /**
      * Helper to find user by email using Blind Index
      */
-    public static function findByEmail(string $email): ?self
+    public static function findByEmail(?string $email): ?self
     {
+        $email = trim((string) $email);
+        if ($email === '') {
+            return null;
+        }
+
         $salt = config('vault.blind_index.salt', 'default-salt');
         $bidx = hash_hmac('sha256', strtolower(trim($email)), $salt);
 
@@ -250,16 +258,7 @@ class User extends Authenticatable implements FilamentUser, HasName, HasTenants,
             ->withTimestamps();
     }
 
-    public function getTenants(Panel $panel): Collection
-    {
-        if ($panel->getId() === 'partner') {
-            return $this->managedLegalEntities;
-        }
-
-        return $this->managedShops;
-    }
-
-    public function canAccessTenant(Model $tenant): bool
+    public function canManageTenant(Model $tenant): bool
     {
         if ($tenant instanceof LegalEntity) {
             return $this->managedLegalEntities()->where('legal_entities.id', $tenant->id)->exists();

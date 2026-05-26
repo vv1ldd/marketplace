@@ -64,7 +64,7 @@ class SalesChannels
     {
         return match ($key) {
             'meanly_storefront' => true,
-            'yandex_market' => filled($shop->campaign_id) && filled($shop->api_key),
+            'yandex_market' => $shop->isYandexMarketActive(),
             'offline_store' => true,
             'woocommerce' => filled($shop->woo_api_url) && filled($shop->woo_consumer_key),
             // Other channels can be added here as they become configurable

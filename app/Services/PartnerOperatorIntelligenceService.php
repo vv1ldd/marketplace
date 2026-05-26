@@ -68,12 +68,16 @@ class PartnerOperatorIntelligenceService
                 ->whereNotNull('business_id')
                 ->whereNotNull('campaign_id')
                 ->whereNotNull('api_key')
+                ->whereNotNull('ym_warehouse_id')
+                ->whereNotNull('ym_legal_verified_at')
                 ->count(),
             'yandex_incomplete_channels' => (clone $activeShops)
                 ->where(function ($query) {
                     $query->whereNull('business_id')
                         ->orWhereNull('campaign_id')
-                        ->orWhereNull('api_key');
+                        ->orWhereNull('api_key')
+                        ->orWhereNull('ym_warehouse_id')
+                        ->orWhereNull('ym_legal_verified_at');
                 })
                 ->count(),
             'active_orders' => (clone $ordersForEntity)->where('progress_id', '<>', 4)->count(),
@@ -221,7 +225,7 @@ class PartnerOperatorIntelligenceService
             ['pending_purchase_items_count', 'pending_purchase_items', 'medium', 'Есть ожидающие закупки', 'Проверьте очередь закупки и доступность провайдера.'],
             ['open_tickets_count', 'open_support_tickets', 'medium', 'Есть открытые обращения', 'Служба поддержки ожидает ответа по тикетам.'],
             ['low_stock_count', 'low_stock', 'high', 'Низкий остаток на складах', 'Некоторые складские позиции ниже безопасного остатка.'],
-            ['yandex_incomplete_channels', 'incomplete_yandex_integrations', 'high', 'Не все каналы Яндекса настроены', 'Активные магазины без business_id, campaign_id или API key не смогут полноценно публиковаться.'],
+            ['yandex_incomplete_channels', 'incomplete_yandex_integrations', 'high', 'Не все каналы Яндекса настроены', 'Активные магазины без business_id, campaign_id, Warehouse ID, API key или проверки юрлица не смогут полноценно публиковаться.'],
         ];
 
         foreach ($map as [$key, $type, $severity, $title, $description]) {
@@ -263,7 +267,7 @@ class PartnerOperatorIntelligenceService
             ],
             [
                 'recommendation' => 'complete_yandex_integrations',
-                'reason' => 'Яндекс-каналы без business_id/campaign_id/API key не могут стабильно публиковать и принимать заказы.',
+                'reason' => 'Яндекс-каналы без business_id/campaign_id/Warehouse ID/API key и подтвержденного юрлица не могут стабильно публиковать и принимать заказы.',
                 'trust_level' => (($stats['yandex_incomplete_channels'] ?? 0) > 0) ? 'high_trust' : 'usable',
                 'priority_score' => (($stats['yandex_incomplete_channels'] ?? 0) > 0) ? 0.90 : 0.42,
             ],
@@ -421,7 +425,7 @@ class PartnerOperatorIntelligenceService
             'shop_id' => $shop->id,
             'shop_name' => $shop->name,
             'storefront_url' => route('meanly.storefront.index'),
-            'yandex_configured' => filled($shop->campaign_id) && filled($shop->api_key),
+            'yandex_configured' => $shop->isYandexMarketActive(),
             'products_total' => $productIds->count(),
             'storefront_products' => $storefrontProductIds->count(),
             'yandex_products' => $yandexProductIds->count(),

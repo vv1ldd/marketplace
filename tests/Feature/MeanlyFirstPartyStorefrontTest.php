@@ -10,6 +10,7 @@ use App\Models\ProductSalesChannel;
 use App\Models\Provider;
 use App\Models\ProviderProduct;
 use App\Models\Shop;
+use App\Models\SovereignLedger;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\WildflowCatalog;
@@ -662,6 +663,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertSessionHas('simple_l1_identity.l1_address', $l1Address)
             ->assertSessionHas('simple_l1_identity.entity_l1_address', $l1Address)
             ->assertSessionHas('simple_l1_identity.key_l1_address', 'sl1_'.str_repeat('e', 40));
+
+        $connectEvent = SovereignLedger::where('event_type', 'IDENTITY_CONNECT_EXTERNAL_INTENT')->firstOrFail();
+        $this->assertSame('identity.connect_external', data_get($connectEvent->payload, 'intent_type'));
+        $this->assertSame($l1Address, data_get($connectEvent->payload, 'connected_entity_l1_address'));
+        $this->assertSame(hash('sha256', 'proof-token'), data_get($connectEvent->payload, 'proof_token_hash'));
     }
 
     public function test_storefront_checkout_submits_simple_l1_intent_and_stores_projection(): void
@@ -877,7 +883,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertStringEndsWith('#safe-'.$order->uuid, $cabinetSafeUrl);
 
         $this->actingAs($user)
-            ->get(route('filament.client.pages.dashboard', ['safe' => $order->uuid], false))
+            ->get(route('cabinet.dashboard', ['safe' => $order->uuid], false))
             ->assertOk()
             ->assertSee('Сейф закрыт', false)
             ->assertSee('Открыть сейф Passkey', false)
@@ -889,15 +895,30 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertJsonStructure(['unlock_id', 'challenge'])
             ->json();
 
+        session()->forget('cabinet_vault_unlock.'.$vaultOptions['unlock_id']);
+
         $this->actingAs($user)
             ->postJson(route('cabinet.vault.passkey.confirm'), [
                 'unlock_id' => $vaultOptions['unlock_id'],
                 'assertion' => $this->walletAssertionForChallenge($user, $vaultOptions['challenge']),
             ])
             ->assertOk()
-            ->assertJsonPath('success', true);
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure(['vault_event' => ['ledger_id', 'fingerprint', 'unlocked_until']]);
 
-        $cabinet = $this->actingAs($user)->get(route('filament.client.pages.dashboard', ['safe' => $order->uuid], false));
+        $vaultEvent = SovereignLedger::query()
+            ->where('event_type', 'VAULT_OPEN_INTENT')
+            ->where('entity_type', User::class)
+            ->where('entity_id', $user->id)
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame('vault.open', data_get($vaultEvent->payload, 'intent_type'));
+        $this->assertSame('cabinet.safe', data_get($vaultEvent->payload, 'scope'));
+        $this->assertSame(hash('sha256', $vaultOptions['challenge']), data_get($vaultEvent->payload, 'challenge_hash'));
+        $this->assertSame($vaultEvent->fingerprint, session('cabinet_vault_unlock_fingerprint'));
+
+        $cabinet = $this->actingAs($user)->get(route('cabinet.dashboard', ['safe' => $order->uuid], false));
 
         $cabinet
             ->assertOk()
@@ -985,6 +1006,10 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertJsonPath('codes.0.code', 'MEAN-EMAIL-TEST01-ZZ');
 
         $this->assertNotEmpty(data_get($order->refresh()->info, 'order_safe.opened_at'));
+
+        $openEvent = SovereignLedger::where('event_type', 'ORDER_SAFE_OPEN_INTENT')->where('entity_id', $order->id)->firstOrFail();
+        $this->assertSame('order.safe.open', data_get($openEvent->payload, 'intent_type'));
+        $this->assertSame(1, data_get($openEvent->payload, 'codes_count'));
     }
 
     public function test_cabinet_safe_open_requires_authenticated_owner(): void

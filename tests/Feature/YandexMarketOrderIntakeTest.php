@@ -171,7 +171,7 @@ class YandexMarketOrderIntakeTest extends TestCase
             ->firstOrFail();
 
         $trace = app(SimpleLayer1TraceService::class)->trace($slipEntry->transactionReference(), $legalEntity->id);
-        $this->assertSame('Simple Layer 1', $trace['network']);
+        $this->assertSame('Simple Layer One', $trace['network']);
         $this->assertSame($slipEntry->transactionReference(), $trace['canonical_ref']);
         $this->assertContains('ORDER_RECEIVE', collect($trace['entity_timeline'])->pluck('event_type'));
         $this->assertContains('FINANCE_HOLD', collect($trace['entity_timeline'])->pluck('event_type'));

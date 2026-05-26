@@ -276,16 +276,13 @@ class ImportProductsFromYM implements ShouldQueue
             
             if ($sellers->isEmpty()) return;
 
-            $notification = \Filament\Notifications\Notification::make()
-                ->title($title)
-                ->body($body);
-
-            if ($type === 'success') $notification->success();
-            if ($type === 'danger') $notification->danger();
-            if ($type === 'warning') $notification->warning();
-
             foreach ($sellers as $seller) {
-                $notification->sendToDatabase($seller);
+                \Log::info('Seller notification', [
+                    'seller_id' => $seller->id,
+                    'type' => $type,
+                    'title' => $title,
+                    'body' => $body,
+                ]);
             }
         } catch (\Exception $e) {
             \Log::warning('Could not send database notifications: ' . $e->getMessage());

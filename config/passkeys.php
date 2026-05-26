@@ -1,11 +1,11 @@
 <?php
 
 use App\Models\User;
+use App\Actions\Auth\IntentStorePasskeyAction;
 use Spatie\LaravelPasskeys\Actions\ConfigureCeremonyStepManagerFactoryAction;
 use Spatie\LaravelPasskeys\Actions\FindPasskeyToAuthenticateAction;
 use Spatie\LaravelPasskeys\Actions\GeneratePasskeyAuthenticationOptionsAction;
 use Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction;
-use Spatie\LaravelPasskeys\Actions\StorePasskeyAction;
 use Spatie\LaravelPasskeys\Models\Passkey;
 
 return [
@@ -13,7 +13,7 @@ return [
      * After a successful authentication attempt using a passkey
      * we'll redirect to this URL.
      */
-    'redirect_to_after_login' => '/dashboard',
+    'redirect_to_after_login' => '/cabinet',
 
     /*
      * These class are responsible for performing core tasks regarding passkeys.
@@ -22,7 +22,7 @@ return [
      */
     'actions' => [
         'generate_passkey_register_options' => GeneratePasskeyRegisterOptionsAction::class,
-        'store_passkey' => StorePasskeyAction::class,
+        'store_passkey' => IntentStorePasskeyAction::class,
         'generate_passkey_authentication_options' => GeneratePasskeyAuthenticationOptionsAction::class,
         'find_passkey' => \App\Actions\Auth\CustomFindPasskeyToAuthenticateAction::class,
         'configure_ceremony_step_manager_factory' => ConfigureCeremonyStepManagerFactoryAction::class,

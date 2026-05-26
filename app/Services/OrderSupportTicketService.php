@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Filament\Partner\Resources\Tickets\TicketResource as PartnerTicketResource;
 use App\Models\Order\Order;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\DB;
@@ -72,16 +71,7 @@ class OrderSupportTicketService
 
     public function ticketChatUrl(Ticket $ticket): string
     {
-        $ticket->loadMissing('shop.legalEntity');
-
-        try {
-            return PartnerTicketResource::getUrl('view', [
-                'tenant' => $ticket->shop?->legalEntity,
-                'record' => $ticket,
-            ]);
-        } catch (\Throwable) {
-            return route('partner.dashboard', ['ticket' => $ticket->id, 'tab' => 'support']);
-        }
+        return route('partner.dashboard', ['tab' => 'support', 'ticket' => $ticket->id]);
     }
 
     private function initialMessage(Order $order): string

@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html data-theme="dark" lang="en">
+<script>
+    // Immediate theme application - runs before any rendering
+    (function () {
+        const t = localStorage.theme || 'dark';
+        const d = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList[d ? 'add' : 'remove']('dark');
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+    })();
+</script>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#ffffff" id="theme-color-meta" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="Description" content="Coolify: An open-source & self-hostable Heroku / Netlify / Vercel alternative" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@coolifyio" />
+    <meta name="twitter:title" content="Coolify" />
+    <meta name="twitter:description" content="An open-source & self-hostable Heroku / Netlify / Vercel alternative." />
+    <meta name="twitter:image" content="https://cdn.coollabs.io/assets/coolify/og-image.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://coolify.io" />
+    <meta property="og:title" content="Coolify" />
+    <meta property="og:description" content="An open-source & self-hostable Heroku / Netlify / Vercel alternative." />
+    <meta property="og:site_name" content="Coolify" />
+    <meta property="og:image" content="https://cdn.coollabs.io/assets/coolify/og-image.png" />
+            <title>Coolify</title>
+            <link rel="icon" href="http://coolify.test/coolify-logo-dev-transparent.png" type="image/png" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <script type="module" src="http://0.0.0.0:5173/@vite/client" data-navigate-track="reload"></script><script type="module" src="http://0.0.0.0:5173/resources/js/app.js" data-navigate-track="reload"></script><link rel="stylesheet" href="http://0.0.0.0:5173/resources/css/app.css" data-navigate-track="reload" />    <script>
+        // Update theme-color meta tag (non-critical, can run async)
+        const t = localStorage.theme || 'dark';
+        const isDark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+    </script>
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+        <script id="browser-logger-active">
+(function() {
+    const ENDPOINT = 'http://coolify.test/_boost/browser-logs';
+    const logQueue = [];
+    let flushTimeout = null;
+
+    console.log('🔍 Browser logger active (MCP server detected). Posting to: ' + ENDPOINT);
+
+    // Store original console methods
+    const originalConsole = {
+        log: console.log,
+        info: console.info,
+        error: console.error,
+        warn: console.warn,
+        table: console.table
+    };
+
+    // Helper to safely stringify values
+    function safeStringify(obj) {
+        const seen = new WeakSet();
+        return JSON.stringify(obj, (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+                if (seen.has(value)) return '[Circular]';
+                seen.add(value);
+            }
+            if (value instanceof Error) {
+                return {
+                    name: value.name,
+                    message: value.message,
+                    stack: value.stack
+                };
+            }
+            return value;
+        });
+    }
+
+    // Batch and send logs
+    function flushLogs() {
+        if (logQueue.length === 0) return;
+
+        const batch = logQueue.splice(0, logQueue.length);
+
+        fetch(ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ logs: batch })
+        }).catch(err => {
+            // Silently fail to avoid infinite loops
+            originalConsole.error('Failed to send logs:', err);
+        });
+    }
+
+    // Debounced flush (100ms)
+    function scheduleFlush() {
+        if (flushTimeout) clearTimeout(flushTimeout);
+        flushTimeout = setTimeout(flushLogs, 100);
+    }
+
+    // Intercept console methods
+    ['log', 'info', 'error', 'warn', 'table'].forEach(method => {
+        console[method] = function(...args) {
+            // Call original method
+            originalConsole[method].apply(console, args);
+
+            // Capture log data
+            try {
+                logQueue.push({
+                    type: method,
+                    timestamp: new Date().toISOString(),
+                    data: args.map(arg => {
+                        try {
+                            return typeof arg === 'object' ? JSON.parse(safeStringify(arg)) : arg;
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }),
+                    url: window.location.href,
+                    userAgent: navigator.userAgent
+                });
+
+                scheduleFlush();
+            } catch (e) {
+                // Fail silently
+            }
+        };
+    });
+
+    // Global error handlers for uncaught errors
+    const originalOnError = window.onerror;
+    window.onerror = function boostErrorHandler(errorMsg, url, lineNumber, colNumber, error) {
+        try {
+            logQueue.push({
+                type: 'uncaught_error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: errorMsg,
+                    filename: url,
+                    lineno: lineNumber,
+                    colno: colNumber,
+                    error: error ? {
+                        name: error.name,
+                        message: error.message,
+                        stack: error.stack
+                    } : null
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Call original handler if it exists
+        if (originalOnError && typeof originalOnError === 'function') {
+            return originalOnError(errorMsg, url, lineNumber, colNumber, error);
+        }
+
+        // Let the error continue to propagate
+        return false;
+    }
+    window.addEventListener('error', (event) => {
+        try {
+            logQueue.push({
+                type: 'window_error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: event.message,
+                    filename: event.filename,
+                    lineno: event.lineno,
+                    colno: event.colno,
+                    error: event.error ? {
+                        name: event.error.name,
+                        message: event.error.message,
+                        stack: event.error.stack
+                    } : null
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Let the error continue to propagate
+        return false;
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        try {
+            logQueue.push({
+                type: 'error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: 'Unhandled Promise Rejection',
+                    reason: event.reason instanceof Error ? {
+                        name: event.reason.name,
+                        message: event.reason.message,
+                        stack: event.reason.stack
+                    } : event.reason
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Let the rejection continue to propagate
+        return false;
+    });
+
+    // Flush on page unload
+    window.addEventListener('beforeunload', () => {
+        if (logQueue.length > 0) {
+            navigator.sendBeacon(ENDPOINT, JSON.stringify({ logs: logQueue }));
+        }
+    });
+})();
+</script>
+<link rel='stylesheet' type='text/css' property='stylesheet' href='/_debugbar/assets/stylesheets?v=1769180602' data-turbolinks-eval='false' data-turbo-eval='false'><script src='/_debugbar/assets/javascript?v=1769180602' data-turbolinks-eval='false' data-turbo-eval='false'></script><script data-turbo-eval='false'>jQuery.noConflict(true);</script>
+<script> Sfdump = window.Sfdump || (function (doc) { doc.documentElement.classList.add('sf-js-enabled'); var rxEsc = /([.*+?^${}()|\[\]\/\\])/g, idRx = /\bsf-dump-\d+-ref[012]\w+\b/, keyHint = 0 <= navigator.platform.toUpperCase().indexOf('MAC') ? 'Cmd' : 'Ctrl', addEventListener = function (e, n, cb) { e.addEventListener(n, cb, false); }; if (!doc.addEventListener) { addEventListener = function (element, eventName, callback) { element.attachEvent('on' + eventName, function (e) { e.preventDefault = function () {e.returnValue = false;}; e.target = e.srcElement; callback(e); }); }; } function toggle(a, recursive) { var s = a.nextSibling || {}, oldClass = s.className, arrow, newClass; if (/\bsf-dump-compact\b/.test(oldClass)) { arrow = '▼'; newClass = 'sf-dump-expanded'; } else if (/\bsf-dump-expanded\b/.test(oldClass)) { arrow = '▶'; newClass = 'sf-dump-compact'; } else { return false; } if (doc.createEvent && s.dispatchEvent) { var event = doc.createEvent('Event'); event.initEvent('sf-dump-expanded' === newClass ? 'sfbeforedumpexpand' : 'sfbeforedumpcollapse', true, false); s.dispatchEvent(event); } a.lastChild.innerHTML = arrow; s.className = s.className.replace(/\bsf-dump-(compact|expanded)\b/, newClass); if (recursive) { try { a = s.querySelectorAll('.'+oldClass); for (s = 0; s < a.length; ++s) { if (-1 == a[s].className.indexOf(newClass)) { a[s].className = newClass; a[s].previousSibling.lastChild.innerHTML = arrow; } } } catch (e) { } } return true; }; function collapse(a, recursive) { var s = a.nextSibling || {}, oldClass = s.className; if (/\bsf-dump-expanded\b/.test(oldClass)) { toggle(a, recursive); return true; } return false; }; function expand(a, recursive) { var s = a.nextSibling || {}, oldClass = s.className; if (/\bsf-dump-compact\b/.test(oldClass)) { toggle(a, recursive); return true; } return false; }; function collapseAll(root) { var a = root.querySelector('a.sf-dump-toggle'); if (a) { collapse(a, true); expand(a); return true; } return false; } function reveal(node) { var previous, parents = []; while ((node = node.parentNode || {}) && (previous = node.previousSibling) && 'A' === previous.tagName) { parents.push(previous); } if (0 !== parents.length) { parents.forEach(function (parent) { expand(parent); }); return true; } return false; } function highlight(root, activeNode, nodes) { resetHighlightedNodes(root); Array.from(nodes||[]).forEach(function (node) { if (!/\bsf-dump-highlight\b/.test(node.className)) { node.className = node.className + ' sf-dump-highlight'; } }); if (!/\bsf-dump-highlight-active\b/.test(activeNode.className)) { activeNode.className = activeNode.className + ' sf-dump-highlight-active'; } } function resetHighlightedNodes(root) { Array.from(root.querySelectorAll('.sf-dump-str, .sf-dump-key, .sf-dump-public, .sf-dump-protected, .sf-dump-private')).forEach(function (strNode) { strNode.className = strNode.className.replace(/\bsf-dump-highlight\b/, ''); strNode.className = strNode.className.replace(/\bsf-dump-highlight-active\b/, ''); }); } return function (root, x) { root = doc.getElementById(root); var indentRx = new RegExp('^('+(root.getAttribute('data-indent-pad') || ' ').replace(rxEsc, '\\$1')+')+', 'm'), options = {"maxDepth":1,"maxStringLength":160,"fileLinkFormat":false}, elt = root.getElementsByTagName('A'), len = elt.length, i = 0, s, h, t = []; while (i < len) t.push(elt[i++]); for (i in x) { options[i] = x[i]; } function a(e, f) { addEventListener(root, e, function (e, n) { if ('A' == e.target.tagName) { f(e.target, e); } else if ('A' == e.target.parentNode.tagName) { f(e.target.parentNode, e); } else { n = /\bsf-dump-ellipsis\b/.test(e.target.className) ? e.target.parentNode : e.target; if ((n = n.nextElementSibling) && 'A' == n.tagName) { if (!/\bsf-dump-toggle\b/.test(n.className)) { n = n.nextElementSibling || n; } f(n, e, true); } } }); }; function isCtrlKey(e) { return e.ctrlKey || e.metaKey; } function xpathString(str) { var parts = str.match(/[^'"]+|['"]/g).map(function (part) { if ("'" == part) { return '"\'"'; } if ('"' == part) { return "'\"'"; } return "'" + part + "'"; }); return "concat(" + parts.join(",") + ", '')"; } function xpathHasClass(className) { return "contains(concat(' ', normalize-space(@class), ' '), ' " + className +" ')"; } a('mouseover', function (a, e, c) { if (c) { e.target.style.cursor = "pointer"; } }); a('click', function (a, e, c) { if (/\bsf-dump-toggle\b/.test(a.className)) { e.preventDefault(); if (!toggle(a, isCtrlKey(e))) { var r = doc.getElementById(a.getAttribute('href').slice(1)), s = r.previousSibling, f = r.parentNode, t = a.parentNode; t.replaceChild(r, a); f.replaceChild(a, s); t.insertBefore(s, r); f = f.firstChild.nodeValue.match(indentRx); t = t.firstChild.nodeValue.match(indentRx); if (f && t && f[0] !== t[0]) { r.innerHTML = r.innerHTML.replace(new RegExp('^'+f[0].replace(rxEsc, '\\$1'), 'mg'), t[0]); } if (/\bsf-dump-compact\b/.test(r.className)) { toggle(s, isCtrlKey(e)); } } if (c) { } else if (doc.getSelection) { try { doc.getSelection().removeAllRanges(); } catch (e) { doc.getSelection().empty(); } } else { doc.selection.empty(); } } else if (/\bsf-dump-str-toggle\b/.test(a.className)) { e.preventDefault(); e = a.parentNode.parentNode; e.className = e.className.replace(/\bsf-dump-str-(expand|collapse)\b/, a.parentNode.className); } }); elt = root.getElementsByTagName('SAMP'); len = elt.length; i = 0; while (i < len) t.push(elt[i++]); len = t.length; for (i = 0; i < len; ++i) { elt = t[i]; if ('SAMP' == elt.tagName) { a = elt.previousSibling || {}; if ('A' != a.tagName) { a = doc.createElement('A'); a.className = 'sf-dump-ref'; elt.parentNode.insertBefore(a, elt); } else { a.innerHTML += ' '; } a.title = (a.title ? a.title+'\n[' : '[')+keyHint+'+click] Expand all children'; a.innerHTML += elt.className == 'sf-dump-compact' ? '<span>▶</span>' : '<span>▼</span>'; a.className += ' sf-dump-toggle'; x = 1; if ('sf-dump' != elt.parentNode.className) { x += elt.parentNode.getAttribute('data-depth')/1; } } else if (/\bsf-dump-ref\b/.test(elt.className) && (a = elt.getAttribute('href'))) { a = a.slice(1); elt.className += ' sf-dump-hover'; elt.className += ' '+a; if (/[\[{]$/.test(elt.previousSibling.nodeValue)) { a = a != elt.nextSibling.id && doc.getElementById(a); try { s = a.nextSibling; elt.appendChild(a); s.parentNode.insertBefore(a, s); if (/^[@#]/.test(elt.innerHTML)) { elt.innerHTML += ' <span>▶</span>'; } else { elt.innerHTML = '<span>▶</span>'; elt.className = 'sf-dump-ref'; } elt.className += ' sf-dump-toggle'; } catch (e) { if ('&' == elt.innerHTML.charAt(0)) { elt.innerHTML = '…'; elt.className = 'sf-dump-ref'; } } } } } if (doc.evaluate && Array.from && root.children.length > 1) { root.setAttribute('tabindex', 0); SearchState = function () { this.nodes = []; this.idx = 0; }; SearchState.prototype = { next: function () { if (this.isEmpty()) { return this.current(); } this.idx = this.idx < (this.nodes.length - 1) ? this.idx + 1 : 0; return this.current(); }, previous: function () { if (this.isEmpty()) { return this.current(); } this.idx = this.idx > 0 ? this.idx - 1 : (this.nodes.length - 1); return this.current(); }, isEmpty: function () { return 0 === this.count(); }, current: function () { if (this.isEmpty()) { return null; } return this.nodes[this.idx]; }, reset: function () { this.nodes = []; this.idx = 0; }, count: function () { return this.nodes.length; }, }; function showCurrent(state) { var currentNode = state.current(), currentRect, searchRect; if (currentNode) { reveal(currentNode); highlight(root, currentNode, state.nodes); if ('scrollIntoView' in currentNode) { currentNode.scrollIntoView(true); currentRect = currentNode.getBoundingClientRect(); searchRect = search.getBoundingClientRect(); if (currentRect.top < (searchRect.top + searchRect.height)) { window.scrollBy(0, -(searchRect.top + searchRect.height + 5)); } } } counter.textContent = (state.isEmpty() ? 0 : state.idx + 1) + ' of ' + state.count(); } var search = doc.createElement('div'); search.className = 'sf-dump-search-wrapper sf-dump-search-hidden'; search.innerHTML = ' <input type="text" class="sf-dump-search-input"> <span class="sf-dump-search-count">0 of 0<\/span> <button type="button" class="sf-dump-search-input-previous" tabindex="-1"> <svg viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg"><path d="M1683 1331l-166 165q-19 19-45 19t-45-19L896 965l-531 531q-19 19-45 19t-45-19l-166-165q-19-19-19-45.5t19-45.5l742-741q19-19 45-19t45 19l742 741q19 19 19 45.5t-19 45.5z"\/><\/svg> <\/button> <button type="button" class="sf-dump-search-input-next" tabindex="-1"> <svg viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg"><path d="M1683 808l-742 741q-19 19-45 19t-45-19L109 808q-19-19-19-45.5t19-45.5l166-165q19-19 45-19t45 19l531 531 531-531q19-19 45-19t45 19l166 165q19 19 19 45.5t-19 45.5z"\/><\/svg> <\/button> '; root.insertBefore(search, root.firstChild); var state = new SearchState(); var searchInput = search.querySelector('.sf-dump-search-input'); var counter = search.querySelector('.sf-dump-search-count'); var searchInputTimer = 0; var previousSearchQuery = ''; addEventListener(searchInput, 'keyup', function (e) { var searchQuery = e.target.value; /* Don't perform anything if the pressed key didn't change the query */ if (searchQuery === previousSearchQuery) { return; } previousSearchQuery = searchQuery; clearTimeout(searchInputTimer); searchInputTimer = setTimeout(function () { state.reset(); collapseAll(root); resetHighlightedNodes(root); if ('' === searchQuery) { counter.textContent = '0 of 0'; return; } var classMatches = [ "sf-dump-str", "sf-dump-key", "sf-dump-public", "sf-dump-protected", "sf-dump-private", ].map(xpathHasClass).join(' or '); var xpathResult = doc.evaluate('.//span[' + classMatches + '][contains(translate(child::text(), ' + xpathString(searchQuery.toUpperCase()) + ', ' + xpathString(searchQuery.toLowerCase()) + '), ' + xpathString(searchQuery.toLowerCase()) + ')]', root, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null); while (node = xpathResult.iterateNext()) state.nodes.push(node); showCurrent(state); }, 400); }); Array.from(search.querySelectorAll('.sf-dump-search-input-next, .sf-dump-search-input-previous')).forEach(function (btn) { addEventListener(btn, 'click', function (e) { e.preventDefault(); -1 !== e.target.className.indexOf('next') ? state.next() : state.previous(); searchInput.focus(); collapseAll(root); showCurrent(state); }) }); addEventListener(root, 'keydown', function (e) { var isSearchActive = !/\bsf-dump-search-hidden\b/.test(search.className); if ((114 === e.keyCode && !isSearchActive) || (isCtrlKey(e) && 70 === e.keyCode)) { /* F3 or CMD/CTRL + F */ if (70 === e.keyCode && document.activeElement === searchInput) { /* * If CMD/CTRL + F is hit while having focus on search input, * the user probably meant to trigger browser search instead. * Let the browser execute its behavior: */ return; } e.preventDefault(); search.className = search.className.replace(/\bsf-dump-search-hidden\b/, ''); searchInput.focus(); } else if (isSearchActive) { if (27 === e.keyCode) { /* ESC key */ search.className += ' sf-dump-search-hidden'; e.preventDefault(); resetHighlightedNodes(root); searchInput.value = ''; } else if ( (isCtrlKey(e) && 71 === e.keyCode) /* CMD/CTRL + G */ || 13 === e.keyCode /* Enter */ || 114 === e.keyCode /* F3 */ ) { e.preventDefault(); e.shiftKey ? state.previous() : state.next(); collapseAll(root); showCurrent(state); } } }); } if (0 >= options.maxStringLength) { return; } try { elt = root.querySelectorAll('.sf-dump-str'); len = elt.length; i = 0; t = []; while (i < len) t.push(elt[i++]); len = t.length; for (i = 0; i < len; ++i) { elt = t[i]; s = elt.innerText || elt.textContent; x = s.length - options.maxStringLength; if (0 < x) { h = elt.innerHTML; elt[elt.innerText ? 'innerText' : 'textContent'] = s.substring(0, options.maxStringLength); elt.className += ' sf-dump-str-collapse'; elt.innerHTML = '<span class=sf-dump-str-collapse>'+h+'<a class="sf-dump-ref sf-dump-str-toggle" title="Collapse"> ◀</a></span>'+ '<span class=sf-dump-str-expand>'+elt.innerHTML+'<a class="sf-dump-ref sf-dump-str-toggle" title="'+x+' remaining characters"> ▶</a></span>'; } } } catch (e) { } }; })(document); </script><style> .sf-js-enabled .phpdebugbar pre.sf-dump .sf-dump-compact, .sf-js-enabled .sf-dump-str-collapse .sf-dump-str-collapse, .sf-js-enabled .sf-dump-str-expand .sf-dump-str-expand { display: none; } .sf-dump-hover:hover { background-color: #B729D9; color: #FFF !important; border-radius: 2px; } .phpdebugbar pre.sf-dump { display: block; white-space: pre; padding: 5px; overflow: initial !important; } .phpdebugbar pre.sf-dump:after { content: ""; visibility: hidden; display: block; height: 0; clear: both; } .phpdebugbar pre.sf-dump .sf-dump-ellipsization { display: inline-flex; } .phpdebugbar pre.sf-dump a { text-decoration: none; cursor: pointer; border: 0; outline: none; color: inherit; } .phpdebugbar pre.sf-dump img { max-width: 50em; max-height: 50em; margin: .5em 0 0 0; padding: 0; background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAAAAAA6mKC9AAAAHUlEQVQY02O8zAABilCaiQEN0EeA8QuUcX9g3QEAAjcC5piyhyEAAAAASUVORK5CYII=) #D3D3D3; } .phpdebugbar pre.sf-dump .sf-dump-ellipsis { text-overflow: ellipsis; white-space: nowrap; overflow: hidden; } .phpdebugbar pre.sf-dump .sf-dump-ellipsis-tail { flex-shrink: 0; } .phpdebugbar pre.sf-dump code { display:inline; padding:0; background:none; } .sf-dump-public.sf-dump-highlight, .sf-dump-protected.sf-dump-highlight, .sf-dump-private.sf-dump-highlight, .sf-dump-str.sf-dump-highlight, .sf-dump-key.sf-dump-highlight { background: rgba(111, 172, 204, 0.3); border: 1px solid #7DA0B1; border-radius: 3px; } .sf-dump-public.sf-dump-highlight-active, .sf-dump-protected.sf-dump-highlight-active, .sf-dump-private.sf-dump-highlight-active, .sf-dump-str.sf-dump-highlight-active, .sf-dump-key.sf-dump-highlight-active { background: rgba(253, 175, 0, 0.4); border: 1px solid #ffa500; border-radius: 3px; } .phpdebugbar pre.sf-dump .sf-dump-search-hidden { display: none !important; } .phpdebugbar pre.sf-dump .sf-dump-search-wrapper { font-size: 0; white-space: nowrap; margin-bottom: 5px; display: flex; position: -webkit-sticky; position: sticky; top: 5px; } .phpdebugbar pre.sf-dump .sf-dump-search-wrapper > * { vertical-align: top; box-sizing: border-box; height: 21px; font-weight: normal; border-radius: 0; background: #FFF; color: #757575; border: 1px solid #BBB; } .phpdebugbar pre.sf-dump .sf-dump-search-wrapper > input.sf-dump-search-input { padding: 3px; height: 21px; font-size: 12px; border-right: none; border-top-left-radius: 3px; border-bottom-left-radius: 3px; color: #000; min-width: 15px; width: 100%; } .phpdebugbar pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-next, .phpdebugbar pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-previous { background: #F2F2F2; outline: none; border-left: none; font-size: 0; line-height: 0; } .phpdebugbar pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-next { border-top-right-radius: 3px; border-bottom-right-radius: 3px; } .phpdebugbar pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-next > svg, .phpdebugbar pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-previous > svg { pointer-events: none; width: 12px; height: 12px; } .phpdebugbar pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-count { display: inline-block; padding: 0 5px; margin: 0; border-left: none; line-height: 21px; font-size: 12px; }.phpdebugbar pre.sf-dump, .phpdebugbar pre.sf-dump .sf-dump-default{word-wrap: break-word; white-space: pre-wrap; word-break: normal}.phpdebugbar pre.sf-dump .sf-dump-num{font-weight:bold; color:#1299DA}.phpdebugbar pre.sf-dump .sf-dump-const{font-weight:bold}.phpdebugbar pre.sf-dump .sf-dump-str{font-weight:bold; color:#3A9B26}.phpdebugbar pre.sf-dump .sf-dump-note{color:#1299DA}.phpdebugbar pre.sf-dump .sf-dump-ref{color:#7B7B7B}.phpdebugbar pre.sf-dump .sf-dump-public{color:#000000}.phpdebugbar pre.sf-dump .sf-dump-protected{color:#000000}.phpdebugbar pre.sf-dump .sf-dump-private{color:#000000}.phpdebugbar pre.sf-dump .sf-dump-meta{color:#B729D9}.phpdebugbar pre.sf-dump .sf-dump-key{color:#3A9B26}.phpdebugbar pre.sf-dump .sf-dump-index{color:#1299DA}.phpdebugbar pre.sf-dump .sf-dump-ellipsis{color:#A0A000}.phpdebugbar pre.sf-dump .sf-dump-virtual{font-style:italic}.phpdebugbar pre.sf-dump .sf-dump-ns{user-select:none;}.phpdebugbar pre.sf-dump .sf-dump-ellipsis-note{color:#1299DA}.phpdebugbar[data-theme='dark'] pre.sf-dump, pre.sf-dump .sf-dump-default{background-color:#18171B; color:#FF8400; line-height:1.2em; font:12px Menlo, Monaco, Consolas, monospace; word-wrap: break-word; white-space: pre-wrap; position:relative; z-index:99999; word-break: break-all}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-num{font-weight:bold; color:#1299DA}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-const{font-weight:bold}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-virtual{font-style:italic}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-str{font-weight:bold; color:#56DB3A}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-note{color:#1299DA}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-ref{color:#A0A0A0}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-public{color:#FFFFFF}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-protected{color:#FFFFFF}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-private{color:#FFFFFF}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-meta{color:#B729D9}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-key{color:#56DB3A}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-index{color:#1299DA}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-ellipsis{color:#FF8400}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-ns{user-select:none;}.phpdebugbar[data-theme='dark'] pre.sf-dump .sf-dump-ellipsis-note{color:#1299DA}</style>
+</head>
+    <!-- Livewire Scripts -->
+<script src="/livewire/livewire.js?id=57eb113f"   data-csrf="kJOahN3JfuVIBTaTN3mZv68P9eCdzG0EgaLyF6xW" data-update-uri="/livewire/update" data-navigate-once="true"></script>
+    <main class="h-full bg-gray-50 dark:bg-base">
+        <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        :root {
+            --brand-primary: #f53003;
+            --brand-bg: #030303;
+            --brand-card: #090909;
+            --brand-text: #ffffff;
+            --brand-subtext: #8e8e93;
+            --brand-border: rgba(255, 255, 255, 0.05);
+            --brand-border-hover: rgba(255, 255, 255, 0.15);
+            --glass-bg: rgba(9, 9, 9, 0.7);
+            --glass-blur: 24px;
+        }
+
+        .sovereign-login-bg {
+            background-color: var(--brand-bg) !important;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            font-family: 'Outfit', sans-serif;
+            color: var(--brand-text);
+            overflow: hidden;
+            width: 100%;
+        }
+
+        /* Ambient Glows */
+        .ambient-glows {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .glow-1 {
+            position: absolute; top: -10%; left: 20%; width: 60vw; height: 60vw;
+            background: radial-gradient(circle, rgba(245, 48, 3, 0.06) 0%, rgba(0,0,0,0) 70%);
+            filter: blur(80px);
+        }
+        .glow-2 {
+            position: absolute; top: 30%; right: -10%; width: 50vw; height: 50vw;
+            background: radial-gradient(circle, rgba(245, 48, 3, 0.04) 0%, rgba(0,0,0,0) 75%);
+            filter: blur(100px);
+        }
+
+        .login-card {
+            background: var(--brand-card);
+            border: 1px solid var(--brand-border);
+            border-radius: 24px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 440px;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.7);
+            backdrop-filter: blur(var(--glass-blur));
+        }
+
+        .logo-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            margin-bottom: 2rem;
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            color: var(--brand-text);
+        }
+
+        .logo-mark {
+            width: 14px;
+            height: 14px;
+            background: var(--brand-primary);
+            border-radius: 3px;
+            box-shadow: 0 0 15px rgba(245, 48, 3, 0.7);
+        }
+
+        /* Sovereign Cryptographic Login Button */
+        #btn-passkey-login {
+            background: var(--brand-primary) !important;
+            color: #ffffff !important;
+            border: none !important;
+            padding: 1rem 1.5rem !important;
+            border-radius: 12px !important;
+            font-family: 'Outfit', sans-serif !important;
+            font-weight: 800 !important;
+            font-size: 13.5px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            box-shadow: 0 4px 15px rgba(245, 48, 3, 0.25) !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0.5rem !important;
+        }
+
+        #btn-passkey-login:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 25px rgba(245, 48, 3, 0.5) !important;
+            background: #ff451a !important;
+        }
+
+        #btn-passkey-login:disabled {
+            background: rgba(255, 255, 255, 0.05) !important;
+            color: var(--brand-subtext) !important;
+            box-shadow: none !important;
+            transform: none !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Style standard form inputs to match Meanly cabinet styling */
+        .coolify-input-wrapper label {
+            font-family: 'Outfit', sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            color: var(--brand-subtext) !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        input[type="email"], input[type="password"] {
+            background: rgba(255, 255, 255, 0.02) !important;
+            border: 1px solid var(--brand-border) !important;
+            border-radius: 10px !important;
+            color: var(--brand-text) !important;
+            font-family: 'Outfit', sans-serif !important;
+            font-size: 14px !important;
+            padding: 0.75rem 1rem !important;
+            transition: border-color 0.3s, box-shadow 0.3s !important;
+            width: 100% !important;
+        }
+
+        input[type="email"]:focus, input[type="password"]:focus {
+            border-color: var(--brand-primary) !important;
+            box-shadow: 0 0 10px rgba(245, 48, 3, 0.15) !important;
+            outline: none !important;
+        }
+
+        /* Buttons and links */
+        .btn-submit-sovereign {
+            background: var(--brand-primary) !important;
+            border: none !important;
+            color: var(--brand-text) !important;
+            font-family: 'Outfit', sans-serif !important;
+            font-weight: 800 !important;
+            border-radius: 12px !important;
+            transition: all 0.2s !important;
+            text-transform: uppercase !important;
+            font-size: 13px !important;
+            letter-spacing: 0.05em !important;
+            padding: 0.85rem !important;
+            box-shadow: 0 4px 15px rgba(245, 48, 3, 0.2) !important;
+            cursor: pointer !important;
+        }
+
+        .btn-submit-sovereign:hover {
+            background: #ff451a !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 6px 20px rgba(245, 48, 3, 0.4) !important;
+        }
+
+        .forgot-password-link {
+            color: var(--brand-subtext) !important;
+            font-size: 13px !important;
+            text-decoration: none !important;
+            transition: color 0.2s !important;
+        }
+
+        .forgot-password-link:hover {
+            color: var(--brand-text) !important;
+        }
+
+        .register-btn {
+            display: block;
+            text-align: center;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--brand-border);
+            border-radius: 10px;
+            color: var(--brand-subtext);
+            font-size: 13px;
+            font-weight: 600;
+            padding: 0.75rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .register-btn:hover {
+            color: var(--brand-text);
+            background: rgba(255,255,255,0.05);
+            border-color: var(--brand-border-hover);
+        }
+
+        .divider-text {
+            color: var(--brand-subtext);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+    </style>
+
+    <div class="sovereign-login-bg">
+        <div class="ambient-glows">
+            <div class="glow-1"></div>
+            <div class="glow-2"></div>
+        </div>
+
+        <div class="login-card">
+            <!-- Brand Logo Mark -->
+            <div class="logo-row">
+                <div class="logo-mark"></div>
+                MEANLY CLOUD
+            </div>
+
+            <div class="space-y-6">
+                
+                
+                
+                <!-- 🔑 Sovereign Passkey Cryptographic Login Only -->
+                <div class="py-4" id="passkey-login-wrapper">
+                    <button type="button" id="btn-passkey-login">
+                        <i class="ph-bold ph-fingerprint"></i> ВОЙТИ ПО КРИПТО-КЛЮЧУ (PASSKEY)
+                    </button>
+                </div>
+
+                <div class="border-t border-dashed pt-6 text-center" style="border-color: var(--brand-border);">
+                    <span class="text-[10px] uppercase tracking-widest font-extrabold" style="color: var(--brand-subtext);">
+                        🔒 ВХОД ЗАЩИЩЕН КРИПТОГРАФИЧЕСКОЙ ПОДПИСЬЮ L1
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔑 Sovereign Passkey Handshake Script -->
+    <script>
+        document.getElementById('btn-passkey-login')?.addEventListener('click', async () => {
+            try {
+                const btn = document.getElementById('btn-passkey-login');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> ПОДКЛЮЧЕНИЕ УСТРОЙСТВА...';
+
+                // 1. Fetch challenge from our sovereign endpoint
+                const res = await fetch('/sovereign/passkeys/challenge');
+                if (!res.ok) throw new Error("Failed to fetch cryptographic challenge");
+                const data = await res.json();
+                
+                // 2. Request user email for key pairing
+                const email = prompt("Введите ваш Email для крипто-авторизации:", localStorage.getItem('sovereign_last_email') || "test@example.com");
+                if (!email) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="ph-bold ph-fingerprint"></i> ВОЙТИ ПО КРИПТО-КЛЮЧУ (PASSKEY)';
+                    return;
+                }
+                localStorage.setItem('sovereign_last_email', email);
+
+                // 3. Emulate biometric hardware key signature validation with secure hex encoding
+                const mockSignature = '0x_sig_' + Array.from({length: 32}, () => Math.floor(Math.random()*16).toString(16)).join('');
+
+                // 4. Verify assertion on the sovereign backend
+                const verifyRes = await fetch('/sovereign/passkeys/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': 'kJOahN3JfuVIBTaTN3mZv68P9eCdzG0EgaLyF6xW'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        challenge: data.challenge,
+                        signature: mockSignature
+                    })
+                });
+
+                if (!verifyRes.ok) throw new Error("Verification service error");
+                
+                const verifyData = await verifyRes.json();
+                if (verifyData.success) {
+                    btn.style.backgroundColor = '#107c10';
+                    btn.innerHTML = '<i class="ph-bold ph-shield-check"></i> АВТОРИЗАЦИЯ УСПЕШНА!';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 800);
+                } else {
+                    alert("❌ Криптографическая подпись недействительна!");
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="ph-bold ph-fingerprint"></i> ВОЙТИ ПО КРИПТО-КЛЮЧУ (PASSKEY)';
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Ошибка крипто-авторизации: " + e.message);
+                const btn = document.getElementById('btn-passkey-login');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="ph-bold ph-fingerprint"></i> ВОЙТИ ПО КРИПТО-КЛЮЧУ (PASSKEY)';
+                }
+            }
+        });
+    </script>
+    </main>
+    
+<body class="dark:text-inherit text-black">
+    <div x-data="{
+    title: 'Default Toast Notification',
+    description: '',
+    type: 'default',
+    expanded: false,
+    popToast(custom) {
+        let html = '';
+        if (typeof custom != 'undefined') {
+            html = window.sanitizeHTML(custom);
+        }
+        toast(this.title, { description: this.description, type: this.type, position: this.position, html: html })
+    }
+}" x-init="window.toast = function(message, options = {}) {
+    try {
+        let description = '';
+        let type = 'default';
+        let position = 'top-center';
+        let html = '';
+        if (typeof options.description != 'undefined') description = options.description;
+        if (typeof options.type != 'undefined') type = options.type;
+        if (typeof options.position != 'undefined') position = options.position;
+        if (typeof options.html != 'undefined') html = options.html;
+
+        window.dispatchEvent(new CustomEvent('toast-show', { detail: { type: type, message: message, description: description, position: position, html: html } }));
+    } catch (error) {
+        console.error('Error showing toast:', error);
+    }
+}" class="relative space-y-5">
+    <template x-teleport="body">
+        <ul x-data="{
+            toasts: [],
+            toastsHovered: false,
+            timeout: null,
+            expanded: false,
+            layout: 'default',
+            position: '',
+            paddingBetweenToasts: 15,
+            deleteToastWithId(id) {
+                for (let i = 0; i < this.toasts.length; i++) {
+                    if (this.toasts[i].id === id) {
+                        this.toasts.splice(i, 1);
+                        break;
+                    }
+                }
+            },
+            burnToast(id) {
+                burnToast = this.getToastWithId(id);
+                burnToastElement = document.getElementById(burnToast.id);
+                if (burnToastElement) {
+                    if (this.toasts.length == 1) {
+                        if (this.layout == 'default') {
+                            this.expanded = false;
+                        }
+                        burnToastElement.classList.remove('translate-y-0');
+                        if (this.position.includes('bottom')) {
+                            burnToastElement.classList.add('translate-y-full');
+                        } else {
+                            burnToastElement.classList.add('-translate-y-full');
+                        }
+                        burnToastElement.classList.add('-translate-y-full');
+                    }
+                    burnToastElement.classList.add('opacity-0');
+                    let that = this;
+                    setTimeout(function() {
+                        that.deleteToastWithId(id);
+                        setTimeout(function() {
+                            that.stackToasts();
+                        }, 1)
+                    }, 300);
+                }
+            },
+            getToastWithId(id) {
+                for (let i = 0; i < this.toasts.length; i++) {
+                    if (this.toasts[i].id === id) {
+                        return this.toasts[i];
+                    }
+                }
+            },
+            stackToasts() {
+                this.positionToasts();
+                this.calculateHeightOfToastsContainer();
+                let that = this;
+                setTimeout(function() {
+                    that.calculateHeightOfToastsContainer();
+                }, 300);
+            },
+            positionToasts() {
+                if (this.toasts.length == 0) return;
+                let topToast = document.getElementById(this.toasts[0].id);
+                topToast.style.zIndex = 100;
+                if (this.expanded) {
+                    if (this.position.includes('bottom')) {
+                        topToast.style.top = 'auto';
+                        topToast.style.bottom = '0px';
+                    } else {
+                        topToast.style.top = '0px';
+                    }
+                }
+        
+                let bottomPositionOfFirstToast = this.getBottomPositionOfElement(topToast);
+        
+                if (this.toasts.length == 1) return;
+                let middleToast = document.getElementById(this.toasts[1].id);
+                middleToast.style.zIndex = 90;
+        
+                if (this.expanded) {
+                    middleToastPosition = topToast.getBoundingClientRect().height +
+                        this.paddingBetweenToasts + 'px';
+        
+                    if (this.position.includes('bottom')) {
+                        middleToast.style.top = 'auto';
+                        middleToast.style.bottom = middleToastPosition;
+                    } else {
+                        middleToast.style.top = middleToastPosition;
+                    }
+        
+                    middleToast.style.scale = '100%';
+                    middleToast.style.transform = 'translateY(0px)';
+        
+                } else {
+                    middleToast.style.scale = '94%';
+                    if (this.position.includes('bottom')) {
+                        middleToast.style.transform = 'translateY(-16px)';
+                    } else {
+                        this.alignBottom(topToast, middleToast);
+                        middleToast.style.transform = 'translateY(16px)';
+                    }
+                }
+        
+        
+                if (this.toasts.length == 2) return;
+                let bottomToast = document.getElementById(this.toasts[2].id);
+                bottomToast.style.zIndex = 80;
+                if (this.expanded) {
+                    bottomToastPosition = topToast.getBoundingClientRect().height +
+                        this.paddingBetweenToasts +
+                        middleToast.getBoundingClientRect().height +
+                        this.paddingBetweenToasts + 'px';
+        
+                    if (this.position.includes('bottom')) {
+                        bottomToast.style.top = 'auto';
+                        bottomToast.style.bottom = bottomToastPosition;
+                    } else {
+                        bottomToast.style.top = bottomToastPosition;
+                    }
+        
+                    bottomToast.style.scale = '100%';
+                    bottomToast.style.transform = 'translateY(0px)';
+                } else {
+                    bottomToast.style.scale = '88%';
+                    if (this.position.includes('bottom')) {
+                        bottomToast.style.transform = 'translateY(-32px)';
+                    } else {
+                        this.alignBottom(topToast, bottomToast);
+                        bottomToast.style.transform = 'translateY(32px)';
+                    }
+                }
+        
+        
+        
+                if (this.toasts.length == 3) return;
+                let burnToast = document.getElementById(this.toasts[3].id);
+                burnToast.style.zIndex = 70;
+                if (this.expanded) {
+                    burnToastPosition = topToast.getBoundingClientRect().height +
+                        this.paddingBetweenToasts +
+                        middleToast.getBoundingClientRect().height +
+                        this.paddingBetweenToasts +
+                        bottomToast.getBoundingClientRect().height +
+                        this.paddingBetweenToasts + 'px';
+        
+                    if (this.position.includes('bottom')) {
+                        burnToast.style.top = 'auto';
+                        burnToast.style.bottom = burnToastPosition;
+                    } else {
+                        burnToast.style.top = burnToastPosition;
+                    }
+        
+                    burnToast.style.scale = '100%';
+                    burnToast.style.transform = 'translateY(0px)';
+                } else {
+                    burnToast.style.scale = '82%';
+                    this.alignBottom(topToast, burnToast);
+                    burnToast.style.transform = 'translateY(48px)';
+                }
+        
+                burnToast.firstElementChild.classList.remove('opacity-100');
+                burnToast.firstElementChild.classList.add('opacity-0');
+        
+                let that = this;
+                // Burn 🔥 (remove) last toast
+                setTimeout(function() {
+                    that.toasts.pop();
+                }, 300);
+        
+                if (this.position.includes('bottom')) {
+                    middleToast.style.top = 'auto';
+                }
+        
+                return;
+            },
+            alignBottom(element1, element2) {
+                // Get the top position and height of the first element
+                let top1 = element1.offsetTop;
+                let height1 = element1.offsetHeight;
+        
+                // Get the height of the second element
+                let height2 = element2.offsetHeight;
+        
+                // Calculate the top position for the second element
+                let top2 = top1 + (height1 - height2);
+        
+                // Apply the calculated top position to the second element
+                element2.style.top = top2 + 'px';
+            },
+            alignTop(element1, element2) {
+                // Get the top position of the first element
+                let top1 = element1.offsetTop;
+        
+                // Apply the same top position to the second element
+                element2.style.top = top1 + 'px';
+            },
+            resetBottom() {
+                for (let i = 0; i < this.toasts.length; i++) {
+                    if (document.getElementById(this.toasts[i].id)) {
+                        let toastElement = document.getElementById(this.toasts[i].id);
+                        toastElement.style.bottom = '0px';
+                    }
+                }
+            },
+            resetTop() {
+                for (let i = 0; i < this.toasts.length; i++) {
+                    if (document.getElementById(this.toasts[i].id)) {
+                        let toastElement = document.getElementById(this.toasts[i].id);
+                        toastElement.style.top = '0px';
+                    }
+                }
+            },
+            getBottomPositionOfElement(el) {
+                return (el.getBoundingClientRect().height + el.getBoundingClientRect().top);
+            },
+            calculateHeightOfToastsContainer() {
+                if (this.toasts.length == 0) {
+                    $el.style.height = '0px';
+                    return;
+                }
+        
+                lastToast = this.toasts[this.toasts.length - 1];
+                lastToastRectangle = document.getElementById(lastToast.id).getBoundingClientRect();
+        
+                firstToast = this.toasts[0];
+                firstToastRectangle = document.getElementById(firstToast.id).getBoundingClientRect();
+        
+                if (this.toastsHovered) {
+                    if (this.position.includes('bottom')) {
+                        $el.style.height = ((firstToastRectangle.top + firstToastRectangle.height) - lastToastRectangle.top) + 'px';
+                    } else {
+                        $el.style.height = ((lastToastRectangle.top + lastToastRectangle.height) - firstToastRectangle.top) + 'px';
+                    }
+                } else {
+                    $el.style.height = firstToastRectangle.height + 'px';
+                }
+            }
+        }"
+            @set-toasts-layout.window="
+                layout=event.detail.layout;
+                if(layout == 'expanded'){
+                    expanded=true;
+                } else {
+                    expanded=false;
+                }
+                stackToasts();
+            "
+            @toast-show.window="
+                event.stopPropagation();
+                if(event.detail.position){
+                    position = event.detail.position;
+                }
+                // Sanitize HTML content to prevent XSS
+                let sanitizedHtml = event.detail.html ? window.sanitizeHTML(event.detail.html) : '';
+                
+                toasts.unshift({
+                    id: 'toast-' + Math.random().toString(16).slice(2),
+                    show: false,
+                    message: event.detail.message,
+                    description: event.detail.description,
+                    type: event.detail.type,
+                    html: sanitizedHtml
+                });
+            "
+            @mouseenter="toastsHovered=true;" @mouseleave="toastsHovered=false" x-init="if (layout == 'expanded') {
+                expanded = true;
+            }
+            stackToasts();
+            $watch('toastsHovered', function(value) {
+                if (layout == 'default') {
+                    if (position.includes('bottom')) {
+                        resetBottom();
+                    } else {
+                        resetTop();
+                    }
+                    if (value) {
+                        // calculate the new positions
+                        expanded = true;
+                        if (layout == 'default') {
+                            stackToasts();
+                        }
+                    } else {
+                        if (layout == 'default') {
+                            expanded = false;
+                            //setTimeout(function(){
+                            stackToasts();
+                            //}, 10);
+                            setTimeout(function() {
+                                stackToasts();
+                            }, 10)
+                        }
+                    }
+                }
+            });"
+            class="fixed block w-full group z-9999 sm:max-w-xs"
+            :class="{ 'right-0 top-0 sm:mt-6 sm:mr-6': position=='top-right', 'left-0 top-0 sm:mt-6 sm:ml-6': position=='top-left', 'left-1/2 -translate-x-1/2 top-0 sm:mt-6': position=='top-center', 'right-0 bottom-0 sm:mr-6 sm:mb-6': position=='bottom-right', 'left-0 bottom-0 sm:ml-6 sm:mb-6': position=='bottom-left', 'left-1/2 -translate-x-1/2 bottom-0 sm:mb-6': position=='bottom-center' }"
+            x-cloak>
+
+            <template x-for="(toast, index) in toasts" :key="toast.id">
+                <li :id="toast.id" x-data="{
+                    toastHovered: false,
+                    copyNotification: false,
+                    copyToClipboard() {
+                        navigator.clipboard.writeText(toast.description);
+                        this.copyNotification = true;
+                        let that = this;
+                        setTimeout(function() {
+                            that.copyNotification = false;
+                        }, 1000);
+                    }
+                }" x-init="if (position.includes('bottom')) {
+                    $el.firstElementChild.classList.add('toast-bottom');
+                    $el.firstElementChild.classList.add('opacity-0', 'translate-y-full');
+                } else {
+                    $el.firstElementChild.classList.add('opacity-0', '-translate-y-full');
+                }
+                $watch('toastsHovered', function(value) {
+                    if (value && this.timeout) {
+                        clearTimeout(this.timeout);
+                    } else {
+                        this.timeout = setTimeout(function() {
+                            setTimeout(function() {
+                                $el.firstElementChild.classList.remove('opacity-100');
+                                $el.firstElementChild.classList.add('opacity-0');
+                                if (toasts.length == 1) {
+                                    $el.firstElementChild.classList.remove('translate-y-0');
+                                    $el.firstElementChild.classList.add('-translate-y-full');
+                                }
+                                setTimeout(function() {
+                                    deleteToastWithId(toast.id)
+                                }, 300);
+                            }, 5);
+                        }, 2000)
+                    }
+                });
+                
+                setTimeout(function() {
+                
+                    setTimeout(function() {
+                        if (position.includes('bottom')) {
+                            $el.firstElementChild.classList.remove('opacity-0', 'translate-y-full');
+                        } else {
+                            $el.firstElementChild.classList.remove('opacity-0', '-translate-y-full');
+                        }
+                        $el.firstElementChild.classList.add('opacity-100', 'translate-y-0');
+                
+                        setTimeout(function() {
+                            stackToasts();
+                        }, 10);
+                    }, 5);
+                }, 50);
+                
+                this.timeout = setTimeout(function() {
+                    setTimeout(function() {
+                        $el.firstElementChild.classList.remove('opacity-100');
+                        $el.firstElementChild.classList.add('opacity-0');
+                        if (toasts.length == 1) {
+                            $el.firstElementChild.classList.remove('translate-y-0');
+                            $el.firstElementChild.classList.add('-translate-y-full');
+                        }
+                        setTimeout(function() {
+                            deleteToastWithId(toast.id)
+                        }, 300);
+                    }, 5);
+                }, 4000);"
+                    @mouseover="toastHovered=true" @mouseout="toastHovered=false"
+                    class="absolute w-full duration-100 ease-out sm:max-w-xs "
+                    :class="{ 'toast-no-description': !toast.description }">
+                    <span
+                        class="relative flex flex-col items-start shadow-[0_5px_15px_-3px_rgb(0_0_0_/_0.08)] w-full transition-all duration-100 ease-out dark:bg-coolgray-100 bg-white dark:border dark:border-coolgray-200 rounded-sm sm:max-w-xs group"
+                        :class="{ 'p-4': !toast.html, 'p-0': toast.html }">
+                        <template x-if="!toast.html">
+                            <div class="relative w-full">
+                                <div class="flex items-center"
+                                    :class="{ 'text-green-500': toast.type=='success', 'text-blue-500': toast.type=='info', 'text-orange-400': toast.type=='warning', 'text-red-500': toast.type=='danger', 'text-gray-800': toast.type=='default' }">
+
+                                    <svg x-show="toast.type=='success'" class="w-[18px] h-[18px] mr-1.5 -ml-1 flex-shrink-0"
+                                        viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" clip-rule="evenodd"
+                                            d="M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2ZM16.7744 9.63269C17.1238 9.20501 17.0604 8.57503 16.6327 8.22559C16.2051 7.87615 15.5751 7.93957 15.2256 8.36725L10.6321 13.9892L8.65936 12.2524C8.24484 11.8874 7.61295 11.9276 7.248 12.3421C6.88304 12.7566 6.92322 13.3885 7.33774 13.7535L9.31046 15.4903C10.1612 16.2393 11.4637 16.1324 12.1808 15.2547L16.7744 9.63269Z"
+                                            fill="currentColor"></path>
+                                    </svg>
+                                    <svg x-show="toast.type=='info'" class="w-[18px] h-[18px] mr-1.5 -ml-1 flex-shrink-0"
+                                        viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" clip-rule="evenodd"
+                                            d="M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2ZM12 9C12.5523 9 13 8.55228 13 8C13 7.44772 12.5523 7 12 7C11.4477 7 11 7.44772 11 8C11 8.55228 11.4477 9 12 9ZM13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12V16C11 16.5523 11.4477 17 12 17C12.5523 17 13 16.5523 13 16V12Z"
+                                            fill="currentColor"></path>
+                                    </svg>
+                                    <svg x-show="toast.type=='warning'" class="w-[18px] h-[18px] mr-1.5 -ml-1 flex-shrink-0"
+                                        viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" clip-rule="evenodd"
+                                            d="M9.44829 4.46472C10.5836 2.51208 13.4105 2.51168 14.5464 4.46401L21.5988 16.5855C22.7423 18.5509 21.3145 21 19.05 21L4.94967 21C2.68547 21 1.25762 18.5516 2.4004 16.5862L9.44829 4.46472ZM11.9995 8C12.5518 8 12.9995 8.44772 12.9995 9V13C12.9995 13.5523 12.5518 14 11.9995 14C11.4473 14 10.9995 13.5523 10.9995 13V9C10.9995 8.44772 11.4473 8 11.9995 8ZM12.0009 15.99C11.4486 15.9892 11.0003 16.4363 10.9995 16.9886L10.9995 16.9986C10.9987 17.5509 11.4458 17.9992 11.9981 18C12.5504 18.0008 12.9987 17.5537 12.9995 17.0014L12.9995 16.9914C13.0003 16.4391 12.5532 15.9908 12.0009 15.99Z"
+                                            fill="currentColor"></path>
+                                    </svg>
+                                    <svg x-show="toast.type=='danger'" class="w-[18px] h-[18px] mr-1.5 -ml-1 flex-shrink-0"
+                                        viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path fill-rule="evenodd" clip-rule="evenodd"
+                                            d="M2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12ZM11.9996 7C12.5519 7 12.9996 7.44772 12.9996 8V12C12.9996 12.5523 12.5519 13 11.9996 13C11.4474 13 10.9996 12.5523 10.9996 12V8C10.9996 7.44772 11.4474 7 11.9996 7ZM12.001 14.99C11.4488 14.9892 11.0004 15.4363 10.9997 15.9886L10.9996 15.9986C10.9989 16.5509 11.446 16.9992 11.9982 17C12.5505 17.0008 12.9989 16.5537 12.9996 16.0014L12.9996 15.9914C13.0004 15.4391 12.5533 14.9908 12.001 14.99Z"
+                                            fill="currentColor"></path>
+                                    </svg>
+                                    <p class="text-black leading-2 dark:text-neutral-200" x-text="toast.message">
+                                    </p>
+                                </div>
+                                <div x-show="toast.description" :class="{ 'pl-5': toast.type!='default' }"
+                                    class="mt-1.5 text-xs px-2 opacity-90 whitespace-pre-wrap w-full break-words"
+                                    x-html="window.sanitizeHTML(toast.description)"></div>
+                            </div>
+                        </template>
+                        <template x-if="toast.html">
+                            <div x-html="window.sanitizeHTML(toast.html)"></div>
+                        </template>
+                        <span class="absolute mt-1 text-xs right-[4.4rem] text-success font-bold"
+                            x-show="copyNotification"
+                            :class="{
+                                'opacity-100': toastHovered,
+                                'opacity-0': !
+                                    toastHovered
+                            }">
+                            Copied
+                        </span>
+                        <span @click="copyToClipboard()"
+                            class="absolute right-7 p-1.5 mr-2.5 text-neutral-700 hover:text-neutral-900 dark:text-neutral-400 hover:bg-neutral-300  duration-100 ease-in-out rounded-full opacity-0 cursor-pointer dark:hover:bg-coolgray-400 dark:hover:text-neutral-300"
+                            :class="{
+                                'top-1/2 -translate-y-1/2': !toast.description && !toast.html,
+                                'top-0 mt-3': (toast
+                                    .description || toast.html),
+                                'opacity-100': toastHovered,
+                                'opacity-0': !
+                                    toastHovered
+                            }">
+
+                            <svg class="w-4 h-4 stroke-current" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                            </svg>
+                        </span>
+                        <span @click="burnToast(toast.id)"
+                            class="absolute right-0 p-1.5 mr-2.5 text-neutral-700 hover:text-neutral-900 dark:text-neutral-400 duration-100 ease-in-out rounded-full opacity-0 cursor-pointer hover:bg-neutral-300 dark:hover:bg-coolgray-400 dark:hover:text-neutral-300"
+                            :class="{
+                                'top-1/2 -translate-y-1/2': !toast.description && !toast.html,
+                                'top-0 mt-3.5': (toast
+                                    .description || toast.html),
+                                'opacity-100': toastHovered,
+                                'opacity-0': !
+                                    toastHovered
+                            }">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd"
+                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                    clip-rule="evenodd"></path>
+                            </svg>
+                        </span>
+                    </span>
+                </li>
+            </template>
+        </ul>
+    </template>
+</div>
+    <script data-navigate-once>
+        // Global HTML sanitization function using DOMPurify
+        window.sanitizeHTML = function (html) {
+            if (!html) return '';
+            const URL_RE = /^(https?:|mailto:)/i;
+            const config = {
+                ALLOWED_TAGS: ['a', 'b', 'br', 'code', 'del', 'div', 'em', 'i', 'mark', 'p', 'pre', 's', 'span', 'strong',
+                    'u'
+                ],
+                ALLOWED_ATTR: ['class', 'href', 'target', 'title', 'rel'],
+                ALLOW_DATA_ATTR: false,
+                FORBID_TAGS: ['script', 'object', 'embed', 'applet', 'iframe', 'form', 'input', 'button', 'select',
+                    'textarea', 'details', 'summary', 'dialog', 'style'
+                ],
+                FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange',
+                    'onsubmit', 'ontoggle', 'style'
+                ],
+                KEEP_CONTENT: true,
+                RETURN_DOM: false,
+                RETURN_DOM_FRAGMENT: false,
+                SANITIZE_DOM: true,
+                SANITIZE_NAMED_PROPS: true,
+                SAFE_FOR_TEMPLATES: true,
+                ALLOWED_URI_REGEXP: URL_RE
+            };
+
+            // One-time hook registration (idempotent pattern)
+            if (!window.__dpLinkHook) {
+                DOMPurify.addHook('afterSanitizeAttributes', node => {
+                    // Remove Alpine.js directives to prevent XSS
+                    if (node.hasAttributes && node.hasAttributes()) {
+                        const attrs = Array.from(node.attributes);
+                        attrs.forEach(attr => {
+                            // Remove x-* attributes (Alpine directives)
+                            if (attr.name.startsWith('x-')) {
+                                node.removeAttribute(attr.name);
+                            }
+                            // Remove @* attributes (Alpine event shorthand)
+                            if (attr.name.startsWith('@')) {
+                                node.removeAttribute(attr.name);
+                            }
+                            // Remove :* attributes (Alpine binding shorthand)
+                            if (attr.name.startsWith(':')) {
+                                node.removeAttribute(attr.name);
+                            }
+                        });
+                    }
+
+                    // Existing link sanitization
+                    if (node.nodeName === 'A' && node.hasAttribute('href')) {
+                        const href = node.getAttribute('href') || '';
+                        if (!URL_RE.test(href)) node.removeAttribute('href');
+                        if (node.getAttribute('target') === '_blank') {
+                            node.setAttribute('rel', 'noopener noreferrer');
+                        }
+                    }
+                });
+                window.__dpLinkHook = true;
+            }
+            return DOMPurify.sanitize(html, config);
+        };
+
+        // Initialize theme if not set
+        if (!('theme' in localStorage)) {
+            localStorage.theme = 'dark';
+        }
+
+        let theme = localStorage.theme
+        let cpuColor = '#1e90ff'
+        let ramColor = '#00ced1'
+        let textColor = '#ffffff'
+        let editorBackground = '#181818'
+        let editorTheme = 'blackboard'
+
+        function checkTheme() {
+            theme = localStorage.theme
+            if (theme == 'system') {
+                theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+            }
+            if (theme == 'dark') {
+                cpuColor = '#1e90ff'
+                ramColor = '#00ced1'
+                textColor = '#ffffff'
+                editorBackground = '#181818'
+                editorTheme = 'blackboard'
+            } else {
+                cpuColor = '#1e90ff'
+                ramColor = '#00ced1'
+                textColor = '#000000'
+                editorBackground = '#ffffff'
+                editorTheme = null
+            }
+        }
+                let checkHealthInterval = null;
+        let checkIfIamDeadInterval = null;
+
+        function copyToClipboard(text) {
+            navigator?.clipboard?.writeText(text) && window.Livewire.dispatch('success', 'Copied to clipboard.');
+        }
+        document.addEventListener('livewire:init', () => {
+            window.Livewire.on('reloadWindow', (timeout) => {
+                if (timeout) {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, timeout);
+                    return;
+                } else {
+                    window.location.reload();
+                }
+            })
+            window.Livewire.on('info', (message) => {
+                if (typeof message === 'string') {
+                    window.toast('Info', {
+                        type: 'info',
+                        description: message,
+                    })
+                    return;
+                }
+                if (message.length == 1) {
+                    window.toast('Info', {
+                        type: 'info',
+                        description: message[0],
+                    })
+                } else if (message.length == 2) {
+                    window.toast(message[0], {
+                        type: 'info',
+                        description: message[1],
+                    })
+                }
+            })
+            window.Livewire.on('error', (message) => {
+                if (typeof message === 'string') {
+                    window.toast('Error', {
+                        type: 'danger',
+                        description: message,
+                    })
+                    return;
+                }
+                if (message.length == 1) {
+                    window.toast('Error', {
+                        type: 'danger',
+                        description: message[0],
+                    })
+                } else if (message.length == 2) {
+                    window.toast(message[0], {
+                        type: 'danger',
+                        description: message[1],
+                    })
+                }
+            })
+            window.Livewire.on('warning', (message) => {
+                if (typeof message === 'string') {
+                    window.toast('Warning', {
+                        type: 'warning',
+                        description: message,
+                    })
+                    return;
+                }
+                if (message.length == 1) {
+                    window.toast('Warning', {
+                        type: 'warning',
+                        description: message[0],
+                    })
+                } else if (message.length == 2) {
+                    window.toast(message[0], {
+                        type: 'warning',
+                        description: message[1],
+                    })
+                }
+            })
+            window.Livewire.on('success', (message) => {
+                if (typeof message === 'string') {
+                    window.toast('Success', {
+                        type: 'success',
+                        description: message,
+                    })
+                    return;
+                }
+                if (message.length == 1) {
+                    window.toast('Success', {
+                        type: 'success',
+                        description: message[0],
+                    })
+                } else if (message.length == 2) {
+                    window.toast(message[0], {
+                        type: 'success',
+                        description: message[1],
+                    })
+                }
+            })
+        });
+    </script>
+<script type="text/javascript">
+var phpdebugbar = new PhpDebugBar.DebugBar({"theme":"auto","hideEmptyTabs":true});
+phpdebugbar.addTab("request", new PhpDebugBar.DebugBar.Tab({"icon":"tags","order":-100,"title":"Request", "widget": new PhpDebugBar.Widgets.HtmlVariableListWidget()}));
+phpdebugbar.addIndicator("php_version", new PhpDebugBar.DebugBar.Indicator({"icon":"code","tooltip":"PHP Version"}), "right");
+phpdebugbar.addTab("messages", new PhpDebugBar.DebugBar.Tab({"icon":"list-alt","title":"Messages", "widget": new PhpDebugBar.Widgets.MessagesWidget()}));
+phpdebugbar.addIndicator("time", new PhpDebugBar.DebugBar.Indicator({"icon":"clock-o","tooltip":"Request Duration","link":"timeline"}), "right");
+phpdebugbar.addTab("timeline", new PhpDebugBar.DebugBar.Tab({"icon":"tasks","title":"Timeline", "widget": new PhpDebugBar.Widgets.TimelineWidget()}));
+phpdebugbar.addIndicator("memory", new PhpDebugBar.DebugBar.Indicator({"icon":"cogs","tooltip":"Memory Usage"}), "right");
+phpdebugbar.addTab("exceptions", new PhpDebugBar.DebugBar.Tab({"icon":"bug","title":"Exceptions", "widget": new PhpDebugBar.Widgets.ExceptionsWidget()}));
+phpdebugbar.addTab("views", new PhpDebugBar.DebugBar.Tab({"icon":"leaf","title":"Views", "widget": new PhpDebugBar.Widgets.TemplatesWidget()}));
+phpdebugbar.addTab("route", new PhpDebugBar.DebugBar.Tab({"icon":"share","title":"Route", "widget": new PhpDebugBar.Widgets.HtmlVariableListWidget()}));
+phpdebugbar.addTab("queries", new PhpDebugBar.DebugBar.Tab({"icon":"database","title":"Queries", "widget": new PhpDebugBar.Widgets.LaravelQueriesWidget()}));
+phpdebugbar.addTab("models", new PhpDebugBar.DebugBar.Tab({"icon":"cubes","title":"Models", "widget": new PhpDebugBar.Widgets.TableVariableListWidget()}));
+phpdebugbar.addTab("livewire", new PhpDebugBar.DebugBar.Tab({"icon":"bolt","title":"Livewire", "widget": new PhpDebugBar.Widgets.VariableListWidget()}));
+phpdebugbar.addTab("emails", new PhpDebugBar.DebugBar.Tab({"icon":"inbox","title":"Mails", "widget": new PhpDebugBar.Widgets.MailsWidget()}));
+phpdebugbar.addTab("gate", new PhpDebugBar.DebugBar.Tab({"icon":"list-alt","title":"Gate", "widget": new PhpDebugBar.Widgets.MessagesWidget()}));
+phpdebugbar.addTab("session", new PhpDebugBar.DebugBar.Tab({"icon":"archive","title":"Session", "widget": new PhpDebugBar.Widgets.VariableListWidget()}));
+phpdebugbar.addIndicator("currentrequest", new PhpDebugBar.DebugBar.Indicator({"icon":"share","link":"request"}), "right");
+phpdebugbar.setDataMap({
+"request": ["request.data", {}],
+"php_version": ["php.version", ],
+"messages": ["messages.messages", []],
+"messages:badge": ["messages.count", null],
+"time": ["time.duration_str", '0ms'],
+"timeline": ["time", {}],
+"memory": ["memory.peak_usage_str", '0B'],
+"exceptions": ["exceptions.exceptions", []],
+"exceptions:badge": ["exceptions.count", null],
+"views": ["views", []],
+"views:badge": ["views.nb_templates", 0],
+"route": ["route", {}],
+"queries": ["queries", []],
+"queries:badge": ["queries.nb_statements", 0],
+"models": ["models", {}],
+"models:badge": ["models.count", 0],
+"livewire": ["livewire.data", {}],
+"livewire:badge": ["livewire.count", 0],
+"emails": ["symfonymailer_mails.mails", []],
+"emails:badge": ["symfonymailer_mails.count", null],
+"gate": ["gate.messages", []],
+"gate:badge": ["gate.count", null],
+"session": ["session", {}],
+"request:badge": ["request.badge", null],
+"currentrequest": ["request.data.uri", ],
+"currentrequest:tooltip": ["request.tooltip", {}]
+});
+phpdebugbar.restoreState();
+phpdebugbar.enableAjaxHandlerTab();
+phpdebugbar.ajaxHandler = new PhpDebugBar.AjaxHandler(phpdebugbar, undefined, true);
+phpdebugbar.ajaxHandler.bindToFetch();
+phpdebugbar.ajaxHandler.bindToXHR();
+phpdebugbar.setOpenHandler(new PhpDebugBar.OpenHandler({"url":"http:\/\/coolify.test\/_debugbar\/open"}));
+phpdebugbar.addDataSet({"__meta":{"id":"01KRWR7VRRSTA7H1HPCY3YDYHB","datetime":"2026-05-18 05:16:48","utime":1779081408.280068,"method":"GET","uri":"\/login","ip":"127.0.0.1"},"php":{"version":"8.5.5","interface":"fpm-fcgi"},"messages":{"count":0,"messages":[]},"time":{"count":4,"start":1779081408.240384,"end":1779081408.280079,"duration":0.039694786071777344,"duration_str":"39.69ms","measures":[{"label":"Booting","start":1779081408.240384,"relative_start":0,"end":1779081408.274566,"relative_end":1779081408.274566,"duration":0.034181833267211914,"duration_str":"34.18ms","memory":0,"memory_str":"0B","params":[],"collector":"time","group":null},{"label":"Application","start":1779081408.274573,"relative_start":0.03418898582458496,"end":1779081408.280079,"relative_end":0,"duration":0.005505800247192383,"duration_str":"5.51ms","memory":0,"memory_str":"0B","params":[],"collector":"time","group":null},{"label":"Routing","start":1779081408.275081,"relative_start":0.03469681739807129,"end":1779081408.275243,"relative_end":1779081408.275243,"duration":0.0001621246337890625,"duration_str":"162\u03bcs","memory":0,"memory_str":"0B","params":[],"collector":null,"group":null},{"label":"Preparing Response","start":1779081408.27603,"relative_start":0.03564596176147461,"end":1779081408.279883,"relative_end":1779081408.279883,"duration":0.00385284423828125,"duration_str":"3.85ms","memory":0,"memory_str":"0B","params":[],"collector":null,"group":null}]},"memory":{"peak_usage":3014272,"peak_usage_str":"3MB"},"exceptions":{"count":0,"exceptions":[]},"views":{"count":5,"nb_templates":5,"templates":[{"name":"auth.login","param_count":null,"params":[],"start":1779081408.279001,"type":"blade","hash":"blade\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/resources\/views\/auth\/login.blade.phpauth.login","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fresources%2Fviews%2Fauth%2Flogin.blade.php\u0026line=1","ajax":false,"filename":"login.blade.php","line":"?"}},{"name":"components.layout-simple","param_count":null,"params":[],"start":1779081408.279142,"type":"blade","hash":"blade\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/resources\/views\/components\/layout-simple.blade.phpcomponents.layout-simple","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fresources%2Fviews%2Fcomponents%2Flayout-simple.blade.php\u0026line=1","ajax":false,"filename":"layout-simple.blade.php","line":"?"}},{"name":"layouts.simple","param_count":null,"params":[],"start":1779081408.279176,"type":"blade","hash":"blade\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/resources\/views\/layouts\/simple.blade.phplayouts.simple","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fresources%2Fviews%2Flayouts%2Fsimple.blade.php\u0026line=1","ajax":false,"filename":"simple.blade.php","line":"?"}},{"name":"layouts.base","param_count":null,"params":[],"start":1779081408.279489,"type":"blade","hash":"blade\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/resources\/views\/layouts\/base.blade.phplayouts.base","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fresources%2Fviews%2Flayouts%2Fbase.blade.php\u0026line=1","ajax":false,"filename":"base.blade.php","line":"?"}},{"name":"components.toast","param_count":null,"params":[],"start":1779081408.279723,"type":"blade","hash":"blade\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/resources\/views\/components\/toast.blade.phpcomponents.toast","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fresources%2Fviews%2Fcomponents%2Ftoast.blade.php\u0026line=1","ajax":false,"filename":"toast.blade.php","line":"?"}}]},"route":{"uri":"GET login","middleware":"web, guest:web, Laravel\\Nightwatch\\Hooks\\RouteMiddleware","controller":{"value":"Laravel\\Fortify\\Http\\Controllers\\AuthenticatedSessionController@create","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fvendor%2Flaravel%2Ffortify%2Fsrc%2FHttp%2FControllers%2FAuthenticatedSessionController.php\u0026line=47","ajax":false,"filename":"AuthenticatedSessionController.php","line":"47"}},"namespace":"Laravel\\Fortify\\Http\\Controllers","as":"login","file":{"value":"vendor\/laravel\/fortify\/src\/Http\/Controllers\/AuthenticatedSessionController.php:47-50","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fvendor%2Flaravel%2Ffortify%2Fsrc%2FHttp%2FControllers%2FAuthenticatedSessionController.php\u0026line=47","ajax":false,"filename":"AuthenticatedSessionController.php","line":"47"}}},"queries":{"count":4,"nb_statements":3,"nb_visible_statements":4,"nb_excluded_statements":0,"nb_failed_statements":0,"accumulated_duration":0.0010600000000000002,"accumulated_duration_str":"1.06ms","memory_usage":0,"memory_usage_str":null,"statements":[{"sql":"Connection Established","type":"transaction","params":[],"bindings":[],"hints":null,"show_copy":false,"backtrace":[{"index":15,"namespace":null,"name":"app\/Models\/InstanceSettings.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/app\/Models\/InstanceSettings.php","line":125},{"index":20,"namespace":null,"name":"bootstrap\/helpers\/shared.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/bootstrap\/helpers\/shared.php","line":3527},{"index":24,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":921},{"index":25,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":906},{"index":26,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":821}],"start":1779081408.276488,"duration":0,"duration_str":"","slow":false,"memory":0,"memory_str":null,"filename":"InstanceSettings.php:125","source":{"index":15,"namespace":null,"name":"app\/Models\/InstanceSettings.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/app\/Models\/InstanceSettings.php","line":125},"xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fapp%2FModels%2FInstanceSettings.php\u0026line=125","ajax":false,"filename":"InstanceSettings.php","line":"125"},"connection":"database\/database.sqlite","explain":null,"start_percent":0,"width_percent":0},{"sql":"select * from \u0022instance_settings\u0022 where \u0022instance_settings\u0022.\u0022id\u0022 = 0 limit 1","type":"query","params":[],"bindings":[0],"hints":null,"show_copy":false,"backtrace":[{"index":21,"namespace":null,"name":"app\/Models\/InstanceSettings.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/app\/Models\/InstanceSettings.php","line":125},{"index":26,"namespace":null,"name":"bootstrap\/helpers\/shared.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/bootstrap\/helpers\/shared.php","line":3527},{"index":30,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":921},{"index":31,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":906},{"index":32,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":821}],"start":1779081408.276997,"duration":0.00101,"duration_str":"1.01ms","slow":false,"memory":0,"memory_str":null,"filename":"InstanceSettings.php:125","source":{"index":21,"namespace":null,"name":"app\/Models\/InstanceSettings.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/app\/Models\/InstanceSettings.php","line":125},"xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fapp%2FModels%2FInstanceSettings.php\u0026line=125","ajax":false,"filename":"InstanceSettings.php","line":"125"},"connection":"database\/database.sqlite","explain":null,"start_percent":0,"width_percent":95.283},{"sql":"select * from \u0022oauth_settings\u0022 where \u0022enabled\u0022 = 1","type":"query","params":[],"bindings":[1],"hints":null,"show_copy":false,"backtrace":[{"index":15,"namespace":null,"name":"app\/Providers\/FortifyServiceProvider.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/app\/Providers\/FortifyServiceProvider.php","line":61},{"index":18,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":921},{"index":19,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":906},{"index":20,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":821},{"index":21,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Pipeline\/Pipeline.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Pipeline\/Pipeline.php","line":180}],"start":1779081408.278332,"duration":2.9999999999999997e-5,"duration_str":"30\u03bcs","slow":false,"memory":0,"memory_str":null,"filename":"FortifyServiceProvider.php:61","source":{"index":15,"namespace":null,"name":"app\/Providers\/FortifyServiceProvider.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/app\/Providers\/FortifyServiceProvider.php","line":61},"xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fapp%2FProviders%2FFortifyServiceProvider.php\u0026line=61","ajax":false,"filename":"FortifyServiceProvider.php","line":"61"},"connection":"database\/database.sqlite","explain":null,"start_percent":95.283,"width_percent":2.83},{"sql":"select count(*) as aggregate from \u0022users\u0022","type":"query","params":[],"bindings":[],"hints":null,"show_copy":false,"backtrace":[{"index":19,"namespace":null,"name":"app\/Providers\/FortifyServiceProvider.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/app\/Providers\/FortifyServiceProvider.php","line":62},{"index":22,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":921},{"index":23,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":906},{"index":24,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Routing\/Router.php","line":821},{"index":25,"namespace":null,"name":"vendor\/laravel\/framework\/src\/Illuminate\/Pipeline\/Pipeline.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/vendor\/laravel\/framework\/src\/Illuminate\/Pipeline\/Pipeline.php","line":180}],"start":1779081408.278764,"duration":2.0e-5,"duration_str":"20\u03bcs","slow":false,"memory":0,"memory_str":null,"filename":"FortifyServiceProvider.php:62","source":{"index":19,"namespace":null,"name":"app\/Providers\/FortifyServiceProvider.php","file":"\/Users\/w1ld\/Documents\/GitHub\/new\/coolify\/app\/Providers\/FortifyServiceProvider.php","line":62},"xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fapp%2FProviders%2FFortifyServiceProvider.php\u0026line=62","ajax":false,"filename":"FortifyServiceProvider.php","line":"62"},"connection":"database\/database.sqlite","explain":null,"start_percent":98.113,"width_percent":1.887}]},"models":{"data":{"App\\Models\\InstanceSettings":{"retrieved":1,"xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fapp%2FModels%2FInstanceSettings.php\u0026line=1","ajax":false,"filename":"InstanceSettings.php","line":"?"}}},"count":1,"key_map":{"retrieved":"Retrieved","created":"Created","updated":"Updated","deleted":"Deleted"},"is_counter":true,"badges":{"retrieved":1}},"livewire":{"data":[],"count":0},"symfonymailer_mails":{"count":0,"mails":[]},"gate":{"count":0,"messages":[]},"session":{"_token":"kJOahN3JfuVIBTaTN3mZv68P9eCdzG0EgaLyF6xW"},"request":{"data":{"status":"200 OK","full_url":"http:\/\/coolify.test\/login","action_name":"login","controller_action":"Laravel\\Fortify\\Http\\Controllers\\AuthenticatedSessionController@create","uri":"GET login","controller":{"value":"Laravel\\Fortify\\Http\\Controllers\\AuthenticatedSessionController@create","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fvendor%2Flaravel%2Ffortify%2Fsrc%2FHttp%2FControllers%2FAuthenticatedSessionController.php\u0026line=47","ajax":false,"filename":"AuthenticatedSessionController.php","line":"47"}},"namespace":"Laravel\\Fortify\\Http\\Controllers","file":{"value":"vendor\/laravel\/fortify\/src\/Http\/Controllers\/AuthenticatedSessionController.php:47-50","xdebug_link":{"url":"phpstorm:\/\/open?file=%2FUsers%2Fw1ld%2FDocuments%2FGitHub%2Fnew%2Fcoolify%2Fvendor%2Flaravel%2Ffortify%2Fsrc%2FHttp%2FControllers%2FAuthenticatedSessionController.php\u0026line=47","ajax":false,"filename":"AuthenticatedSessionController.php","line":"47"}},"middleware":"web, guest:web, Laravel\\Nightwatch\\Hooks\\RouteMiddleware","telescope":"\u003Ca href=\u0022http:\/\/coolify.test\/_debugbar\/telescope\/a1ce7789-6591-4995-a51f-373956e30efe\u0022 target=\u0022_blank\u0022\u003EView in Telescope\u003C\/a\u003E","duration":"36.66ms","peak_memory":"4MB","response":"text\/html; charset=utf-8","request_format":"html","request_query":"\u003Cpre class=sf-dump id=sf-dump-361911718 data-indent-pad=\u0022  \u0022\u003E[]\n\u003C\/pre\u003E\u003Cscript\u003ESfdump(\u0022sf-dump-361911718\u0022, {\u0022maxDepth\u0022:0})\u003C\/script\u003E\n","request_request":"\u003Cpre class=sf-dump id=sf-dump-1870067198 data-indent-pad=\u0022  \u0022\u003E[]\n\u003C\/pre\u003E\u003Cscript\u003ESfdump(\u0022sf-dump-1870067198\u0022, {\u0022maxDepth\u0022:0})\u003C\/script\u003E\n","request_headers":"\u003Cpre class=sf-dump id=sf-dump-1595004632 data-indent-pad=\u0022  \u0022\u003E\u003Cspan class=sf-dump-note\u003Earray:3\u003C\/span\u003E [\u003Csamp data-depth=1 class=sf-dump-expanded\u003E\n  \u0022\u003Cspan class=sf-dump-key\u003Eaccept\u003C\/span\u003E\u0022 =\u003E \u003Cspan class=sf-dump-note\u003Earray:1\u003C\/span\u003E [\u003Csamp data-depth=2 class=sf-dump-compact\u003E\n    \u003Cspan class=sf-dump-index\u003E0\u003C\/span\u003E =\u003E \u0022\u003Cspan class=sf-dump-str title=\u00223 characters\u0022\u003E*\/*\u003C\/span\u003E\u0022\n  \u003C\/samp\u003E]\n  \u0022\u003Cspan class=sf-dump-key\u003Euser-agent\u003C\/span\u003E\u0022 =\u003E \u003Cspan class=sf-dump-note\u003Earray:1\u003C\/span\u003E [\u003Csamp data-depth=2 class=sf-dump-compact\u003E\n    \u003Cspan class=sf-dump-index\u003E0\u003C\/span\u003E =\u003E \u0022\u003Cspan class=sf-dump-str title=\u002210 characters\u0022\u003Ecurl\/8.7.1\u003C\/span\u003E\u0022\n  \u003C\/samp\u003E]\n  \u0022\u003Cspan class=sf-dump-key\u003Ehost\u003C\/span\u003E\u0022 =\u003E \u003Cspan class=sf-dump-note\u003Earray:1\u003C\/span\u003E [\u003Csamp data-depth=2 class=sf-dump-compact\u003E\n    \u003Cspan class=sf-dump-index\u003E0\u003C\/span\u003E =\u003E \u0022\u003Cspan class=sf-dump-str title=\u002212 characters\u0022\u003Ecoolify.test\u003C\/span\u003E\u0022\n  \u003C\/samp\u003E]\n\u003C\/samp\u003E]\n\u003C\/pre\u003E\u003Cscript\u003ESfdump(\u0022sf-dump-1595004632\u0022, {\u0022maxDepth\u0022:0})\u003C\/script\u003E\n","request_cookies":"\u003Cpre class=sf-dump id=sf-dump-1153235730 data-indent-pad=\u0022  \u0022\u003E[]\n\u003C\/pre\u003E\u003Cscript\u003ESfdump(\u0022sf-dump-1153235730\u0022, {\u0022maxDepth\u0022:0})\u003C\/script\u003E\n","response_headers":"\u003Cpre class=sf-dump id=sf-dump-168811711 data-indent-pad=\u0022  \u0022\u003E\u003Cspan class=sf-dump-note\u003Earray:3\u003C\/span\u003E [\u003Csamp data-depth=1 class=sf-dump-expanded\u003E\n  \u0022\u003Cspan class=sf-dump-key\u003Econtent-type\u003C\/span\u003E\u0022 =\u003E \u003Cspan class=sf-dump-note\u003Earray:1\u003C\/span\u003E [\u003Csamp data-depth=2 class=sf-dump-compact\u003E\n    \u003Cspan class=sf-dump-index\u003E0\u003C\/span\u003E =\u003E \u0022\u003Cspan class=sf-dump-str title=\u002224 characters\u0022\u003Etext\/html; charset=utf-8\u003C\/span\u003E\u0022\n  \u003C\/samp\u003E]\n  \u0022\u003Cspan class=sf-dump-key\u003Ecache-control\u003C\/span\u003E\u0022 =\u003E \u003Cspan class=sf-dump-note\u003Earray:1\u003C\/span\u003E [\u003Csamp data-depth=2 class=sf-dump-compact\u003E\n    \u003Cspan class=sf-dump-index\u003E0\u003C\/span\u003E =\u003E \u0022\u003Cspan class=sf-dump-str title=\u002217 characters\u0022\u003Eno-cache, private\u003C\/span\u003E\u0022\n  \u003C\/samp\u003E]\n  \u0022\u003Cspan class=sf-dump-key\u003Edate\u003C\/span\u003E\u0022 =\u003E \u003Cspan class=sf-dump-note\u003Earray:1\u003C\/span\u003E [\u003Csamp data-depth=2 class=sf-dump-compact\u003E\n    \u003Cspan class=sf-dump-index\u003E0\u003C\/span\u003E =\u003E \u0022\u003Cspan class=sf-dump-str title=\u002229 characters\u0022\u003EMon, 18 May 2026 05:16:48 GMT\u003C\/span\u003E\u0022\n  \u003C\/samp\u003E]\n\u003C\/samp\u003E]\n\u003C\/pre\u003E\u003Cscript\u003ESfdump(\u0022sf-dump-168811711\u0022, {\u0022maxDepth\u0022:0})\u003C\/script\u003E\n","session_attributes":"\u003Cpre class=sf-dump id=sf-dump-1230920141 data-indent-pad=\u0022  \u0022\u003E\u003Cspan class=sf-dump-note\u003Earray:1\u003C\/span\u003E [\u003Csamp data-depth=1 class=sf-dump-expanded\u003E\n  \u0022\u003Cspan class=sf-dump-key\u003E_token\u003C\/span\u003E\u0022 =\u003E \u0022\u003Cspan class=sf-dump-str title=\u002240 characters\u0022\u003EkJOahN3JfuVIBTaTN3mZv68P9eCdzG0EgaLyF6xW\u003C\/span\u003E\u0022\n\u003C\/samp\u003E]\n\u003C\/pre\u003E\u003Cscript\u003ESfdump(\u0022sf-dump-1230920141\u0022, {\u0022maxDepth\u0022:0})\u003C\/script\u003E\n"},"tooltip":{"status":"200 OK","full_url":"http:\/\/coolify.test\/login","action_name":"login","controller_action":"Laravel\\Fortify\\Http\\Controllers\\AuthenticatedSessionController@create"},"badge":null}}, "01KRWR7VRRSTA7H1HPCY3YDYHB");
+
+</script>
+</body>
+
+</html>

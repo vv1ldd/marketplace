@@ -52,11 +52,11 @@ class SyncSovereignGuards
             $user = Auth::guard('web')->user();
             \Illuminate\Support\Facades\Log::debug("SyncSovereignGuards: Web user found", [
                 'user_id' => $user->id,
-                'email' => $user->email,
+                'sl1e' => $user->sovereignIdentityAddress(),
             ]);
 
             if ($user) {
-                $seller = \App\Models\Seller::findByEmail($user->email);
+                $seller = $user->primarySellerAccount();
                 \Illuminate\Support\Facades\Log::debug("SyncSovereignGuards: Seller lookup", [
                     'seller_found' => !is_null($seller),
                 ]);

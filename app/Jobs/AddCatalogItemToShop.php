@@ -13,7 +13,6 @@ use App\Services\CanonicalCategoryResolver;
 use App\Services\FinanceService;
 use App\Services\StandardizationService;
 use App\Support\SalesChannels;
-use Filament\Notifications\Notification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -206,6 +205,14 @@ class AddCatalogItemToShop implements ShouldQueue
 
             // --- 4. Link to sales channels ---
             $selectedChannels = SalesChannels::normalizeSelection($this->salesChannels);
+            $unavailableChannels = array_values(array_filter(
+                $selectedChannels,
+                fn (string $channel): bool => ! SalesChannels::isChannelConfigured($channel, $shop)
+            ));
+            if (! empty($unavailableChannels)) {
+                throw new \Exception('Канал продаж еще не активирован: '.implode(', ', $unavailableChannels));
+            }
+
             $this->syncSalesChannels($shop, $product, $selectedChannels);
 
             // Heavy card/video enrichment runs after the response; checkout should only block on ledger + stock.
@@ -339,24 +346,8 @@ class AddCatalogItemToShop implements ShouldQueue
 
             // --- 7. 🎟 Generate Vouchers ---
             if ($this->count > 0) {
-                $masterWarehouse = \App\Models\Warehouse::query()
-                    ->where('shop_id', $shop->id)
-                    ->where('is_main', true)
-                    ->whereNull('channel')
-                    ->first();
-
-                if (! $masterWarehouse) {
-                    $masterWarehouse = \App\Models\Warehouse::create([
-                        'shop_id' => $shop->id,
-                        'ym_id' => null,
-                        'name' => 'Мастер-склад',
-                        'type' => 'master',
-                        'is_active' => true,
-                        'is_main' => true,
-                        'channel' => null,
-                        'channel_quota' => 100,
-                    ]);
-                }
+                $masterWarehouse = app(\App\Services\SellerDistributionCenterService::class)
+                    ->masterWarehouseForShop($shop);
 
                 if (
                     in_array('yandex_market', $selectedChannels, true)
@@ -445,34 +436,15 @@ class AddCatalogItemToShop implements ShouldQueue
                 }
             }
 
-            // --- 8. Notify seller in Filament ---
-            $seller = \App\Models\Seller::find($this->sellerId);
-            if ($seller) {
-                $body = "«{$product->name}» добавлен в ваш каталог";
-                if ($this->count > 0) {
-                    $body .= " и сгенерировано {$this->count} ваучеров.";
-                }
-                if ($this->count > 0 && count($selectedChannels) > 0) {
-                    $body .= ' Синхронизация каналов продаж поставлена в очередь.';
-                }
-
-                Notification::make()
-                    ->title('Товар добавлен')
-                    ->body($body)
-                    ->success()
-                    ->sendToDatabase($seller);
-            }
+            Log::info('Catalog item added to shop', [
+                'seller_id' => $this->sellerId,
+                'shop_id' => $shop->id,
+                'product_id' => $product->id,
+                'generated_vouchers' => $this->count,
+                'queued_channels' => $selectedChannels,
+            ]);
         } catch (\Throwable $e) {
             Log::error('AddCatalogItemToShop failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            
-            $seller = \App\Models\Seller::find($this->sellerId);
-            if ($seller) {
-                Notification::make()
-                    ->title('Ошибка публикации товара')
-                    ->body($e->getMessage())
-                    ->danger()
-                    ->sendToDatabase($seller);
-            }
             
             throw $e;
         }

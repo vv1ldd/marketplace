@@ -50,7 +50,7 @@ class StoreEntrySignature
         // 🔐 Seamless Guard Synchronization: If B2B partner, log into sellers guard as well
         $user = $passkey->authenticatable;
         if ($user) {
-            $seller = \App\Models\Seller::findByEmail($user->email);
+            $seller = $user->primarySellerAccount();
             if ($seller) {
                 \Illuminate\Support\Facades\Auth::guard('sellers')->login($seller);
             }

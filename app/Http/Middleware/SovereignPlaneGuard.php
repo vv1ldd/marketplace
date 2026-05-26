@@ -36,6 +36,17 @@ class SovereignPlaneGuard
         // Validate B2B Consortium Plane Access
         if ($request->is('partner*')) {
             if (!$user->isB2BPartner() && !$user->isSystemUser()) {
+                $legalEntity = $user->legalEntities()->first()
+                    ?? $user->managedLegalEntities()->first();
+
+                if ($legalEntity?->status === 'pending_signature') {
+                    return redirect()->route('partner.register.offer');
+                }
+
+                if ($legalEntity && ($legalEntity->status === 'pending_moderation' || $legalEntity->agreement_signed_at)) {
+                    return redirect()->route('partner.onboarding');
+                }
+
                 if ($request->expectsJson()) {
                     return response()->json(['error' => 'Forbidden: Access to B2B Consortium Plane denied.'], 403);
                 }

@@ -83,7 +83,7 @@ class VoucherReservationLedgerTest extends TestCase
 
         $trace = app(\App\Services\SimpleLayer1TraceService::class)->trace($depositRef, $entity->id);
         $this->assertSame($depositRef, $trace['canonical_ref']);
-        $this->assertSame('Simple Layer 1', $trace['network']);
+        $this->assertSame('Simple Layer One', $trace['network']);
         $this->assertSame('DEPOSIT_INTENT_CLEARED', $trace['target']['event_type']);
 
         $legacyTrace = app(\App\Services\SimpleLayer1TraceService::class)->trace('L1-'.substr($depositRef, 4), $entity->id);

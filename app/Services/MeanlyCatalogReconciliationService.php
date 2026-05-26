@@ -92,7 +92,7 @@ class MeanlyCatalogReconciliationService
     private function ensureDefaultChannels(Shop $shop, Collection $products): void
     {
         $channels = [$this->storefront->storefrontChannel()];
-        if (filled($shop->campaign_id) && filled($shop->api_key)) {
+        if ($shop->isYandexMarketActive()) {
             $channels[] = $this->storefront->yandexChannel();
         }
 

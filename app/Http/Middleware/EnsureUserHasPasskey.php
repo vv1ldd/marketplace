@@ -33,20 +33,16 @@ class EnsureUserHasPasskey
             return $next($request);
         }
 
-        if ($request->routeIs('migration-pill.*') || $request->is('migration-pill/*')) {
-            return $next($request);
-        }
-
         $user = Auth::user();
 
         \Illuminate\Support\Facades\Log::debug("EnsureUserHasPasskey: Checking user", [
             'has_user' => !is_null($user),
             'user_type' => $user ? get_class($user) : null,
-            'email' => $user ? $user->email : null,
+            'sl1e' => $user instanceof \App\Models\User ? $user->sovereignIdentityAddress() : null,
         ]);
 
         if (session('redirect_to_b2b') && $user) {
-            $seller = \App\Models\Seller::findByEmail($user->email);
+            $seller = $user instanceof \App\Models\User ? $user->primarySellerAccount() : null;
             session()->forget('redirect_to_b2b');
             if ($seller) {
                 $b2bUrl = '/partner';
@@ -57,8 +53,8 @@ class EnsureUserHasPasskey
 
         if ($user) {
             if ($user instanceof \App\Models\Seller) {
-                // Resolve the core User account linked by email to check its Passkeys
-                $coreUser = \App\Models\User::findByEmail($user->email);
+                $entity = $user->managedLegalEntities()->wherePivotNotNull('user_id')->first();
+                $coreUser = $entity?->pivot?->user_id ? \App\Models\User::find($entity->pivot->user_id) : null;
                 
                 \Illuminate\Support\Facades\Log::debug("EnsureUserHasPasskey: Resolved core user for Seller", [
                     'core_user_found' => !is_null($coreUser),
@@ -68,7 +64,6 @@ class EnsureUserHasPasskey
                 if (!$coreUser || !$coreUser->passkeys()->exists()) {
                     \Illuminate\Support\Facades\Log::warning("EnsureUserHasPasskey: Seller core user has NO passkeys. Forced logout.", [
                         'seller_id' => $user->id,
-                        'email' => $user->email,
                     ]);
                     Auth::logout();
                     return redirect('/cabinet/login');
@@ -82,7 +77,7 @@ class EnsureUserHasPasskey
                 if (!$hasPasskeys) {
                     \Illuminate\Support\Facades\Log::warning("EnsureUserHasPasskey: Standard User has NO passkeys. Deleting ghost record.", [
                         'user_id' => $user->id,
-                        'email' => $user->email,
+                        'sl1e' => $user->sovereignIdentityAddress(),
                     ]);
                     Auth::logout();
                     // 🧼 Clean up the ghost B2C user record so it doesn't pollute our database

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\IntentLedgerService;
 use App\Services\SimpleL1ProtocolClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,21 @@ class SimpleL1ConnectController extends Controller
             'simple_l1_connect.state' => $state,
             'simple_l1_connect.return_to' => $returnTo,
         ]);
+
+        app(IntentLedgerService::class)->record(
+            eventType: 'IDENTITY_CONNECT_EXTERNAL_START_INTENT',
+            intentType: 'identity.connect_external.start',
+            entity: $request->user(),
+            payload: [
+                'state_hash' => hash('sha256', $state),
+                'return_to_hash' => hash('sha256', $returnTo),
+                'started_at' => now()->toIso8601String(),
+            ],
+            request: $request,
+            user: $request->user(),
+            scope: 'identity.external',
+            resource: 'simple-l1-wallet',
+        );
 
         $authorizeUrl = config('simple_l1.identity_provider_url').'/identity/simple-l1/authorize?'.http_build_query([
             'redirect_uri' => route('meanly.simple_l1.callback'),
@@ -58,6 +74,23 @@ class SimpleL1ConnectController extends Controller
             'sovereign_l1_address' => strtolower($l1Address),
         ]);
         session()->forget(['simple_l1_connect.state', 'simple_l1_connect.return_to']);
+
+        app(IntentLedgerService::class)->record(
+            eventType: 'IDENTITY_CONNECT_EXTERNAL_INTENT',
+            intentType: 'identity.connect_external',
+            entity: $request->user(),
+            payload: [
+                'connected_entity_l1_address' => strtolower($l1Address),
+                'connected_key_l1_address' => is_string($keyAddress) ? strtolower($keyAddress) : null,
+                'proof_token_hash' => hash('sha256', $proofToken),
+                'return_to_hash' => hash('sha256', $returnTo),
+                'connected_at' => now()->toIso8601String(),
+            ],
+            request: $request,
+            user: $request->user(),
+            scope: 'identity.external',
+            resource: 'simple-l1-wallet',
+        );
 
         return redirect($returnTo)->with('status', 'Simple L1 wallet connected.');
     }

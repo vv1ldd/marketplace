@@ -5,12 +5,19 @@ namespace App\Http\Services;
 use App\Models\Product;
 use App\Models\Settings;
 use App\Models\Shop;
+use AppYandexSdk\Api\AuthApi;
 use AppYandexSdk\Api\BusinessOfferMappingsApi;
+use AppYandexSdk\Api\BusinessesApi;
+use AppYandexSdk\Api\CampaignsApi;
 use AppYandexSdk\Api\CategoriesApi;
 use AppYandexSdk\Api\OffersApi;
 use AppYandexSdk\Api\PricesApi;
+use AppYandexSdk\Api\ReportsApi;
 use AppYandexSdk\Configuration;
+use AppYandexSdk\Model\GenerateUnitedMarketplaceServicesReportRequest;
 use AppYandexSdk\Model\GetCampaignOffersRequest;
+use AppYandexSdk\Model\ReportFormatType;
+use AppYandexSdk\Model\ReportLanguageType;
 use GuzzleHttp\Client;
 
 class YmService
@@ -181,6 +188,93 @@ class YmService
         $result = json_decode((string) $response, true);
 
         return $result['result'] ?? $result;
+    }
+
+    public function getCampaignInfo(?int $campaignId = null): array
+    {
+        $api = new CampaignsApi($this->httpClient, $this->config);
+        $response = $api->getCampaign($campaignId ?? $this->campaign_id);
+        $result = json_decode((string) $response, true);
+
+        return $result['campaign'] ?? [];
+    }
+
+    public function getBusinessSettingsInfo(?int $businessId = null): array
+    {
+        $api = new BusinessesApi($this->httpClient, $this->config);
+        $response = $api->getBusinessSettings($businessId ?? $this->ym_business_id);
+        $result = json_decode((string) $response, true);
+
+        return $result['result'] ?? [];
+    }
+
+    public function getAuthTokenInfo(): array
+    {
+        $api = new AuthApi($this->httpClient, $this->config);
+        $response = $api->getAuthTokenInfo();
+        $result = json_decode((string) $response, true);
+
+        return $result['result'] ?? [];
+    }
+
+    public function verifyIntegrationAccess(?int $businessId = null, ?int $campaignId = null, ?int $warehouseId = null): array
+    {
+        $campaign = $this->getCampaignInfo($campaignId);
+        $campaignBusinessId = data_get($campaign, 'business.id');
+        $effectiveBusinessId = $businessId ?: ($campaignBusinessId ? (int) $campaignBusinessId : null);
+        $warehouses = $effectiveBusinessId ? $this->getWarehouses() : [];
+
+        return [
+            'campaign' => $campaign,
+            'business_settings' => $effectiveBusinessId ? $this->getBusinessSettingsInfo($effectiveBusinessId) : [],
+            'token_info' => $this->getAuthTokenInfo(),
+            'warehouses' => $warehouses,
+            'business_matches_campaign' => $businessId === null
+                || $campaignBusinessId === null
+                || (string) $campaignBusinessId === (string) $businessId,
+            'warehouse_matches_business' => $warehouseId === null
+                || collect($warehouses)->contains(fn (array $warehouse) => (string) ($warehouse['id'] ?? '') === (string) $warehouseId),
+        ];
+    }
+
+    public function generateMarketplaceServicesReport(
+        int $businessId,
+        int $campaignId,
+        \DateTimeInterface $dateFrom,
+        \DateTimeInterface $dateTo
+    ): array {
+        $api = new ReportsApi($this->httpClient, $this->config);
+        $request = new GenerateUnitedMarketplaceServicesReportRequest([
+            'business_id' => $businessId,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'campaign_ids' => [$campaignId],
+        ]);
+
+        $response = $api->generateUnitedMarketplaceServicesReport(
+            $request,
+            ReportFormatType::JSON,
+            ReportLanguageType::RU
+        );
+        $result = json_decode((string) $response, true);
+
+        return $result['result'] ?? $result;
+    }
+
+    public function getReportInfo(string $reportId): array
+    {
+        $api = new ReportsApi($this->httpClient, $this->config);
+        $response = $api->getReportInfo($reportId);
+        $result = json_decode((string) $response, true);
+
+        return $result['result'] ?? $result;
+    }
+
+    public function downloadReportFile(string $url): string
+    {
+        $response = $this->httpClient->get($url);
+
+        return (string) $response->getBody();
     }
 
     /**

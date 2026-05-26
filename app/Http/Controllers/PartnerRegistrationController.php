@@ -9,6 +9,9 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\VerificationCodeMail;
 
 class PartnerRegistrationController extends Controller
 {
@@ -69,6 +72,9 @@ class PartnerRegistrationController extends Controller
                 if ($entity->status === 'pending_signature') {
                     return redirect()->route('partner.register.offer');
                 }
+                if ($entity->status === 'pending_moderation' || ! $entity->is_active) {
+                    return redirect()->route('partner.onboarding');
+                }
                 return redirect()->route('partner.dashboard');
             }
         }
@@ -82,11 +88,16 @@ class PartnerRegistrationController extends Controller
             session(['signing_options' => $signingOptions]);
         }
 
+        $businessVerifiedEmail = session('business_registration_verified_email');
+
         return view('partner.register', [
             'brand' => $brand,
             'registrationTarget' => $registrationTarget,
             'registrationSubmitRoute' => route('business.register.submit'),
             'registrationOptionsRoute' => route('business.register.options'),
+            'businessEmailSendRoute' => route('business.register.email.send'),
+            'businessEmailVerifyRoute' => route('business.register.email.verify'),
+            'businessVerifiedEmail' => $businessVerifiedEmail,
             'detectedCountry' => $detectedCountry,
             'detectedCountryName' => $detectedCountryName,
             'supportedJurisdictions' => $brand && $brand->compliance_config ? array_keys($brand->compliance_config) : null,
@@ -96,6 +107,69 @@ class PartnerRegistrationController extends Controller
             'inviteIntent' => $inviteIntent,
             'inviteToken' => $request->invite,
         ]);
+    }
+
+    public function sendBusinessEmailCode(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|max:255',
+        ]);
+
+        $email = mb_strtolower(trim($validated['email']));
+        $code = (string) random_int(100000, 999999);
+
+        Cache::put($this->businessEmailVerificationKey($request), [
+            'email' => $email,
+            'code' => $code,
+        ], now()->addMinutes(20));
+
+        session(['business_registration_email_challenge' => [
+            'email' => $email,
+            'code' => $code,
+        ]]);
+        session()->forget('business_registration_verified_email');
+        Mail::to($email)->send(new VerificationCodeMail($code));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Код подтверждения отправлен на email.',
+        ]);
+    }
+
+    public function verifyBusinessEmailCode(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|max:255',
+            'code' => 'required|string|max:20',
+        ]);
+
+        $email = mb_strtolower(trim($validated['email']));
+        $payload = session('business_registration_email_challenge')
+            ?: Cache::get($this->businessEmailVerificationKey($request));
+        $localBypass = ! app()->environment('production')
+            && trim((string) config('app.redeem_local_verification_code')) !== ''
+            && trim((string) $validated['code']) === trim((string) config('app.redeem_local_verification_code'));
+
+        if (! $payload || ($payload['email'] ?? null) !== $email || (! $localBypass && (string) ($payload['code'] ?? '') !== trim((string) $validated['code']))) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Неверный код подтверждения.',
+            ], 422);
+        }
+
+        session(['business_registration_verified_email' => $email]);
+        session()->forget('business_registration_email_challenge');
+
+        return response()->json([
+            'success' => true,
+            'email' => $email,
+            'message' => 'Email подтвержден. Теперь можно проверить ИНН.',
+        ]);
+    }
+
+    private function businessEmailVerificationKey(Request $request): string
+    {
+        return 'business_registration_email:'.$request->session()->getId();
     }
  
     public function verifyIntent(Request $request)
@@ -179,17 +253,28 @@ class PartnerRegistrationController extends Controller
      */
     public function options(Request $request)
     {
-        $email = $request->input('email') ?: (Auth::check() ? Auth::user()->email : null);
-        if (!$email) return response()->json(['error' => 'Email required'], 422);
+        $registrationTarget = $this->registrationTarget($request);
+        session(['registration_target' => $registrationTarget]);
 
-        session(['registration_target' => $this->registrationTarget($request)]);
+        $verifiedBusinessEmail = session('business_registration_verified_email');
+        if ($registrationTarget === 'legal_entity') {
+            $requestEmail = mb_strtolower(trim((string) $request->input('business_email', '')));
 
-        $user = User::findByEmail($email) ?? User::create([
-            'first_name' => explode('@', $email)[0],
-            'email' => $email,
-            'password' => Hash::make(Str::random(32)),
-            'password_login_enabled' => false,
-        ]);
+            if (! $verifiedBusinessEmail || $requestEmail !== $verifiedBusinessEmail) {
+                return response()->json([
+                    'error' => 'Сначала подтвердите рабочий email.',
+                ], 422);
+            }
+        }
+
+        $displayName = $this->normalizeDisplayName($request->input('display_name'));
+        if (!$displayName) {
+            return response()->json([
+                'error' => 'Введите имя владельца профиля.',
+            ], 422);
+        }
+
+        $user = $this->registrationUser(null, $displayName);
         
         Auth::login($user);
 
@@ -199,11 +284,16 @@ class PartnerRegistrationController extends Controller
         
         // Save for verification in the next step
         session(['passkey_options' => json_encode($optionsArray)]);
+        session(['passkey_registration_user_id' => $user->id]);
 
         // 🛡️ IMPORTANT: Laravel rotates the session on login, invalidating the old CSRF token.
         // We must provide the new one to the frontend.
         return response()->json([
             'options' => $optionsArray,
+            'identity' => [
+                'label' => $user->profileDisplayName(),
+                'user_id' => $user->id,
+            ],
             'new_csrf' => csrf_token()
         ]);
     }
@@ -246,10 +336,9 @@ class PartnerRegistrationController extends Controller
                             ['name' => 'Primary Sovereign Identity']
                         );
 
-                        // 2. Anchor L1 Address
-                        $address = $this->calculateL1Address($passkey->data->credentialPublicKey);
-                        $user->meta = array_merge($user->meta ?? [], ['l1_address' => $address]);
-                        $user->save();
+                        // 2. Anchor stable Simple L1 entity identity.
+                        $identity = $this->anchorSimpleL1Identity($user, $passkey);
+                        $address = $identity['entity_l1_address'];
                     }
 
                     $entityId = $inviteIntent['partner_id'];
@@ -260,20 +349,18 @@ class PartnerRegistrationController extends Controller
                         $entityId => ['role' => $role === 'admin' ? 'admin' : 'manager']
                     ]);
 
-                    // Grant B2B roles
-                    $user->assignRole('b2b_partner');
-
                     $seller = \App\Models\Seller::findByEmail($user->email);
                     if (!$seller) {
                         $seller = \App\Models\Seller::create([
-                            'first_name' => $user->first_name ?: explode('@', $user->email)[0],
+                            'first_name' => $user->first_name ?: 'SL1',
                             'last_name' => $user->last_name ?: 'Partner',
                             'email' => $user->email,
                             'password' => $user->password,
                             'is_active' => true,
                         ]);
                     }
-                    $seller->assignRole('b2b_partner');
+
+                    $this->assignB2BRoles($user, $seller);
 
                     $seller->managedLegalEntities()->syncWithoutDetaching([
                         $entityId => ['role' => $role, 'user_id' => $user->id]
@@ -297,24 +384,27 @@ class PartnerRegistrationController extends Controller
         }
         // Phase 1: Guest is only registering their user account and passkey
         if (!$request->has('inn') && !$inviteIntent) {
-            $request->validate([
-                'email' => 'required|email',
+            $rules = [
                 'passkey_attestation' => 'required|string',
-            ]);
+                'display_name' => 'required|string|max:80',
+            ];
 
-            $email = $request->input('email');
-            $user = User::findByEmail($email) ?? User::create([
-                'first_name' => strstr($email, '@', true) ?: $email,
-                'email' => $email,
-                'password' => Hash::make(Str::random(32)),
-                'password_login_enabled' => false,
-            ]);
+            $request->validate($rules);
+
+            $user = Auth::user() ?? User::find((int) session('passkey_registration_user_id'));
+            if (!$user) {
+                return response()->json(['error' => 'Сессия создания Simple L1 профиля истекла. Обновите страницу и попробуйте снова.'], 422);
+            }
 
             $user->assignRole('customer');
             $optionsJson = session('passkey_options');
 
             return DB::transaction(function() use ($user, $request, $optionsJson) {
                 try {
+                    if (!$optionsJson) {
+                        throw new \Exception('Сессия Passkey истекла. Обновите страницу и попробуйте снова.');
+                    }
+
                     // 1. Store Passkey
                     $passkey = app(\Spatie\LaravelPasskeys\Actions\StorePasskeyAction::class)->execute(
                         $user,
@@ -324,17 +414,16 @@ class PartnerRegistrationController extends Controller
                         ['name' => 'Primary Sovereign Identity']
                     );
 
-                    // 2. Anchor L1 Address
-                    $address = $this->calculateL1Address($passkey->data->credentialPublicKey);
-                    $user->meta = array_merge($user->meta ?? [], ['l1_address' => $address]);
-                    $user->save();
+                    // 2. Anchor stable Simple L1 entity identity independent of this device key.
+                    $identity = $this->anchorSimpleL1Identity($user, $passkey);
 
                     Auth::login($user);
-                    session()->forget(['passkey_options']);
+                    session()->forget(['passkey_options', 'passkey_registration_user_id']);
 
                     if ($request->expectsJson() || $request->ajax()) {
                         return response()->json([
                             'success' => true,
+                            'identity' => $identity,
                             'redirect' => route($this->registrationRouteFor($request))
                         ]);
                     }
@@ -366,7 +455,6 @@ class PartnerRegistrationController extends Controller
         $allowedTaxIdLengths = $taxIdLengths[$jurisdiction] ?? [10, 12];
 
         $rules = [
-            'email' => 'required|email',
             'inn' => [
                 'required',
                 'string',
@@ -380,6 +468,8 @@ class PartnerRegistrationController extends Controller
                     }
                 },
             ],
+            'signer_role' => 'nullable|string|in:ceo,representative',
+            'signer_name' => 'nullable|string|max:160',
         ];
 
         if (!$isUpgrade) {
@@ -389,6 +479,12 @@ class PartnerRegistrationController extends Controller
         $request->validate($rules);
 
         $user = Auth::user();
+        $businessEmail = mb_strtolower(trim((string) ($request->input('business_email') ?: session('business_registration_verified_email'))));
+        if ($this->registrationTarget($request) === 'legal_entity' && (! $businessEmail || $businessEmail !== session('business_registration_verified_email'))) {
+            return back()
+                ->withErrors(['email' => 'Сначала подтвердите email компании.'])
+                ->withInput();
+        }
 
         if ($jurisdiction === 'RU') {
             $verifiedParty = app(\App\Services\DaDataService::class)->findByInn($request->input('inn'));
@@ -433,7 +529,7 @@ class PartnerRegistrationController extends Controller
                     $user->save();
 
                     return redirect()
-                        ->route('filament.client.pages.dashboard')
+                        ->route('cabinet.dashboard')
                         ->with('status', 'Профиль физлица активирован. Для продаж и B2B-инструментов откройте ИП или юрлицо и повторите проверку ИНН.');
                 } else {
                     return back()
@@ -443,6 +539,7 @@ class PartnerRegistrationController extends Controller
             }
 
             if ($partyType !== 'NPD') {
+                $verifiedPersonName = $this->personNameFromDadata($verifiedParty);
                 $verifiedName = $verifiedParty['name']['short_with_opf']
                     ?? $verifiedParty['name']['full_with_opf']
                     ?? trim(implode(' ', array_filter([
@@ -459,13 +556,27 @@ class PartnerRegistrationController extends Controller
                     'ogrn' => $verifiedParty['ogrn'] ?? $verifiedParty['ogrnip'] ?? $request->input('ogrn'),
                     'kpp' => $verifiedParty['kpp'] ?? $request->input('kpp'),
                     'address' => $verifiedParty['address']['value'] ?? $verifiedParty['address']['unrestricted_value'] ?? $request->input('address'),
-                    'director_name' => $verifiedParty['management']['name'] ?? $request->input('director_name'),
+                    'director_name' => $verifiedParty['management']['name'] ?? $verifiedPersonName ?? $request->input('director_name'),
                 ]);
             }
         }
 
+        $principalName = $request->input('director_name');
+        $principalNameRequired = ($partyType ?? null) === 'INDIVIDUAL';
+        if (($principalNameRequired || trim((string) $principalName) !== '') && ! $this->validPersonName($principalName)) {
+            return back()
+                ->withErrors(['director_name' => 'Не удалось подтвердить ФИО руководителя или ИП. Нужно минимум фамилия и имя без цифр.'])
+                ->withInput();
+        }
+
+        if ($request->input('signer_role') === 'representative' && ! $this->validPersonName($request->input('signer_name'))) {
+            return back()
+                ->withErrors(['signer_name' => 'Укажите ФИО доверенного лица: минимум фамилия и имя без цифр.'])
+                ->withInput();
+        }
+
         $optionsJson = session('passkey_options');
-        $reg = $request->all();
+        $reg = array_merge($request->all(), ['business_email' => $businessEmail]);
         $inn = $reg['inn'];
 
         // 🛡️ Check if this INN is already registered
@@ -486,12 +597,13 @@ class PartnerRegistrationController extends Controller
             }
         }
 
-        return DB::transaction(function() use ($user, $request, $optionsJson, $reg, $isUpgrade) {
+        return DB::transaction(function() use ($user, $request, $optionsJson, $reg, $isUpgrade, $businessEmail) {
             try {
                 // 🛡️ Preserve original B2C nickname/display name in user meta before we apply official legal names
                 $meta = $user->meta ?? [];
                 if (!isset($meta['nickname'])) {
-                    $meta['nickname'] = $user->first_name ?: explode('@', $user->email)[0];
+                    $meta['nickname'] = $user->first_name
+                        ?: ($user->email ? explode('@', $user->email)[0] : ('SL1 '.substr((string) ($user->meta['entity_l1_address'] ?? $user->meta['l1_address'] ?? $user->id), -8)));
                     $user->meta = $meta;
                     $user->save();
                 }
@@ -527,24 +639,22 @@ class PartnerRegistrationController extends Controller
                         ['name' => 'Primary Sovereign Identity']
                     );
 
-                    // 2. Anchor L1 Address
-                    $address = $this->calculateL1Address($passkey->data->credentialPublicKey);
-                    $user->meta = array_merge($user->meta ?? [], ['l1_address' => $address]);
-                    $user->save();
+                    // 2. Anchor stable Simple L1 entity identity.
+                    $identity = $this->anchorSimpleL1Identity($user, $passkey);
+                    $address = $identity['entity_l1_address'];
                 } else {
                     // Upgraded users already have their L1 Address and Passkeys
-                    $address = $user->meta['l1_address'] ?? null;
-                    if (!$address) {
+                    $address = $user->meta['entity_l1_address'] ?? $user->meta['l1_address'] ?? null;
+                    if (!$address || !preg_match('/^sl1e_[a-f0-9]{39}$/i', (string) $address)) {
                         $primaryPasskey = $user->passkeys()->first();
                         if ($primaryPasskey) {
-                            $address = $this->calculateL1Address($primaryPasskey->data->credentialPublicKey);
-                            $user->meta = array_merge($user->meta ?? [], ['l1_address' => $address]);
-                            $user->save();
+                            $identity = $this->anchorSimpleL1Identity($user, $primaryPasskey);
+                            $address = $identity['entity_l1_address'];
                         }
                     }
                 }
 
-                // 3. Create LegalEntity (Active if signed directly, otherwise pending_signature)
+                // 3. Create LegalEntity (signed businesses still wait for moderation)
                 $passkeyAssertion = $request->input('passkey_assertion');
                 $isActive = false;
                 $passkeyModel = null;
@@ -573,20 +683,24 @@ class PartnerRegistrationController extends Controller
                     'user_id' => $user->id,
                     'name' => $reg['legal_name'] ?? 'Pending Entity',
                     'inn' => $reg['inn'],
-                    'status' => $isActive ? 'active' : 'pending_signature',
-                    'is_active' => $isActive,
+                    'email' => $businessEmail,
+                    'status' => $isActive ? 'pending_moderation' : 'pending_signature',
+                    'is_active' => false,
                     'agreement_signed_at' => $isActive ? now() : null,
                     'agreement_signature' => $isActive ? (is_string($passkeyAssertion) ? $passkeyAssertion : json_encode($passkeyAssertion)) : null,
                     'agreement_metadata' => [
                         'signer_role' => $reg['signer_role'] ?? 'ceo',
                         'signer_name' => $reg['signer_name'] ?? ($reg['director_name'] ?? null),
                         'agreement_type' => $this->agreementTypeForRegistration($reg),
+                        'business_email' => $businessEmail,
+                        'business_email_verified_at' => now()->toIso8601String(),
                         'party_type' => $reg['dadata_party_type'] ?? null,
                         'tax_system' => $reg['tax_system'] ?? null,
                         'l1_address' => $address,
                         'signed_at' => $isActive ? now()->toIso8601String() : null,
                         'signature_type' => $isActive ? 'passkey_assertion_v1' : null,
-                        'passkey_id' => $isActive ? $passkeyModel->id : null
+                        'passkey_id' => $isActive ? $passkeyModel->id : null,
+                        'moderation_submitted_at' => $isActive ? now()->toIso8601String() : null,
                     ]
                 ]);
 
@@ -594,13 +708,14 @@ class PartnerRegistrationController extends Controller
                 
                 if ($isActive) {
                     // 🏦 TRANSFORM USER TO SELLER & LINK
-                    $seller = \App\Models\Seller::findByEmail($user->email);
+                    $seller = \App\Models\Seller::findByEmail($businessEmail);
                     if (!$seller) {
                         $seller = \App\Models\Seller::create([
                             'first_name' => $user->first_name,
                             'last_name' => $user->last_name,
                             'middle_name' => $user->middle_name,
-                            'email' => $user->email,
+                            'email' => $businessEmail,
+                            'email_verified_at' => now(),
                             'phone' => $user->phone,
                             'password' => $user->password,
                             'is_active' => true,
@@ -613,8 +728,7 @@ class PartnerRegistrationController extends Controller
                         ]);
                     }
 
-                    $seller->assignRole('b2b_partner');
-                    $user->assignRole('b2b_partner');
+                    $this->assignB2BRoles($user, $seller);
 
                     $entity->update(['seller_id' => $seller->id]);
                     $seller->managedLegalEntities()->syncWithoutDetaching([
@@ -626,7 +740,7 @@ class PartnerRegistrationController extends Controller
 
                     return response()->json([
                         'success' => true,
-                        'redirect' => route('partner.dashboard')
+                        'redirect' => route('partner.onboarding')
                     ]);
                 }
 
@@ -681,6 +795,29 @@ class PartnerRegistrationController extends Controller
         ]);
     }
 
+    public function showOnboarding(Request $request)
+    {
+        $user = Auth::user();
+        abort_unless($user, 401);
+
+        $entity = $user->managedLegalEntities()->latest()->first()
+            ?? $user->legalEntities()->latest()->first();
+
+        if (! $entity) {
+            return redirect()->route('partner.register');
+        }
+
+        if ($entity->status === 'active' && $entity->is_active) {
+            return redirect()->route('partner.dashboard');
+        }
+
+        return view('partner.onboarding', [
+            'user' => $user,
+            'legalEntity' => $entity,
+            'submittedAt' => $entity?->agreement_signed_at,
+        ]);
+    }
+
     /**
      * ATOMIC STEP 1: Register Sovereign Identity (Passkey)
      */
@@ -705,26 +842,27 @@ class PartnerRegistrationController extends Controller
                     ['name' => 'Primary Sovereign Identity']
                 );
 
-                // 2. Anchor L1 Address
-                $address = $this->calculateL1Address($passkey->data->credentialPublicKey);
-                $meta = $user->meta ?? [];
-                $meta['l1_address'] = $address;
-                $user->meta = $meta;
-                $user->save();
+                // 2. Anchor stable Simple L1 entity identity.
+                $identity = $this->anchorSimpleL1Identity($user, $passkey);
+                $address = $identity['entity_l1_address'];
 
                 $isB2b = isset($reg['inn']) && ($reg['is_b2b'] ?? true);
 
                 if ($isB2b) {
+                    $businessEmail = mb_strtolower(trim((string) ($reg['business_email'] ?? session('business_registration_verified_email') ?? $user->email ?? '')));
                     // 3. Create or Update "Pending" LegalEntity
                     $entity = LegalEntity::findByInn($reg['inn']);
                     if ($entity) {
                         $entity->update([
                             'user_id' => $user->id,
                             'name' => $reg['legal_name'] ?? $entity->name ?? 'Pending Entity',
+                            'email' => $businessEmail ?: $entity->email,
                             'status' => 'pending_signature',
                             'agreement_signed_at' => null,
                             'agreement_signature' => null,
                             'agreement_metadata' => array_merge($entity->agreement_metadata ?? [], [
+                                'business_email' => $businessEmail ?: data_get($entity->agreement_metadata, 'business_email'),
+                                'business_email_verified_at' => $businessEmail ? now()->toIso8601String() : data_get($entity->agreement_metadata, 'business_email_verified_at'),
                                 'identity_anchored_at' => now()->toIso8601String(),
                                 'l1_address' => $address,
                                 'signed_at' => null,
@@ -738,8 +876,11 @@ class PartnerRegistrationController extends Controller
                             'user_id' => $user->id,
                             'name' => $reg['name'] ?? $reg['legal_name'] ?? 'Pending Entity',
                             'inn' => $reg['inn'],
+                            'email' => $businessEmail ?: null,
                             'status' => 'pending_signature',
                             'agreement_metadata' => [
+                                'business_email' => $businessEmail ?: null,
+                                'business_email_verified_at' => $businessEmail ? now()->toIso8601String() : null,
                                 'identity_anchored_at' => now()->toIso8601String(),
                                 'l1_address' => $address
                             ]
@@ -747,20 +888,20 @@ class PartnerRegistrationController extends Controller
                     }
 
                     // 🏦 TRANSFORM USER TO SELLER EARLY
-                    $seller = \App\Models\Seller::findByEmail($user->email);
+                    $seller = $businessEmail ? \App\Models\Seller::findByEmail($businessEmail) : null;
                     if (!$seller) {
                         $seller = \App\Models\Seller::create([
                             'first_name' => $user->first_name,
                             'last_name' => $user->last_name,
                             'middle_name' => $user->middle_name,
-                            'email' => $user->email,
+                            'email' => $businessEmail ?: $user->email,
+                            'email_verified_at' => $businessEmail ? now() : $user->email_verified_at,
                             'phone' => $user->phone,
                             'password' => $user->password,
                             'is_active' => true,
                         ]);
                     }
-                    $seller->assignRole('b2b_partner');
-                    $user->assignRole('b2b_partner');
+                    $this->assignB2BRoles($user, $seller);
 
                     // Link Seller to Entity through managers
                     $entity->update(['seller_id' => $seller->id]);
@@ -863,6 +1004,22 @@ class PartnerRegistrationController extends Controller
                 $user->meta = $meta;
                 $user->save();
 
+                app(\App\Services\IntentLedgerService::class)->record(
+                    eventType: 'AGREEMENT_SIGN_INTENT',
+                    intentType: 'agreement.sign',
+                    entity: $user,
+                    payload: [
+                        'agreement_type' => 'b2c',
+                        'signature_hash' => hash('sha256', $request->getContent()),
+                        'signed_at' => $meta['b2c_agreement_signed_at'],
+                    ],
+                    request: $request,
+                    passkey: $passkey,
+                    user: $user,
+                    scope: 'agreement',
+                    resource: 'b2c',
+                );
+
                 session()->forget(['partner_registration', 'passkey_options', 'signing_options']);
                 Auth::login($user);
 
@@ -877,43 +1034,67 @@ class PartnerRegistrationController extends Controller
 
             if (!$entity) {
                 // Check if it was ALREADY activated in a previous partially failed attempt
+                $alreadyPendingModeration = $user->managedLegalEntities()->where('status', 'pending_moderation')->latest()->first();
                 $alreadyActive = $user->managedLegalEntities()->where('status', 'active')->latest()->first();
-                if ($alreadyActive) {
+                if ($alreadyPendingModeration || $alreadyActive) {
                     return response()->json([
                         'success' => true,
-                        'redirect' => route('partner.dashboard')
+                        'redirect' => $alreadyActive ? route('partner.dashboard') : route('partner.onboarding')
                     ]);
                 }
                 throw new \Exception('No pending institutional brick found for signing.');
             }
 
             $reg = session('partner_registration') ?? [];
+            $businessEmail = mb_strtolower(trim((string) ($reg['business_email'] ?? $entity->email ?? session('business_registration_verified_email') ?? $user->email ?? '')));
             
             $entity->update([
-                'status' => 'active',
-                'is_active' => true,
+                'email' => $businessEmail ?: $entity->email,
+                'status' => 'pending_moderation',
+                'is_active' => false,
                 'agreement_signed_at' => now(),
                 'agreement_signature' => $request->getContent(), // Store raw assertion as audit trail
                 'agreement_metadata' => array_merge($entity->agreement_metadata ?? [], [
                     'signed_at' => now()->toIso8601String(),
+                    'business_email' => $businessEmail ?: data_get($entity->agreement_metadata, 'business_email'),
+                    'business_email_verified_at' => $businessEmail ? now()->toIso8601String() : data_get($entity->agreement_metadata, 'business_email_verified_at'),
                     'signer_role' => $reg['signer_role'] ?? 'ceo',
                     'signer_name' => $reg['signer_name'] ?? ($reg['director_name'] ?? $user->getFullName()),
                     'agreement_type' => $this->agreementTypeForRegistration($reg),
                     'party_type' => $reg['dadata_party_type'] ?? null,
                     'tax_system' => $reg['tax_system'] ?? null,
                     'signature_type' => 'passkey_assertion_v1',
-                    'passkey_id' => $passkey->id
+                    'passkey_id' => $passkey->id,
+                    'moderation_submitted_at' => now()->toIso8601String(),
                 ])
             ]);
 
+            app(\App\Services\IntentLedgerService::class)->record(
+                eventType: 'AGREEMENT_SIGN_INTENT',
+                intentType: 'agreement.sign',
+                entity: $entity,
+                payload: [
+                    'agreement_type' => $this->agreementTypeForRegistration($reg),
+                    'signature_hash' => hash('sha256', $request->getContent()),
+                    'signed_at' => now()->toIso8601String(),
+                ],
+                request: $request,
+                passkey: $passkey,
+                user: $user,
+                scope: 'agreement',
+                resource: 'legal_entity:'.$entity->id,
+                legalEntity: $entity,
+            );
+
             // 🏦 TRANSFORM USER TO SELLER & LINK
-            $seller = \App\Models\Seller::findByEmail($user->email);
+            $seller = $businessEmail ? \App\Models\Seller::findByEmail($businessEmail) : null;
             if (!$seller) {
                 $seller = \App\Models\Seller::create([
                     'first_name' => $user->first_name,
                     'last_name' => $user->last_name,
                     'middle_name' => $user->middle_name,
-                    'email' => $user->email,
+                    'email' => $businessEmail ?: $user->email,
+                    'email_verified_at' => $businessEmail ? now() : $user->email_verified_at,
                     'phone' => $user->phone,
                     'password' => $user->password, // Sync credentials
                     'is_active' => true,
@@ -926,14 +1107,30 @@ class PartnerRegistrationController extends Controller
                 ]);
             }
 
-            $seller->assignRole('b2b_partner');
-            $user->assignRole('b2b_partner');
+            $this->assignB2BRoles($user, $seller);
 
             // Link Seller to Entity through managers
             $entity->update(['seller_id' => $seller->id]);
             $seller->managedLegalEntities()->syncWithoutDetaching([
                 $entity->id => ['role' => 'owner', 'user_id' => $user->id]
             ]);
+
+            app(\App\Services\IntentLedgerService::class)->record(
+                eventType: 'LEGAL_ENTITY_BIND_OWNER_INTENT',
+                intentType: 'legal_entity.bind_owner',
+                entity: $entity,
+                payload: [
+                    'seller_id' => $seller->id,
+                    'owner_user_id' => $user->id,
+                    'bound_at' => now()->toIso8601String(),
+                ],
+                request: $request,
+                passkey: $passkey,
+                user: $user,
+                scope: 'legal_entity.owner',
+                resource: 'legal_entity:'.$entity->id,
+                legalEntity: $entity,
+            );
 
             session()->forget(['partner_registration', 'passkey_options', 'signing_options']);
 
@@ -962,14 +1159,14 @@ class PartnerRegistrationController extends Controller
 
             // 🔐 Seamless Sovereign Access: Ensure session is solid
             Auth::login($user);
-            $seller = \App\Models\Seller::findByEmail($user->email);
+            $seller = $businessEmail ? \App\Models\Seller::findByEmail($businessEmail) : null;
             if ($seller) {
                 Auth::guard('sellers')->login($seller);
             }
 
             return response()->json([
                 'success' => true,
-                'redirect' => route('partner.dashboard')
+                'redirect' => route('partner.onboarding')
             ]);
 
         } catch (\Exception $e) {
@@ -978,9 +1175,209 @@ class PartnerRegistrationController extends Controller
         }
     }
 
+    private function registrationUser(?string $email, ?string $displayName = null, ?string $phone = null): User
+    {
+        if ($email) {
+            $user = User::findByEmail($email) ?? User::create([
+                'first_name' => strstr($email, '@', true) ?: $email,
+                'email' => $email,
+                'phone' => $phone,
+                'password' => Hash::make(Str::random(32)),
+                'password_login_enabled' => false,
+            ]);
+
+            $this->applyRegistrationContacts($user, $email, $phone);
+
+            return $this->applyRegistrationDisplayName($user, $displayName);
+        }
+
+        $pendingUserId = (int) session('passkey_registration_user_id');
+        $pendingUser = $pendingUserId > 0 ? User::find($pendingUserId) : null;
+
+        if ($pendingUser && ! $pendingUser->passkeys()->exists()) {
+            $this->applyRegistrationContacts($pendingUser, null, $phone);
+
+            return $this->applyRegistrationDisplayName($pendingUser, $displayName);
+        }
+
+        $suffix = $this->profileSuffix();
+        $displayName = $displayName ?: "Meanly Profile {$suffix}";
+        $user = User::create([
+            'first_name' => $displayName,
+            'last_name' => null,
+            'email' => null,
+            'phone' => $phone,
+            'password' => Hash::make(Str::random(32)),
+            'password_login_enabled' => false,
+            'meta' => [
+                'registration_source' => 'simple_l1_identity',
+                'display_name' => $displayName,
+                'profile_suffix' => $suffix,
+            ],
+        ]);
+
+        session(['passkey_registration_user_id' => $user->id]);
+
+        return $user;
+    }
+
+    private function applyRegistrationContacts(User $user, mixed $email = null, mixed $phone = null): User
+    {
+        $email = trim((string) $email);
+        $phone = trim((string) $phone);
+        $changed = false;
+
+        if ($email !== '' && $user->email !== $email) {
+            $user->email = $email;
+            $changed = true;
+        }
+
+        if ($phone !== '' && $user->phone !== $phone) {
+            $user->phone = $phone;
+            $changed = true;
+        }
+
+        if ($changed) {
+            $user->save();
+        }
+
+        return $user;
+    }
+
+    private function applyRegistrationDisplayName(User $user, ?string $displayName): User
+    {
+        $meta = $user->meta ?? [];
+
+        if ($displayName) {
+            $meta['display_name'] = $displayName;
+            $user->first_name = $displayName;
+            $user->last_name = null;
+        } elseif (empty($meta['display_name'])) {
+            $suffix = (string) ($meta['profile_suffix'] ?? $this->profileSuffix());
+            $meta['profile_suffix'] = $suffix;
+            $meta['display_name'] = $user->first_name ?: "Meanly Profile {$suffix}";
+            $user->first_name = $meta['display_name'];
+        }
+
+        $user->meta = $meta;
+        $user->save();
+
+        return $user;
+    }
+
+    private function normalizeDisplayName(mixed $value): ?string
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', (string) $value) ?? '');
+
+        if ($name === '') {
+            return null;
+        }
+
+        $name = mb_substr($name, 0, 80);
+
+        return mb_strtoupper(mb_substr($name, 0, 1)).mb_substr($name, 1);
+    }
+
+    private function validPersonName(mixed $value): bool
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', (string) $value) ?? '');
+        if ($name === '') {
+            return false;
+        }
+
+        $parts = preg_split('/\s+/u', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (count($parts) < 2 || count($parts) > 4) {
+            return false;
+        }
+
+        foreach ($parts as $part) {
+            if (! preg_match('/^[\p{L}][\p{L}\'-]*$/u', $part)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function personNameFromDadata(array $party): ?string
+    {
+        $name = trim(implode(' ', array_filter([
+            data_get($party, 'fio.surname'),
+            data_get($party, 'fio.name'),
+            data_get($party, 'fio.patronymic'),
+        ])));
+
+        return $name !== '' ? $name : null;
+    }
+
+    private function profileSuffix(): string
+    {
+        return strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
+    }
+
+    /**
+     * @return array{entity_l1_address: string, key_l1_address: string}
+     */
+    private function anchorSimpleL1Identity(User $user, \Spatie\LaravelPasskeys\Models\Passkey $passkey): array
+    {
+        $existingEntity = data_get($user->meta ?? [], 'entity_l1_address', data_get($user->meta ?? [], 'l1_address'));
+        $hadEntity = is_string($existingEntity) && preg_match('/^sl1e_[a-f0-9]{39}$/i', $existingEntity) === 1;
+        $identity = app(\App\Services\L1IdentityService::class)->bindUserToEntityIdentity($user, $passkey);
+        $intentLedger = app(\App\Services\IntentLedgerService::class);
+
+        if (! $hadEntity) {
+            $intentLedger->record(
+                eventType: 'IDENTITY_CREATE_INTENT',
+                intentType: 'identity.create',
+                entity: $user,
+                payload: [
+                    'entity_l1_address' => $identity['entity_l1_address'],
+                    'created_at' => now()->toIso8601String(),
+                ],
+                request: request(),
+                passkey: $passkey,
+                user: $user,
+                scope: 'identity.entity',
+                resource: 'sl1e',
+            );
+        }
+
+        $intentLedger->record(
+            eventType: 'IDENTITY_BIND_DEVICE_INTENT',
+            intentType: 'identity.bind_device',
+            entity: $passkey,
+            payload: [
+                'entity_l1_address' => $identity['entity_l1_address'],
+                'key_l1_address' => $identity['key_l1_address'],
+                'bound_at' => now()->toIso8601String(),
+            ],
+            request: request(),
+            passkey: $passkey,
+            user: $user,
+            scope: 'identity.devices',
+            resource: 'passkey:'.$passkey->id,
+        );
+
+        return $identity;
+    }
+
+    private function assignB2BRoles(User $user, \App\Models\Seller $seller): void
+    {
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        $sellerRole = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'sellers']);
+
+        if (! $user->hasRole('b2b_partner')) {
+            $user->assignRole('b2b_partner');
+        }
+
+        if (! $seller->hasRole($sellerRole)) {
+            $seller->assignRole($sellerRole);
+        }
+    }
+
     private function calculateL1Address(string $publicKey): string
     {
-        return app(\App\Services\L1IdentityService::class)->addressFromPublicKey($publicKey);
+        return app(\App\Services\L1IdentityService::class)->keyAddressFromPublicKey($publicKey);
     }
 
     private function registrationTarget(Request $request): string

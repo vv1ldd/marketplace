@@ -8,7 +8,6 @@ use App\Models\OpportunityCase;
 use App\Models\Order\Order;
 use App\Services\DemandGapEngineService;
 use App\Services\OpportunityLifecycleService;
-use App\Filament\Resources\B2B\DemandGapResource;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

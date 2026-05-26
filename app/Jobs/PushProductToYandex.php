@@ -37,6 +37,15 @@ class PushProductToYandex implements ShouldQueue
             return;
         }
 
+        if (! $shop->isYandexMarketActive()) {
+            Log::warning('PushProductToYandex: Yandex Market is not active for shop', [
+                'shop_id' => $shop->id,
+                'product_id' => $product->id,
+            ]);
+
+            return;
+        }
+
         $channel = ProductSalesChannel::query()
             ->where('product_id', $product->id)
             ->where('shop_id', $shop->id)

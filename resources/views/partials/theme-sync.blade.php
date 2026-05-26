@@ -9,7 +9,6 @@
         str_starts_with($path, '/cabinet') || 
         str_starts_with($path, '/login') || 
         str_starts_with($path, '/register') || 
-        str_starts_with($path, '/magic-login') ||
         $request->routeIs('partner.*') || 
         $request->routeIs('cabinet.*') ||
         $request->routeIs('login') ||
@@ -19,9 +18,6 @@
         $forceDefaultTheme = false;
     } elseif (str_starts_with($path, '/ops') || $request->routeIs('ops.*')) {
         $defaultTheme = 'carbon';
-        $forceDefaultTheme = false;
-    } elseif (str_starts_with($path, '/tribunal') || $request->routeIs('tribunal.*')) {
-        $defaultTheme = 'nordic';
         $forceDefaultTheme = false;
     }
 @endphp

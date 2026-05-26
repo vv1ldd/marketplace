@@ -163,7 +163,7 @@ return [
     )))),
 
     /**
-     * Хосты Filament-панелей (без схемы). Пусто — панели доступны с любого Host (удобно для localhost).
+     * Legacy panel hosts (without scheme). Kept for redirect and allowlist compatibility.
      */
     'admin_panel_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('OPS_PANEL_DOMAIN', env('ADMIN_PANEL_DOMAIN', '')))))),
     'partner_panel_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('CONSORTIUM_PANEL_DOMAIN', env('PARTNER_PANEL_DOMAIN', '')))))),

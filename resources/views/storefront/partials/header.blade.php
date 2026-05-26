@@ -2,11 +2,10 @@
     $homeUrl = \Illuminate\Support\Facades\Route::has('home') ? route('home') : url('/');
     $howItWorksUrl = \Illuminate\Support\Facades\Route::has('storefront.ai-chat') ? route('storefront.ai-chat') : $homeUrl.'#infrastructure';
     $loginUrl = \Illuminate\Support\Facades\Route::has('login') ? route('login') : url('/login');
-    $cabinetUrl = \Illuminate\Support\Facades\Route::has('filament.client.pages.dashboard') ? route('filament.client.pages.dashboard') : url('/cabinet');
+    $cabinetUrl = \Illuminate\Support\Facades\Route::has('cabinet.dashboard') ? route('cabinet.dashboard') : url('/cabinet');
     $logoutUrl = \Illuminate\Support\Facades\Route::has('logout') ? route('logout') : url('/logout');
     $opsUrl = url('/ops');
     $partnerUrl = url('/partner');
-    $businessUrl = \Illuminate\Support\Facades\Route::has('business.landing') ? route('business.landing') : url('/business');
 @endphp
 
 @once
@@ -427,10 +426,6 @@
                     <a href="{{ $partnerUrl }}" @class(['btn-nav-cta', 'active' => request()->is('partner*')])>
                         B2B Консоль
                     </a>
-                @else
-                    <a href="{{ $businessUrl }}" @class(['btn-nav-login', 'active' => request()->routeIs('business.*')])>
-                        B2B
-                    </a>
                 @endif
                 <a href="{{ $cabinetUrl }}" @class(['btn-nav-login', 'active' => request()->is('cabinet*')])>
                     Кабинет
@@ -440,9 +435,6 @@
                     Выйти
                 </button>
             @else
-                <a href="{{ $businessUrl }}" @class(['btn-nav-login', 'active' => request()->routeIs('business.*')])>
-                    B2B
-                </a>
                 <a href="{{ $loginUrl }}" @class(['btn-nav-cta', 'active' => request()->is('login')])>
                     Войти
                 </a>

@@ -10,19 +10,17 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "bezhansalleh/filament-language-switch": "^4.3",
-        "bezhansalleh/filament-shield": "^4.0@beta",
-        "filament/filament": "~4.0",
         "intervention/image": "^4.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.32",
-        "marcelweidum/filament-passkeys": "^2.0",
+        "livewire/livewire": "^4.3",
         "mrt1m/playstation-store-api": "^2.2",
         "opcodesio/log-viewer": "^3.18",
         "php-ffmpeg/php-ffmpeg": "^1.4",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/laravel-passkeys": "^1.7",
+        "spatie/laravel-permission": "^7.4",
         "yandex-market/partner-api-spec": "1.0.0"
     },
     "require-dev": {
@@ -53,7 +51,6 @@
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",
-            "@php artisan filament:upgrade",
             "@php artisan app:install-binaries"
         ],
         "post-update-cmd": [

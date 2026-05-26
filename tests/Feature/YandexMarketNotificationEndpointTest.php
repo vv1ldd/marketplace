@@ -139,7 +139,8 @@ class YandexMarketNotificationEndpointTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('shop.business_id', 789)
             ->assertJsonPath('shop.campaign_id', 987)
-            ->assertJsonPath('shop.is_configured', true);
+            ->assertJsonPath('shop.is_configured', false)
+            ->assertJsonPath('shop.legal_verified', false);
 
         $shop->refresh();
         $this->assertSame('existing-yandex-key', $shop->api_key);

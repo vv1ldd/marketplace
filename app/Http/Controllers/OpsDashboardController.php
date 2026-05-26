@@ -20,13 +20,14 @@ class OpsDashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             abort(403, 'Доступ в Центр Операций ограничен. Требуются права супер-администратора.');
         }
 
         // Global Platform Stats
         $stats = [
             'total_partners' => LegalEntity::count(),
+            'pending_partners' => LegalEntity::where('status', 'pending_moderation')->count(),
             'total_shops' => Shop::count(),
             'total_orders' => Order::count(),
             'total_products' => Product::count(),
@@ -64,11 +65,15 @@ class OpsDashboardController extends Controller
     public function getPartnersData(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
         $query = LegalEntity::query();
+
+        if ($request->get('status') === 'pending_moderation') {
+            $query->where('status', 'pending_moderation');
+        }
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
@@ -90,9 +95,12 @@ class OpsDashboardController extends Controller
                     'available_balance' => round($entity->available_balance, 2),
                     'reserved_balance' => round($entity->reserved_balance, 2),
                     'shops_count' => $entity->shops()->count(),
-                    'migration_pill_issue_url' => (app()->isProduction() || config('app.env') === 'production')
-                        ? null
-                        : route('migration-pill.issue', ['legalEntity' => $entity->id]),
+                    'status' => $entity->status,
+                    'status_label' => $this->legalEntityStatusLabel($entity),
+                    'is_active' => (bool) $entity->is_active,
+                    'approve_url' => $entity->status === 'pending_moderation'
+                        ? route('ops.dashboard.partners.approve', ['legalEntity' => $entity->id])
+                        : null,
                     'created_at' => $entity->created_at->format('d.m.Y H:i'),
                 ];
             }),
@@ -102,11 +110,39 @@ class OpsDashboardController extends Controller
         ]);
     }
 
+    public function approvePartner(LegalEntity $legalEntity)
+    {
+        $user = Auth::user();
+        if (! $this->canAccessOps($user)) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        $metadata = $legalEntity->agreement_metadata ?? [];
+        $metadata['moderated_at'] = now()->toIso8601String();
+        $metadata['moderated_by_user_id'] = $user?->id;
+        $metadata['moderation_decision'] = 'approved';
+
+        $legalEntity->forceFill([
+            'status' => 'active',
+            'is_active' => true,
+            'agreement_metadata' => $metadata,
+        ])->save();
+
+        app(\App\Services\SellerDistributionCenterService::class)
+            ->ensureForLegalEntity($legalEntity->refresh());
+
+        return response()->json([
+            'success' => true,
+            'status' => $legalEntity->status,
+            'status_label' => $this->legalEntityStatusLabel($legalEntity),
+        ]);
+    }
+
     // 📋 AJAX — Глобальные Магазины
     public function getShopsData(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -144,7 +180,7 @@ class OpsDashboardController extends Controller
     public function getOrdersData(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -208,7 +244,7 @@ class OpsDashboardController extends Controller
     public function getCatalogData(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -248,7 +284,7 @@ class OpsDashboardController extends Controller
     public function getTicketsData(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -283,7 +319,7 @@ class OpsDashboardController extends Controller
     public function traceSimpleLayer1(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -310,7 +346,7 @@ class OpsDashboardController extends Controller
     public function getTicketDetails($id)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -345,7 +381,7 @@ class OpsDashboardController extends Controller
     public function replyToTicket(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -374,7 +410,7 @@ class OpsDashboardController extends Controller
     public function runAiAudit(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -395,7 +431,7 @@ class OpsDashboardController extends Controller
     public function sendAiChatMessage(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('super_admin')) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -422,7 +458,7 @@ class OpsDashboardController extends Controller
     public function updateTheme(Request $request)
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $this->canAccessOps($user)) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -436,5 +472,21 @@ class OpsDashboardController extends Controller
             'success' => true,
             'theme' => $user->refresh()->theme,
         ]);
+    }
+
+    private function canAccessOps(?\App\Models\User $user): bool
+    {
+        return $user?->hasOpsSovereignAccess() === true;
+    }
+
+    private function legalEntityStatusLabel(LegalEntity $entity): string
+    {
+        return match ($entity->status) {
+            'active' => 'Активна',
+            'pending_moderation' => 'На модерации',
+            'pending_signature' => 'Ждет подписи',
+            'admin_console' => 'Админка',
+            default => $entity->is_active ? 'Активна' : 'Не активна',
+        };
     }
 }

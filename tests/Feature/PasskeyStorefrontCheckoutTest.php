@@ -478,6 +478,9 @@ class PasskeyStorefrontCheckoutTest extends TestCase
             'business_id' => 'business-1',
             'campaign_id' => 'campaign-1',
             'api_key' => 'yandex-api-token',
+            'ym_warehouse_id' => '1001',
+            'ym_legal_verified_at' => now(),
+            'ym_legal_verification' => ['matches' => ['inn' => true]],
         ])->save();
 
         \App\Models\ApiApplication::create([
@@ -982,6 +985,21 @@ class PasskeyStorefrontCheckoutTest extends TestCase
             'shop_id' => $this->shop->id,
             'status' => 'available',
         ]);
+    }
+
+    public function test_provider_catalog_shows_products_for_textual_shop_categories(): void
+    {
+        $this->shop->forceFill([
+            'allowed_categories' => ['Vouchers', 'Games'],
+        ])->save();
+
+        $response = $this->actingAs($this->user)
+            ->getJson(route('partner.dashboard.provider_catalog.data'));
+
+        $response->assertOk();
+        $response->assertJsonPath('total', 1);
+        $response->assertJsonPath('products.0.id', $this->providerProduct->id);
+        $response->assertJsonPath('category_cards.0.name', 'Все товары');
     }
 
     public function test_stock_procurement_can_spend_sl1_with_passkey(): void

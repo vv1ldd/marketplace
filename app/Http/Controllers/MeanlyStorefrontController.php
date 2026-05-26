@@ -13,6 +13,7 @@ use App\Services\BuyerWalletTransactionService;
 use App\Services\MeanlyFirstPartyStorefrontService;
 use App\Services\MeanlyAnalyticsService;
 use App\Services\MeanlyRetailCheckoutService;
+use App\Services\IntentLedgerService;
 use App\Services\OrderSupportTicketService;
 use App\Services\SimpleL1ProtocolClient;
 use App\Services\StorefrontFulfillmentService;
@@ -545,6 +546,21 @@ class MeanlyStorefrontController extends Controller
         data_set($info, 'order_safe.open_count', (int) data_get($info, 'order_safe.open_count', 0) + 1);
         $order->forceFill(['info' => $info])->save();
 
+        app(IntentLedgerService::class)->recordForOrder(
+            order: $order,
+            eventType: 'ORDER_SAFE_OPEN_INTENT',
+            intentType: 'order.safe.open',
+            payload: [
+                'codes_count' => count($codes),
+                'open_count' => (int) data_get($info, 'order_safe.open_count', 0),
+                'safe_status' => $safe['status'] ?? null,
+                'opened_at' => data_get($info, 'order_safe.last_opened_at'),
+            ],
+            request: $request,
+            user: $request->user(),
+            resource: 'order_safe:'.$order->id,
+        );
+
         app(MeanlyAnalyticsService::class)->track('fulfillment.issue.opened', [
             'codes_count' => count($codes),
             'open_count' => (int) data_get($info, 'order_safe.open_count', 0),
@@ -603,15 +619,13 @@ class MeanlyStorefrontController extends Controller
         }
 
         if (! $wasAlreadyScratched) {
-            app(\App\Services\LedgerService::class)->record($order->shop, 'ORDER_CODE_REVEALED', $order, [
-                'order_id' => $order->id,
-                'order_reference' => $order->order_id,
+            app(IntentLedgerService::class)->recordForOrder($order, 'ORDER_CODE_REVEAL_INTENT', 'voucher.reveal', [
                 'items_count' => $order->items->count(),
                 'delivery_status' => 'final_delivered',
                 'reveal_surface' => 'storefront_inline_scratch_card',
                 'revealed_at' => $scratchedAt,
                 'scratch_proof_hash' => hash('sha256', $scratchProof),
-            ], $order->shop?->legalEntity);
+            ], $request, user: $request->user(), resource: 'order_safe:'.$order->id);
         }
 
         app(MeanlyAnalyticsService::class)->track('fulfillment.issue.scratched', [
@@ -707,6 +721,22 @@ class MeanlyStorefrontController extends Controller
             'status' => $ticket->status === 'closed' ? 'in_progress' : $ticket->status,
             'last_reply_at' => now(),
         ]);
+
+        app(IntentLedgerService::class)->recordForOrder(
+            order: $order,
+            eventType: 'SUPPORT_TICKET_REPLY_INTENT',
+            intentType: 'support.ticket.reply',
+            payload: [
+                'ticket_id' => $ticket->id,
+                'ticket_status' => $ticket->status,
+                'message_hash' => hash('sha256', $data['message']),
+                'replied_at' => now()->toIso8601String(),
+            ],
+            request: $request,
+            user: $request->user(),
+            scope: 'support.ticket',
+            resource: 'ticket:'.$ticket->id,
+        );
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -878,7 +908,7 @@ class MeanlyStorefrontController extends Controller
     {
         $anchor = 'safe-'.$order->uuid;
 
-        return route('filament.client.pages.dashboard', ['safe' => $order->uuid]).'#'.$anchor;
+        return route('cabinet.dashboard', ['safe' => $order->uuid]).'#'.$anchor;
     }
 
     private function authorizeOrderSafe(Request $request, Order $order): void

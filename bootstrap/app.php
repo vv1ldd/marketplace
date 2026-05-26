@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.redeem.auth' => \App\Http\Middleware\CheckApiApplicationToken::class,
             'api.ledger.auth' => \App\Http\Middleware\CheckApiApplicationToken::class,
             'plane.guard'     => \App\Http\Middleware\SovereignPlaneGuard::class,
+            'partner.intent'  => \App\Http\Middleware\RecordPartnerActionIntent::class,
             // Seller terminal authentication: X-Terminal-Id + X-Terminal-Pin headers
             'seller.terminal' => \App\Http\Middleware\AuthenticateSellerTerminal::class,
         ]);

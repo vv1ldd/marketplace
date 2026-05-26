@@ -173,11 +173,6 @@ class LegalEntity extends Model
         return $this->hasMany(SovereignBalanceRequest::class);
     }
 
-    public function migrationPills(): HasMany
-    {
-        return $this->hasMany(LegalEntityMigrationPill::class);
-    }
-
     public function sellers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Seller::class, 'legal_entity_managers', 'legal_entity_id', 'seller_id')

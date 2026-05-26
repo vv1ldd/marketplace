@@ -2109,7 +2109,7 @@
                     <h3>Сейф закрыт</h3>
                     <p>Покупки, коды, баланс и операции скрыты. Подтвердите личность через Face ID, Touch ID или Passkey, чтобы войти в сейф.</p>
                     @if($user->passkeys()->exists())
-                        <button type="button" class="btn-unlock-vault" onclick="unlockVaultIntent()">
+                        <button type="button" class="btn-unlock-vault" onclick="unlockVaultIntent(this)">
                             Открыть сейф Passkey
                         </button>
                         <div id="vault-unlock-status"></div>
@@ -2281,7 +2281,7 @@
                         Мы не показываем баланс и историю транзакций, пока сейф закрыт. Откройте его через Passkey, чтобы увидеть покупки, коды и операции.
                     </p>
                     @if($user->passkeys()->exists())
-                        <button type="button" class="btn-unlock-vault" onclick="unlockVaultIntent()">
+                        <button type="button" class="btn-unlock-vault" onclick="unlockVaultIntent(this)">
                             Открыть сейф Passkey
                         </button>
                     @else
@@ -3960,24 +3960,40 @@
     }
 
     // 5. Unlock Vault JS logic
-    async function unlockVaultIntent() {
-        const btn = document.querySelector('.btn-unlock-vault');
+    function vaultFirstValidationMessage(payload, fallback) {
+        const firstError = Object.values(payload?.errors || {})
+            .reduce((messages, value) => messages.concat(value), [])[0];
+
+        if (firstError) {
+            return firstError;
+        }
+
+        return payload?.message || fallback;
+    }
+
+    async function unlockVaultIntent(triggerButton = null) {
+        const btn = triggerButton || document.querySelector('.btn-unlock-vault');
         const status = document.getElementById('vault-unlock-status');
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
             || document.querySelector('input[name="_token"]')?.value
             || '';
+        const setStatus = (message, color = '#64748b') => {
+            if (!status) return;
+
+            status.style.display = 'block';
+            status.style.color = color;
+            status.innerText = message;
+        };
 
         if (!btn) return;
         if (!window.SimpleWebAuthnBrowser || !window.PublicKeyCredential) {
-            status.innerText = 'Ваш браузер не поддерживает Passkey/WebAuthn.';
+            setStatus('Ваш браузер не поддерживает Passkey/WebAuthn.', '#ef4444');
             return;
         }
 
         btn.disabled = true;
         btn.innerHTML = '<i class="ph-bold ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Ожидание подписи...';
-        status.style.display = 'block';
-        status.style.color = '#64748b';
-        status.innerText = 'Готовим Passkey challenge...';
+        setStatus('Готовим Passkey challenge...');
 
         try {
             const optionsResponse = await fetch('{{ route("cabinet.vault.passkey.options") }}', {
@@ -3985,14 +4001,14 @@
             });
             const options = await optionsResponse.json();
             if (!optionsResponse.ok) {
-                throw new Error(options.message || 'Не удалось подготовить Passkey-проверку.');
+                throw new Error(vaultFirstValidationMessage(options, 'Не удалось подготовить Passkey-проверку.'));
             }
 
             const { unlock_id: unlockId, ...optionsJSON } = options;
-            status.innerText = 'Подтвердите вход в сейф через Face ID / Touch ID...';
+            setStatus('Подтвердите вход в сейф через Face ID / Touch ID...');
             const assertion = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON });
 
-            status.innerText = 'Проверяем подпись сейфа...';
+            setStatus('Проверяем подпись сейфа...');
             const confirmResponse = await fetch('{{ route("cabinet.vault.passkey.confirm") }}', {
                 method: 'POST',
                 headers: {
@@ -4004,17 +4020,15 @@
             });
             const confirmPayload = await confirmResponse.json();
             if (!confirmResponse.ok || !confirmPayload.success) {
-                throw new Error(confirmPayload.message || 'Passkey-проверка не пройдена.');
+                throw new Error(vaultFirstValidationMessage(confirmPayload, 'Passkey-проверка не пройдена.'));
             }
 
-            status.style.color = '#107c10';
-            status.innerText = 'Сейф открыт. Загружаем покупки...';
+            setStatus('Сейф открыт. Загружаем покупки...', '#107c10');
             btn.innerHTML = '<i class="ph-bold ph-check"></i> Разблокировано';
             btn.style.background = '#107c10';
             window.setTimeout(() => window.location.reload(), 450);
         } catch (error) {
-            status.style.color = '#ef4444';
-            status.innerText = error.message || 'Не удалось открыть сейф.';
+            setStatus(error.message || 'Не удалось открыть сейф.', '#ef4444');
             btn.disabled = false;
             btn.innerHTML = 'Открыть сейф Passkey';
         }

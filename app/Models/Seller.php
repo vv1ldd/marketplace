@@ -2,12 +2,7 @@
 
 namespace App\Models;
 
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Models\Contracts\HasName;
-use Filament\Models\Contracts\HasTenants;
-use Filament\Panel;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -16,13 +11,13 @@ use Spatie\Permission\Traits\HasRoles;
 use Spatie\LaravelPasskeys\Models\Concerns\HasPasskeys;
 use Spatie\LaravelPasskeys\Models\Concerns\InteractsWithPasskeys;
 
-class Seller extends Authenticatable implements FilamentUser, HasName, HasTenants, HasPasskeys
+class Seller extends Authenticatable implements HasPasskeys
 {
     use HasFactory, Notifiable, HasRoles, InteractsWithPasskeys;
 
     public function getPassKeyDisplayName(): string
     {
-        return $this->first_name ? "@{$this->first_name}" : ($this->email ?? "Seller #{$this->id}");
+        return $this->profileDisplayName();
     }
 
     public function getPassKeyId(): string
@@ -32,7 +27,21 @@ class Seller extends Authenticatable implements FilamentUser, HasName, HasTenant
 
     public function getPassKeyName(): string
     {
-        return $this->first_name ? "@{$this->first_name}" : ($this->email ?? "seller-{$this->id}");
+        return $this->profileDisplayName();
+    }
+
+    public function profileDisplayName(): string
+    {
+        $name = trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->last_name,
+        ])));
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        return $this->email ? (string) $this->email : "Meanly Profile ".strtoupper(substr(hash('crc32b', (string) $this->id), -4));
     }
 
     protected $fillable = [
@@ -63,19 +72,13 @@ class Seller extends Authenticatable implements FilamentUser, HasName, HasTenant
         'middle_name' => \App\Casts\VaultEncrypted::class . ':middle_name_bidx',
     ];
 
-    public function canAccessPanel(Panel $panel): bool
+    public static function findByEmail(?string $email): ?self
     {
-        // Sellers can only access the partner panel
-        return $panel->getId() === 'partner';
-    }
+        $email = trim((string) $email);
+        if ($email === '') {
+            return null;
+        }
 
-    public function getFilamentName(): string
-    {
-        return $this->first_name ?? 'Продавец';
-    }
-
-    public static function findByEmail(string $email): ?self
-    {
         $salt = config('vault.blind_index.salt', 'default-salt');
         $bidx = hash_hmac('sha256', strtolower(trim($email)), $salt);
         return static::where('email_bidx', $bidx)->first();
@@ -100,12 +103,7 @@ class Seller extends Authenticatable implements FilamentUser, HasName, HasTenant
             ->withTimestamps();
     }
 
-    public function getTenants(Panel $panel): Collection
-    {
-        return $this->managedLegalEntities;
-    }
-
-    public function canAccessTenant(Model $tenant): bool
+    public function canManageTenant(Model $tenant): bool
     {
         if ($tenant instanceof LegalEntity) {
             return $this->managedLegalEntities()->where('legal_entities.id', $tenant->id)->exists();

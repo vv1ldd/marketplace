@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 use Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction;
 use Spatie\LaravelPasskeys\Actions\StorePasskeyAction;
 
@@ -130,6 +131,8 @@ class InviteAcceptController extends Controller
                 $role     = $intent['role'];
 
                 // 3. Assign roles
+                Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+                $sellerRole = Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'sellers']);
                 $user->assignRole('b2b_partner');
 
                 // 4. Attach to LegalEntity managers
@@ -148,7 +151,7 @@ class InviteAcceptController extends Controller
                         'is_active'  => true,
                     ]);
                 }
-                $seller->assignRole('b2b_partner');
+                $seller->assignRole($sellerRole);
 
                 $seller->managedLegalEntities()->syncWithoutDetaching([
                     $entityId => ['role' => $role, 'user_id' => $user->id],

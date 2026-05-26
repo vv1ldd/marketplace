@@ -501,6 +501,7 @@
                             Войти с помощью Passkey 🛡️
                         </div>
                     </x-passkeys::authenticate>
+                    <div id="passkey-login-status" style="margin-top: 0.85rem; min-height: 18px; font-size: 12px; font-weight: 700; color: var(--brand-subtext);"></div>
                 </div>
 
                 <div class="secondary-actions-wrapper" style="margin-top: 2rem; display: flex; flex-direction: column; gap: 10px;">
@@ -526,6 +527,60 @@
         </div>
     </div>
 
+    <script>
+        async function authenticateWithPasskey(remember = false) {
+            const status = document.getElementById('passkey-login-status');
+            const setStatus = (message, isError = false) => {
+                if (!status) return;
+
+                status.style.color = isError ? '#ef4444' : 'var(--brand-subtext)';
+                status.innerText = message;
+            };
+            const setHidden = (form, name, value) => {
+                let input = form.querySelector(`input[name="${name}"]`);
+
+                if (!input) {
+                    input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = name;
+                    form.appendChild(input);
+                }
+
+                input.value = value;
+            };
+
+            try {
+                if (!window.SimpleWebAuthnBrowser?.startAuthentication || !window.PublicKeyCredential) {
+                    throw new Error('Ваш браузер не поддерживает безопасный вход через Passkey.');
+                }
+
+                setStatus('Готовим безопасный вход...');
+
+                const response = await fetch('{{ route('passkeys.authentication_options') }}', {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                });
+                const options = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(options.message || 'Не удалось подготовить Passkey-вход.');
+                }
+
+                setStatus('Подтвердите вход через Face ID / Touch ID...');
+
+                const startAuthenticationResponse = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: options });
+                const form = document.getElementById('passkey-login-form');
+
+                setHidden(form, 'remember', remember ? '1' : '0');
+                setHidden(form, 'start_authentication_response', JSON.stringify(startAuthenticationResponse));
+
+                setStatus('Проверяем Passkey...');
+                form.submit();
+            } catch (error) {
+                setStatus(error.message || 'Не удалось войти через Passkey.', true);
+            }
+        }
+    </script>
 
 </body>
 </html>

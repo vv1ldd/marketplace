@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\DemandGap;
-use App\Models\LegalEntityMigrationPill;
 use App\Models\MeanlyOperationalAlert;
 use App\Models\OpportunityCase;
 use App\Models\User;
@@ -190,19 +189,12 @@ class MeanlyLaunchReadinessCommand extends Command
             $adminPasskeys = User::role('super_admin')
                 ->whereHas('passkeys')
                 ->count();
-            $activeAdminPills = LegalEntityMigrationPill::query()
-                ->whereNull('used_at')
-                ->where('expires_at', '>', now())
-                ->get()
-                ->filter(fn (LegalEntityMigrationPill $pill): bool => data_get($pill->metadata, 'purpose') === 'main_admin_passkey_enrollment')
-                ->count();
-
             $this->addCheck(
                 'admin passkey',
-                $adminPasskeys > 0 || $activeAdminPills > 0 ? 'pass' : 'warn',
+                $adminPasskeys > 0 ? 'pass' : 'warn',
                 $adminPasskeys > 0
                     ? "super_admins={$adminCount}, admin_passkeys={$adminPasskeys}"
-                    : "super_admins={$adminCount}, admin_passkeys=0, active_admin_pills={$activeAdminPills}",
+                    : "super_admins={$adminCount}, admin_passkeys=0",
             );
         } catch (Throwable $e) {
             $this->addCheck('admin passkey', 'warn', $e->getMessage());

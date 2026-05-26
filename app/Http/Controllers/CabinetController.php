@@ -8,7 +8,9 @@ use App\Models\User;
 use App\Models\WalletAccount;
 use App\Models\WalletLedgerEntry;
 use App\Services\BuyerWalletService;
+use App\Services\IntentLedgerService;
 use App\Services\OrderSupportTicketService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -134,14 +136,16 @@ class CabinetController extends Controller
 
         $json = Serializer::make()->toJson($options);
         $unlockId = (string) Str::uuid();
+        $pending = [
+            'json' => $json,
+            'user_id' => $user->id,
+            'expires_at' => now()->addMinutes(5)->timestamp,
+        ];
 
-        session([
-            'cabinet_vault_unlock.'.$unlockId => [
-                'json' => $json,
-                'user_id' => $user->id,
-                'expires_at' => now()->addMinutes(5)->timestamp,
-            ],
-        ]);
+        $request->session()->put('cabinet_vault_unlock.'.$unlockId, $pending);
+        $request->session()->save();
+
+        Cache::put($this->vaultUnlockCacheKey($unlockId), $pending, now()->addMinutes(5));
 
         return response()->json(json_decode($json, true) + [
             'unlock_id' => $unlockId,
@@ -158,11 +162,15 @@ class CabinetController extends Controller
         ]);
 
         $sessionKey = 'cabinet_vault_unlock.'.$data['unlock_id'];
-        $pending = session($sessionKey);
+        $cacheKey = $this->vaultUnlockCacheKey($data['unlock_id']);
+        $pending = Cache::get($cacheKey) ?: $request->session()->get($sessionKey);
 
         if (! is_array($pending)
             || (int) ($pending['user_id'] ?? 0) !== (int) $user->id
             || (int) ($pending['expires_at'] ?? 0) < now()->timestamp) {
+            Cache::forget($cacheKey);
+            $request->session()->forget($sessionKey);
+
             throw ValidationException::withMessages([
                 'unlock_id' => 'Контекст открытия сейфа устарел. Повторите Passkey-проверку.',
             ]);
@@ -185,10 +193,23 @@ class CabinetController extends Controller
             ]);
         }
 
-        session()->forget($sessionKey);
-        session(['cabinet_vault_unlocked_until' => now()->addMinutes(15)->timestamp]);
+        Cache::forget($cacheKey);
+        $request->session()->forget($sessionKey);
+        $unlockedUntil = now()->addMinutes(15);
+        $ledgerEntry = $this->recordVaultOpenIntent($request, $user, $passkey, $pending, $data['unlock_id'], $unlockedUntil);
 
-        return response()->json(['success' => true]);
+        $request->session()->put('cabinet_vault_unlocked_until', $unlockedUntil->timestamp);
+        $request->session()->put('cabinet_vault_unlock_ledger_id', $ledgerEntry->id);
+        $request->session()->put('cabinet_vault_unlock_fingerprint', $ledgerEntry->fingerprint);
+
+        return response()->json([
+            'success' => true,
+            'vault_event' => [
+                'ledger_id' => $ledgerEntry->id,
+                'fingerprint' => $ledgerEntry->fingerprint,
+                'unlocked_until' => $unlockedUntil->toIso8601String(),
+            ],
+        ]);
     }
 
     /**
@@ -237,6 +258,40 @@ class CabinetController extends Controller
     private function vaultUnlocked(Request $request): bool
     {
         return (int) $request->session()->get('cabinet_vault_unlocked_until', 0) >= now()->timestamp;
+    }
+
+    private function vaultUnlockCacheKey(string $unlockId): string
+    {
+        return 'cabinet:vault-unlock:'.sha1($unlockId);
+    }
+
+    private function recordVaultOpenIntent(
+        Request $request,
+        User $user,
+        Passkey $passkey,
+        array $pending,
+        string $unlockId,
+        \Carbon\CarbonInterface $unlockedUntil,
+    ): \App\Models\SovereignLedger {
+        $options = json_decode((string) ($pending['json'] ?? ''), true) ?: [];
+        $challenge = (string) data_get($options, 'challenge', '');
+        return app(IntentLedgerService::class)->record(
+            eventType: 'VAULT_OPEN_INTENT',
+            intentType: 'vault.open',
+            entity: $user,
+            payload: [
+            'challenge_hash' => $challenge !== '' ? hash('sha256', $challenge) : null,
+            'unlock_id_hash' => hash('sha256', $unlockId),
+            'user_verification' => 'required',
+            'opened_at' => now()->toIso8601String(),
+            'unlocked_until' => $unlockedUntil->toIso8601String(),
+            ],
+            request: $request,
+            passkey: $passkey,
+            user: $user,
+            scope: 'cabinet.safe',
+            resource: 'buyer_vault',
+        );
     }
 
     /**
@@ -337,7 +392,7 @@ class CabinetController extends Controller
     {
         $anchor = 'safe-'.$order->uuid;
 
-        return route('filament.client.pages.dashboard', ['safe' => $order->uuid]).'#'.$anchor;
+        return route('cabinet.dashboard', ['safe' => $order->uuid]).'#'.$anchor;
     }
 
     /**

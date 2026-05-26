@@ -17,51 +17,154 @@ class PartnerDashboardController extends Controller
             ?? $user->managedLegalEntities()->first();
     }
 
+    private function dispatchYandexServicesReportLegalEnrichment(Shop $shop): void
+    {
+        if (blank($shop->business_id) || blank($shop->campaign_id) || blank($shop->api_key)) {
+            return;
+        }
+
+        $backgroundStatus = data_get($shop->ym_legal_verification ?? [], 'background_services_report.status');
+        $backgroundReportId = data_get($shop->ym_legal_verification ?? [], 'background_services_report.report_id');
+
+        if ($backgroundStatus === 'processing' && filled($backgroundReportId)) {
+            return;
+        }
+
+        \App\Jobs\EnrichYandexMarketLegalVerification::dispatch($shop->id)
+            ->delay(now()->addSeconds(10));
+    }
+
+    private function normalizeLegalDigits(?string $value): string
+    {
+        return preg_replace('/\D+/', '', (string) $value) ?? '';
+    }
+
+    private function normalizeLegalName(?string $value): string
+    {
+        $value = mb_strtolower(trim((string) $value));
+        $value = preg_replace('/["«»]/u', '', $value) ?? $value;
+        $value = preg_replace('/\b(ооо|оао|зао|ао|ип|общество с ограниченной ответственностью)\b/u', '', $value) ?? $value;
+
+        return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+    }
+
+    private function legalNameMatches(?string $expected, ?string $actual): ?bool
+    {
+        $expected = $this->normalizeLegalName($expected);
+        $actual = $this->normalizeLegalName($actual);
+
+        if ($expected === '' || $actual === '') {
+            return null;
+        }
+
+        if ($expected === $actual || str_contains($expected, $actual) || str_contains($actual, $expected)) {
+            return true;
+        }
+
+        similar_text($expected, $actual, $percent);
+
+        return $percent >= 72.0;
+    }
+
+    private function buildYandexLegalVerification(
+        \App\Models\LegalEntity $legalEntity,
+        array $validated,
+        array $apiCheck
+    ): array {
+        $wildflowInn = $this->normalizeLegalDigits($legalEntity->inn);
+        $wildflowKpp = $this->normalizeLegalDigits($legalEntity->kpp);
+        $wildflowOgrn = $this->normalizeLegalDigits($legalEntity->ogrn);
+        $marketInn = $this->normalizeLegalDigits($validated['market_inn'] ?? null);
+        $marketKpp = $this->normalizeLegalDigits($validated['market_kpp'] ?? null);
+        $marketOgrn = $this->normalizeLegalDigits($validated['market_ogrn'] ?? null);
+        $marketName = trim((string) ($validated['market_name'] ?? ''));
+        $apiBusinessName = (string) (data_get($apiCheck, 'business_settings.info.name') ?: data_get($apiCheck, 'campaign.business.name', ''));
+        $apiCampaignName = (string) data_get($apiCheck, 'campaign.domain', '');
+        $apiAvailability = (string) data_get($apiCheck, 'campaign.apiAvailability', '');
+        $tokenScopes = (array) data_get($apiCheck, 'token_info.apiKey.authScopes', []);
+        $wildflowName = (string) ($legalEntity->short_name ?: $legalEntity->name);
+        $apiNameMatches = collect([$apiBusinessName, $apiCampaignName])
+            ->map(fn (?string $name) => $this->legalNameMatches($wildflowName, $name))
+            ->contains(true);
+        $manualNameMatches = $this->legalNameMatches($wildflowName, $marketName);
+
+        $matches = [
+            'api_access' => true,
+            'business_id' => (bool) ($apiCheck['business_matches_campaign'] ?? false),
+            'api_available' => $apiAvailability === '' || $apiAvailability === 'AVAILABLE',
+            'warehouse_id' => (bool) ($apiCheck['warehouse_matches_business'] ?? false),
+            'token_scope' => in_array('ALL_METHODS', $tokenScopes, true) || ! empty($tokenScopes),
+            'api_name' => $apiNameMatches,
+            'inn' => $marketInn === '' ? null : ($wildflowInn !== '' && $wildflowInn === $marketInn),
+            'kpp' => $wildflowKpp === '' ? null : ($marketKpp !== '' && $wildflowKpp === $marketKpp),
+            'ogrn' => ($wildflowOgrn === '' || $marketOgrn === '') ? null : $wildflowOgrn === $marketOgrn,
+            'name' => $manualNameMatches,
+        ];
+
+        $hardRejected = ! $matches['api_access']
+            || ! $matches['business_id']
+            || ! $matches['api_available']
+            || ! $matches['warehouse_id']
+            || $matches['inn'] === false
+            || $matches['kpp'] === false;
+
+        $verified = ! $hardRejected
+            && (
+                $matches['inn'] === true
+                || $matches['api_name'] === true
+                || $matches['name'] === true
+            );
+        $status = $hardRejected ? 'rejected' : ($verified ? 'approved' : 'review_required');
+        $score = collect($matches)
+            ->filter(fn ($value) => $value === true)
+            ->count();
+
+        return [
+            'verified' => $verified,
+            'status' => $status,
+            'score' => $score,
+            'moderation_reason' => match ($status) {
+                'approved' => 'Автоматические сигналы достаточны для активации интеграции.',
+                'review_required' => 'API доступ подтвержден, но не хватает совпадения названия или ИНН для автоматического одобрения.',
+                default => 'Есть критическое несовпадение в credentials, складе или реквизитах.',
+            },
+            'checked_at' => now()->toIso8601String(),
+            'wildflow' => [
+                'name' => $legalEntity->name,
+                'short_name' => $legalEntity->short_name,
+                'inn' => $wildflowInn,
+                'kpp' => $wildflowKpp,
+                'ogrn' => $wildflowOgrn,
+            ],
+            'market' => [
+                'business_id' => (int) ($validated['business_id'] ?? 0),
+                'campaign_id' => (int) ($validated['campaign_id'] ?? 0),
+                'ym_warehouse_id' => (int) ($validated['ym_warehouse_id'] ?? 0),
+                'business_name' => $apiBusinessName,
+                'shop_name' => $apiCampaignName,
+                'placement_type' => (string) data_get($apiCheck, 'campaign.placementType', ''),
+                'api_availability' => $apiAvailability,
+                'token_name' => (string) data_get($apiCheck, 'token_info.apiKey.name', ''),
+                'token_scopes' => $tokenScopes,
+                'warehouse_options' => collect($apiCheck['warehouses'] ?? [])->map(fn (array $warehouse): array => [
+                    'id' => (int) ($warehouse['id'] ?? 0),
+                    'name' => (string) ($warehouse['name'] ?? ''),
+                ])->values()->all(),
+                'inn' => $marketInn,
+                'kpp' => $marketKpp,
+                'ogrn' => $marketOgrn,
+                'name' => $marketName,
+            ],
+            'matches' => $matches,
+        ];
+    }
+
     private function storefrontProductsQuery(\App\Models\LegalEntity $legalEntity): \Illuminate\Database\Eloquent\Builder
     {
-        $shops = $legalEntity->shops;
-        $query = \App\Models\ProviderProduct::query()
+        return \App\Models\ProviderProduct::query()
             ->with(['brand.catalogGroup', 'region', 'provider'])
             ->where('is_active', true)
-            ->whereHas('provider', fn ($providerQuery) => $providerQuery->where('is_active', true))
-            ->whereDoesntHave('canonicalIdentitySource.canonicalProductIdentity', function ($identityQ) {
-                $identityQ->where(function ($iq) {
-                    $iq->where('confidence', 'low')
-                       ->orWhere('signals', 'like', '%brand_not_in_title%')
-                       ->orWhere('signals', 'like', '%multiple_brand_tokens%')
-                       ->orWhere('signals', 'like', '%brand_family_mismatch%');
-                })
-                ->whereDoesntHave('override', fn ($oq) => $oq->where('review_status', 'approved'));
-            });
-
-        $allRegions = $shops->flatMap->allowed_regions->unique()->filter()->toArray();
-        if (! empty($allRegions)) {
-            $query->whereIn('region_id', function ($q) use ($allRegions) {
-                $q->select('id')
-                    ->from('mapping_countries')
-                    ->whereIn('code', $allRegions);
-            });
-        }
-
-        $hasShopWithFullBrandAccess = $shops->contains(fn ($shop) => $shop->allow_all_brands !== false);
-        if (! $hasShopWithFullBrandAccess) {
-            $allowedBrandIds = $shops
-                ->flatMap->allowed_categories
-                ->filter(fn ($brandId) => is_numeric($brandId))
-                ->map(fn ($brandId) => (int) $brandId)
-                ->filter(fn ($brandId) => $brandId > 0)
-                ->unique()
-                ->values()
-                ->all();
-
-            if (empty($allowedBrandIds)) {
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->whereIn('brand_id', $allowedBrandIds);
-            }
-        }
-
-        return $query;
+            ->whereHas('provider', fn ($providerQuery) => $providerQuery->where('is_active', true));
     }
 
     private function storefrontCategoryOptions(): array
@@ -428,7 +531,22 @@ class PartnerDashboardController extends Controller
 
     private function storefrontCategoryCards(\Illuminate\Database\Eloquent\Builder $baseQuery): \Illuminate\Support\Collection
     {
-        $cards = collect((array) config('catalog_taxonomy.categories', []))
+        $totalCount = (clone $baseQuery)->count();
+        $cards = collect();
+
+        if ($totalCount > 0) {
+            $cards->push([
+                'id' => 'all',
+                'filter_key' => '__all',
+                'name' => 'Все товары',
+                'description' => 'Все доступные позиции поставщиков, которые можно взять в продажу.',
+                'slug' => 'all',
+                'icon' => '🛒',
+                'count' => $totalCount,
+            ]);
+        }
+
+        collect((array) config('catalog_taxonomy.categories', []))
             ->map(function (array $meta, string $slug) use ($baseQuery) {
                 $count = (clone $baseQuery)
                     ->where('canonical_category', $slug)
@@ -445,7 +563,7 @@ class PartnerDashboardController extends Controller
                 ];
             })
             ->filter(fn ($group) => $group['count'] > 0)
-            ->values();
+            ->each(fn ($group) => $cards->push($group));
 
         $unmappedCount = (clone $baseQuery)
             ->where(function ($query): void {
@@ -489,7 +607,7 @@ class PartnerDashboardController extends Controller
         $user = Auth::user();
         
         if (!$user) {
-            return redirect()->route('filament.partner.auth.login');
+            return redirect()->route('login');
         }
 
         $legalEntity = $this->currentLegalEntity($user);
@@ -498,6 +616,17 @@ class PartnerDashboardController extends Controller
         if (!$legalEntity) {
             return redirect()->route('partner.register');
         }
+
+        if ($legalEntity->status === 'pending_signature') {
+            return redirect()->route('partner.register.offer');
+        }
+
+        if ($legalEntity->status === 'pending_moderation' || ! $legalEntity->is_active) {
+            return redirect()->route('partner.onboarding');
+        }
+
+        app(\App\Services\SellerDistributionCenterService::class)
+            ->ensureForLegalEntity($legalEntity);
 
         // Dynamically reconstruct balance using MDK Sovereign L1 Ledger
         $l1State = app(\App\Services\L1StateService::class)->reconstructBalance($legalEntity);
@@ -623,10 +752,28 @@ class PartnerDashboardController extends Controller
             'activations' => $activations,
             'sovereignRequests' => $sovereignRequests,
             'operatorWorkspace' => $operatorWorkspace,
-            'activePartnerTab' => request()->routeIs('partner.operator')
-                ? 'operator'
-                : (request()->routeIs('partner.dashboard.provider_catalog') ? 'storefront' : null),
+            'activePartnerTab' => $this->activePartnerTab(),
         ]);
+    }
+
+    private function activePartnerTab(): ?string
+    {
+        if (request()->routeIs('partner.operator')) {
+            return 'operator';
+        }
+
+        if (request()->routeIs('partner.dashboard.provider_catalog')) {
+            return 'storefront';
+        }
+
+        $tab = (string) request()->query('tab', '');
+        $allowedTabs = [
+            'dashboard', 'orders', 'catalog', 'storefront', 'shops', 'support',
+            'warehouses', 'activations', 'vouchers', 'documents', 'finance',
+            'team', 'operator', 'ai-audit',
+        ];
+
+        return in_array($tab, $allowedTabs, true) ? $tab : null;
     }
 
     public function signAgreement(Request $request)
@@ -1305,8 +1452,7 @@ class PartnerDashboardController extends Controller
     public function storeApiApp(Request $request)
     {
         $user = Auth::user();
-        $seller = \App\Models\Seller::findByEmail($user->email);
-        $legalEntity = $seller?->legalEntity;
+        $legalEntity = $this->currentLegalEntity($user);
 
         if (!$legalEntity) {
             return response()->json(['error' => 'Организация не найдена.'], 404);
@@ -1361,8 +1507,7 @@ class PartnerDashboardController extends Controller
     public function toggleApiApp(Request $request, $id)
     {
         $user = Auth::user();
-        $seller = \App\Models\Seller::findByEmail($user->email);
-        $legalEntity = $seller?->legalEntity;
+        $legalEntity = $this->currentLegalEntity($user);
 
         if (!$legalEntity) {
             return response()->json(['error' => 'Организация не найдена.'], 404);
@@ -1395,8 +1540,7 @@ class PartnerDashboardController extends Controller
     public function deleteApiApp(Request $request, $id)
     {
         $user = Auth::user();
-        $seller = \App\Models\Seller::findByEmail($user->email);
-        $legalEntity = $seller?->legalEntity;
+        $legalEntity = $this->currentLegalEntity($user);
 
         if (!$legalEntity) {
             return response()->json(['error' => 'Организация не найдена.'], 404);
@@ -1491,11 +1635,17 @@ class PartnerDashboardController extends Controller
             $validated = $request->validate([
                 'business_id' => 'nullable|integer',
                 'campaign_id' => 'nullable|integer',
+                'ym_warehouse_id' => 'nullable|integer',
                 'api_key' => 'nullable|string',
             ]);
 
+            $credentialsChanged = (string) ($shop->business_id ?? '') !== (string) ($validated['business_id'] ?? '')
+                || (string) ($shop->campaign_id ?? '') !== (string) ($validated['campaign_id'] ?? '')
+                || $request->filled('api_key');
+
             $shop->business_id = $validated['business_id'] ?? null;
             $shop->campaign_id = $validated['campaign_id'] ?? null;
+            $shop->ym_warehouse_id = $validated['ym_warehouse_id'] ?? null;
 
             if (blank($shop->notification_token)) {
                 $shop->notification_token = Str::random(24);
@@ -1505,13 +1655,90 @@ class PartnerDashboardController extends Controller
                 $shop->api_key = $validated['api_key'];
             }
 
+            if ($credentialsChanged) {
+                $shop->ym_legal_verification = null;
+                $shop->ym_legal_verified_at = null;
+            }
+
             $shop->save();
+
+            $verification = $shop->ym_legal_verification;
+
+            if (filled($shop->business_id) && filled($shop->campaign_id) && filled($shop->ym_warehouse_id) && filled($shop->api_key)) {
+                try {
+                    $apiCheck = (new \App\Http\Services\YmService($shop))->verifyIntegrationAccess(
+                        (int) $shop->business_id,
+                        (int) $shop->campaign_id,
+                        (int) $shop->ym_warehouse_id
+                    );
+
+                    $verification = $this->buildYandexLegalVerification($legalEntity, [
+                        'business_id' => $shop->business_id,
+                        'campaign_id' => $shop->campaign_id,
+                        'ym_warehouse_id' => $shop->ym_warehouse_id,
+                    ], $apiCheck);
+
+                    if (($verification['status'] ?? '') === 'rejected') {
+                        $verification['verified'] = false;
+                        $verification['verification_tier'] = 'rejected';
+                        $shop->ym_legal_verification = $verification;
+                        $shop->ym_legal_verified_at = null;
+                        $shop->save();
+
+                        app(\App\Actions\Yandex\RecordYandexLegalTrustSignalAction::class)->execute($shop, 'rejected', [
+                            'stage' => 'api_precheck',
+                            'matches' => $verification['matches'] ?? [],
+                        ]);
+                    } else {
+                        $verification['verified'] = false;
+                        $verification['status'] = 'review_required';
+                        $verification['verification_tier'] = 'attention';
+                        $verification['moderation_reason'] = 'API-данные сохранены. Фоновая проверка юрлица запущена.';
+                        $verification['background_services_report'] = [
+                            'status' => 'queued',
+                            'queued_at' => now()->toIso8601String(),
+                        ];
+
+                        $shop->ym_legal_verification = $verification;
+                        $shop->ym_legal_verified_at = null;
+                        $shop->save();
+                    }
+                } catch (\Throwable $apiException) {
+                    report($apiException);
+
+                    $verification = [
+                        'verified' => false,
+                        'status' => 'rejected',
+                        'verification_tier' => 'rejected',
+                        'moderation_reason' => 'Не удалось проверить API-доступ Yandex Market.',
+                        'checked_at' => now()->toIso8601String(),
+                        'matches' => [
+                            'api_access' => false,
+                        ],
+                    ];
+
+                    $shop->ym_legal_verification = $verification;
+                    $shop->ym_legal_verified_at = null;
+                    $shop->save();
+
+                    app(\App\Actions\Yandex\RecordYandexLegalTrustSignalAction::class)->execute($shop, 'rejected', [
+                        'stage' => 'api_precheck',
+                        'error' => $apiException->getMessage(),
+                    ]);
+                }
+            }
+
+            $shop = $shop->fresh();
+            if (($shop->ym_legal_verification['verification_tier'] ?? null) !== 'rejected') {
+                $this->dispatchYandexServicesReportLegalEnrichment($shop);
+            }
 
             try {
                 app(\App\Services\LedgerService::class)->record($shop, 'YANDEX_MARKET_CONFIGURED', $shop, [
                     'business_id' => $shop->business_id,
                     'campaign_id' => $shop->campaign_id,
-                    'is_active' => filled($shop->campaign_id) && filled($shop->api_key),
+                    'is_active' => $shop->isYandexMarketActive(),
+                    'legal_verified' => $shop->isYandexMarketVerified(),
                 ]);
             } catch (\Throwable $ledgerException) {
                 report($ledgerException);
@@ -1519,13 +1746,16 @@ class PartnerDashboardController extends Controller
 
             return response()->json([
                 'success' => true,
+                'verification' => $shop->ym_legal_verification,
                 'shop' => [
                     'id' => $shop->id,
                     'name' => $shop->name,
                     'business_id' => $shop->business_id,
                     'campaign_id' => $shop->campaign_id,
+                    'ym_warehouse_id' => $shop->ym_warehouse_id,
                     'notification_url' => url('/api/ym/'.$shop->notification_token.'/notification'),
-                    'is_configured' => filled($shop->campaign_id) && filled($shop->api_key),
+                    'is_configured' => $shop->isYandexMarketActive(),
+                    'legal_verified' => $shop->isYandexMarketVerified(),
                 ]
             ]);
         } catch (\Illuminate\Validation\ValidationException $exception) {
@@ -1540,6 +1770,188 @@ class PartnerDashboardController extends Controller
         }
     }
 
+    public function verifyYandexMarketLegalEntity(Request $request, $id)
+    {
+        $user = Auth::user();
+        $legalEntity = $user ? $this->currentLegalEntity($user) : null;
+
+        if (!$legalEntity) {
+            return response()->json(['error' => 'Организация не найдена.'], 404);
+        }
+
+        $shop = $legalEntity->shops()->find($id);
+        if (!$shop) {
+            return response()->json(['error' => 'Магазин не найден.'], 404);
+        }
+
+        try {
+            $validated = $request->validate([
+                'business_id' => 'required|integer',
+                'campaign_id' => 'required|integer',
+                'ym_warehouse_id' => 'required|integer',
+                'api_key' => 'nullable|string',
+                'market_inn' => 'nullable|string',
+                'market_kpp' => 'nullable|string',
+                'market_ogrn' => 'nullable|string',
+                'market_name' => 'nullable|string',
+            ]);
+
+            $shop->business_id = $validated['business_id'];
+            $shop->campaign_id = $validated['campaign_id'];
+            $shop->ym_warehouse_id = $validated['ym_warehouse_id'];
+            if ($request->filled('api_key')) {
+                $shop->api_key = $validated['api_key'];
+            }
+
+            if (blank($shop->api_key)) {
+                return response()->json([
+                    'success' => false,
+                    'verified' => false,
+                    'error' => 'Для проверки нужен API Key Yandex Market.',
+                ], 422);
+            }
+
+            $apiCheck = (new \App\Http\Services\YmService($shop))->verifyIntegrationAccess(
+                (int) $validated['business_id'],
+                (int) $validated['campaign_id'],
+                (int) $validated['ym_warehouse_id']
+            );
+
+            $verification = $this->buildYandexLegalVerification($legalEntity, $validated, $apiCheck);
+
+            if (blank($shop->notification_token)) {
+                $shop->notification_token = Str::random(24);
+            }
+
+            $shop->ym_legal_verification = $verification;
+            $shop->ym_legal_verified_at = $verification['verified'] ? now() : null;
+            $shop->save();
+            $this->dispatchYandexServicesReportLegalEnrichment($shop);
+
+            if ($verification['verified']) {
+                \App\Models\Warehouse::query()->updateOrCreate(
+                    [
+                        'shop_id' => $shop->id,
+                        'channel' => 'yandex_market',
+                    ],
+                    [
+                        'ym_id' => (int) $shop->ym_warehouse_id,
+                        'name' => 'Yandex Market',
+                        'type' => 'channel',
+                        'is_active' => true,
+                        'is_main' => false,
+                        'channel_quota' => 100,
+                    ]
+                );
+
+                $yandexProductIds = \App\Models\ProductSalesChannel::query()
+                    ->where('shop_id', $shop->id)
+                    ->where('channel', 'yandex_market')
+                    ->where('is_enabled', true)
+                    ->pluck('product_id');
+
+                foreach ($yandexProductIds as $productId) {
+                    \App\Jobs\PushProductToYandex::dispatch((int) $productId, $shop->id);
+                }
+
+                \App\Jobs\DistributeStockToChannels::dispatch($shop);
+            }
+
+            try {
+                app(\App\Services\LedgerService::class)->record($shop, 'YANDEX_MARKET_LEGAL_VERIFIED', $shop, [
+                    'business_id' => $shop->business_id,
+                    'campaign_id' => $shop->campaign_id,
+                    'verified' => $verification['verified'],
+                    'matches' => $verification['matches'],
+                ]);
+            } catch (\Throwable $ledgerException) {
+                report($ledgerException);
+            }
+
+            return response()->json([
+                'success' => true,
+                'verified' => $verification['verified'],
+                'verification' => $verification,
+                'shop' => [
+                    'id' => $shop->id,
+                    'name' => $shop->name,
+                    'business_id' => $shop->business_id,
+                    'campaign_id' => $shop->campaign_id,
+                    'ym_warehouse_id' => $shop->ym_warehouse_id,
+                    'notification_url' => url('/api/ym/'.$shop->notification_token.'/notification'),
+                    'is_configured' => $shop->isYandexMarketActive(),
+                    'legal_verified' => $shop->isYandexMarketVerified(),
+                ],
+            ], $verification['verified'] ? 200 : 422);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'verified' => false,
+                'error' => 'Не удалось проверить юрлицо Yandex Market.',
+                'message' => app()->hasDebugModeEnabled() ? $exception->getMessage() : null,
+            ], 422);
+        }
+    }
+
+    public function getYandexMarketWarehouses(Request $request, $id)
+    {
+        $user = Auth::user();
+        $legalEntity = $user ? $this->currentLegalEntity($user) : null;
+
+        if (!$legalEntity) {
+            return response()->json(['error' => 'Организация не найдена.'], 404);
+        }
+
+        $shop = $legalEntity->shops()->find($id);
+        if (!$shop) {
+            return response()->json(['error' => 'Магазин не найден.'], 404);
+        }
+
+        $validated = $request->validate([
+            'business_id' => 'required|integer',
+            'campaign_id' => 'required|integer',
+            'api_key' => 'nullable|string',
+        ]);
+
+        $probeShop = $shop->replicate();
+        $probeShop->business_id = $validated['business_id'];
+        $probeShop->campaign_id = $validated['campaign_id'];
+        if ($request->filled('api_key')) {
+            $probeShop->api_key = $validated['api_key'];
+        }
+
+        if (blank($probeShop->api_key)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Введите API Key или сохраните его перед загрузкой складов.',
+            ], 422);
+        }
+
+        try {
+            $warehouses = (new \App\Http\Services\YmService($probeShop))->getWarehouses();
+
+            return response()->json([
+                'success' => true,
+                'warehouses' => collect($warehouses)->map(fn (array $warehouse): array => [
+                    'id' => (int) ($warehouse['id'] ?? 0),
+                    'name' => (string) ($warehouse['name'] ?? 'Yandex Market'),
+                ])->filter(fn (array $warehouse): bool => $warehouse['id'] > 0)->values(),
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Не удалось получить склады Yandex Market.',
+                'message' => app()->hasDebugModeEnabled() ? $exception->getMessage() : null,
+            ], 422);
+        }
+    }
+
     /**
      * Get B2B Notifications for the authenticated user and their linked seller profile.
      */
@@ -1548,7 +1960,7 @@ class PartnerDashboardController extends Controller
         $user = Auth::user();
         if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
 
-        $seller = \App\Models\Seller::findByEmail($user->email);
+        $seller = $user->primarySellerAccount();
 
         $notifications = collect();
         if ($user) {
@@ -1598,7 +2010,7 @@ class PartnerDashboardController extends Controller
         $user = Auth::user();
         if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
 
-        $seller = \App\Models\Seller::findByEmail($user->email);
+        $seller = $user->primarySellerAccount();
 
         if ($user) {
             $user->unreadNotifications->markAsRead();
@@ -1618,7 +2030,7 @@ class PartnerDashboardController extends Controller
         $user = Auth::user();
         if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
 
-        $seller = \App\Models\Seller::findByEmail($user->email);
+        $seller = $user->primarySellerAccount();
 
         $notification = null;
         if ($user) {
@@ -1658,7 +2070,7 @@ class PartnerDashboardController extends Controller
             $query->where('region_id', $request->region_id);
         }
 
-        if ($request->filled('catalog_group_id')) {
+        if ($request->filled('catalog_group_id') && $request->input('catalog_group_id') !== '__all') {
             $catalogFilter = (string) $request->input('catalog_group_id');
             if ($catalogFilter === 'unmapped') {
                 $query->where(function ($unmappedQuery): void {
@@ -1776,6 +2188,15 @@ class PartnerDashboardController extends Controller
         }
 
         $selectedChannels = \App\Support\SalesChannels::normalizeSelection($request->sales_channels);
+        $unavailableChannels = collect($selectedChannels)
+            ->reject(fn (string $channel) => \App\Support\SalesChannels::isChannelConfigured($channel, $shop))
+            ->values();
+        if ($unavailableChannels->isNotEmpty()) {
+            return response()->json([
+                'error' => 'Выбранный канал еще не активирован: '.$unavailableChannels->implode(', ').'. Проверьте интеграцию и склад канала.',
+            ], 422);
+        }
+
         $count = (int) $request->count;
         $amount = $request->amount ? (float) $request->amount : null;
         $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method', 'rub_token'));
@@ -2630,8 +3051,8 @@ class PartnerDashboardController extends Controller
 
                 $replenishedVouchers = data_get($replenishBlock->payload, 'vouchers', []);
                 $voucherKeys = [];
-                $masterWarehouse = \App\Models\Warehouse::where('shop_id', $shop->id)->where('is_main', true)->first()
-                    ?? \App\Models\Warehouse::where('shop_id', $shop->id)->first();
+                $masterWarehouse = app(\App\Services\SellerDistributionCenterService::class)
+                    ->masterWarehouseForShop($shop);
 
                 for ($i = 0; $i < $quantity; $i++) {
                     $voucherToken = \App\Helpers\GenerateSecureCode::generate($shop->voucher_prefix);
@@ -2772,8 +3193,8 @@ class PartnerDashboardController extends Controller
             $this->meterStorefrontOrderTokenomics($legalEntity, $shop, $order, $totalCostRub, $quantity, $paymentMethod);
 
             $voucherKeys = [];
-            $masterWarehouse = \App\Models\Warehouse::where('shop_id', $shop->id)->where('is_main', true)->first()
-                ?? \App\Models\Warehouse::where('shop_id', $shop->id)->first();
+            $masterWarehouse = app(\App\Services\SellerDistributionCenterService::class)
+                ->masterWarehouseForShop($shop);
 
             for ($i = 0; $i < $quantity; $i++) {
                 $voucherToken = \App\Helpers\GenerateSecureCode::generate($shop->voucher_prefix);
@@ -2932,7 +3353,7 @@ class PartnerDashboardController extends Controller
                 continue;
             }
 
-            if (empty($shop->campaign_id) || empty($shop->api_key)) {
+            if (! $shop->isYandexMarketActive()) {
                 continue;
             }
 
@@ -3810,6 +4231,70 @@ class PartnerDashboardController extends Controller
         ]);
     }
 
+    public function getWarehouseStock(Request $request, int $id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Не авторизован'], 401);
+        }
+
+        $legalEntity = $this->currentLegalEntity($user);
+        if (!$legalEntity) {
+            return response()->json(['error' => 'Профиль юридического лица не найден'], 400);
+        }
+
+        $warehouse = \App\Models\Warehouse::query()
+            ->whereKey($id)
+            ->whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))
+            ->first();
+
+        if (!$warehouse) {
+            return response()->json(['error' => 'Склад не найден'], 404);
+        }
+
+        $summary = \App\Models\ProductInventory::query()
+            ->where('warehouse_id', $warehouse->id)
+            ->selectRaw('
+                sku_bidx,
+                min(sku) as sku,
+                count(*) as total_count,
+                sum(case when is_used = 0 and (status is null or status = "available") then 1 else 0 end) as available_count,
+                sum(case when status = "reserved" then 1 else 0 end) as reserved_count,
+                sum(case when is_used = 1 or status = "sold" then 1 else 0 end) as used_count
+            ')
+            ->groupBy('sku_bidx')
+            ->orderByDesc('available_count')
+            ->orderBy('sku')
+            ->get()
+            ->map(function ($row): array {
+                $sku = (string) ($row->sku ?: '—');
+                $product = $sku !== '—' ? \App\Models\Product::queryByOfferSku($sku)->first() : null;
+
+                return [
+                    'sku' => $sku,
+                    'product_name' => $product?->name ?: $sku,
+                    'total_count' => (int) $row->total_count,
+                    'available_count' => (int) $row->available_count,
+                    'reserved_count' => (int) $row->reserved_count,
+                    'used_count' => (int) $row->used_count,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'warehouse' => [
+                'id' => $warehouse->id,
+                'name' => $warehouse->name,
+                'role' => $warehouse->is_main ? 'Мастер-склад' : ($warehouse->channel_label ?? 'Склад канала'),
+                'shop_name' => $warehouse->shop?->name,
+            ],
+            'items' => $summary,
+            'total_sku' => $summary->count(),
+            'total_available' => $summary->sum('available_count'),
+        ]);
+    }
+
     /**
      * createWarehouse
      */
@@ -3838,19 +4323,16 @@ class PartnerDashboardController extends Controller
             return response()->json(['error' => 'Некорректный или чужой магазин'], 400);
         }
 
-        $warehouse = \App\Models\Warehouse::create([
-            'shop_id' => $shop->id,
-            'name' => $request->input('name'),
-            'is_main' => true,
-            'is_active' => true,
-            'channel' => null,
-            'ym_id' => null,
-            'type' => 'master',
-        ]);
+        $warehouse = app(\App\Services\SellerDistributionCenterService::class)
+            ->masterWarehouseForShop($shop);
+
+        if ($request->filled('name')) {
+            $warehouse->forceFill(['name' => $request->input('name')])->save();
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Мастер-склад "' . $warehouse->name . '" успешно создан!',
+            'message' => 'Мастер-склад "' . $warehouse->name . '" готов к работе.',
             'warehouse_id' => $warehouse->id,
         ]);
     }
@@ -4110,7 +4592,7 @@ class PartnerDashboardController extends Controller
                 'status' => $record->status,
                 'order_transaction_ref' => $record->orderItem?->order?->transactionReference(),
                 'source_order_id' => $record->orderItem?->order?->order_id,
-                'order_url' => $record->orderItem?->order ? \App\Filament\Partner\Resources\OrderResource::getUrl('edit', ['record' => $record->orderItem->order->id]) : null,
+                'order_url' => $record->orderItem?->order ? route('partner.dashboard', ['tab' => 'orders', 'order' => $record->orderItem->order->id]) : null,
                 'fingerprint' => $fingerprint,
                 'has_proof' => true
             ];
@@ -4157,7 +4639,7 @@ class PartnerDashboardController extends Controller
                 'created_at_formatted' => $voucher->created_at ? $voucher->created_at->format('d.m.Y H:i:s') : '—',
                 'order_transaction_ref' => $voucher->orderItem?->order?->transactionReference(),
                 'source_order_id' => $voucher->orderItem?->order?->order_id,
-                'order_url' => $voucher->orderItem?->order ? \App\Filament\Partner\Resources\OrderResource::getUrl('edit', ['record' => $voucher->orderItem->order->id]) : null,
+                'order_url' => $voucher->orderItem?->order ? route('partner.dashboard', ['tab' => 'orders', 'order' => $voucher->orderItem->order->id]) : null,
                 'fingerprint' => $latestLedger ? $latestLedger->fingerprint : null,
                 'ledger_signature' => $latestLedger ? $latestLedger->signature : null,
                 'ledger_created' => $latestLedger && $latestLedger->created_at ? $latestLedger->created_at->format('d.m.Y H:i:s') : null,

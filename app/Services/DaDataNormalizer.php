@@ -22,13 +22,25 @@ class DaDataNormalizer
             'ogrn' => $data['ogrn'] ?? ($data['ogrnip'] ?? null),
             'kpp' => $data['kpp'] ?? null,
             'address' => $data['address']['value'] ?? ($data['address']['unrestricted_value'] ?? null),
-            'management' => $data['management']['name'] ?? null,
+            'management' => $data['management']['name'] ?? self::fio($data),
+            'fio' => self::fio($data),
             'status' => $data['state']['status'] ?? 'UNKNOWN',
             'is_active' => ($data['state']['status'] ?? '') === 'ACTIVE',
             'is_ip' => $isIP,
             'tax_system' => $taxSystem,
             'raw_type' => $data['type'] ?? null,
         ];
+    }
+
+    private static function fio(array $data): ?string
+    {
+        $name = trim(implode(' ', array_filter([
+            $data['fio']['surname'] ?? null,
+            $data['fio']['name'] ?? null,
+            $data['fio']['patronymic'] ?? null,
+        ])));
+
+        return $name !== '' ? $name : null;
     }
 
     /**

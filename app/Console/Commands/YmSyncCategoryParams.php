@@ -94,7 +94,7 @@ class YmSyncCategoryParams extends Command
     {
         $parameters = $service->getCategoryParameters((int) $category->ym_id);
 
-        // Normalize raw API data into a clean format for the Filament form builder
+        // Normalize raw API data into a clean format for our category parameter schema.
         $schema = collect($parameters)->map(fn ($param) => [
             'id'           => $param['id'],
             'name'         => $param['name'],

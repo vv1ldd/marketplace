@@ -892,9 +892,32 @@
             }
             .col-3 { grid-column: span 3; }
             .col-4 { grid-column: span 4; }
-            .col-8 { grid-column: span 8; }
+            .col-5 { grid-column: span 5; }
             .col-6 { grid-column: span 6; }
+            .col-7 { grid-column: span 7; }
+            .col-8 { grid-column: span 8; }
             .col-12 { grid-column: span 12; }
+
+            #integration-detail-view {
+                width: 100%;
+                max-width: 100%;
+            }
+            #integration-detail-view .integration-detail-panel {
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            #integration-detail-view .grid-12 > [class*="col-"] {
+                min-width: 0;
+            }
+            .yandex-settings-form-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+            .yandex-settings-form-grid .field-span-2 {
+                grid-column: span 2;
+            }
 
             /* SPA Pane Management */
             .tab-pane {
@@ -1142,6 +1165,19 @@
                     grid-template-columns: 1fr;
                 }
             }
+            @media (max-width: 960px) {
+                .col-5,
+                .col-7,
+                .col-8 {
+                    grid-column: span 12;
+                }
+                .yandex-settings-form-grid {
+                    grid-template-columns: 1fr;
+                }
+                .yandex-settings-form-grid .field-span-2 {
+                    grid-column: span 1;
+                }
+            }
             @media (max-width: 860px) {
                 .balance-summary {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1158,7 +1194,9 @@
                 }
                 .col-3,
                 .col-4,
+                .col-5,
                 .col-6,
+                .col-7,
                 .col-8,
                 .col-12 {
                     grid-column: span 1;
@@ -1684,11 +1722,11 @@
                                     Доступ к API
                                 </div>
                                 <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; margin-top: 10px;">
-                                    Используйте API-токен для прямой интеграции вашей CMS или ERP-системы с ядром Wildflow. Все запросы должны быть подписаны этим токеном.
+                                    Используйте API-токен для прямой интеграции вашей CMS или ERP-системы с ядром Meanly. Все запросы должны быть подписаны этим токеном.
                                 </div>
                                 
                                 <div style="display: flex; flex-direction: column; gap: 8px;">
-                                    <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase;">Wildflow API Token</label>
+                                    <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase;">Meanly API Token</label>
                                     <div style="display: flex; gap: 8px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-card); align-items: center; justify-content: space-between;">
                                         <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--primary); letter-spacing: 1.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 75%;" id="dashboard-api-token-display">
                                             ••••••••••••••••••••••••
@@ -1827,19 +1865,28 @@
 
                 <!-- Tab: Storefront (B2B Showcase) -->
                 <div class="tab-pane" id="tab-storefront">
+                    @if($shops->isEmpty())
+                        <div class="card-neo" style="margin-bottom: 1.25rem; padding: 18px; display:flex; justify-content:space-between; align-items:center; gap: 14px; flex-wrap:wrap; background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.28);">
+                            <div>
+                                <div style="font-size: 0.95rem; font-weight: 900; color: var(--text-main);">Готовим центр дистрибуции</div>
+                                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">У продавца должен быть один мастер-склад. Обновите страницу, если он еще не появился.</div>
+                            </div>
+                            <button type="button" onclick="window.location.reload()" class="btn-neo" style="font-size: 0.8rem; font-weight: 900; padding: 9px 14px;">Обновить</button>
+                        </div>
+                    @endif
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 15px;">
                         <div>
                             <div style="font-size: 1.4rem; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px;">
                                 <i class="ph-bold ph-storefront" style="color: var(--primary);"></i>
                                 Каталог поставщиков для селлеров
                             </div>
-                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0 0;">Сорсинг провайдерских SKU, canonical identity, политика индексации и закупка стока для ваших каналов продаж.</p>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0 0 0;">Здесь можно выбрать товары поставщиков и добавить их в продажу в своих магазинах.</p>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <button type="button" id="storefront-back-to-categories" onclick="showStorefrontCategories()" class="btn-neo" style="display: none; font-size: 0.8rem; font-weight: 800; padding: 8px 12px;">
                                 ← Категории
                             </button>
-                            <input type="text" id="storefront-search" oninput="filterStorefront()" placeholder="Поиск категории..." class="input-neo" style="width: 220px; font-size: 0.8rem; padding: 8px 12px;">
+                            <input type="text" id="storefront-search" oninput="filterStorefront()" placeholder="Поиск категории или товара..." class="input-neo" style="width: 240px; font-size: 0.8rem; padding: 8px 12px;">
                             <span id="storefront-selected-category-label" style="display: none; font-size: 0.75rem; color: var(--text-muted); font-weight: 800;"></span>
                         </div>
                     </div>
@@ -1860,7 +1907,8 @@
                             </button>
                         @empty
                             <div class="col-12 card-neo" style="text-align: center; padding: 4rem;">
-                                <p style="color: var(--text-muted);">Категории пока не собраны. Запустите синхронизацию каталога.</p>
+                                <p style="color: var(--text-muted); margin-bottom: 14px;">Пока нет активных товаров поставщиков.</p>
+                                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 0;">Когда поставщики или локальный vault-каталог появятся в системе, здесь будут карточки товаров для продажи.</p>
                             </div>
                         @endforelse
                     </div>
@@ -1872,7 +1920,7 @@
                                 $brandName = $prod['brand_name'] ?: 'Другое';
                                 $regionName = $prod['region_code'] ?? 'GLOBAL';
                                 $reviewRequired = (bool) data_get($prod, 'curation.review_required', false);
-                                $actionEnabled = (bool) data_get($prod, 'action.enabled', true);
+                                $actionEnabled = (bool) data_get($prod, 'action.enabled', true) && $shops->isNotEmpty();
                                 $identityConfidence = data_get($prod, 'canonical_identity.confidence', 'low');
                                 $indexingSurface = data_get($prod, 'indexing_policy.surface', 'internal_review');
                                 $sellerAvailability = data_get($prod, 'seller_offer_availability.availability', 'not_listed');
@@ -1935,7 +1983,9 @@
                                     </div>
                                     
                                     <button @if($actionEnabled) onclick="openStorefrontPurchaseModal(@js($prod), {{ $isVault ? 'true' : 'false' }}, this)" @else disabled @endif class="btn-neo {{ $isVault && $actionEnabled ? 'btn-primary-neo' : '' }}" style="width: 100%; font-size: 0.8rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px;">
-                                        @if(!$actionEnabled)
+                                        @if($shops->isEmpty())
+                                            <i class="ph-bold ph-storefront"></i> Готовим мастер-склад
+                                        @elseif(!$actionEnabled)
                                             <i class="ph-bold ph-warning"></i> Требуется ревью
                                         @elseif($isVault)
                                             <i class="ph-bold ph-lightning"></i> Закупить сток
@@ -1976,7 +2026,84 @@
                         </button>
                     </div>
 
-                    <div class="grid-12">
+                    <div id="integration-detail-view" style="display: none; width: 100%; box-sizing: border-box;">
+                        <button type="button" onclick="closeIntegrationDetail()" class="btn-neo" style="margin-bottom: 14px; padding: 7px 12px; font-size: 0.74rem; font-weight: 800; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="ph-bold ph-arrow-left"></i> Все интеграции
+                        </button>
+
+                    <div class="grid-12" style="gap: 14px;">
+                        <div class="col-12">
+                            <div class="card-neo integration-detail-panel" id="yandex-settings-panel" style="display: none; width: 100%; box-sizing: border-box; margin-bottom: 2rem; padding: 20px; border: 1px solid rgba(245, 158, 11, 0.28); background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(255,255,255,0.015));">
+                        <input type="hidden" id="yandex-shop-id">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px;">
+                            <div>
+                                <div style="font-size: 1.05rem; font-weight: 950; color: var(--text-main); letter-spacing: -0.02em;" id="yandex-settings-title">Настройка Yandex Market</div>
+                                <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">Отдельная настройка канала без попапа. Сохраняем API, затем backend сам проверяет юрлицо по JSON-отчету Yandex.</div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span class="badge-neo" id="yandex-legal-status-badge" style="background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 0.68rem;">Not checked</span>
+                            </div>
+                        </div>
+
+                        <div class="grid-12" style="gap: 14px; align-items: start;">
+                            <div class="col-7 yandex-settings-form-grid">
+                                <div>
+                                    <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Business ID</label>
+                                    <input type="number" id="yandex-business-id" class="input-neo" placeholder="1002345">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Campaign ID</label>
+                                    <input type="number" id="yandex-campaign-id" class="input-neo" placeholder="2199042">
+                                </div>
+                                <div class="field-span-2">
+                                    <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Warehouse ID на Yandex Market</label>
+                                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                        <input type="number" id="yandex-warehouse-id" class="input-neo" placeholder="ID склада FBS/DBS" style="flex: 1; min-width: 180px;">
+                                        <button type="button" onclick="fetchYandexMarketWarehouses()" class="btn-neo" style="white-space: nowrap; padding: 8px 10px; font-size: 0.72rem;">Получить склады</button>
+                                    </div>
+                                    <select id="yandex-warehouse-select" class="input-neo" style="display:none; width: 100%; margin-top: 8px; font-size: 0.78rem;" onchange="selectYandexWarehouseFromList()"></select>
+                                    <div id="yandex-warehouse-status" style="font-size: 0.66rem; color: var(--text-muted); margin-top: 5px;">Нужен для отправки остатков из мастер-склада в Маркет.</div>
+                                </div>
+                                <div class="field-span-2">
+                                    <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 6px;">API Key (Bearer Token)</label>
+                                    <input type="password" id="yandex-api-key" class="input-neo" placeholder="AQAAAAA...">
+                                </div>
+                            </div>
+
+                            <div class="col-5" style="border: 1px solid var(--border-card); border-radius: 14px; padding: 14px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 12px; min-width: 0;">
+                                <div>
+                                    <div style="font-size: 0.82rem; font-weight: 950; color: var(--text-main); margin-bottom: 6px;">Статус проверки юрлица</div>
+                                    <div style="font-size: 0.7rem; color: var(--text-muted); line-height: 1.45;">Meanly сверяет реквизиты на backend: данные вашего юрлица + JSON-отчет Yandex Market по стоимости услуг.</div>
+                                </div>
+                                <div style="font-size: 0.68rem; color: var(--text-muted); line-height: 1.45;">
+                                    Юрлицо в Meanly: {{ $legalEntity->short_name ?: $legalEntity->name }} · ИНН {{ $legalEntity->inn }}@if($legalEntity->kpp) · КПП {{ $legalEntity->kpp }}@endif
+                                </div>
+                                <div id="yandex-legal-status" style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.5;">Фоновая проверка запустится после сохранения API-данных и склада.</div>
+                                <button type="button" id="yandex-support-action" onclick="openYandexSupportFromSettings()" class="btn-neo" style="display: none; justify-content: center; font-size: 0.74rem; font-weight: 850; padding: 8px 10px;">Обратиться в поддержку</button>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; flex-wrap: wrap;">
+                            <button type="button" onclick="closeIntegrationDetail()" class="btn-neo">Отмена</button>
+                            <button type="button" onclick="submitSaveYandexMarket()" class="btn-neo btn-primary-neo">Сохранить и запустить проверку</button>
+                        </div>
+                    </div>
+
+                    <div class="card-neo integration-detail-panel" id="marketplace-settings-panel" style="display: none; width: 100%; box-sizing: border-box; margin-bottom: 2rem; padding: 20px;">
+                        <input type="hidden" id="marketplace-shop-id">
+                        <input type="hidden" id="marketplace-platform-type">
+                        <div style="font-size: 1.05rem; font-weight: 950; color: var(--text-main); letter-spacing: -0.02em; margin-bottom: 16px;" id="marketplace-settings-title">Настройка интеграции</div>
+                        <div style="display: flex; flex-direction: column; gap: 15px;" id="marketplace-fields-container"></div>
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; flex-wrap: wrap;">
+                            <button type="button" onclick="closeIntegrationDetail()" class="btn-neo">Отмена</button>
+                            <button type="button" onclick="submitSaveMarketplace()" class="btn-neo btn-primary-neo">Сохранить интеграцию 🔌</button>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <div class="grid-12" id="shops-integrations-list">
                         @forelse($shops as $sh)
                             <div class="col-12 card-neo" style="margin-bottom: 2rem; display: flex; flex-direction: column; gap: 20px;">
                                 <!-- Top Bar of Shop Card -->
@@ -2002,6 +2129,11 @@
                                     
                                     <div class="grid-12" style="gap: 15px;">
                                         <!-- Yandex Market -->
+                                        @php
+                                            $yandexMarketActive = $sh->isYandexMarketActive();
+                                            $yandexLegalVerified = $sh->isYandexMarketVerified();
+                                            $yandexHasCredentials = filled($sh->business_id) && filled($sh->campaign_id) && filled($sh->api_key) && filled($sh->ym_warehouse_id);
+                                        @endphp
                                         <div class="col-4 card-neo" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-card); padding: 15px; display: flex; flex-direction: column; justify-content: space-between; gap: 15px; min-height: 140px;">
                                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                                 <div>
@@ -2010,12 +2142,12 @@
                                                     </div>
                                                     <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Синхронизация по API FBS/DBS</div>
                                                 </div>
-                                                <span class="badge-neo" style="{{ $sh->campaign_id ? 'background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);' : 'background: rgba(255,255,255,0.02); color: var(--text-muted);' }} font-size: 0.65rem; padding: 1px 6px;">
-                                                    {{ $sh->campaign_id ? 'Active' : 'Offline' }}
+                                                <span class="badge-neo" style="{{ $yandexMarketActive ? 'background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);' : ($yandexHasCredentials ? 'background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2);' : 'background: rgba(255,255,255,0.02); color: var(--text-muted);') }} font-size: 0.65rem; padding: 1px 6px;">
+                                                    {{ $yandexMarketActive ? 'Active' : ($yandexHasCredentials ? 'Needs legal check' : 'Offline') }}
                                                 </span>
                                             </div>
-                                            <button onclick="openYandexMarketModal({{ $sh->id }}, '{{ $sh->name }}', '{{ $sh->business_id }}', '{{ $sh->campaign_id }}')" class="btn-neo" style="width: 100%; font-size: 0.72rem; padding: 6px; font-weight: 750;">
-                                                {{ $sh->campaign_id ? 'Настроить API ⚙️' : 'Подключить 🔌' }}
+                                            <button onclick="openYandexMarketModal({{ $sh->id }}, @js($sh->name), @js($sh->business_id), @js($sh->campaign_id), @js($sh->ym_warehouse_id), @js($sh->ym_legal_verification), {{ $yandexLegalVerified ? 'true' : 'false' }})" class="btn-neo" style="width: 100%; font-size: 0.72rem; padding: 6px; font-weight: 750;">
+                                                {{ $yandexMarketActive ? 'Настройки канала ⚙️' : ($yandexHasCredentials ? 'Открыть проверку 🧾' : 'Подключить 🔌') }}
                                             </button>
                                         </div>
 
@@ -2201,30 +2333,56 @@
                                 <thead>
                                     <tr>
                                         <th>Название склада</th>
-                                        <th>Провайдер</th>
-                                        <th>Тип API</th>
-                                        <th>Адрес шлюза</th>
-                                        <th>Доступный объем</th>
-                                        <th>Пинг</th>
+                                        <th>Роль</th>
+                                        <th>Центр</th>
+                                        <th>Доступно кодов</th>
+                                        <th>Статус</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse($warehouses as $wh)
-                                        <tr>
-                                            <td style="font-weight: 700;">{{ $wh->name }}</td>
-                                            <td>{{ $wh->provider ?? 'Wildflow' }}</td>
-                                            <td style="font-family: monospace; font-size: 0.75rem;">ACTIVE_V3</td>
-                                            <td style="font-family: monospace; font-size: 0.75rem;">{{ $wh->api_url ?? 'internal-mesh' }}</td>
-                                            <td style="font-family: var(--font-tech); font-weight: 800; color: var(--primary);">{{ $wh->capacity ?? 'Unlimited' }} ед.</td>
-                                            <td><span class="badge-neo badge-green">4ms (ONLINE)</span></td>
+                                        <tr onclick="openWarehouseStock({{ $wh->id }})" style="cursor: pointer;">
+                                            <td style="font-weight: 700;">{{ $wh->name }} <span style="color: var(--text-muted); font-size: 0.72rem; font-weight: 800;">Открыть</span></td>
+                                            <td>{{ $wh->is_main ? 'Мастер-склад' : ($wh->channel_label ?? 'Склад канала') }}</td>
+                                            <td>{{ $wh->shop?->name ?? 'Центр дистрибуции' }}</td>
+                                            <td style="font-family: var(--font-tech); font-weight: 800; color: var(--primary);">{{ $wh->stocks()->sum('count') }} шт.</td>
+                                            <td>
+                                                <span class="badge-neo {{ $wh->is_active ? 'badge-green' : '' }}">
+                                                    {{ $wh->is_active ? 'Активен' : 'Отключен' }}
+                                                </span>
+                                            </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Склады провайдеров не привязаны.</td>
+                                            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">Мастер-склад еще не создан.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
                             </table>
+                        </div>
+                        <div id="warehouse-stock-panel" style="display:none; margin-top: 18px; border-top: 2px solid var(--border-card); padding-top: 18px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px; flex-wrap:wrap; margin-bottom: 12px;">
+                                <div>
+                                    <div id="warehouse-stock-title" style="font-size: 1rem; font-weight: 900; color: var(--text-main);">Содержимое склада</div>
+                                    <div id="warehouse-stock-subtitle" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;"></div>
+                                </div>
+                                <button type="button" class="btn-neo" onclick="closeWarehouseStock()" style="font-size: 0.75rem; padding: 7px 10px;">Закрыть</button>
+                            </div>
+                            <div class="neo-table-container">
+                                <table class="neo-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Товар</th>
+                                            <th>SKU</th>
+                                            <th>Доступно</th>
+                                            <th>В резерве</th>
+                                            <th>Ушло</th>
+                                            <th>Всего</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="warehouse-stock-body"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2290,7 +2448,7 @@
                                     @forelse($vouchers as $vch)
                                         <tr>
                                             <td style="font-family: var(--font-tech); font-weight: 700;">{{ $vch->transactionReference() }}</td>
-                                            <td>{{ $vch->warehouse->name ?? 'Wildflow Transit' }}</td>
+                                            <td>{{ $vch->warehouse->name ?? 'Meanly Transit' }}</td>
                                             <td>{{ $vch->shop->name ?? '—' }}</td>
                                             <td>
                                                 <span style="font-family: monospace; font-size:0.75rem; background:rgba(0,0,0,0.25); padding: 4px 8px; border-radius: 4px;">
@@ -2832,14 +2990,14 @@
 
                     <!-- Select Shop Dropdown -->
                     <div>
-                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 700; text-transform: uppercase;">Магазин и мастер-склад 🏪</label>
-                        <select id="storefront-purchase-shop-id" class="input-neo" style="width: 100%; font-size: 0.85rem; padding: 10px; cursor: pointer;" onchange="updateStorefrontWarehouseHint()">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 700; text-transform: uppercase;">Центр дистрибуции 🏪</label>
+                        <select id="storefront-purchase-shop-id" class="input-neo" style="width: 100%; font-size: 0.85rem; padding: 10px; cursor: pointer;" onchange="updateStorefrontWarehouseHint(); updateStorefrontSalesChannelAvailability();">
                             @foreach($shops as $sh)
-                                <option value="{{ $sh->id }}">{{ $sh->name }} ({{ $sh->shop_region ?? 'RU' }})</option>
+                                <option value="{{ $sh->id }}" data-yandex-active="{{ $sh->isYandexMarketActive() ? '1' : '0' }}">{{ $sh->name }} ({{ $sh->shop_region ?? 'RU' }})</option>
                             @endforeach
                         </select>
                         <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px;" id="storefront-master-warehouse-hint">
-                            Ваучеры будут положены в мастер-склад выбранного магазина.
+                            Купленные коды попадут в единый мастер-склад продавца.
                         </div>
                     </div>
 
@@ -2898,8 +3056,8 @@
                                 <input type="checkbox" class="storefront-sales-channel-checkbox" value="meanly_storefront" checked>
                                 <span style="font-size: 0.78rem; font-weight: 800;">Meanly витрина</span>
                             </label>
-                            <label class="card-neo" style="padding: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" class="storefront-sales-channel-checkbox" value="yandex_market" checked>
+                            <label class="card-neo" id="storefront-yandex-channel-label" style="padding: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="storefront-channel-yandex" class="storefront-sales-channel-checkbox" value="yandex_market">
                                 <span style="font-size: 0.78rem; font-weight: 800;">Yandex Market</span>
                             </label>
                             <label class="card-neo" style="padding: 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -2910,6 +3068,7 @@
                         <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px;">
                             Неконфигурированные каналы будут пропущены автоматически.
                         </div>
+                        <div id="storefront-yandex-channel-hint" style="font-size: 0.68rem; color: var(--text-muted); margin-top: 7px;"></div>
                     </div>
 
                     <!-- Total cost calculator -->
@@ -2999,48 +3158,6 @@
                 <div class="modal-footer">
                     <button onclick="closeDepositModal()" class="btn-neo">Отмена</button>
                     <button onclick="submitCreateDepositIntent()" class="btn-neo btn-primary-neo">Сгенерировать интент 💳</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal 2: Custom Yandex Market configuration modal dialog -->
-        <div class="modal-backdrop" id="yandex-modal-backdrop">
-            <input type="hidden" id="yandex-shop-id">
-            <div class="modal-content">
-                <div class="modal-header" id="yandex-modal-title">Настройка Yandex Market</div>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <div>
-                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Business ID</label>
-                        <input type="number" id="yandex-business-id" class="input-neo" placeholder="1002345">
-                    </div>
-                    <div>
-                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Campaign ID</label>
-                        <input type="number" id="yandex-campaign-id" class="input-neo" placeholder="2199042">
-                    </div>
-                    <div>
-                        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">API Key (Bearer Token)</label>
-                        <input type="password" id="yandex-api-key" class="input-neo" placeholder="AQAAAAA...">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button onclick="closeYandexMarketModal()" class="btn-neo">Отмена</button>
-                    <button onclick="submitSaveYandexMarket()" class="btn-neo btn-primary-neo">Сохранить 🏪</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Universal Marketplace Integration Modal -->
-        <div class="modal-backdrop" id="marketplace-modal-backdrop">
-            <input type="hidden" id="marketplace-shop-id">
-            <input type="hidden" id="marketplace-platform-type">
-            <div class="modal-content" style="width: 450px; max-width: 90%;">
-                <div class="modal-header" id="marketplace-modal-title">Настройка интеграции</div>
-                <div style="display: flex; flex-direction: column; gap: 15px;" id="marketplace-fields-container">
-                    <!-- Dynamic fields populated by JS -->
-                </div>
-                <div class="modal-footer">
-                    <button onclick="closeMarketplaceModal()" class="btn-neo">Отмена</button>
-                    <button onclick="submitSaveMarketplace()" class="btn-neo btn-primary-neo">Сохранить интеграцию 🔌</button>
                 </div>
             </div>
         </div>
@@ -4459,6 +4576,9 @@
                     'API_APPLICATION_CREATED': 'Интеграция API активирована',
                     'API_APPLICATION_DELETED': 'Удален ключ доступа API',
                     'YANDEX_MARKET_CONFIGURED': 'Синхронизация с Yandex Market',
+                    'YANDEX_MARKET_LEGAL_ATTENTION': 'Yandex Market: требует внимания',
+                    'YANDEX_MARKET_LEGAL_REJECTED': 'Yandex Market: проверка не прошла',
+                    'YANDEX_MARKET_LEGAL_VERIFIED': 'Yandex Market: проверка прошла',
                     'ORDER_FUNDS_CAPTURED': 'Списание за выкуп карт (Заказ)',
                     'ORDER_FUNDS_RESERVED': 'Блокировка под выкуп (Холд)'
                 };
@@ -4663,18 +4783,67 @@
                 renderFinanceTab();
             }
 
-            // --- 🏪 Yandex Market Configuration Modal ---
-            function openYandexMarketModal(shopId, shopName, businessId, campaignId) {
+            // --- Integration detail view (list ↔ details) ---
+            function closeAllIntegrationPanels() {
+                document.querySelectorAll('.integration-detail-panel').forEach((panel) => {
+                    panel.style.display = 'none';
+                });
+            }
+
+            function showIntegrationsList() {
+                closeAllIntegrationPanels();
+                const detailView = document.getElementById('integration-detail-view');
+                const listView = document.getElementById('shops-integrations-list');
+                if (detailView) detailView.style.display = 'none';
+                if (listView) listView.style.display = '';
+            }
+
+            function showIntegrationDetail(panelId) {
+                closeAllIntegrationPanels();
+                const detailView = document.getElementById('integration-detail-view');
+                const listView = document.getElementById('shops-integrations-list');
+                const panel = document.getElementById(panelId);
+                if (listView) listView.style.display = 'none';
+                if (detailView) detailView.style.display = 'block';
+                if (panel) {
+                    panel.style.display = 'block';
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+
+            function closeIntegrationDetail() {
+                showIntegrationsList();
+            }
+
+            // --- 🏪 Yandex Market Configuration Panel ---
+            let activeYandexShopName = '';
+
+            function openYandexMarketModal(shopId, shopName, businessId, campaignId, warehouseId, verification = null, legalVerified = false) {
                 document.getElementById('yandex-shop-id').value = shopId;
-                document.getElementById('yandex-modal-title').innerText = `Настройка Yandex Market — ${shopName}`;
+                activeYandexShopName = shopName || '';
+                document.getElementById('yandex-settings-title').innerText = `Настройка Yandex Market — ${shopName}`;
                 document.getElementById('yandex-business-id').value = businessId || '';
                 document.getElementById('yandex-campaign-id').value = campaignId || '';
+                document.getElementById('yandex-warehouse-id').value = warehouseId || '';
+                const warehouseSelect = document.getElementById('yandex-warehouse-select');
+                if (warehouseSelect) {
+                    warehouseSelect.style.display = 'none';
+                    warehouseSelect.innerHTML = '';
+                }
+                const warehouseStatus = document.getElementById('yandex-warehouse-status');
+                if (warehouseStatus) {
+                    warehouseStatus.style.color = 'var(--text-muted)';
+                    warehouseStatus.innerText = warehouseId
+                        ? `Привязан склад Yandex Market: ${warehouseId}`
+                        : 'Нужен для отправки остатков из мастер-склада в Маркет.';
+                }
                 document.getElementById('yandex-api-key').value = '';
-                document.getElementById('yandex-modal-backdrop').style.display = 'flex';
+                renderYandexLegalStatus(verification, legalVerified);
+                showIntegrationDetail('yandex-settings-panel');
             }
 
             function closeYandexMarketModal() {
-                document.getElementById('yandex-modal-backdrop').style.display = 'none';
+                closeIntegrationDetail();
             }
 
             async function parseJsonResponse(response) {
@@ -4690,10 +4859,190 @@
                 }
             }
 
+            function classifyYandexVerificationTier(verification = null, legalVerified = false) {
+                if (!verification) {
+                    return 'pending';
+                }
+
+                const tier = verification.verification_tier;
+                if (legalVerified || verification.verified || tier === 'approved') {
+                    return 'approved';
+                }
+
+                const background = verification.background_services_report || {};
+                if (['queued', 'processing'].includes(background.status)) {
+                    return 'processing';
+                }
+
+                if (background.status === 'timeout' || tier === 'attention' || verification.status === 'review_required' || background.status === 'review_required') {
+                    return 'attention';
+                }
+
+                if (tier === 'rejected' || verification.status === 'rejected' || background.status === 'failed') {
+                    return 'rejected';
+                }
+
+                return 'pending';
+            }
+
+            function renderYandexLegalStatus(verification = null, legalVerified = false) {
+                const status = document.getElementById('yandex-legal-status');
+                const badge = document.getElementById('yandex-legal-status-badge');
+                const support = document.getElementById('yandex-support-action');
+                if (!status) return;
+
+                if (support) {
+                    support.style.display = 'none';
+                }
+
+                const tier = classifyYandexVerificationTier(verification, legalVerified);
+
+                if (tier === 'pending') {
+                    status.style.color = 'var(--text-muted)';
+                    status.innerHTML = 'Фоновая проверка запустится после сохранения API-данных и склада.';
+                    if (badge) {
+                        badge.style.background = 'rgba(255,255,255,0.03)';
+                        badge.style.color = 'var(--text-muted)';
+                        badge.innerText = 'Not checked';
+                    }
+                    return;
+                }
+
+                const styles = {
+                    approved: {
+                        color: '#10b981',
+                        badgeBg: 'rgba(16, 185, 129, 0.1)',
+                        badgeText: 'Проверка прошла',
+                        message: 'Проверка прошла. Yandex Market активирован.',
+                    },
+                    processing: {
+                        color: '#f59e0b',
+                        badgeBg: 'rgba(245, 158, 11, 0.1)',
+                        badgeText: 'Проверяем',
+                        message: 'Проверяем реквизиты. Обычно это занимает до нескольких минут.',
+                    },
+                    attention: {
+                        color: '#f59e0b',
+                        badgeBg: 'rgba(245, 158, 11, 0.1)',
+                        badgeText: 'Требует внимания',
+                        message: 'Автоматически подтвердить реквизиты не удалось. Нужна ручная проверка или обращение в поддержку.',
+                    },
+                    rejected: {
+                        color: 'var(--rose)',
+                        badgeBg: 'rgba(244, 63, 94, 0.1)',
+                        badgeText: 'Проверка не прошла',
+                        message: 'Реквизиты Yandex Market не совпали с юрлицом Meanly. Интеграция заблокирована.',
+                    },
+                };
+
+                const view = styles[tier] || styles.pending;
+                status.style.color = view.color;
+                status.innerHTML = `<div style="font-weight: 850;">${view.message}</div>`;
+
+                if (badge) {
+                    badge.style.background = view.badgeBg;
+                    badge.style.color = view.color;
+                    badge.innerText = view.badgeText;
+                }
+
+                if (support && (tier === 'attention' || tier === 'rejected')) {
+                    support.style.display = 'flex';
+                }
+            }
+
+            function openYandexSupportFromSettings() {
+                const shopId = document.getElementById('yandex-shop-id').value;
+                document.getElementById('tkt-subject').value = 'Yandex Market: проверка юрлица не прошла';
+                document.getElementById('tkt-shop-id').value = shopId || '';
+                document.getElementById('tkt-message').value = `Нужна помощь с проверкой юрлица для Yandex Market${activeYandexShopName ? ` (${activeYandexShopName})` : ''}. API-данные сохранены, но автоматическая фоновая проверка по отчету Yandex не подтвердила реквизиты.`;
+                openTicketModal();
+            }
+
+            function selectYandexWarehouseFromList() {
+                const select = document.getElementById('yandex-warehouse-select');
+                const input = document.getElementById('yandex-warehouse-id');
+                if (!select || !input) return;
+
+                input.value = select.value || '';
+            }
+
+            async function fetchYandexMarketWarehouses() {
+                const id = document.getElementById('yandex-shop-id').value;
+                const business_id = document.getElementById('yandex-business-id').value;
+                const campaign_id = document.getElementById('yandex-campaign-id').value;
+                const api_key = document.getElementById('yandex-api-key').value;
+                const select = document.getElementById('yandex-warehouse-select');
+                const status = document.getElementById('yandex-warehouse-status');
+
+                if (!business_id || !campaign_id) {
+                    alert('Сначала заполните Business ID и Campaign ID.');
+                    return;
+                }
+
+                if (status) {
+                    status.style.color = 'var(--text-muted)';
+                    status.innerText = 'Запрашиваем склады из Yandex Market...';
+                }
+
+                try {
+                    const response = await fetch(`/partner/dashboard/shop/${id}/yandex-market/warehouses`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            business_id: parseInt(business_id),
+                            campaign_id: parseInt(campaign_id),
+                            api_key: api_key || null,
+                        })
+                    });
+                    const data = await parseJsonResponse(response);
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || data.message || 'Не удалось получить склады');
+                    }
+
+                    const warehouses = data.warehouses || [];
+                    if (warehouses.length === 0) {
+                        if (select) {
+                            select.style.display = 'none';
+                            select.innerHTML = '';
+                        }
+                        if (status) {
+                            status.style.color = 'var(--rose)';
+                            status.innerText = 'Yandex Market не вернул склады для этих credentials.';
+                        }
+                        return;
+                    }
+
+                    if (select) {
+                        select.innerHTML = warehouses.map(warehouse => `<option value="${Number(warehouse.id)}">${escapeHtml(warehouse.name)} · ${Number(warehouse.id)}</option>`).join('');
+                        select.style.display = 'block';
+                        select.value = String(warehouses[0].id);
+                        selectYandexWarehouseFromList();
+                    }
+                    if (status) {
+                        status.style.color = 'var(--green)';
+                        status.innerText = warehouses.length === 1
+                            ? 'Склад найден и подставлен.'
+                            : `Найдено складов: ${warehouses.length}. Выберите нужный склад для остатков.`;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    if (status) {
+                        status.style.color = 'var(--rose)';
+                        status.innerText = e.message || 'Не удалось получить склады Yandex Market.';
+                    }
+                    alert(`Не удалось получить склады: ${e.message}`);
+                }
+            }
+
             async function submitSaveYandexMarket() {
                 const id = document.getElementById('yandex-shop-id').value;
                 const business_id = document.getElementById('yandex-business-id').value;
                 const campaign_id = document.getElementById('yandex-campaign-id').value;
+                const ym_warehouse_id = document.getElementById('yandex-warehouse-id').value;
                 const api_key = document.getElementById('yandex-api-key').value;
 
                 try {
@@ -4707,13 +5056,15 @@
                         body: JSON.stringify({
                             business_id: business_id ? parseInt(business_id) : null,
                             campaign_id: campaign_id ? parseInt(campaign_id) : null,
+                            ym_warehouse_id: ym_warehouse_id ? parseInt(ym_warehouse_id) : null,
                             api_key: api_key || null
                         })
                     });
                     const data = await parseJsonResponse(response);
                     if (response.ok && data.success) {
-                        alert('🏪 Учетные данные Yandex Market успешно привязаны и протестированы!');
-                        closeYandexMarketModal();
+                        if (data.verification) {
+                            renderYandexLegalStatus(data.verification, Boolean(data.shop?.legal_verified));
+                        }
                         window.location.reload();
                     } else {
                         alert(`Ошибка сохранения настроек: ${data.error || data.message || 'неизвестная ошибка'}`);
@@ -4773,7 +5124,7 @@
                 document.getElementById('marketplace-shop-id').value = shopId;
                 document.getElementById('marketplace-platform-type').value = platform;
                 
-                const titleEl = document.getElementById('marketplace-modal-title');
+                const titleEl = document.getElementById('marketplace-settings-title');
                 const containerEl = document.getElementById('marketplace-fields-container');
                 
                 let fieldsHtml = '';
@@ -4848,11 +5199,11 @@
                 }
                 
                 containerEl.innerHTML = fieldsHtml;
-                document.getElementById('marketplace-modal-backdrop').style.display = 'flex';
+                showIntegrationDetail('marketplace-settings-panel');
             }
 
             function closeMarketplaceModal() {
-                document.getElementById('marketplace-modal-backdrop').style.display = 'none';
+                closeIntegrationDetail();
             }
 
             async function submitSaveMarketplace() {
@@ -5180,6 +5531,7 @@
             let storefrontSelectedCategoryId = null;
             let storefrontSelectedCategoryName = '';
             let storefrontRequestSeq = 0;
+            const storefrontHasShops = {{ $shops->isNotEmpty() ? 'true' : 'false' }};
 
             function escapeHtml(value) {
                 return String(value ?? '')
@@ -5200,17 +5552,19 @@
                 const brand = prod.brand_name || 'Другое';
                 const category = prod.category_label || 'Other';
                 const reviewRequired = Boolean(prod?.curation?.review_required);
-                const actionEnabled = prod?.action?.enabled !== false;
+                const actionEnabled = prod?.action?.enabled !== false && storefrontHasShops;
                 const identityConfidence = prod?.canonical_identity?.confidence || 'low';
                 const indexingSurface = prod?.indexing_policy?.surface || prod?.indexing?.surface || 'internal_review';
                 const sellerAvailability = prod?.seller_offer_availability?.availability || 'not_listed';
                 const faceValue = prod.face_value ? ` · Face: ${escapeHtml(prod.face_value)} ${escapeHtml(prod.face_value_currency || prod.currency || '')}` : '';
                 const buttonClass = isVault && actionEnabled ? 'btn-primary-neo' : '';
-                const buttonLabel = !actionEnabled
+                const buttonLabel = !storefrontHasShops
+                    ? '<i class="ph-bold ph-storefront"></i> Готовим мастер-склад'
+                    : (!actionEnabled
                     ? '<i class="ph-bold ph-warning"></i> Требуется ревью'
                     : (isVault
                         ? '<i class="ph-bold ph-lightning"></i> Закупить сток через L1 ⚡'
-                        : '<i class="ph-bold ph-shopping-cart"></i> Закупить сток 🛒');
+                        : '<i class="ph-bold ph-shopping-cart"></i> Закупить сток 🛒'));
                 const badge = isVault
                     ? '<div class="sovereign-glow-badge" style="position: absolute; top: 0; right: 0; background: linear-gradient(90deg, #10b981, #059669); color: #fff; font-size: 0.65rem; font-weight: 900; padding: 4px 12px; border-bottom-left-radius: 12px; box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2); letter-spacing: 0.5px;">MEANLY VAULT</div>'
                     : '';
@@ -5372,7 +5726,9 @@
                 });
 
                 if (searchVal.trim() !== '') params.set('search', searchVal.trim());
-                if (storefrontSelectedCategoryId) params.set('catalog_group_id', String(storefrontSelectedCategoryId));
+                if (storefrontSelectedCategoryId && storefrontSelectedCategoryId !== '__all') {
+                    params.set('catalog_group_id', String(storefrontSelectedCategoryId));
+                }
 
                 try {
                     const response = await fetch(`/partner/dashboard/provider-catalog/data?${params.toString()}`, {
@@ -5411,6 +5767,57 @@
 
                 clearTimeout(storefrontSearchTimer);
                 storefrontSearchTimer = setTimeout(() => loadStorefrontProducts(1, true), 250);
+            }
+
+            async function openWarehouseStock(warehouseId) {
+                const panel = document.getElementById('warehouse-stock-panel');
+                const body = document.getElementById('warehouse-stock-body');
+                const title = document.getElementById('warehouse-stock-title');
+                const subtitle = document.getElementById('warehouse-stock-subtitle');
+
+                if (!panel || !body) return;
+
+                panel.style.display = 'block';
+                body.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 1.5rem;">Загружаем сток...</td></tr>';
+
+                try {
+                    const response = await fetch(`/partner/dashboard/warehouses/${warehouseId}/stock`, {
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    const data = await response.json();
+                    if (!response.ok || data.error) {
+                        throw new Error(data.error || 'Не удалось открыть склад');
+                    }
+
+                    if (title) title.textContent = data.warehouse?.name || 'Содержимое склада';
+                    if (subtitle) {
+                        subtitle.textContent = `${data.warehouse?.role || 'Склад'} · ${data.total_sku || 0} SKU · доступно ${data.total_available || 0} кодов`;
+                    }
+
+                    const items = data.items || [];
+                    if (items.length === 0) {
+                        body.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 1.5rem;">В этом складе пока нет кодов.</td></tr>';
+                        return;
+                    }
+
+                    body.innerHTML = items.map(item => `
+                        <tr>
+                            <td style="font-weight: 800;">${escapeHtml(item.product_name)}</td>
+                            <td style="font-family: var(--font-tech); font-size: 0.75rem;">${escapeHtml(item.sku)}</td>
+                            <td style="font-family: var(--font-tech); font-weight: 900; color: var(--green);">${Number(item.available_count || 0)}</td>
+                            <td>${Number(item.reserved_count || 0)}</td>
+                            <td>${Number(item.used_count || 0)}</td>
+                            <td>${Number(item.total_count || 0)}</td>
+                        </tr>
+                    `).join('');
+                } catch (error) {
+                    body.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--rose); padding: 1.5rem;">${escapeHtml(error.message || 'Не удалось открыть склад')}</td></tr>`;
+                }
+            }
+
+            function closeWarehouseStock() {
+                const panel = document.getElementById('warehouse-stock-panel');
+                if (panel) panel.style.display = 'none';
             }
 
             async function openStorefrontPurchaseModalById(productId, isVault, buttonEl = null) {
@@ -5514,6 +5921,7 @@
                     limitsHint.innerText = `Лимит закупки: от ${minQty} до ${maxQty} кодов.`;
                 }
                 updateStorefrontWarehouseHint();
+                updateStorefrontSalesChannelAvailability();
                 
                 // Toggle nominal input if variable price
                 const isVariable = prod.is_variable || (prod.min_price > 0 && prod.max_price > prod.min_price + 0.01);
@@ -5618,8 +6026,30 @@
                 const hint = document.getElementById('storefront-master-warehouse-hint');
                 if (!select || !hint) return;
 
-                const shopName = select.options[select.selectedIndex]?.text || 'выбранного магазина';
-                hint.innerText = `Ваучеры будут положены в мастер-склад магазина: ${shopName}. Если мастер-склада ещё нет, он будет создан автоматически.`;
+                const shopName = select.options[select.selectedIndex]?.text || 'центр дистрибуции';
+                hint.innerText = `Коды попадут в единый мастер-склад продавца. Технический центр: ${shopName}.`;
+            }
+
+            function updateStorefrontSalesChannelAvailability() {
+                const select = document.getElementById('storefront-purchase-shop-id');
+                const yandexCheckbox = document.getElementById('storefront-channel-yandex');
+                const yandexLabel = document.getElementById('storefront-yandex-channel-label');
+                const yandexHint = document.getElementById('storefront-yandex-channel-hint');
+                if (!select || !yandexCheckbox) return;
+
+                const yandexActive = select.options[select.selectedIndex]?.dataset?.yandexActive === '1';
+                yandexCheckbox.disabled = !yandexActive;
+                yandexCheckbox.checked = yandexActive;
+                if (yandexLabel) {
+                    yandexLabel.style.opacity = yandexActive ? '1' : '0.55';
+                    yandexLabel.style.cursor = yandexActive ? 'pointer' : 'not-allowed';
+                }
+                if (yandexHint) {
+                    yandexHint.innerText = yandexActive
+                        ? 'Yandex Market активен: после закупки товар и остаток будут поставлены в очередь синхронизации.'
+                        : 'Yandex Market недоступен: подтвердите юрлицо и Warehouse ID в настройках интеграции.';
+                    yandexHint.style.color = yandexActive ? 'var(--green)' : 'var(--text-muted)';
+                }
             }
 
             function closeStorefrontPurchaseModal() {

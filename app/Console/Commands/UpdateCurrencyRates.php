@@ -15,7 +15,7 @@ class UpdateCurrencyRates extends Command
 
     public function handle()
     {
-        // Prevent timeouts when called synchronously from web context (e.g. Filament UI)
+        // Prevent timeouts when called synchronously from web context.
         set_time_limit(300);
         
         $specificCode = $this->option('code');

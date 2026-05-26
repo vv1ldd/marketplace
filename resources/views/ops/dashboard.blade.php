@@ -4,6 +4,7 @@
     @include('partials.theme-sync')
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Operations Command Center — Meanly</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -730,30 +731,12 @@
     <div class="container">
         <!-- Sidebar Navigation -->
         <div class="sidebar">
-            <div class="sidebar-logo console-selector-wrapper" style="position: relative; cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;" onclick="toggleConsoleDropdown(event)">
+            <div class="sidebar-logo console-selector-wrapper" style="position: relative; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
                 <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%;">
                     <span class="logo-dot"></span>
-                    <span class="logo-text-consortium" style="font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: var(--primary-glow); color: var(--primary); border: 1px solid var(--border-neon); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Ops ▾</span></span>
-                    <span class="logo-text-partner" style="display: none; font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: rgba(245, 158, 11, 0.1); color: var(--primary); border: 1px solid var(--border-neon); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Partner ▾</span></span>
-                    <span class="logo-text-retro" style="display: none; font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: #000; color: #fff; border: 2px solid #000; padding: 2px 6px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">Ops ▾</span></span>
-                </div>
-                
-                <div id="console-dropdown" class="card-neo" style="display: none; position: absolute; top: 100%; right: 0; width: 180px; margin-top: 0.5rem; background: var(--bg-sidebar); border: 1px solid var(--border-card); border-radius: 8px; z-index: 1000; box-shadow: var(--shadow-neo); overflow: hidden; padding: 0.25rem;">
-                    <a href="/ops" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.85rem; color: var(--text-main); font-size: 0.75rem; text-decoration: none; font-weight: 800; background: rgba(255,255,255,0.03); border-radius: 6px; font-family: var(--font-tech), monospace;">
-                        🛡️ OPERATIONS
-                    </a>
-                    <a href="/tribunal" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.85rem; color: var(--text-muted); font-size: 0.75rem; text-decoration: none; font-weight: 800; border-radius: 6px; font-family: var(--font-tech), monospace;">
-                        🏛️ TRIBUNAL
-                    </a>
-                    <a href="/treasury" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.85rem; color: var(--text-muted); font-size: 0.75rem; text-decoration: none; font-weight: 800; border-radius: 6px; font-family: var(--font-tech), monospace;">
-                        🏦 TREASURY
-                    </a>
-                    <a href="/kernel" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.85rem; color: var(--text-muted); font-size: 0.75rem; text-decoration: none; font-weight: 800; border-radius: 6px; font-family: var(--font-tech), monospace;">
-                        ⚙️ KERNEL
-                    </a>
-                    <a href="/support" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.85rem; color: var(--text-muted); font-size: 0.75rem; text-decoration: none; font-weight: 800; border-radius: 6px; font-family: var(--font-tech), monospace;">
-                        📞 SUPPORT
-                    </a>
+                    <span class="logo-text-consortium" style="font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: var(--primary-glow); color: var(--primary); border: 1px solid var(--border-neon); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Ops</span></span>
+                    <span class="logo-text-partner" style="display: none; font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: rgba(245, 158, 11, 0.1); color: var(--primary); border: 1px solid var(--border-neon); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Ops</span></span>
+                    <span class="logo-text-retro" style="display: none; font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: #000; color: #fff; border: 2px solid #000; padding: 2px 6px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">Ops</span></span>
                 </div>
             </div>
 
@@ -792,7 +775,7 @@
                     <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                     Поддержка
                 </a>
-                <a href="/tribunal" class="menu-item" id="menu-ai-audit">
+                <a href="javascript:void(0)" onclick="switchTab('ai-audit')" class="menu-item" id="menu-ai-audit">
                     <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
                     Суверенный аудит
                 </a>
@@ -929,6 +912,14 @@
                     <div style="flex:1; min-width:250px;">
                         <input type="text" id="partners-search-input" placeholder="Поиск юридических лиц (по названию, ИНН)..." class="input-neo" oninput="loadPartners()">
                     </div>
+                    <div style="display:flex; gap: 8px; flex-wrap:wrap;">
+                        <button type="button" class="btn-neo partners-filter active" data-status="" onclick="setPartnersStatusFilter('')">
+                            Все
+                        </button>
+                        <button type="button" class="btn-neo partners-filter" data-status="pending_moderation" onclick="setPartnersStatusFilter('pending_moderation')">
+                            На модерации: {{ $stats['pending_partners'] ?? 0 }}
+                        </button>
+                    </div>
                 </div>
 
                 <div class="neo-table-container">
@@ -937,10 +928,11 @@
                             <tr>
                                 <th>Организация</th>
                                 <th>ИНН / КПП</th>
+                                <th>Статус</th>
                                 <th>Магазинов</th>
                                 <th>Свободный баланс</th>
                                 <th>Заморожено</th>
-                                <th>Magic link</th>
+                                <th>Действия</th>
                                 <th>Дата регистрации</th>
                             </tr>
                         </thead>
@@ -1306,19 +1298,39 @@
 
         // --- 📋 Tab 2: Partners AJAX loader ---
         let partnersCurrentPage = 1;
+        let partnersStatusFilter = '';
+        function setPartnersStatusFilter(status) {
+            partnersStatusFilter = status;
+            document.querySelectorAll('.partners-filter').forEach((button) => {
+                button.classList.toggle('active', button.dataset.status === status);
+            });
+            loadPartners(1);
+        }
+
+        function partnerStatusBadge(item) {
+            if (item.status === 'pending_moderation') {
+                return `<span class="badge-neo" style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);">На модерации</span>`;
+            }
+            if (item.status === 'active' || item.is_active) {
+                return `<span class="badge-neo" style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.25);">${item.status_label || 'Активна'}</span>`;
+            }
+            return `<span class="badge-neo" style="background:rgba(255,255,255,0.02);color:var(--text-muted);border:1px solid var(--border-card);">${item.status_label || 'Не активна'}</span>`;
+        }
+
         async function loadPartners(page = 1) {
             partnersCurrentPage = page;
             const search = document.getElementById("partners-search-input").value;
             const tbody = document.getElementById("partners-table-body");
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Загрузка организаций...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Загрузка организаций...</td></tr>`;
 
             try {
-                const res = await fetch(`/ops/dashboard/partners/data?page=${page}&search=${encodeURIComponent(search)}`);
+                const statusParam = partnersStatusFilter ? `&status=${encodeURIComponent(partnersStatusFilter)}` : '';
+                const res = await fetch(`/ops/dashboard/partners/data?page=${page}&search=${encodeURIComponent(search)}${statusParam}`);
                 const json = await res.json();
                 
                 tbody.innerHTML = "";
                 if (json.data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Организации не найдены.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Организации не найдены.</td></tr>`;
                     return;
                 }
 
@@ -1327,13 +1339,15 @@
                         <tr>
                             <td><div style="font-weight:750;color:var(--text-main);">${item.name}</div></td>
                             <td><span style="font-family:var(--font-tech);font-size:0.8rem;">${item.inn} / ${item.kpp}</span></td>
+                            <td>${partnerStatusBadge(item)}</td>
                             <td><span class="badge-neo" style="background:rgba(255,255,255,0.02);border:1px solid var(--border-card);">${item.shops_count} шопов</span></td>
                             <td><div style="font-family:var(--font-tech);font-weight:700;color:var(--green);">${item.available_balance.toLocaleString()} ₽</div></td>
                             <td><div style="font-family:var(--font-tech);color:var(--text-muted);">${item.reserved_balance.toLocaleString()} ₽</div></td>
                             <td>
-                                ${item.migration_pill_issue_url ? `<button type="button" class="btn-neo" style="padding:6px 10px;font-size:0.65rem;" onclick="issueMigrationPill('${item.migration_pill_issue_url}')">
-                                    Pill
-                                </button>` : '<span style="color:var(--text-muted);">—</span>'}
+                                ${item.approve_url ? `<button type="button" class="btn-neo" style="padding:6px 10px;font-size:0.65rem;background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.35);color:#10b981;" onclick="approvePartner('${item.approve_url}', this)">
+                                    Одобрить
+                                </button>` : ''}
+                                ${!item.approve_url ? '<span style="color:var(--text-muted);">—</span>' : ''}
                             </td>
                             <td><span style="color:var(--text-muted);">${item.created_at}</span></td>
                         </tr>
@@ -1342,32 +1356,50 @@
 
                 renderPagination("partners-pagination", json.current_page, json.last_page, loadPartners);
             } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#f43f5e;">Ошибка загрузки данных.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#f43f5e;">Ошибка загрузки данных.</td></tr>`;
             }
         }
 
-        async function issueMigrationPill(url) {
-            let migrationUrl = '';
-            try {
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                    },
-                    body: JSON.stringify({}),
-                });
-                const data = await res.json();
-                if (!res.ok || !data.migration_url) {
-                    throw new Error(data.error || 'Failed to issue migration pill.');
+        async function approvePartner(url, button) {
+            if (button?.dataset.confirm !== 'true') {
+                if (button) {
+                    button.dataset.confirm = 'true';
+                    button.textContent = 'Подтвердить';
+                    window.setTimeout(() => {
+                        if (button.dataset.confirm === 'true') {
+                            button.dataset.confirm = 'false';
+                            button.textContent = 'Одобрить';
+                        }
+                    }, 3500);
                 }
-                migrationUrl = data.migration_url;
-                await navigator.clipboard.writeText(migrationUrl);
-                alert('Migration pill copied. It expires after first use.');
-            } catch (e) {
-                window.prompt('Copy migration pill link:', migrationUrl || url);
+                return;
             }
+
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Одобряем...';
+            }
+
+            const res = await fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                },
+            });
+
+            if (!res.ok) {
+                if (button) {
+                    button.disabled = false;
+                    button.dataset.confirm = 'false';
+                    button.textContent = 'Ошибка';
+                }
+                return;
+            }
+
+            loadPartners(partnersCurrentPage);
         }
 
         // --- 📋 Tab 3: Shops AJAX loader ---
@@ -1813,20 +1845,6 @@
             });
         });
 
-        // 🌐 Sovereign Console Context Selector toggle handler
-        function toggleConsoleDropdown(event) {
-            if (event) event.stopPropagation();
-            const dropdown = document.getElementById('console-dropdown');
-            if (dropdown) {
-                dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-            }
-        }
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('console-dropdown');
-            if (dropdown && !event.target.closest('.console-selector-wrapper')) {
-                dropdown.style.display = 'none';
-            }
-        });
     </script>
 
     <style>

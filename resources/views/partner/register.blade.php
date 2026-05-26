@@ -157,6 +157,152 @@
         .form-input:focus {
             border-color: var(--brand-primary);
         }
+        .neo-input {
+            border: 2px solid #000 !important;
+            border-radius: 2px !important;
+            background: #fff !important;
+            color: #000 !important;
+            box-shadow: 4px 4px 0 #000;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .neo-input:focus {
+            border-color: #000 !important;
+            transform: translate(-1px, -1px);
+            box-shadow: 5px 5px 0 #000;
+        }
+        .neo-note {
+            padding: 1rem;
+            border: 2px solid #000;
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: 4px 4px 0 #000;
+        }
+        .neo-note-title {
+            display: block;
+            font-size: 10px;
+            font-weight: 900;
+            color: var(--brand-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.45rem;
+        }
+        .neo-note-copy {
+            font-size: 13px;
+            color: #111;
+            line-height: 1.5;
+            margin: 0;
+        }
+        .org-confirm-card {
+            background: #fff;
+            color: #000;
+            border: 3px solid #000;
+            border-radius: 2px;
+            box-shadow: 6px 6px 0 #000;
+            padding: 1rem;
+            text-align: left;
+        }
+        .org-confirm-kicker {
+            display: block;
+            margin-bottom: 0.55rem;
+            color: var(--brand-primary);
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            text-align: center;
+        }
+        .org-name-field {
+            width: 100%;
+            min-height: 54px;
+            border: 0;
+            border-bottom: 3px solid #000;
+            background: transparent;
+            color: #000;
+            font: inherit;
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1.1;
+            text-align: center;
+            padding: 0 0 0.45rem;
+            outline: none;
+            resize: none;
+            overflow: hidden;
+            white-space: pre-wrap;
+        }
+        .org-confirm-details {
+            display: none;
+            margin: 0.85rem 0;
+            border: 2px solid #000;
+            background: #f7f3ff;
+        }
+        .org-detail-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 0.6rem 0.75rem;
+            font-size: 12px;
+            border-bottom: 2px solid #000;
+        }
+        .org-detail-row:last-child {
+            border-bottom: 0;
+        }
+        .org-detail-label {
+            color: #4b5563;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .org-detail-value {
+            color: #000;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-weight: 900;
+            text-align: right;
+            word-break: break-word;
+        }
+        .org-verified {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 0 0.85rem;
+            padding: 0.35rem 0.6rem;
+            border: 2px solid #000;
+            background: #d1fae5;
+            color: #065f46;
+            box-shadow: 3px 3px 0 #000;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .btn-submit.org-confirm-btn {
+            margin-top: 0;
+            border: 3px solid #000;
+            border-radius: 2px;
+            background: var(--brand-primary);
+            color: #fff;
+            box-shadow: 5px 5px 0 #000;
+        }
+        .btn-submit.org-confirm-btn:disabled {
+            opacity: 0.58;
+            cursor: not-allowed;
+            box-shadow: 3px 3px 0 #000;
+        }
+        .profile-error {
+            display: none;
+            background: #fff;
+            color: #000;
+            border: 2px solid #000;
+            border-radius: 8px;
+            box-shadow: 4px 4px 0 #000;
+            padding: 0.8rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 12px;
+            line-height: 1.45;
+            font-weight: 700;
+        }
+        .profile-error.is-visible {
+            display: block;
+        }
 
         .btn-submit {
             width: 100%;
@@ -691,15 +837,15 @@
                 </div>
             @endif
 
-            @if(!Auth::check() || !Auth::user()->passkeys()->exists())
+            @if((!Auth::check() || !Auth::user()->passkeys()->exists()) && ($registrationTarget ?? 'legal_entity') !== 'legal_entity')
                 <h1>Создание профиля</h1>
                 <p id="perimeter-desc">
-                    Это выделенный маршрут для подключения юрлица: сначала Simple L1 профиль с Passkey и `sl1_` адресом, затем реквизиты организации.
+                    Сначала назовем профиль и привяжем это устройство для безопасного входа. Почта не нужна.
                 </p>
             @else
                 <h1>Регистрация бизнеса</h1>
                 <p id="perimeter-desc">
-                    {{ ($inviteIntent ?? null) ? 'Зарегистрируйте свой суверенный ключ доступа для входа в панель консорциума.' : 'Определите вашу юрисдикцию для входа в легальный периметр.' }}
+                    {{ ($inviteIntent ?? null) ? 'Подтвердите устройство для безопасного входа в рабочее пространство.' : 'Сначала подтвердим рабочий email, затем проверим ИНН и привяжем Passkey подписанта.' }}
                 </p>
             @endif
         </div>
@@ -722,21 +868,60 @@
             @if($inviteToken ?? null)
                 <input type="hidden" name="invite" value="{{ $inviteToken }}">
             @endif
+            @php
+                $businessEmailVerified = ! empty($businessVerifiedEmail);
+                $needsBusinessEmailVerification = ($registrationTarget ?? 'legal_entity') === 'legal_entity' && ! ($inviteIntent ?? null) && ! $businessEmailVerified;
+            @endphp
             
-            @if(!Auth::check() || !Auth::user()->passkeys()->exists())
-                <!-- PHASE 1: SOVEREIGN IDENTITY (EMAIL ONLY) -->
+            @if((!Auth::check() || !Auth::user()->passkeys()->exists()) && ($registrationTarget ?? 'legal_entity') !== 'legal_entity')
+                <!-- PHASE 1: PROTECTED PROFILE -->
                 <div class="form-group">
-                    <label class="form-label">Рабочий Email</label>
-                    <input type="email" name="email" class="form-input" placeholder="ivan@company.com" required value="{{ old('email') }}">
+                    <label class="form-label">Имя владельца профиля</label>
+                    <input type="text" name="display_name" class="form-input neo-input" placeholder="Например, Selim" maxlength="80" autocomplete="name" value="{{ old('display_name') }}" required>
+                    <p style="font-size: 11px; color: var(--brand-subtext); margin-top: 6px;">
+                        Это имя будет видно в кабинете и при входе. Его можно изменить позже.
+                    </p>
                 </div>
+
+                <div class="form-group neo-note">
+                    <span class="neo-note-title">Профиль входа</span>
+                    <p class="neo-note-copy">
+                        Вход будет по Passkey. Для бизнеса рабочий email подтверждается перед проверкой ИНН.
+                    </p>
+                </div>
+
+                <div id="profile-error" class="profile-error" role="alert" aria-live="polite"></div>
 
                 <button type="submit" id="submit-btn" class="btn-submit" style="margin-top: 1.5rem;">
                     Создать профиль
                 </button>
             @else
                 <!-- PHASE 2: BUSINESS REGISTRATION -->
+                <input type="hidden" name="display_name" id="business-display-name" value="{{ old('display_name') }}">
+                <input type="hidden" name="business_email" id="business-verified-email" value="{{ old('business_email', $businessVerifiedEmail ?? '') }}">
+
+                @if(!($inviteIntent ?? null))
+                    <div class="form-group neo-note" id="business-email-step" style="{{ $businessEmailVerified ? 'display:none;' : '' }}">
+                        <span class="neo-note-title">Рабочий email</span>
+                        <p class="neo-note-copy">
+                            Сначала подтвердим почту для модерации и связи по заявке. После подтверждения откроем проверку ИНН.
+                        </p>
+                        <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-top: 1rem;">
+                            <input type="email" id="business-email-field" class="form-input neo-input" placeholder="founder@company.com" autocomplete="email" value="{{ old('business_email', $businessVerifiedEmail ?? '') }}" {{ $businessEmailVerified ? 'readonly' : '' }}>
+                            <button type="button" id="business-email-send" class="btn-submit" style="margin:0; min-width: 132px;">{{ $businessEmailVerified ? 'Подтверждено' : 'Получить код' }}</button>
+                        </div>
+                        <div id="business-email-code-row" style="{{ $businessEmailVerified ? 'display:none;' : 'display:none;' }} grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-top: 10px;">
+                            <input type="text" id="business-email-code" class="form-input neo-input" placeholder="Код из письма" inputmode="numeric" autocomplete="one-time-code" maxlength="20">
+                            <button type="button" id="business-email-verify" class="btn-submit" style="margin:0; min-width: 132px;">Проверить</button>
+                        </div>
+                        <div id="business-email-status" class="profile-error {{ $businessEmailVerified ? 'is-visible' : '' }}" style="{{ $businessEmailVerified ? 'color:#10b981;' : '' }}">
+                            {{ $businessEmailVerified ? 'Email подтвержден. Можно проверить ИНН.' : '' }}
+                        </div>
+                    </div>
+                @endif
+
                 <!-- 🌍 Jurisdiction Selection -->
-                <div class="form-group" style="{{ ($inviteIntent ?? null) ? 'display: none;' : '' }}">
+                <div class="form-group" id="jurisdiction-section" style="{{ ($inviteIntent ?? null) ? 'display: none;' : ($needsBusinessEmailVerification ? 'display: none;' : '') }}">
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 0.5rem;">
                         <label class="form-label" style="margin-bottom: 0;">Юрисдикция / Jurisdiction</label>
                         @if(isset($detectedCountryName) && $detectedCountry !== 'RU')
@@ -776,7 +961,7 @@
                 </div>
 
                 <!-- PHASE 1: INN SEARCH -->
-                <div id="phase-search" style="{{ ($inviteIntent ?? null) ? 'display: none;' : '' }}">
+                <div id="phase-search" style="{{ ($inviteIntent ?? null) ? 'display: none;' : ($needsBusinessEmailVerification ? 'display: none;' : '') }}">
                     <div class="form-group">
                         <label id="inn-label" class="form-label">ИНН организации</label>
                         <div style="position: relative;">
@@ -789,15 +974,26 @@
                     </div>
 
                     <div class="form-group" id="name-container" style="display: none; transition: all 0.3s ease; opacity: 0; margin-top: 1.5rem;">
-                        <div style="background: rgba(16, 185, 129, 0.03); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 16px; padding: 1.5rem; text-align: center;">
-                            <label class="form-label" style="color: #10b981; margin-bottom: 0.5rem; display: block;">Найдена организация:</label>
-                            <input type="text" name="legal_name" id="name-field" class="form-input" readonly style="background: transparent; border: none; color: #fff; font-weight: 800; text-align: center; font-size: 1.2rem; padding: 0;">
+                        <div class="org-confirm-card">
+                            <label class="org-confirm-kicker">Найдена организация</label>
+                            <textarea id="name-field" class="org-name-field" readonly rows="2"></textarea>
+
+                            <div id="org-confirm-details" class="org-confirm-details">
+                                <div class="org-detail-row">
+                                    <span class="org-detail-label">ИНН</span>
+                                    <strong id="org-inn-value" class="org-detail-value"></strong>
+                                </div>
+                                <div id="org-ogrn-row" class="org-detail-row">
+                                    <span class="org-detail-label">ОГРН / ОГРНИП</span>
+                                    <strong id="org-ogrn-value" class="org-detail-value"></strong>
+                                </div>
+                            </div>
                             
-                            <div style="font-size: 10px; color: #10b981; margin-top: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 1.5rem; letter-spacing: 0.05em;">
+                            <div class="org-verified">
                                 <i class="ph-bold ph-seal-check"></i> VERIFIED BY DADATA
                             </div>
 
-                            <button type="button" id="confirm-org-btn" class="btn-submit" style="background: #10b981; color: #fff; margin-top: 0;" disabled>
+                            <button type="button" id="confirm-org-btn" class="btn-submit org-confirm-btn" disabled>
                                 Да, это моя организация ✅
                             </button>
                         </div>
@@ -806,7 +1002,7 @@
                     <div id="individual-only-panel" style="display: none; margin-top: 1.5rem; padding: 1.35rem; border: 1px solid var(--brand-border); border-radius: 16px; background: rgba(255,255,255,0.025);">
                         <div style="font-size: 11px; color: var(--brand-primary); font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem;">Физлицо без статуса ИП</div>
                         <p style="font-size: 13px; color: var(--brand-text); line-height: 1.55; margin: 0 0 0.9rem;">
-                            DaData не нашла по этому ИНН действующее ИП или юридическое лицо. Сейчас доступна регистрация как физическое лицо: личный кабинет, покупки, ключи, Passkey-профиль и история заказов.
+                            DaData не нашла по этому ИНН действующее ИП или юридическое лицо. Сейчас доступна регистрация как физическое лицо: личный кабинет, покупки, безопасный вход и история заказов.
                         </p>
                         <div style="font-size: 12px; color: var(--brand-subtext); line-height: 1.55; margin-bottom: 1rem;">
                             Чтобы продавать цифровые товары, подключать API, витрины, Ozon/WB/Яндекс Маркет, получать оптовые цены и выплаты на расчетный счет, нужно открыть ИП или юрлицо. После регистрации ИП вернитесь сюда и повторите проверку ИНН.
@@ -832,11 +1028,6 @@
 
                 <!-- PHASE 2: DETAILS (Hidden initially) -->
                 <div id="phase-details" style="{{ ($inviteIntent ?? null) ? 'display: block;' : 'display: none;' }}; animation: slideDown 0.5s ease forwards;">
-                    <div class="form-group" style="margin-top: 1.5rem; opacity: 0.7;">
-                        <label class="form-label">Рабочий Email</label>
-                        <input type="email" name="email" class="form-input" readonly value="{{ auth()->user()->email }}" style="background: rgba(255,255,255,0.03);">
-                    </div>
-
                     @if(!($inviteIntent ?? null))
                         <!-- 💰 Tax System -->
                         <div id="tax-section" style="margin-top: 1.5rem;">
@@ -853,14 +1044,6 @@
                         <!-- Fallback/IP Fields -->
                         <div id="fallback-fields" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--brand-border); padding-top: 1.5rem;">
                             <p id="fallback-message" style="font-size: 12px; color: var(--brand-primary); margin-bottom: 1.25rem;"></p>
-                            <div id="manual-name-group" class="form-group">
-                                <label class="form-label">Полное название организации</label>
-                                <input type="text" name="legal_name" id="manual_legal_name" class="form-input">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">ОГРН</label>
-                                <input type="text" name="ogrn" id="manual_ogrn" class="form-input">
-                            </div>
                             <div class="form-group">
                                 <label id="address-label" class="form-label">Юридический адрес</label>
                                 <textarea name="address" id="manual_address" class="form-input" style="height: 70px; resize: none;"></textarea>
@@ -921,7 +1104,7 @@
                     <div id="background-data"></div>
 
                     <button type="submit" id="submit-btn" class="btn-submit">
-                        Продолжить вход в периметр 🛡️
+                        Продолжить регистрацию
                     </button>
                 </div>
             @endif
@@ -935,14 +1118,95 @@
     const { startRegistration, startAuthentication } = SimpleWebAuthnBrowser;
     const registrationForm = document.getElementById('registration-form');
     const submitBtn = document.getElementById('submit-btn');
+    const profileError = document.getElementById('profile-error');
 
     // Server-side flags
     const isUpgrade = @json(Auth::check() && Auth::user()->passkeys()->exists());
+    const isBusinessRegistration = @json(($registrationTarget ?? 'legal_entity') === 'legal_entity');
+    let isBusinessEmailVerified = @json(!empty($businessVerifiedEmail) || !empty($inviteIntent));
     const signingOptionsRaw = @json($signingOptions);
+    let confirmedPrincipalName = '';
+    const businessEmailField = document.getElementById('business-email-field');
+    const businessVerifiedEmailInput = document.getElementById('business-verified-email');
+    const businessEmailSend = document.getElementById('business-email-send');
+    const businessEmailCodeRow = document.getElementById('business-email-code-row');
+    const businessEmailCode = document.getElementById('business-email-code');
+    const businessEmailVerify = document.getElementById('business-email-verify');
+    const businessEmailStatus = document.getElementById('business-email-status');
+    const jurisdictionSection = document.getElementById('jurisdiction-section');
+    const normalizeDisplayName = (value) => {
+        const name = value.replace(/\s+/g, ' ').trim();
+        if (!name) return '';
+
+        return name.charAt(0).toLocaleUpperCase('ru-RU') + name.slice(1);
+    };
+    const cleanBusinessPersonName = (value) => String(value || '')
+        .replace(/^ИП\s+/iu, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const updateBusinessDisplayName = () => {
+        const displayNameInput = document.getElementById('business-display-name');
+        if (!displayNameInput) return '';
+
+        const signerRole = registrationForm.querySelector('input[name="signer_role"]:checked')?.value || 'ceo';
+        const representativeName = cleanBusinessPersonName(document.getElementById('signer_name')?.value || '');
+        const name = signerRole === 'representative' && representativeName
+            ? representativeName
+            : confirmedPrincipalName;
+
+        displayNameInput.value = normalizeDisplayName(name);
+
+        return displayNameInput.value;
+    };
+    const setProfileError = (message = '') => {
+        if (!profileError) return;
+        profileError.textContent = message;
+        profileError.classList.toggle('is-visible', Boolean(message));
+    };
+    const friendlyPasskeyError = (error) => {
+        if (error?.name === 'NotAllowedError') {
+            return 'Создание профиля отменено. Нажмите «Создать профиль», когда будете готовы подтвердить вход на этом устройстве.';
+        }
+
+        return error?.message || 'Попробуйте еще раз.';
+    };
+    const setBusinessEmailStatus = (message = '', ok = false) => {
+        if (!businessEmailStatus) return;
+        businessEmailStatus.textContent = message;
+        businessEmailStatus.style.color = ok ? '#10b981' : '#ef4444';
+        businessEmailStatus.classList.toggle('is-visible', Boolean(message));
+    };
+    const unlockBusinessDetails = (email) => {
+        isBusinessEmailVerified = true;
+        if (businessVerifiedEmailInput) businessVerifiedEmailInput.value = email;
+        if (businessEmailField) {
+            businessEmailField.value = email;
+            businessEmailField.readOnly = true;
+        }
+        if (businessEmailSend) {
+            businessEmailSend.disabled = true;
+            businessEmailSend.innerText = 'Подтверждено';
+        }
+        if (businessEmailCodeRow) businessEmailCodeRow.style.display = 'none';
+        const businessEmailStep = document.getElementById('business-email-step');
+        if (businessEmailStep) businessEmailStep.style.display = 'none';
+        if (jurisdictionSection) jurisdictionSection.style.display = 'block';
+        if (phaseSearch) phaseSearch.style.display = 'block';
+        setBusinessEmailStatus('Email подтвержден. Можно проверить ИНН.', true);
+        phaseSearch?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     registrationForm.addEventListener('submit', async (e) => {
         // 🛑 Stop multiple submissions
         if (registrationForm.dataset.submitting === 'true') return;
+
+        if (isBusinessRegistration && !isBusinessEmailVerified) {
+            e.preventDefault();
+            businessEmailField?.focus();
+            setProfileError('Сначала подтвердите рабочий email.');
+            setBusinessEmailStatus('Введите email, получите код и подтвердите его.', false);
+            return;
+        }
 
         if (isUpgrade) {
             // Logged-in user: just submit the form natively to process company data
@@ -953,22 +1217,43 @@
         }
 
         e.preventDefault();
+        setProfileError('');
 
-        const emailInput = registrationForm.querySelector('input[name="email"]');
-        const email = emailInput ? emailInput.value.trim() : '';
+        const displayNameInput = registrationForm.querySelector('input[name="display_name"]');
+        const displayName = isBusinessRegistration
+            ? updateBusinessDisplayName()
+            : (displayNameInput ? normalizeDisplayName(displayNameInput.value) : '');
+        if (displayNameInput) {
+            displayNameInput.value = displayName;
+        }
 
-        if (!email) {
-            alert('Пожалуйста, введите рабочий Email');
+        if (displayNameInput && !displayName) {
+            if (!isBusinessRegistration) {
+                displayNameInput.focus();
+            }
+            setProfileError(isBusinessRegistration
+                ? 'Сначала подтвердите организацию и подписанта.'
+                : 'Введите имя владельца профиля.');
             return;
         }
 
+        if (isBusinessRegistration) {
+            const signerRole = registrationForm.querySelector('input[name="signer_role"]:checked')?.value || 'ceo';
+            const representativeName = cleanBusinessPersonName(document.getElementById('signer_name')?.value || '');
+            if (signerRole === 'representative' && !representativeName) {
+                document.getElementById('signer_name')?.focus();
+                setProfileError('Укажите ФИО доверенного лица.');
+                return;
+            }
+        }
+
         submitBtn.disabled = true;
-        submitBtn.innerText = 'Активация личности... 🛡️';
+        submitBtn.innerText = 'Создаем профиль...';
 
         try {
 
-            // 🔑 Phase 1 (guest): Register new passkey
-            console.log('Starting Sovereign Identity creation for:', email);
+            // Phase 1 (guest): create profile sign-in device.
+            console.log('Starting profile creation');
             const optionsRes = await fetch(@json($registrationOptionsRoute ?? route('partner.register.options')), {
                 method: 'POST',
                 headers: {
@@ -977,7 +1262,8 @@
                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 },
                 body: JSON.stringify({
-                    email: email,
+                    ...(displayName ? { display_name: displayName } : {}),
+                    ...(businessVerifiedEmailInput?.value ? { business_email: businessVerifiedEmailInput.value } : {}),
                     registration_target: @json($registrationTarget ?? 'legal_entity')
                 })
             });
@@ -1014,9 +1300,9 @@
 
         } catch (err) {
             console.error('Identity Error:', err);
-            alert('Ошибка активации личности: ' + err.message);
+            setProfileError(friendlyPasskeyError(err));
             submitBtn.disabled = false;
-            submitBtn.innerText = isUpgrade ? 'Продолжить вход в периметр 🛡️' : 'Создать суверенную личность 🛡️';
+            submitBtn.innerText = isUpgrade ? 'Продолжить регистрацию' : 'Создать профиль';
         }
     });
 
@@ -1028,6 +1314,10 @@
     const bgData = document.getElementById('background-data');
     const nameField = document.getElementById('name-field');
     const nameContainer = document.getElementById('name-container');
+    const orgConfirmDetails = document.getElementById('org-confirm-details');
+    const orgInnValue = document.getElementById('org-inn-value');
+    const orgOgrnRow = document.getElementById('org-ogrn-row');
+    const orgOgrnValue = document.getElementById('org-ogrn-value');
     const phaseSearch = document.getElementById('phase-search');
     const phaseDetails = document.getElementById('phase-details');
     const confirmBtn = document.getElementById('confirm-org-btn');
@@ -1040,6 +1330,79 @@
     const npdPanel = document.getElementById('npd-panel');
     const continueAsNpdBtn = document.getElementById('continue-as-npd-btn');
     let innSearchTimer = null;
+
+    if (businessEmailSend && businessEmailField) {
+        businessEmailSend.addEventListener('click', async () => {
+            const email = businessEmailField.value.trim().toLowerCase();
+            if (!email) {
+                businessEmailField.focus();
+                setBusinessEmailStatus('Введите рабочий email.', false);
+                return;
+            }
+
+            businessEmailSend.disabled = true;
+            businessEmailSend.innerText = 'Отправляем...';
+            setBusinessEmailStatus('');
+
+            try {
+                const response = await fetch(@json($businessEmailSendRoute ?? route('business.register.email.send')), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ email })
+                });
+                const payload = await response.json();
+                if (!response.ok || !payload.success) throw new Error(payload.error || payload.message || 'Не удалось отправить код.');
+
+                if (businessEmailCodeRow) businessEmailCodeRow.style.display = 'grid';
+                businessEmailCode?.focus();
+                setBusinessEmailStatus('Код отправлен. Введите его ниже.', true);
+            } catch (error) {
+                setBusinessEmailStatus(error.message || 'Не удалось отправить код.', false);
+            } finally {
+                businessEmailSend.disabled = false;
+                businessEmailSend.innerText = 'Получить код';
+            }
+        });
+    }
+
+    if (businessEmailVerify && businessEmailField && businessEmailCode) {
+        businessEmailVerify.addEventListener('click', async () => {
+            const email = businessEmailField.value.trim().toLowerCase();
+            const code = businessEmailCode.value.trim();
+            if (!email || !code) {
+                setBusinessEmailStatus('Введите email и код из письма.', false);
+                return;
+            }
+
+            businessEmailVerify.disabled = true;
+            businessEmailVerify.innerText = 'Проверяем...';
+
+            try {
+                const response = await fetch(@json($businessEmailVerifyRoute ?? route('business.register.email.verify')), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ email, code })
+                });
+                const payload = await response.json();
+                if (!response.ok || !payload.success) throw new Error(payload.error || payload.message || 'Не удалось подтвердить email.');
+
+                unlockBusinessDetails(payload.email || email);
+            } catch (error) {
+                setBusinessEmailStatus(error.message || 'Не удалось подтвердить email.', false);
+            } finally {
+                businessEmailVerify.disabled = false;
+                businessEmailVerify.innerText = 'Проверить';
+            }
+        });
+    }
 
     const complianceConfig = @json($complianceConfig);
     const complianceInfo = document.getElementById('compliance-info');
@@ -1065,6 +1428,17 @@
     };
     const isCompleteTaxId = (value) => getTaxIdRule().lengths.includes(value.length);
     const requiresDaDataVerification = () => (jurisdictionSelect?.value || 'RU') === 'RU';
+    const formatOrgDisplayName = (name, isIp = false) => {
+        const normalized = String(name || '').replace(/\s+/g, ' ').trim();
+        if (!isIp) return normalized;
+
+        const parts = normalized.split(' ');
+        if (parts.length >= 4 && parts[0].toUpperCase() === 'ИП') {
+            return `${parts[0]} ${parts[1]}\n${parts.slice(2).join(' ')}`;
+        }
+
+        return normalized;
+    };
     const resetDaDataVerification = () => {
         if (dadataVerifiedInput) dadataVerifiedInput.value = '0';
         if (dadataPartyTypeInput) dadataPartyTypeInput.value = '';
@@ -1072,6 +1446,12 @@
         if (individualOnlyPanel) individualOnlyPanel.style.display = 'none';
         if (npdPanel) npdPanel.style.display = 'none';
         if (bgData) bgData.innerHTML = '';
+        confirmedPrincipalName = '';
+        updateBusinessDisplayName();
+        if (orgConfirmDetails) orgConfirmDetails.style.display = 'none';
+        if (orgInnValue) orgInnValue.textContent = '';
+        if (orgOgrnValue) orgOgrnValue.textContent = '';
+        if (orgOgrnRow) orgOgrnRow.style.display = 'none';
         if (confirmBtn) {
             confirmBtn.disabled = true;
             confirmBtn.innerText = 'Сначала подтвердите ИНН через DaData';
@@ -1176,7 +1556,12 @@
                 phaseSearch.style.opacity = '0.3';
                 phaseSearch.style.pointerEvents = 'none';
             }
-            if (phaseDetails) phaseDetails.style.display = 'block';
+            if (phaseDetails) {
+                phaseDetails.style.display = 'block';
+                requestAnimationFrame(() => {
+                    phaseDetails.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
         });
     }
 
@@ -1196,10 +1581,15 @@
 
     function togglePoA(show) {
         const poaFields = document.getElementById('poa-fields');
+        const signerName = document.getElementById('signer_name');
         if (!poaFields) return;
         poaFields.style.display = show ? 'block' : 'none';
+        if (signerName) signerName.required = show;
+        updateBusinessDisplayName();
         if (show) poaFields.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+
+    document.getElementById('signer_name')?.addEventListener('input', updateBusinessDisplayName);
 
     async function searchINN() {
         if (!innInput || !nameContainer || !nameField) return;
@@ -1249,30 +1639,36 @@
                 }
 
                 nameContainer.style.opacity = '1';
-                nameField.value = org.name;
+                nameField.value = formatOrgDisplayName(org.name, org.is_ip);
+                confirmedPrincipalName = cleanBusinessPersonName(org.is_ip
+                    ? (org.fio || org.name)
+                    : (typeof org.management === 'string' ? org.management : (org.management?.name || org.fio || '')));
+                updateBusinessDisplayName();
                 markDaDataVerified(partyType);
+                if (orgConfirmDetails) orgConfirmDetails.style.display = 'block';
+                if (orgInnValue) orgInnValue.textContent = org.inn || inn;
+                if (orgOgrnValue) orgOgrnValue.textContent = org.ogrn || '';
+                if (orgOgrnRow) orgOgrnRow.style.display = org.ogrn ? 'flex' : 'none';
 
                 addHidden('legal_name', org.name);
                 addHidden('ogrn', org.ogrn);
                 addHidden('kpp', org.kpp || '');
-                addHidden('address', org.address || '');
-                addHidden('director_name', typeof org.management === 'string' ? org.management : (org.management?.name || ''));
+                if (!org.is_ip) {
+                    addHidden('address', org.address || '');
+                }
+                addHidden('director_name', confirmedPrincipalName);
 
                 const taxEl = document.getElementById('tax_system');
                 if (taxEl) taxEl.value = org.tax_system || 'OSN';
 
                 if (org.is_ip && fallbackFields) {
                     fallbackFields.style.display = 'block';
-                    const mg = document.getElementById('manual-name-group');
-                    if (mg) mg.style.display = 'none';
                     const fm = document.getElementById('fallback-message');
-                    if (fm) fm.textContent = 'Для ИП и самозанятых необходимо подтвердить адрес регистрации:';
+                    if (fm) fm.textContent = 'Подтвердите адрес регистрации:';
                     const al = document.getElementById('address-label');
                     if (al) al.textContent = 'Адрес регистрации';
                     const ma = document.getElementById('manual_address');
                     if (ma) ma.value = org.address || '';
-                    const mo = document.getElementById('manual_ogrn');
-                    if (mo) mo.value = org.ogrn;
                 } else if (fallbackFields) {
                     fallbackFields.style.display = 'none';
                 }

@@ -27,6 +27,15 @@ class PushStockToYandex implements ShouldQueue
 
     public function handle(): void
     {
+        if (! $this->shop->isYandexMarketActive()) {
+            Log::warning('PushStockToYandex: Yandex Market is not active for shop', [
+                'shop_id' => $this->shop->id,
+                'warehouse_id' => $this->warehouse->id,
+            ]);
+
+            return;
+        }
+
         $ymWarehouseId = $this->warehouse->ym_id ?: $this->shop->ym_warehouse_id;
         if (! $ymWarehouseId) {
             Log::warning('PushStockToYandex: YM warehouse id is not configured', [

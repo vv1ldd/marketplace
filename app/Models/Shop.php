@@ -3,18 +3,12 @@
 namespace App\Models;
 
 use App\Models\Order\Order;
-use Filament\Models\Contracts\HasName;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Shop extends Model implements HasName
+class Shop extends Model
 {
-    public function getFilamentName(): string
-    {
-        return $this->name;
-    }
-
     const TYPE_VOUCHERS = 'vouchers';
 
     const TYPE_GAMES = 'games';
@@ -61,6 +55,8 @@ class Shop extends Model implements HasName
         'ym_chat_finish',
         'ym_chat_code_footer',
         'ym_min_selling_price',
+        'ym_legal_verification',
+        'ym_legal_verified_at',
         'is_active',
         'is_sandbox',
         'web3_wallet',
@@ -86,6 +82,8 @@ class Shop extends Model implements HasName
         'support_telegram',
         'client_id',
         'client_secret',
+        'legal_entity_id',
+        'is_distribution_center',
     ];
 
     protected $casts = [
@@ -97,11 +95,14 @@ class Shop extends Model implements HasName
         'allow_all_brands' => 'boolean',
         'is_voucher_generation_enabled' => 'boolean',
         'use_custom_smtp' => 'boolean',
+        'is_distribution_center' => 'boolean',
         'use_custom_redeem_url' => 'boolean',
         'markup_percent' => 'integer',
         'min_price_threshold' => 'integer',
         'ym_tax' => 'decimal:2',
         'ym_boost_percent' => 'decimal:2',
+        'ym_legal_verification' => 'array',
+        'ym_legal_verified_at' => 'datetime',
         'allowed_categories' => 'array',
         'allowed_regions' => 'array',
         'api_key' => \App\Casts\VaultEncrypted::class,
@@ -154,6 +155,21 @@ class Shop extends Model implements HasName
     public function apiApplications(): HasMany
     {
         return $this->hasMany(ApiApplication::class);
+    }
+
+    public function isYandexMarketVerified(): bool
+    {
+        return filled($this->ym_legal_verified_at)
+            && (bool) data_get($this->ym_legal_verification ?? [], 'matches.inn');
+    }
+
+    public function isYandexMarketActive(): bool
+    {
+        return filled($this->business_id)
+            && filled($this->campaign_id)
+            && filled($this->api_key)
+            && filled($this->ym_warehouse_id)
+            && $this->isYandexMarketVerified();
     }
 
     public function warehouses(): HasMany

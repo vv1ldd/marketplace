@@ -5,8 +5,8 @@ namespace App\Jobs;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use App\Models\User;
-use Filament\Notifications\Notification;
 
 class SyncCurrencyRatesBackgroundJob implements ShouldQueue
 {
@@ -35,17 +35,9 @@ class SyncCurrencyRatesBackgroundJob implements ShouldQueue
         
         if ($user) {
             if ($exitCode === 0) {
-                Notification::make()
-                    ->title('🎉 Обновление валют завершено!')
-                    ->body('Все котировки успешно синхронизированы через Sovereign Liquidity Engine.')
-                    ->success()
-                    ->sendToDatabase($user);
+                Log::info('Currency rates sync completed', ['user_id' => $user->id]);
             } else {
-                Notification::make()
-                    ->title('🚨 Ошибка обновления валют')
-                    ->body('В ходе фоновой синхронизации произошел сбой. Проверьте системные логи.')
-                    ->danger()
-                    ->sendToDatabase($user);
+                Log::warning('Currency rates sync failed', ['user_id' => $user->id, 'exit_code' => $exitCode]);
             }
         }
     }

@@ -10,7 +10,6 @@
             <a href="{{ route('home') }}">Главная</a>
             <a href="{{ route('meanly.catalog.index') }}">Каталог</a>
             <a href="{{ route('home') }}#infrastructure">Как работает</a>
-            <a href="{{ route('business.landing') }}">Стать продавцом</a>
         </div>
 
         <div class="footer-links-block">
@@ -22,15 +21,14 @@
                 @endif
             @else
                 <a href="{{ route('login') }}">Войти по Passkey</a>
-                <a href="{{ route('business.register') }}">Стать продавцом</a>
             @endauth
         </div>
 
         <div class="footer-links-block">
-            <span class="footer-title">Для продавцов</span>
+            <span class="footer-title">Для бизнеса</span>
             <a href="{{ route('business.services.index') }}">Услуги для бизнеса</a>
             <a href="{{ route('business.register') }}">Стать продавцом</a>
-            <a href="/partner">B2B Консоль</a>
+            <a href="{{ route('business.landing') }}">B2B Консоль</a>
         </div>
     </div>
 

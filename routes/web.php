@@ -15,7 +15,7 @@ Route::middleware('web')->group(function () {
         return 'OPcache not active';
     });
 
-    Route::get('passkeys/authentication-options', \Spatie\LaravelPasskeys\Http\Controllers\GeneratePasskeyAuthenticationOptionsController::class)->name('passkeys.authentication_options');
+    Route::get('passkeys/authentication-options', \App\Http\Controllers\Auth\PasskeyAuthenticationOptionsController::class)->name('passkeys.authentication_options');
     Route::post('passkeys/authenticate', \App\Http\Controllers\Auth\PasskeyAuthenticateController::class)->name('passkeys.login');
 });
 
@@ -24,13 +24,6 @@ $meanlyPublicRoutes = function () {
     Route::get('/invite/{token}', [\App\Http\Controllers\Auth\InviteAcceptController::class, 'show'])->name('invite.accept');
     Route::post('/invite/{token}/options', [\App\Http\Controllers\Auth\InviteAcceptController::class, 'options'])->name('invite.accept.options');
     Route::post('/invite/{token}/accept', [\App\Http\Controllers\Auth\InviteAcceptController::class, 'accept'])->name('invite.accept.submit');
-
-    Route::get('/migration-pill/{token}', [\App\Http\Controllers\Auth\LegalEntityMigrationPillController::class, 'show'])->name('migration-pill.show');
-    Route::post('/migration-pill/{token}/options', [\App\Http\Controllers\Auth\LegalEntityMigrationPillController::class, 'options'])->name('migration-pill.options');
-    Route::post('/migration-pill/{token}/accept', [\App\Http\Controllers\Auth\LegalEntityMigrationPillController::class, 'accept'])->name('migration-pill.accept');
-    Route::post('/migration-pill/legal-entities/{legalEntity}/issue', [\App\Http\Controllers\Auth\LegalEntityMigrationPillController::class, 'issue'])
-        ->middleware('auth')
-        ->name('migration-pill.issue');
 
     Route::get('/', [\App\Http\Controllers\MeanlyStorefrontController::class, 'index'])->name('home');
     Route::get('/robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('robots.txt');
@@ -111,29 +104,15 @@ $meanlyPublicRoutes = function () {
         request()->session()->invalidate();
         request()->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route('home');
     })->middleware('auth')->name('logout');
     Route::post('/cabinet/logout', function () {
         \Illuminate\Support\Facades\Auth::logout();
         request()->session()->invalidate();
         request()->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route('home');
     })->middleware('auth')->name('cabinet.logout');
-    Route::get('/magic-login/legal-entities/{legalEntity}', \App\Http\Controllers\Auth\LegalEntityMagicLoginController::class)
-        ->middleware('signed')
-        ->name('legal-entities.magic-login');
-    Route::get('/magic-login/{inn}', [\App\Http\Controllers\Auth\LegalEntityMagicLoginController::class, 'byInn'])
-        ->where('inn', '[0-9]{10,12}')
-        ->name('legal-entities.magic-login.inn');
-
-    Route::get('/magic-login', function () {
-        if (request()->has('inn') || request()->has('magic-login')) {
-            return app(\App\Http\Controllers\Auth\LegalEntityMagicLoginController::class)->byInn(request());
-        }
-
-        abort(404);
-    })->name('magic-login');
     Route::get('/register', fn () => redirect('/cabinet/register'))->name('register');
     Route::get('/register/verify-intent', [\App\Http\Controllers\PartnerRegistrationController::class, 'verifyIntent'])->name('register.verify');
     Route::get('/business', fn () => view('business', [
@@ -146,18 +125,34 @@ $meanlyPublicRoutes = function () {
     Route::get('/business/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'showLegalEntity'])->name('business.register');
     Route::post('/business/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'register'])->name('business.register.submit');
     Route::post('/business/register/options', [\App\Http\Controllers\PartnerRegistrationController::class, 'options'])->name('business.register.options');
+    Route::post('/business/register/email/send', [\App\Http\Controllers\PartnerRegistrationController::class, 'sendBusinessEmailCode'])->name('business.register.email.send');
+    Route::post('/business/register/email/verify', [\App\Http\Controllers\PartnerRegistrationController::class, 'verifyBusinessEmailCode'])->name('business.register.email.verify');
     Route::get('/legal-entities/register', fn (\Illuminate\Http\Request $request) => redirect()->route('business.register', $request->query()))->name('legal-entities.register');
     Route::post('/legal-entities/register', fn (\Illuminate\Http\Request $request) => redirect()->route('business.register', $request->query()))->name('legal-entities.register.submit');
-    Route::get('/cabinet', [\App\Http\Controllers\CabinetController::class, 'index'])->name('filament.client.pages.dashboard')->middleware(['auth']);
+    Route::get('/cabinet', [\App\Http\Controllers\CabinetController::class, 'index'])->name('cabinet.dashboard')->middleware(['auth']);
+    Route::get('/cabinet/register', fn () => view('auth.register', [
+        'step' => 'identity',
+        'rawBlueprint' => '',
+    ]))->name('cabinet.register');
+    Route::redirect('/cabinet/orders', '/cabinet')->name('cabinet.orders');
+    Route::redirect('/cabinet/orders/{record}', '/cabinet')->name('cabinet.orders.show');
+    Route::redirect('/cabinet/profile', '/cabinet')->name('cabinet.profile');
+    Route::redirect('/cabinet/integrations', '/cabinet')->name('cabinet.integrations');
     Route::get('/cabinet/vault/passkey-options', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyOptions'])->name('cabinet.vault.passkey.options')->middleware(['auth']);
     Route::post('/cabinet/vault/passkey-confirm', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyConfirm'])->name('cabinet.vault.passkey.confirm')->middleware(['auth']);
     Route::get('/operator', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.operator')->middleware(['auth', 'plane.guard']);
     Route::get('/reader', fn () => view('reader'))->name('reader');
     Route::get('/terminal', fn () => view('terminal'))->name('terminal');
+    Route::redirect('/partner-old', '/partner')->name('partner.legacy');
+    Route::redirect('/partner-old/{path}', '/partner')->where('path', '.*')->name('partner.legacy.deep');
     
     Route::prefix('partner')->group(function () {
+        Route::get('/onboarding', [\App\Http\Controllers\PartnerRegistrationController::class, 'showOnboarding'])
+            ->middleware('auth')
+            ->name('partner.onboarding');
+
         // 🔐 Protected Dashboard
-        Route::middleware(['auth', 'plane.guard'])->group(function () {
+        Route::middleware(['auth', 'plane.guard', 'partner.intent'])->group(function () {
             Route::get('/', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard');
             Route::post('/dashboard/sign', [\App\Http\Controllers\PartnerDashboardController::class, 'signAgreement'])->name('partner.dashboard.sign');
             Route::post('/dashboard/bank', [\App\Http\Controllers\PartnerDashboardController::class, 'updateBank'])->name('partner.dashboard.bank');
@@ -206,6 +201,8 @@ $meanlyPublicRoutes = function () {
 
             // 🟡 Yandex Market Integration Management
             Route::post('/dashboard/shop/{id}/yandex-market', [\App\Http\Controllers\PartnerDashboardController::class, 'updateYandexMarket'])->name('partner.dashboard.shop.yandex_market');
+            Route::post('/dashboard/shop/{id}/yandex-market/warehouses', [\App\Http\Controllers\PartnerDashboardController::class, 'getYandexMarketWarehouses'])->name('partner.dashboard.shop.yandex_market.warehouses');
+            Route::post('/dashboard/shop/{id}/yandex-market/verify-legal', [\App\Http\Controllers\PartnerDashboardController::class, 'verifyYandexMarketLegalEntity'])->name('partner.dashboard.shop.yandex_market.verify_legal');
 
             // 🔔 Notifications Center Management
             Route::get('/dashboard/notifications', [\App\Http\Controllers\PartnerDashboardController::class, 'getNotifications'])->name('partner.dashboard.notifications');
@@ -249,6 +246,7 @@ $meanlyPublicRoutes = function () {
 
             // 📦 B2B Warehouses SPA Management
             Route::get('/dashboard/warehouses/data', [\App\Http\Controllers\PartnerDashboardController::class, 'getWarehousesData'])->name('partner.dashboard.warehouses.data');
+            Route::get('/dashboard/warehouses/{id}/stock', [\App\Http\Controllers\PartnerDashboardController::class, 'getWarehouseStock'])->name('partner.dashboard.warehouses.stock');
             Route::post('/dashboard/warehouses/create', [\App\Http\Controllers\PartnerDashboardController::class, 'createWarehouse'])->name('partner.dashboard.warehouses.create');
             Route::post('/dashboard/warehouses/{id}/toggle-active', [\App\Http\Controllers\PartnerDashboardController::class, 'toggleWarehouseActive'])->name('partner.dashboard.warehouses.toggle_active');
 
@@ -273,7 +271,7 @@ $meanlyPublicRoutes = function () {
                 \Illuminate\Support\Facades\Auth::logout();
                 request()->session()->invalidate();
                 request()->session()->regenerateToken();
-                return redirect()->route('login');
+                return redirect()->route('home');
             })->name('partner.logout');
         });
         
@@ -296,6 +294,7 @@ $meanlyPublicRoutes = function () {
             
             // 📋 Global Ops AJAX endpoints for SPA tabs
             Route::get('/dashboard/partners/data', [\App\Http\Controllers\OpsDashboardController::class, 'getPartnersData'])->name('ops.dashboard.partners.data');
+            Route::post('/dashboard/partners/{legalEntity}/approve', [\App\Http\Controllers\OpsDashboardController::class, 'approvePartner'])->name('ops.dashboard.partners.approve');
             Route::get('/dashboard/shops/data', [\App\Http\Controllers\OpsDashboardController::class, 'getShopsData'])->name('ops.dashboard.shops.data');
             Route::get('/dashboard/orders/data', [\App\Http\Controllers\OpsDashboardController::class, 'getOrdersData'])->name('ops.dashboard.orders.data');
             Route::get('/dashboard/catalog/data', [\App\Http\Controllers\OpsDashboardController::class, 'getCatalogData'])->name('ops.dashboard.catalog.data');
@@ -310,166 +309,13 @@ $meanlyPublicRoutes = function () {
             Route::post('/dashboard/theme', [\App\Http\Controllers\OpsDashboardController::class, 'updateTheme'])->name('ops.dashboard.theme');
         });
     });
+    Route::redirect('/ops/{path}', '/ops')->where('path', '.*')->name('ops.legacy.deep');
 
-    // 🏛️ Sovereign Integrity Tribunal (/tribunal)
-    Route::prefix('tribunal')->group(function () {
-        Route::middleware(['auth'])->group(function () {
-            // AJAX endpoints for Tribunal Dashboard
-            Route::post('/audit/validate', [\App\Http\Controllers\TribunalDashboardController::class, 'validateChain'])->name('tribunal.audit.validate');
-            Route::post('/audit/chat', [\App\Http\Controllers\TribunalDashboardController::class, 'chatOracle'])->name('tribunal.audit.chat');
-        });
-    });
+    Route::redirect('/tribunal', '/ops')->name('tribunal.legacy');
+    Route::redirect('/treasury', '/ops')->name('treasury.legacy');
+    Route::redirect('/kernel', '/ops')->name('kernel.legacy');
+    Route::redirect('/support', '/ops')->name('support.legacy');
 
-    // 🏦 Sovereign Treasury Nexus (/treasury)
-    Route::prefix('treasury')->group(function () {
-        Route::middleware(['auth'])->group(function () {
-            Route::post('/pathfinder/calculate', function (\Illuminate\Http\Request $request) {
-                $fromCode = $request->input('from_code', 'RUB');
-                $toCode = $request->input('to_code', 'USD');
-                $amount = (float) $request->input('amount', 1000);
-                
-                $fromCurrency = \App\Models\Currency::where('code', $fromCode)->first();
-                $toCurrency = \App\Models\Currency::where('code', $toCode)->first();
-                
-                if (!$fromCurrency || !$toCurrency || $amount <= 0) {
-                    return response()->json(['routes' => []]);
-                }
-                
-                $routes = collect();
-                
-                // Spot
-                if ($fromCurrency->spot_rate_usdt > 0 && $toCurrency->spot_rate_usdt > 0) {
-                    $crossRate = $toCurrency->spot_rate_usdt / $fromCurrency->spot_rate_usdt;
-                    $fee = 0.001;
-                    $finalAmount = ($amount * $crossRate) * (1 - $fee);
-                    $obs = min($fromCurrency->observability_score, $toCurrency->observability_score);
-                    $lsi = max($fromCurrency->liquidity_stress_index, $toCurrency->liquidity_stress_index);
-                    $displayRate = $crossRate < 1 ? "1 {$toCode} = " . number_format(1 / $crossRate, 4) . " {$fromCode}" : "1 {$fromCode} = " . number_format($crossRate, 4) . " {$toCode}";
-                    
-                    $routes->push([
-                        'name' => 'Institutional Spot',
-                        'description' => "Direct exchange via USDT spot markets.",
-                        'final_amount' => $finalAmount,
-                        'rate_display' => $displayRate,
-                        'spread' => 0.1,
-                        'observability' => $obs,
-                        'lsi' => $lsi * 100,
-                        'capacity_str' => "$10 — $500,000",
-                        'is_over_limit' => ($amount / ($fromCurrency->spot_rate_usdt ?: 1)) > 500000,
-                        'methods' => "{$fromCode} Spot ➔ USDT ➔ {$toCode} Spot",
-                        'color' => 'success',
-                        'trust' => 'High',
-                        'inbound_rails' => $fromCurrency->inbound_methods ?? ['Bank', 'SEPA', 'SWIFT'],
-                        'outbound_rails' => $toCurrency->outbound_methods ?? ['Bank', 'SEPA', 'SWIFT'],
-                    ]);
-                }
-                
-                // P2P
-                $p2pFrom = $fromCurrency->p2p_rate_usdt > 0 ? $fromCurrency->p2p_rate_usdt : ($fromCurrency->spot_rate_usdt > 0 ? $fromCurrency->spot_rate_usdt : $fromCurrency->tradfi_rate);
-                $p2pTo = $toCurrency->p2p_rate_usdt > 0 ? $toCurrency->p2p_rate_usdt : ($toCurrency->spot_rate_usdt > 0 ? $toCurrency->spot_rate_usdt : $toCurrency->tradfi_rate);
-                
-                if ($p2pFrom > 0 && $p2pTo > 0) {
-                    $crossRate = $p2pTo / $p2pFrom;
-                    $fee = 0.015;
-                    $finalAmount = ($amount * $crossRate) * (1 - $fee);
-                    $obs = min($fromCurrency->observability_score, $toCurrency->observability_score) * 0.8;
-                    $lsi = max($fromCurrency->liquidity_stress_index, $toCurrency->liquidity_stress_index);
-                    $displayRate = $crossRate < 1 ? "1 {$toCode} = " . number_format(1 / $crossRate, 4) . " {$fromCode}" : "1 {$fromCode} = " . number_format($crossRate, 4) . " {$toCode}";
-                    
-                    $routes->push([
-                        'name' => 'Shadow P2P Corridor',
-                        'description' => "Decentralized peer-to-peer liquidity matching.",
-                        'final_amount' => $finalAmount,
-                        'rate_display' => $displayRate,
-                        'spread' => 1.5,
-                        'observability' => $obs,
-                        'lsi' => $lsi * 100,
-                        'capacity_str' => "$10 — $5,000",
-                        'is_over_limit' => ($amount / ($fromCurrency->p2p_rate_usdt ?: 1)) > 5000,
-                        'methods' => "{$fromCode} P2P Ask ➔ USDT ➔ {$toCode} P2P Bid",
-                        'color' => 'warning',
-                        'trust' => 'Medium',
-                        'inbound_rails' => ['P2P', 'Transfer', 'Cash'],
-                        'outbound_rails' => ['P2P', 'Transfer', 'Cash'],
-                    ]);
-                }
-                
-                // SWIFT
-                $tradfiFrom = $fromCode === 'RUB' ? 1.0 : $fromCurrency->tradfi_rate;
-                $tradfiTo = $toCode === 'RUB' ? 1.0 : $toCurrency->tradfi_rate;
-                
-                if ($tradfiFrom > 0 && $tradfiTo > 0) {
-                    $crossRate = $tradfiFrom / $tradfiTo;
-                    $fee = 0.03;
-                    $finalAmount = ($amount * $crossRate) * (1 - $fee);
-                    $displayRate = $crossRate < 1 ? "1 {$toCode} = " . number_format(1 / $crossRate, 4) . " {$fromCode}" : "1 {$fromCode} = " . number_format($crossRate, 4) . " {$toCode}";
-                    
-                    $routes->push([
-                        'name' => 'TradFi Interbank (SWIFT)',
-                        'description' => 'Classical banking rails. Subject to compliance.',
-                        'final_amount' => $finalAmount,
-                        'rate_display' => $displayRate,
-                        'spread' => 3.0,
-                        'observability' => 1.0,
-                        'lsi' => 0,
-                        'capacity_str' => "$1,000 — $10,000,000",
-                        'is_over_limit' => $amount < 1000,
-                        'methods' => "{$fromCode} (Nostro) ➔ Central Bank ➔ {$toCode} (Vostro)",
-                        'color' => 'gray',
-                        'trust' => 'Regulated',
-                        'inbound_rails' => $fromCurrency->inbound_methods ?? ['SWIFT', 'Wire'],
-                        'outbound_rails' => $toCurrency->outbound_methods ?? ['SWIFT', 'Wire'],
-                    ]);
-                }
-                
-                // Transit Hubs
-                if ($fromCode === 'RUB' && $toCode !== 'RUB') {
-                    $hubs = [
-                        'TJS' => ['name' => 'Tajikistan (SBP/NSPK)', 'fee' => 2.2],
-                        'KZT' => ['name' => 'Kazakhstan (Halyk/Kaspi)', 'fee' => 2.8],
-                        'AMD' => ['name' => 'Armenia (IDBank)', 'fee' => 2.5],
-                        'KGZ' => ['name' => 'Kyrgyzstan (Mbank)', 'fee' => 2.1],
-                        'UZS' => ['name' => 'Uzbekistan (Humo/Uzcard)', 'fee' => 2.9],
-                    ];
-                    
-                    foreach ($hubs as $hubCode => $hubInfo) {
-                        $hubCurrency = \App\Models\Currency::where('code', $hubCode)->first();
-                        if (!$hubCurrency) continue;
-                        
-                        $fromRate = $fromCurrency->p2p_rate_usdt ?: $fromCurrency->spot_rate_usdt;
-                        if (!$fromRate) continue;
-                        
-                        $baseCrossRate = ($toCurrency->spot_rate_usdt ?: 1) / ($fromRate ?: 1);
-                        $friction = 1 + ($hubInfo['fee'] / 100);
-                        $finalAmount = ($amount / $friction) * $baseCrossRate;
-                        
-                        $effectiveRate = $finalAmount > 0 ? $amount / $finalAmount : 0;
-                        $rateDisplay = $effectiveRate > 0 ? "1 {$toCode} = " . number_format($effectiveRate, 2) . " {$fromCode}" : "N/A";
-                        
-                        $routes->push([
-                            'name' => "Proxy Hub: " . $hubInfo['name'],
-                            'description' => "Regional transit via " . $hubCode . " banking proxy.",
-                            'final_amount' => $finalAmount,
-                            'rate_display' => $rateDisplay,
-                            'spread' => $hubInfo['fee'],
-                            'observability' => 0.9,
-                            'lsi' => 5,
-                            'capacity_str' => "$500 — $50,000",
-                            'is_over_limit' => $amount < 500 || $amount > 50000,
-                            'methods' => "{$fromCode} (SBP) ➔ {$hubCode} (Local) ➔ USDT ➔ {$toCode}",
-                            'color' => 'violet',
-                            'trust' => 'Sovereign',
-                            'inbound_rails' => ['SBP', 'NSPK', 'MIR'],
-                            'outbound_rails' => $toCurrency->outbound_methods ?? ['Card', 'Transfer'],
-                        ]);
-                    }
-                }
-                
-                $sortedRoutes = $routes->sortByDesc('final_amount')->values()->toArray();
-                return response()->json(['routes' => $sortedRoutes]);
-            })->name('treasury.pathfinder.calculate');
-        });
-    });
 };
 
 foreach (config('app.public_domains', [config('app.domain')]) as $domain) {

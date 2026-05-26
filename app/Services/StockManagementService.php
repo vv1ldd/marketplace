@@ -48,7 +48,7 @@ class StockManagementService
                     }
                 }
 
-                // B. Send Email & Filament Notification to Sellers
+                // B. Send Email notification to sellers
                 $sellers = $shop->sellers;
                 foreach ($sellers as $seller) {
                     // Email
@@ -61,18 +61,6 @@ class StockManagementService
                         } catch (\Exception $e) {
                             Log::error('Stock Notify: Email failed', ['error' => $e->getMessage()]);
                         }
-                    }
-
-                    // Filament (In-app database notification)
-                    try {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Низкий остаток товара')
-                            ->body($message)
-                            ->warning()
-                            ->icon('heroicon-o-cube')
-                            ->sendToDatabase($seller);
-                    } catch (\Exception $e) {
-                        Log::error('Stock Notify: Filament failed', ['error' => $e->getMessage()]);
                     }
                 }
 

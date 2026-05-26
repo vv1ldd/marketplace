@@ -10,6 +10,7 @@ use App\Models\Shop;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 class OrganizeB2BPartnersCommand extends Command
 {
@@ -98,6 +99,7 @@ class OrganizeB2BPartnersCommand extends Command
                 }
                 
                 if (method_exists($user, 'assignRole')) {
+                    Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
                     $user->assignRole('b2b_partner');
                     $this->info("✅ Role 'b2b_partner' assigned to User [ID: {$user->id}].");
                 }
@@ -124,7 +126,8 @@ class OrganizeB2BPartnersCommand extends Command
             }
 
             if (method_exists($seller, 'assignRole')) {
-                $seller->assignRole('b2b_partner');
+                $sellerRole = Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'sellers']);
+                $seller->assignRole($sellerRole);
                 $this->info("✅ Role 'b2b_partner' assigned to Seller [ID: {$seller->id}].");
             }
 
