@@ -150,6 +150,17 @@ return [
 
     'domain' => env('APP_DOMAIN', '1gros.local'),
     'production_domain' => env('APP_PRODUCTION_DOMAIN', env('APP_DOMAIN', '1gros.local')),
+    'public_domains' => array_values(array_unique(array_filter(array_map(
+        static fn (?string $host): string => strtolower(trim((string) $host)),
+        array_merge(
+            explode(',', (string) env('APP_PUBLIC_DOMAINS', '')),
+            [
+                env('APP_DOMAIN', '1gros.local'),
+                env('APP_PRODUCTION_DOMAIN', env('APP_DOMAIN', '1gros.local')),
+                parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST),
+            ],
+        ),
+    )))),
 
     /**
      * Хосты Filament-панелей (без схемы). Пусто — панели доступны с любого Host (удобно для localhost).

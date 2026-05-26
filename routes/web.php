@@ -19,8 +19,7 @@ Route::middleware('web')->group(function () {
     Route::post('passkeys/authenticate', \App\Http\Controllers\Auth\PasskeyAuthenticateController::class)->name('passkeys.login');
 });
 
-
-Route::domain(config('app.domain'))->group(function () {
+$meanlyPublicRoutes = function () {
     // 🎟️ Staff Invitation Accept Flow
     Route::get('/invite/{token}', [\App\Http\Controllers\Auth\InviteAcceptController::class, 'show'])->name('invite.accept');
     Route::post('/invite/{token}/options', [\App\Http\Controllers\Auth\InviteAcceptController::class, 'options'])->name('invite.accept.options');
@@ -468,7 +467,11 @@ Route::domain(config('app.domain'))->group(function () {
             })->name('treasury.pathfinder.calculate');
         });
     });
-});
+};
+
+foreach (config('app.public_domains', [config('app.domain')]) as $domain) {
+    Route::domain($domain)->group($meanlyPublicRoutes);
+}
 
 Route::get('/lang/{locale}', function (string $locale) {
     $resolver = app(\App\Services\LocaleResolver::class);
