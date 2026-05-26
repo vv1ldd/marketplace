@@ -73,6 +73,9 @@ $meanlyPublicRoutes = function () {
     Route::get('/store', [\App\Http\Controllers\MeanlyStorefrontController::class, 'index'])->name('meanly.storefront.index');
     Route::get('/store/search', [\App\Http\Controllers\MeanlyStorefrontController::class, 'search'])->name('meanly.storefront.search');
     Route::get('/store/products/{slug}', [\App\Http\Controllers\MeanlyStorefrontController::class, 'show'])->name('meanly.storefront.products.show');
+    Route::get('/simple-l1/connect', [\App\Http\Controllers\SimpleL1ConnectController::class, 'connect'])->name('meanly.simple_l1.connect');
+    Route::get('/simple-l1/callback', [\App\Http\Controllers\SimpleL1ConnectController::class, 'callback'])->name('meanly.simple_l1.callback');
+    Route::get('/simple-l1/status', [\App\Http\Controllers\SimpleL1ConnectController::class, 'status'])->name('meanly.simple_l1.status');
     Route::post('/store/favorites/{product}/toggle', [\App\Http\Controllers\MeanlyStorefrontController::class, 'toggleFavorite'])->name('meanly.storefront.favorites.toggle');
     Route::post('/store/checkout/availability', [\App\Http\Controllers\MeanlyStorefrontController::class, 'checkoutAvailability'])->name('meanly.storefront.checkout.availability');
     Route::post('/store/checkout', [\App\Http\Controllers\MeanlyStorefrontController::class, 'checkout'])->name('meanly.storefront.checkout');

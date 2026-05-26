@@ -18,6 +18,7 @@ use App\Services\MeanlyFirstPartyStorefrontService;
 use App\Services\PartnerOperatorIntelligenceService;
 use App\Services\Provider\ProviderHub;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class MeanlyFirstPartyStorefrontTest extends TestCase
@@ -604,6 +605,153 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertStringContainsString('Открыть код', $html);
         $this->assertStringNotContainsString('window.location.assign(result.cabinet_safe_url || result.redirect_url || result.safe_url)', $html);
         $this->assertStringNotContainsString('window.location.assign(standaloneSafeUrl)', $html);
+    }
+
+    public function test_storefront_product_can_connect_external_simple_l1_identity(): void
+    {
+        $product = $this->seedStorefrontCheckoutProduct('MEANLY-SL1-CONNECT', 'MEAN-SL1-TEST01-ZZ');
+        $l1Address = 'sl1e_'.str_repeat('c', 39);
+
+        $this->get(route('meanly.storefront.products.show', $product->slug))
+            ->assertOk()
+            ->assertSee('Connect Simple L1 wallet')
+            ->assertSee(route('meanly.simple_l1.connect', ['return_to' => '/store/products/'.$product->slug]), false);
+
+        $this->withSession([
+            'simple_l1_identity' => [
+                'l1_address' => $l1Address,
+                'proof_token' => 'proof-token',
+            ],
+        ])->get(route('meanly.storefront.products.show', $product->slug))
+            ->assertOk()
+            ->assertSee('Кошелек подключен')
+            ->assertSee($l1Address)
+            ->assertSee('Переподключить SL1 wallet');
+    }
+
+    public function test_simple_l1_callback_verifies_proof_and_stores_marketplace_session_identity(): void
+    {
+        $l1Address = 'sl1e_'.str_repeat('d', 39);
+
+        config(['simple_l1.identity_provider_url' => 'https://api.wildflow.test']);
+        Http::fake([
+            'https://api.wildflow.test/api/simple-l1/proofs/introspect' => Http::response([
+                'protocol' => 'simple-l1',
+                'active' => true,
+                'identity' => [
+                    'l1_address' => $l1Address,
+                    'entity_l1_address' => $l1Address,
+                    'key_l1_address' => 'sl1_'.str_repeat('e', 40),
+                    'address_version' => 'simple-l1:v1:entity',
+                    'key_address_version' => 'simple-l1:v1:passkey',
+                    'user_id' => 1,
+                ],
+                'proof' => [
+                    'expires_at' => now()->addMinutes(5)->toIso8601String(),
+                    'context' => ['action' => 'meanly.marketplace.connect'],
+                ],
+            ]),
+        ]);
+
+        $this->withSession([
+            'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
+        ])->get('/simple-l1/callback?state=expected-state&proof_token=proof-token')
+            ->assertRedirect('/store/products/meanly-sl1-connect')
+            ->assertSessionHas('sovereign_l1_address', $l1Address)
+            ->assertSessionHas('simple_l1_identity.l1_address', $l1Address)
+            ->assertSessionHas('simple_l1_identity.entity_l1_address', $l1Address)
+            ->assertSessionHas('simple_l1_identity.key_l1_address', 'sl1_'.str_repeat('e', 40));
+    }
+
+    public function test_storefront_checkout_submits_simple_l1_intent_and_stores_projection(): void
+    {
+        $product = $this->seedStorefrontCheckoutProduct('MEANLY-SL1-INTENT', 'MEAN-SL1-INTENT-ZZ');
+        $l1Address = 'sl1e_'.str_repeat('f', 39);
+        $keyAddress = 'sl1_'.str_repeat('a', 40);
+
+        config(['simple_l1.identity_provider_url' => 'https://api.wildflow.test']);
+        Http::fake([
+            'https://api.wildflow.test/api/simple-l1/intents' => Http::response([
+                'protocol' => 'simple-l1',
+                'created' => true,
+                'identity' => [
+                    'entity_l1_address' => $l1Address,
+                    'key_l1_address' => $keyAddress,
+                ],
+                'intent' => [
+                    'intent_id' => 'sl1i_checkout_intent_001',
+                    'status' => 'accepted',
+                    'capability' => 'marketplace.checkout.create',
+                    'scope' => 'marketplace:meanly',
+                    'payload_hash' => str_repeat('1', 64),
+                    'decision' => 'allow',
+                    'reason_codes' => ['grant.allow.matched'],
+                ],
+            ], 201),
+        ]);
+
+        $this->withSession([
+            'simple_l1_identity' => [
+                'l1_address' => $l1Address,
+                'entity_l1_address' => $l1Address,
+                'key_l1_address' => $keyAddress,
+                'proof_token' => 'proof-token',
+            ],
+        ])->postJson(route('meanly.storefront.checkout'), [
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'email' => 'sl1-buyer@example.test',
+            'name' => 'SL1 Buyer',
+        ])->assertOk()
+            ->assertJsonPath('success', true);
+
+        $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
+        $this->assertSame('sl1i_checkout_intent_001', data_get($order->info, 'simple_l1.intent_id'));
+        $this->assertSame('accepted', data_get($order->info, 'simple_l1.intent_status'));
+        $this->assertSame($l1Address, data_get($order->info, 'simple_l1.entity_l1_address'));
+        $this->assertNull(data_get($order->info, 'simple_l1.receipt'));
+
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/simple-l1/intents')
+            && $request['capability'] === 'marketplace.checkout.create'
+            && $request['scope'] === 'marketplace:meanly'
+            && $request['proof_token'] === 'proof-token');
+    }
+
+    public function test_storefront_checkout_stops_when_simple_l1_intent_is_rejected(): void
+    {
+        $product = $this->seedStorefrontCheckoutProduct('MEANLY-SL1-REJECTED', 'MEAN-SL1-REJECT-ZZ');
+        $l1Address = 'sl1e_'.str_repeat('8', 39);
+
+        config(['simple_l1.identity_provider_url' => 'https://api.wildflow.test']);
+        Http::fake([
+            'https://api.wildflow.test/api/simple-l1/intents' => Http::response([
+                'protocol' => 'simple-l1',
+                'created' => true,
+                'identity' => ['entity_l1_address' => $l1Address],
+                'intent' => [
+                    'intent_id' => 'sl1i_checkout_rejected_001',
+                    'status' => 'rejected',
+                    'decision' => 'deny',
+                    'reason_codes' => ['grant.none.matched'],
+                ],
+            ], 201),
+        ]);
+
+        $this->withSession([
+            'simple_l1_identity' => [
+                'l1_address' => $l1Address,
+                'entity_l1_address' => $l1Address,
+                'proof_token' => 'proof-token',
+            ],
+        ])->postJson(route('meanly.storefront.checkout'), [
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'email' => 'sl1-rejected@example.test',
+            'name' => 'SL1 Rejected',
+        ])->assertStatus(422);
+
+        $this->assertSame(0, Order::query()->count());
     }
 
     public function test_wallet_checkout_options_require_authentication(): void

@@ -14,6 +14,7 @@ use App\Services\MeanlyFirstPartyStorefrontService;
 use App\Services\MeanlyAnalyticsService;
 use App\Services\MeanlyRetailCheckoutService;
 use App\Services\OrderSupportTicketService;
+use App\Services\SimpleL1ProtocolClient;
 use App\Services\StorefrontFulfillmentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -126,12 +127,14 @@ class MeanlyStorefrontController extends Controller
             $request->boolean('preorder_acknowledged'),
         );
         $customer = $this->checkoutCustomer($request, $data);
+        $simpleL1Intent = $this->submitSimpleL1CheckoutIntent($request, $product, (int) $data['quantity'], $availability, $customer);
 
         $result = $checkout->checkout($product, $customer, (int) $data['quantity'], [
             'fulfillment_mode' => $availability['fulfillment_mode'],
             'preorder_acknowledged' => $availability['preorder_acknowledged'],
             'availability' => $availability,
         ]);
+        $this->attachSimpleL1IntentProjection($result['order'], $simpleL1Intent);
         if (($result['fulfillment_status'] ?? null) === 'provider_redeem_pending') {
             $fulfillment->fulfillProviderOrder($result['order']);
             $result['order'] = $result['order']->refresh();
@@ -786,6 +789,78 @@ class MeanlyStorefrontController extends Controller
         }
 
         return $fallback;
+    }
+
+    private function submitSimpleL1CheckoutIntent(Request $request, Product $product, int $quantity, array $availability, array $customer): ?array
+    {
+        $identity = session('simple_l1_identity');
+
+        if (! is_array($identity) || empty($identity['proof_token']) || empty($identity['entity_l1_address'])) {
+            return null;
+        }
+
+        $payload = [
+            'type' => 'commerce.order.checkout',
+            'product_id' => $product->id,
+            'product_slug' => $product->slug,
+            'quantity' => $quantity,
+            'fulfillment_mode' => $availability['fulfillment_mode'] ?? null,
+            'amount' => (string) ($product->price ?? $product->sell_price ?? ''),
+            'currency' => 'RUB',
+            'buyer_user_id' => $customer['buyer_user_id'] ?? null,
+            'delivery_email_hash' => isset($customer['delivery_email'])
+                ? hash('sha256', strtolower((string) $customer['delivery_email']))
+                : null,
+        ];
+
+        $idempotencyKey = hash('sha256', implode('|', [
+            'commerce.order.checkout',
+            (string) $identity['entity_l1_address'],
+            (string) $product->id,
+            (string) $quantity,
+            (string) ($customer['delivery_email'] ?? ''),
+        ]));
+
+        $response = app(SimpleL1ProtocolClient::class)->submitIntent(
+            proofToken: (string) $identity['proof_token'],
+            capability: 'marketplace.checkout.create',
+            scope: 'marketplace:meanly',
+            payload: $payload,
+            idempotencyKey: $idempotencyKey,
+        );
+
+        if (($response['intent']['status'] ?? null) !== 'accepted') {
+            throw ValidationException::withMessages([
+                'simple_l1' => 'Simple L1 intent was not accepted by the protocol gateway.',
+            ]);
+        }
+
+        return $response;
+    }
+
+    private function attachSimpleL1IntentProjection(Order $order, ?array $intentResponse): void
+    {
+        if (! $intentResponse) {
+            return;
+        }
+
+        $intent = $intentResponse['intent'] ?? [];
+        $identity = $intentResponse['identity'] ?? [];
+        $info = $order->info ?? [];
+
+        data_set($info, 'simple_l1', [
+            'intent_id' => $intent['intent_id'] ?? null,
+            'intent_status' => $intent['status'] ?? null,
+            'entity_l1_address' => $identity['entity_l1_address'] ?? null,
+            'key_l1_address' => $identity['key_l1_address'] ?? null,
+            'capability' => $intent['capability'] ?? null,
+            'scope' => $intent['scope'] ?? null,
+            'payload_hash' => $intent['payload_hash'] ?? null,
+            'decision' => $intent['decision'] ?? null,
+            'reason_codes' => $intent['reason_codes'] ?? [],
+        ]);
+
+        $order->forceFill(['info' => $info])->save();
     }
 
     private function isRubtWalletPayment(?string $paymentMethod): bool

@@ -11,6 +11,8 @@
         'reason' => 'Проверим наличие у продавца перед оплатой.',
     ];
     $initialCheckoutAvailable = ($initialCheckoutAvailability['status'] ?? null) === 'available';
+    $simpleL1Identity = session('simple_l1_identity');
+    $simpleL1Address = is_array($simpleL1Identity) ? ($simpleL1Identity['l1_address'] ?? null) : null;
 @endphp
 <!DOCTYPE html>
 <html lang="ru" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
@@ -219,6 +221,26 @@
             font-weight: 850;
             color: var(--muted);
             margin-bottom: 16px;
+        }
+        .simple-l1-panel {
+            border: 3px solid var(--line);
+            background: #ecfdf5;
+            padding: 12px;
+            margin-bottom: 14px;
+            font-weight: 850;
+            color: var(--muted);
+            box-shadow: 3px 3px 0 var(--line);
+        }
+        .simple-l1-panel strong,
+        .simple-l1-panel code {
+            display: block;
+            margin-top: 4px;
+            color: var(--ink);
+            overflow-wrap: anywhere;
+        }
+        .simple-l1-panel .btn {
+            width: 100%;
+            margin-top: 10px;
         }
         label {
             display: block;
@@ -936,6 +958,20 @@
                 <div class="price">{{ number_format(((float) $product->price_rub) / 100, 2, '.', ' ') }} ₽</div>
                 <div class="checkout-note" style="background: #fdf5ff; border-color: #a855f7;">
                     Код придет на email и появится в личном сейфе после оплаты.
+                </div>
+                <div class="simple-l1-panel" data-simple-l1-panel>
+                    <span>Simple L1 identity</span>
+                    @if($simpleL1Address)
+                        <strong>Кошелек подключен</strong>
+                        <code>{{ $simpleL1Address }}</code>
+                    @else
+                        <strong>Подключите SL1 passkey wallet</strong>
+                        <p class="recipient-help" style="margin-bottom: 0;">Подтвердите passkey на api.wildflow.test и вернитесь на Meanly с переносимым sl1 адресом.</p>
+                    @endif
+                    <a class="btn {{ $simpleL1Address ? 'btn-secondary' : 'btn-primary' }}"
+                       href="{{ route('meanly.simple_l1.connect', ['return_to' => request()->getRequestUri()]) }}">
+                        {{ $simpleL1Address ? 'Переподключить SL1 wallet' : 'Connect Simple L1 wallet' }}
+                    </a>
                 </div>
                 <form method="POST" action="{{ route('meanly.storefront.checkout') }}" data-gift-checkout>
                     @csrf

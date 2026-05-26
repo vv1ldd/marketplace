@@ -101,7 +101,7 @@ class WildflowServiceContractTest extends TestCase
         $entity->name = 'Test Partner';
         $entity->available_balance = 1000.00;
         $entity->currency = 'RUB';
-        $entity->agreement_metadata = ['l1_address' => 'sl1_e5b0faf926b528b3cfeb384c3111f1816ef00999'];
+        $entity->agreement_metadata = ['l1_address' => 'sl1e_e5b0faf926b528b3cfeb384c3111f1816ef0099'];
 
         $service = new WildflowService(providerModel: $provider);
         $service->syncPartner($entity);
@@ -114,7 +114,7 @@ class WildflowServiceContractTest extends TestCase
                 && $payload['name'] === 'Test Partner'
                 && (float)$payload['balance'] === 1000.00
                 && $payload['currency'] === 'RUB'
-                && $payload['l1_address'] === 'sl1_e5b0faf926b528b3cfeb384c3111f1816ef00999';
+                && $payload['l1_address'] === 'sl1e_e5b0faf926b528b3cfeb384c3111f1816ef0099';
         });
     }
 
