@@ -18,7 +18,9 @@ return new class extends Migration
         Schema::table('wildflow_catalogs', function (Blueprint $table) {
             $after = Schema::hasColumn('wildflow_catalogs', 'brand_id') ? 'brand_id' : 'id';
 
-            $table->foreignId('region_id')->nullable()->after($after)->constrained('mapping_countries')->nullOnDelete();
+            // Production can already have mapping_countries.id as legacy INT.
+            // Keep the application relation but avoid an incompatible FK during deploy.
+            $table->unsignedBigInteger('region_id')->nullable()->after($after)->index();
         });
     }
 
@@ -32,7 +34,7 @@ return new class extends Migration
         }
 
         Schema::table('wildflow_catalogs', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('region_id');
+            $table->dropColumn('region_id');
         });
     }
 };
