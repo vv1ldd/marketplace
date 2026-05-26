@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('liquidity_corridors')) {
+            return;
+        }
+
         Schema::create('liquidity_corridors', function (Blueprint $table) {
             $table->id();
             $table->string('currency_code', 3)->index();

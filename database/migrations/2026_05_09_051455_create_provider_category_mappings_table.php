@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('provider_category_mappings')) {
+            return;
+        }
+
         Schema::create('provider_category_mappings', function (Blueprint $blueprint) {
             $blueprint->id();
             $blueprint->foreignId('provider_id')->constrained()->cascadeOnDelete();

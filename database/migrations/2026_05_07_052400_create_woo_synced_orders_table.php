@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('woo_synced_orders')) {
+            return;
+        }
+
         Schema::create('woo_synced_orders', function (Blueprint $table) {
             $table->id();
             $table->timestamps();

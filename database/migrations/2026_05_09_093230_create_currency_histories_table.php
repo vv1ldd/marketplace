@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('currency_histories')) {
+            return;
+        }
+
         Schema::create('currency_histories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('currency_id')->constrained()->cascadeOnDelete();
