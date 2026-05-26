@@ -11,6 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('mapping_countries')) {
+            Schema::table('mapping_countries', function (Blueprint $table) {
+                if (! Schema::hasColumn('mapping_countries', 'code')) {
+                    $table->string('code', 10)->unique();
+                }
+
+                if (! Schema::hasColumn('mapping_countries', 'name_ru')) {
+                    $table->string('name_ru')->nullable();
+                }
+            });
+
+            return;
+        }
+
         Schema::create('mapping_countries', function (Blueprint $table) {
             $table->id();
             $table->string('code', 10)->unique();
