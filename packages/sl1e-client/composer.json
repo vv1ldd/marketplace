@@ -1,0 +1,22 @@
+{
+  "name": "simplelayer/sl1e-client",
+  "description": "Framework-neutral PHP client for Simple Layer SL1E authorization-code flows.",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": "^8.2",
+    "ext-json": "*"
+  },
+  "suggest": {
+    "ext-curl": "Required when using the built-in CurlHttpClient transport."
+  },
+  "autoload": {
+    "psr-4": {
+      "SimpleLayer\\Sl1e\\": "src/"
+    }
+  },
+  "scripts": {
+    "test": "php tests/smoke.php"
+  },
+  "minimum-stability": "stable"
+}

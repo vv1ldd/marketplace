@@ -96,7 +96,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../sl1e-client",
+            "url": "packages/sl1e-client",
             "options": {
                 "symlink": true,
                 "versions": {

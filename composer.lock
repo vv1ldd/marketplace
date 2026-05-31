@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dd7271ecb8c3c66f9b92e28a68f30082",
+    "content-hash": "2cc028e29939ce690248eabb9a0e97f1",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -4611,7 +4611,7 @@
             "version": "0.1.0",
             "dist": {
                 "type": "path",
-                "url": "../sl1e-client",
+                "url": "packages/sl1e-client",
                 "reference": "7dce25093c915c3f526dd6055180491abbf042d1"
             },
             "require": {
