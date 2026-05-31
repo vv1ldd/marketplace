@@ -15,8 +15,12 @@ Route::middleware('web')->group(function () {
         return 'OPcache not active';
     });
 
-    Route::get('passkeys/authentication-options', \App\Http\Controllers\Auth\PasskeyAuthenticationOptionsController::class)->name('passkeys.authentication_options');
-    Route::post('passkeys/authenticate', \App\Http\Controllers\Auth\PasskeyAuthenticateController::class)->name('passkeys.login');
+    Route::get('passkeys/authentication-options', fn () => response()->json([
+            'error' => 'Local passkey login was retired. Use Simple Layer Identity instead.',
+        ], 410))->name('passkeys.authentication_options');
+    Route::post('passkeys/authenticate', fn () => response()->json([
+            'error' => 'Local passkey login was retired. Use Simple Layer Identity instead.',
+        ], 410))->name('passkeys.login');
 });
 
 $meanlyPublicRoutes = function () {
@@ -64,11 +68,16 @@ $meanlyPublicRoutes = function () {
     Route::get('/llms/catalog/products/{identitySlug}/intents/{intent}.json', [\App\Http\Controllers\CanonicalProductPageController::class, 'productIntentJson'])->name('llms.catalog.canonical-products.intents.show');
     Route::get('/llms/catalog/products/{identitySlug}.json', [\App\Http\Controllers\CanonicalProductPageController::class, 'productJson'])->name('llms.catalog.canonical-products.show');
     Route::get('/store', [\App\Http\Controllers\MeanlyStorefrontController::class, 'index'])->name('meanly.storefront.index');
+    Route::get('/store/suggest', [\App\Http\Controllers\MeanlyStorefrontController::class, 'suggest'])->name('meanly.storefront.suggest');
     Route::get('/store/search', [\App\Http\Controllers\MeanlyStorefrontController::class, 'search'])->name('meanly.storefront.search');
     Route::get('/store/products/{slug}', [\App\Http\Controllers\MeanlyStorefrontController::class, 'show'])->name('meanly.storefront.products.show');
     Route::get('/simple-l1/connect', [\App\Http\Controllers\SimpleL1ConnectController::class, 'connect'])->name('meanly.simple_l1.connect');
     Route::get('/simple-l1/callback', [\App\Http\Controllers\SimpleL1ConnectController::class, 'callback'])->name('meanly.simple_l1.callback');
+    Route::post('/simple-l1/callback', [\App\Http\Controllers\SimpleL1ConnectController::class, 'callback'])
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+    Route::get('/simple-l1/complete', [\App\Http\Controllers\SimpleL1ConnectController::class, 'complete'])->name('meanly.simple_l1.complete');
     Route::get('/simple-l1/status', [\App\Http\Controllers\SimpleL1ConnectController::class, 'status'])->name('meanly.simple_l1.status');
+    Route::get('/csrf-token', fn () => response()->json(['csrf_token' => csrf_token()]))->name('csrf.token');
     Route::post('/store/favorites/{product}/toggle', [\App\Http\Controllers\MeanlyStorefrontController::class, 'toggleFavorite'])->name('meanly.storefront.favorites.toggle');
     Route::post('/store/checkout/availability', [\App\Http\Controllers\MeanlyStorefrontController::class, 'checkoutAvailability'])->name('meanly.storefront.checkout.availability');
     Route::post('/store/checkout', [\App\Http\Controllers\MeanlyStorefrontController::class, 'checkout'])->name('meanly.storefront.checkout');
@@ -113,7 +122,7 @@ $meanlyPublicRoutes = function () {
 
         return redirect()->route('home');
     })->middleware('auth')->name('cabinet.logout');
-    Route::get('/register', fn () => redirect('/cabinet/register'))->name('register');
+    Route::get('/register', fn () => redirect()->route('meanly.simple_l1.connect', ['return_to' => '/vault', 'mode' => 'register']))->name('register');
     Route::get('/register/verify-intent', [\App\Http\Controllers\PartnerRegistrationController::class, 'verifyIntent'])->name('register.verify');
     Route::get('/business', fn () => view('business', [
         'serviceFacts' => app(\App\Services\LlmServiceFactsService::class)->services(),
@@ -129,17 +138,30 @@ $meanlyPublicRoutes = function () {
     Route::post('/business/register/email/verify', [\App\Http\Controllers\PartnerRegistrationController::class, 'verifyBusinessEmailCode'])->name('business.register.email.verify');
     Route::get('/legal-entities/register', fn (\Illuminate\Http\Request $request) => redirect()->route('business.register', $request->query()))->name('legal-entities.register');
     Route::post('/legal-entities/register', fn (\Illuminate\Http\Request $request) => redirect()->route('business.register', $request->query()))->name('legal-entities.register.submit');
-    Route::get('/cabinet', [\App\Http\Controllers\CabinetController::class, 'index'])->name('cabinet.dashboard')->middleware(['auth']);
-    Route::get('/cabinet/register', fn () => view('auth.register', [
-        'step' => 'identity',
-        'rawBlueprint' => '',
+    Route::get('/cabinet', function (\Illuminate\Http\Request $request) {
+        $query = $request->getQueryString();
+
+        return redirect('/vault'.($query ? '?'.$query : ''));
+    });
+    Route::get('/vault', [\App\Http\Controllers\CabinetController::class, 'index'])->name('cabinet.dashboard')->middleware(['auth']);
+    Route::get('/cabinet/register', fn () => redirect()->route('meanly.simple_l1.connect', [
+        'return_to' => route('cabinet.dashboard', [], false),
+        'mode' => 'register',
+    ]));
+    Route::get('/vault/register', fn () => redirect()->route('meanly.simple_l1.connect', [
+        'return_to' => route('cabinet.dashboard', [], false),
+        'mode' => 'register',
     ]))->name('cabinet.register');
-    Route::redirect('/cabinet/orders', '/cabinet')->name('cabinet.orders');
-    Route::redirect('/cabinet/orders/{record}', '/cabinet')->name('cabinet.orders.show');
-    Route::redirect('/cabinet/profile', '/cabinet')->name('cabinet.profile');
-    Route::redirect('/cabinet/integrations', '/cabinet')->name('cabinet.integrations');
-    Route::get('/cabinet/vault/passkey-options', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyOptions'])->name('cabinet.vault.passkey.options')->middleware(['auth']);
-    Route::post('/cabinet/vault/passkey-confirm', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyConfirm'])->name('cabinet.vault.passkey.confirm')->middleware(['auth']);
+    Route::redirect('/cabinet/orders', '/vault')->name('cabinet.orders');
+    Route::redirect('/cabinet/orders/{record}', '/vault')->name('cabinet.orders.show');
+    Route::redirect('/cabinet/profile', '/vault')->name('cabinet.profile');
+    Route::redirect('/cabinet/integrations', '/vault')->name('cabinet.integrations');
+    Route::get('/vault/passkey-options', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyOptions'])->name('cabinet.vault.passkey.options')->middleware(['auth']);
+    Route::post('/vault/passkey-confirm', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyConfirm'])->name('cabinet.vault.passkey.confirm')->middleware(['auth']);
+    Route::post('/vault/lock', [\App\Http\Controllers\CabinetController::class, 'vaultLock'])->name('cabinet.vault.lock')->middleware(['auth']);
+    Route::get('/cabinet/vault/passkey-options', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyOptions'])->middleware(['auth']);
+    Route::post('/cabinet/vault/passkey-confirm', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyConfirm'])->middleware(['auth']);
+    Route::post('/cabinet/vault/lock', [\App\Http\Controllers\CabinetController::class, 'vaultLock'])->middleware(['auth']);
     Route::get('/operator', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.operator')->middleware(['auth', 'plane.guard']);
     Route::get('/reader', fn () => view('reader'))->name('reader');
     Route::get('/terminal', fn () => view('terminal'))->name('terminal');
@@ -178,7 +200,7 @@ $meanlyPublicRoutes = function () {
                     'phone' => $request->phone,
                 ]);
                 
-                $seller = \App\Models\Seller::findByEmail($user->email);
+                $seller = $user->primarySellerAccount();
                 if ($seller) {
                     $seller->update([
                         'first_name' => $request->first_name,
@@ -306,7 +328,13 @@ $meanlyPublicRoutes = function () {
             Route::post('/dashboard/ai/audit', [\App\Http\Controllers\OpsDashboardController::class, 'runAiAudit'])->name('ops.dashboard.ai.audit');
             Route::post('/dashboard/ai/chat', [\App\Http\Controllers\OpsDashboardController::class, 'sendAiChatMessage'])->name('ops.dashboard.ai.chat');
             Route::get('/dashboard/simple-layer-1/trace', [\App\Http\Controllers\OpsDashboardController::class, 'traceSimpleLayer1'])->name('ops.dashboard.simple_layer_1.trace');
+            Route::post('/dashboard/tribunal/validate-chain', [\App\Http\Controllers\TribunalDashboardController::class, 'validateChain'])->name('ops.dashboard.tribunal.validate-chain');
+            Route::post('/dashboard/tribunal/chat', [\App\Http\Controllers\TribunalDashboardController::class, 'chatOracle'])->name('ops.dashboard.tribunal.chat');
             Route::post('/dashboard/theme', [\App\Http\Controllers\OpsDashboardController::class, 'updateTheme'])->name('ops.dashboard.theme');
+
+            Route::get('/decision-console', [\App\Http\Controllers\OpsDecisionConsoleController::class, 'index'])->name('ops.decision-console');
+            Route::post('/decision-console/recommendations/{recommendation}/approve', [\App\Http\Controllers\OpsDecisionConsoleController::class, 'approve'])->name('ops.decision-console.recommendations.approve');
+            Route::post('/decision-console/recommendations/{recommendation}/reject', [\App\Http\Controllers\OpsDecisionConsoleController::class, 'reject'])->name('ops.decision-console.recommendations.reject');
         });
     });
     Route::redirect('/ops/{path}', '/ops')->where('path', '.*')->name('ops.legacy.deep');

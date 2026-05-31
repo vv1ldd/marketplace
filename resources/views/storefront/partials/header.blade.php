@@ -1,8 +1,15 @@
 @php
     $homeUrl = \Illuminate\Support\Facades\Route::has('home') ? route('home') : url('/');
     $howItWorksUrl = \Illuminate\Support\Facades\Route::has('storefront.ai-chat') ? route('storefront.ai-chat') : $homeUrl.'#infrastructure';
-    $loginUrl = \Illuminate\Support\Facades\Route::has('login') ? route('login') : url('/login');
-    $cabinetUrl = \Illuminate\Support\Facades\Route::has('cabinet.dashboard') ? route('cabinet.dashboard') : url('/cabinet');
+    $cabinetUrl = \Illuminate\Support\Facades\Route::has('cabinet.dashboard') ? route('cabinet.dashboard') : url('/vault');
+    $loginUrl = \Illuminate\Support\Facades\Route::has('meanly.simple_l1.connect')
+        ? route('meanly.simple_l1.connect', [
+            'return_to' => \Illuminate\Support\Facades\Route::has('meanly.simple_l1.complete')
+                ? route('meanly.simple_l1.complete', ['next' => route('cabinet.dashboard', [], false)], false)
+                : '/vault',
+            'mode' => 'connect',
+        ])
+        : (\Illuminate\Support\Facades\Route::has('login') ? route('login') : url('/login'));
     $logoutUrl = \Illuminate\Support\Facades\Route::has('logout') ? route('logout') : url('/logout');
     $opsUrl = url('/ops');
     $partnerUrl = url('/partner');
@@ -120,6 +127,73 @@
         .meanly-standard-header .btn-nav-login:hover {
             background: var(--brand-soft, #efe6ff);
             border-color: var(--theme-border, var(--line, #050505));
+        }
+
+        .meanly-standard-header .nav-links a.ai-faq-link {
+            width: 42px;
+            min-width: 42px;
+            height: 42px;
+            min-height: 42px;
+            padding: 0;
+            border: 3px solid var(--theme-border, var(--line, #050505));
+            border-radius: 0;
+            background: var(--brand, #7c3aed);
+            color: #ffffff;
+            box-shadow: 4px 4px 0 var(--theme-border, var(--line, #050505));
+            font-weight: 950;
+            letter-spacing: -0.01em;
+            transform: rotate(-1deg);
+        }
+
+        .meanly-standard-header .ai-helper-nav {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meanly-standard-header .ai-helper-info svg {
+            width: 17px;
+            height: 17px;
+            display: block;
+            stroke: currentColor;
+            stroke-width: 2.4;
+        }
+
+        .meanly-standard-header .ai-helper-mark {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 25px;
+            height: 25px;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 10px;
+            font-weight: 950;
+            line-height: 1;
+            box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.32);
+        }
+
+        .meanly-standard-header .ai-helper-mark::after {
+            content: '';
+            position: absolute;
+            right: 3px;
+            top: 3px;
+            width: 4px;
+            height: 4px;
+            background: #d8ff6f;
+            border: 1px solid #050505;
+        }
+
+        .meanly-standard-header .nav-links a.ai-faq-link:hover,
+        .meanly-standard-header .nav-links a.ai-faq-link.active {
+            background: var(--brand, #7c3aed);
+            border-color: var(--theme-border, var(--line, #050505));
+            transform: rotate(-1deg) translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--theme-border, var(--line, #050505));
         }
 
         .meanly-standard-header .sr-only {
@@ -323,6 +397,11 @@
                 white-space: nowrap !important;
             }
 
+            html[data-theme] body .meanly-standard-header .ai-helper-nav {
+                width: 100% !important;
+                align-items: stretch !important;
+            }
+
             html[data-theme] body .meanly-standard-header .nav-icon-button {
                 width: 100% !important;
             }
@@ -395,6 +474,8 @@
     </script>
 @endonce
 
+@include('partials.simple-l1-inline-handoff')
+
 <nav class="meanly-standard-header" aria-label="Публичная навигация Meanly">
     <div class="nav-container">
         <a class="logo" href="{{ $homeUrl }}"><span class="logo-mark"></span> MEANLY</a>
@@ -413,7 +494,12 @@
         </button>
 
         <div class="nav-links" id="meanlyMobileMenu">
-            <a href="{{ $howItWorksUrl }}">Как работает</a>
+            <div class="ai-helper-nav">
+                <a class="ai-faq-link" href="{{ $howItWorksUrl }}">
+                    <span class="ai-helper-mark" aria-hidden="true">ИИ</span>
+                    <span class="sr-only">ИИ помощник</span>
+                </a>
+            </div>
         </div>
 
         <div class="nav-actions">
@@ -427,8 +513,14 @@
                         B2B Консоль
                     </a>
                 @endif
-                <a href="{{ $cabinetUrl }}" @class(['btn-nav-login', 'active' => request()->is('cabinet*')])>
-                    Кабинет
+                <a href="{{ $cabinetUrl }}" aria-label="Сейф" title="Сейф" @class(['nav-icon-button', 'nav-icon-primary', 'active' => request()->is('vault*') || request()->is('cabinet*')])>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <rect x="4" y="5" width="16" height="14" rx="2.5"></rect>
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 9v6M9 12h6"></path>
+                        <path d="M7.5 19v2M16.5 19v2"></path>
+                    </svg>
+                    <span class="sr-only">Сейф</span>
                 </a>
                 <form id="storefrontHeaderLogoutForm" method="POST" action="{{ $logoutUrl }}" style="display:none;">@csrf</form>
                 <button type="button" onclick="document.getElementById('storefrontHeaderLogoutForm').submit()" class="btn-nav-login">

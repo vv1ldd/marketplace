@@ -15,12 +15,12 @@
         <div class="footer-links-block">
             <span class="footer-title">Аккаунт</span>
             @auth
-                <a href="/cabinet">Личный кабинет</a>
+                <a href="/vault">Сейф</a>
                 @if(auth()->user()->hasRole('b2b_partner'))
                     <a href="/partner">B2B Консоль</a>
                 @endif
             @else
-                <a href="{{ route('login') }}">Войти по Passkey</a>
+                <a href="{{ route('login') }}">Войти через SL1E Identity</a>
             @endauth
         </div>
 

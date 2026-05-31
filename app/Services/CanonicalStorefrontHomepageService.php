@@ -26,6 +26,10 @@ class CanonicalStorefrontHomepageService
     private const HOMEPAGE_NETWORK_SCAN_LIMIT = 48;
     private const HOMEPAGE_CACHE_SECONDS = 300;
 
+    private ?bool $identityTablesExist = null;
+
+    private ?bool $overrideTableExists = null;
+
     /**
      * @var array<string, array{label: string, description: string}>
      */
@@ -2342,13 +2346,13 @@ class CanonicalStorefrontHomepageService
 
     private function identityTablesExist(): bool
     {
-        return Schema::hasTable('canonical_product_identities')
+        return $this->identityTablesExist ??= Schema::hasTable('canonical_product_identities')
             && Schema::hasTable('canonical_product_identity_sources');
     }
 
     private function overrideTableExists(): bool
     {
-        return Schema::hasTable('canonical_product_identity_overrides');
+        return $this->overrideTableExists ??= Schema::hasTable('canonical_product_identity_overrides');
     }
 
     private function formatAmount(float $amount): string

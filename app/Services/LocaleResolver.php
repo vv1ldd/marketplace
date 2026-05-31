@@ -69,6 +69,7 @@ class LocaleResolver
     {
         $user = $request->user() ?: Auth::guard('sellers')->user();
         $legalEntity = $this->legalEntityFor($request, $user);
+        $marketContext = $request->attributes->get('market_context');
 
         return [
             'query' => $request->query('locale') ?: $request->query('lang'),
@@ -76,6 +77,9 @@ class LocaleResolver
             'profile' => $user instanceof User ? $this->profileLocale($user) : null,
             'legal_entity_region' => $this->localeForCountry($legalEntity?->country_code),
             'profile_region' => $this->localeForCountry($this->profileCountry($user)),
+            'market' => $marketContext?->matchedDomain && $marketContext->market !== config('markets.default', 'global')
+                ? $marketContext->locale
+                : null,
             'browser' => $this->browserLocale($request),
             'app' => config('app.locale'),
         ];

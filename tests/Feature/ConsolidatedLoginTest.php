@@ -51,31 +51,44 @@ class ConsolidatedLoginTest extends TestCase
         $response->assertRedirect('/ops');
     }
 
-    public function test_passkey_login_without_saved_options_returns_friendly_error(): void
+    public function test_local_passkey_login_route_is_retired(): void
     {
-        $response = $this
-            ->from('/login')
-            ->post(route('passkeys.login'), [
-                'start_authentication_response' => json_encode($this->passkeyAssertionForChallenge('missing-session')),
-            ]);
-
-        $response->assertRedirect('/login');
-        $response->assertSessionHas('authenticatePasskey::message', 'Контекст входа устарел. Нажмите «Войти» еще раз и подтвердите Passkey.');
+        $this->postJson(route('passkeys.login'), [
+            'start_authentication_response' => json_encode($this->passkeyAssertionForChallenge('missing-session')),
+        ])
+            ->assertStatus(410)
+            ->assertJsonFragment(['error' => 'Local passkey login was retired. Use Simple Layer Identity instead.']);
     }
 
-    public function test_passkey_authentication_options_are_cached_by_challenge(): void
+    public function test_local_passkey_authentication_options_route_is_retired(): void
     {
-        $options = $this->getJson(route('passkeys.authentication_options'))
-            ->assertOk()
-            ->assertJsonStructure(['challenge'])
-            ->json();
-
-        $this->assertIsString(Session::get('passkey-authentication-options'));
-        $this->assertIsString(Cache::get('passkeys:authentication-options:'.sha1($options['challenge'])));
+        $this->getJson(route('passkeys.authentication_options'))
+            ->assertStatus(410)
+            ->assertJsonFragment(['error' => 'Local passkey login was retired. Use Simple Layer Identity instead.']);
     }
 
+    public function test_email_invite_accept_flow_is_retired(): void
+    {
+        $this->getJson(route('invite.accept', ['token' => 'INV-retired']))
+            ->assertStatus(410)
+            ->assertJsonFragment(['error' => 'Email/password invites were retired. Invite a verified SL1E wallet identity instead.']);
+
+        $this->postJson(route('invite.accept.options', ['token' => 'INV-retired']))
+            ->assertStatus(410)
+            ->assertJsonFragment(['error' => 'Email/password invites were retired. Invite a verified SL1E wallet identity instead.']);
+
+        $this->postJson(route('invite.accept.submit', ['token' => 'INV-retired']))
+            ->assertStatus(410)
+            ->assertJsonFragment(['error' => 'Email/password invites were retired. Invite a verified SL1E wallet identity instead.']);
+    }
+
+    /**
+     * @deprecated Local passkey login routes are disabled by default. Keep this as an opt-in legacy regression test.
+     */
     public function test_successful_passkey_login_records_auth_login_intent(): void
     {
+        $this->markTestSkipped('Local passkey login routes are retired; SL1E identity handles auth intents now.');
+
         Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
         $user = User::factory()->create([
             'email' => 'auth-intent@example.test',
@@ -95,7 +108,7 @@ class ConsolidatedLoginTest extends TestCase
 
         $this->post(route('passkeys.login'), [
             'start_authentication_response' => json_encode($this->passkeyAssertionForChallenge($challenge)),
-        ])->assertRedirect('/cabinet');
+        ])->assertRedirect('/vault');
 
         $this->assertAuthenticatedAs($user);
 
@@ -108,7 +121,7 @@ class ConsolidatedLoginTest extends TestCase
         $this->assertSame('auth.login', data_get($event->payload, 'intent_type'));
         $this->assertSame('auth.session', data_get($event->payload, 'scope'));
         $this->assertSame(hash('sha256', $challenge), data_get($event->payload, 'challenge_hash'));
-        $this->assertSame('/cabinet', data_get($event->payload, 'redirect_target'));
+        $this->assertSame('/vault', data_get($event->payload, 'redirect_target'));
         $this->assertSame($event->fingerprint, session('auth_login_fingerprint'));
     }
 
@@ -166,7 +179,7 @@ class ConsolidatedLoginTest extends TestCase
         $response = $method->invoke($controller, $request);
         
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringEndsWith('/cabinet', $response->headers->get('Location'));
+        $this->assertStringEndsWith('/vault', $response->headers->get('Location'));
     }
 
     /**
@@ -223,7 +236,7 @@ class ConsolidatedLoginTest extends TestCase
         $response = $method->invoke($controller, $request);
 
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringEndsWith('/cabinet', $response->headers->get('Location'));
+        $this->assertStringEndsWith('/vault', $response->headers->get('Location'));
     }
 
     /**
@@ -251,7 +264,7 @@ class ConsolidatedLoginTest extends TestCase
         $response = $method->invoke($controller, $request);
         
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringEndsWith('/cabinet', $response->headers->get('Location'));
+        $this->assertStringEndsWith('/vault', $response->headers->get('Location'));
     }
 
     /**
@@ -279,7 +292,7 @@ class ConsolidatedLoginTest extends TestCase
         $response = $method->invoke($controller, $request);
         
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringEndsWith('/cabinet', $response->headers->get('Location'));
+        $this->assertStringEndsWith('/vault', $response->headers->get('Location'));
     }
 
     /**
@@ -307,7 +320,7 @@ class ConsolidatedLoginTest extends TestCase
         $response = $method->invoke($controller, $request);
         
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringEndsWith('/cabinet', $response->headers->get('Location'));
+        $this->assertStringEndsWith('/vault', $response->headers->get('Location'));
     }
 
     private function passkeyAssertionForChallenge(string $challenge): array

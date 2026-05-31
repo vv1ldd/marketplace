@@ -327,6 +327,62 @@
             vertical-align: middle;
             margin-left: 4px;
         }
+        .console-switch-btn {
+            margin-left: auto;
+            border: 1px solid var(--border-card);
+            background: var(--bg-input);
+            color: var(--text-main);
+            border-radius: 10px;
+            padding: 7px 9px;
+            cursor: pointer;
+            font-family: var(--font-tech);
+            font-size: 0.68rem;
+            font-weight: 900;
+        }
+        .console-switch-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 14px;
+            box-shadow: var(--shadow-neo);
+            padding: 8px;
+        }
+        .console-switch-menu.open {
+            display: block;
+        }
+        .console-switch-plane {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            color: var(--text-main);
+            text-decoration: none;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 0.78rem;
+            font-weight: 850;
+        }
+        .console-switch-plane:hover {
+            background: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary);
+        }
+        .console-switch-plane.locked {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+        .console-switch-plane.locked:hover {
+            background: transparent;
+            color: var(--text-main);
+        }
+        .console-switch-menu span {
+            color: var(--text-muted);
+            font-size: 0.66rem;
+            font-weight: 700;
+        }
         .sidebar-menu {
             flex: 1;
             padding: 1.5rem 0;
@@ -737,6 +793,22 @@
                     <span class="logo-text-consortium" style="font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: var(--primary-glow); color: var(--primary); border: 1px solid var(--border-neon); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Ops</span></span>
                     <span class="logo-text-partner" style="display: none; font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: rgba(245, 158, 11, 0.1); color: var(--primary); border: 1px solid var(--border-neon); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Ops</span></span>
                     <span class="logo-text-retro" style="display: none; font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: #000; color: #fff; border: 2px solid #000; padding: 2px 6px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">Ops</span></span>
+                    <button class="console-switch-btn" type="button" onclick="toggleConsoleSwitcher(event)">Switch</button>
+                </div>
+                <div class="console-switch-menu" id="console-switch-menu">
+                    @foreach($accessPlanes as $plane)
+                        @if($plane->available)
+                            <a href="{{ $plane->url }}" class="console-switch-plane">
+                                {{ $plane->label }}
+                                <span>{{ $plane->authority }}</span>
+                            </a>
+                        @else
+                            <div class="console-switch-plane locked" title="{{ $plane->reason }}">
+                                {{ $plane->label }}
+                                <span>locked · {{ $plane->reason }}</span>
+                            </div>
+                        @endif
+                    @endforeach
                 </div>
             </div>
 
@@ -769,6 +841,14 @@
                     <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                     Все товары
                 </a>
+                <a href="javascript:void(0)" onclick="switchTab('decision-console')" class="menu-item" id="menu-decision-console">
+                    <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                    Decision Console
+                </a>
+                <a href="javascript:void(0)" onclick="switchTab('tribunal')" class="menu-item" id="menu-tribunal">
+                    <svg viewBox="0 0 24 24"><path d="M12 3l9 4-9 4-9-4 9-4z"></path><path d="M3 17l9 4 9-4"></path><path d="M3 12l9 4 9-4"></path></svg>
+                    Ledger Tribunal
+                </a>
                 
                 <div class="sidebar-section-title">Система</div>
                 <a href="javascript:void(0)" onclick="switchTab('support')" class="menu-item" id="menu-support">
@@ -790,7 +870,7 @@
             <div class="sidebar-footer" style="justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="openProfileModal()">
                     <div class="user-avatar">
-                        {{ mb_substr($user->name ?: ($user->email ?: 'А'), 0, 1) }}
+                        {{ mb_substr($user->name ?: ($user->first_name ?: 'А'), 0, 1) }}
                     </div>
                     <div class="user-info">
                         <span class="user-name">{{ $user->name ?: 'Администратор' }}</span>
@@ -1046,6 +1126,121 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1.5rem;" id="catalog-pagination"></div>
             </div>
 
+            <!-- Tab: Decision Console -->
+            <div class="tab-pane" id="tab-decision-console">
+                <div class="card-neo" style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; gap: 18px; flex-wrap:wrap;">
+                    <div>
+                        <div class="metric-title" style="color: var(--primary);">Governance Interface</div>
+                        <h2 style="font-size: 1.7rem; font-weight: 950; margin: 8px 0; letter-spacing: -0.04em;">Decision Console</h2>
+                        <p style="color: var(--text-muted); margin: 0; max-width: 720px; line-height: 1.6;">
+                            Authorize or reject recommended market-model changes. Approval changes only governance state; it does not mutate SearchProfile, ranking, catalog facts, or provider supply.
+                        </p>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        @foreach (['proposed', 'approved', 'rejected', 'applied'] as $decisionStatus)
+                            <span class="badge-neo" style="background:rgba(255,255,255,0.03); color:var(--text-main); border:1px solid var(--border-card);">
+                                {{ strtoupper($decisionStatus) }} · {{ (int) ($decisionStatusCounts[$decisionStatus] ?? 0) }}
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap: 1rem;">
+                    @forelse($decisionRecommendations as $recommendation)
+                        <div class="card-neo" style="padding: 1.25rem;">
+                            <div style="display:flex; justify-content:space-between; gap: 1rem; align-items:flex-start; flex-wrap:wrap;">
+                                <div style="min-width:260px; flex:1;">
+                                    <div style="font-family: var(--font-tech); color: var(--primary); font-size: .72rem; font-weight: 900; letter-spacing: .08em;">
+                                        {{ $recommendation->type }}
+                                    </div>
+                                    <div style="font-size: 1.35rem; font-weight: 950; margin: .35rem 0; letter-spacing: -0.03em;">
+                                        {{ $recommendation->query }}
+                                    </div>
+                                    <div style="display:flex; gap:8px; flex-wrap:wrap; font-size:.75rem;">
+                                        <span class="badge-neo" style="background:rgba(255,255,255,0.03); color:var(--text-muted); border:1px solid var(--border-card);">{{ $recommendation->insight_type }}</span>
+                                        <span class="badge-neo" style="background:rgba(245,48,3,.08); color:var(--primary); border:1px solid rgba(245,48,3,.22);">{{ $recommendation->status }}</span>
+                                        <span class="badge-neo" style="background:rgba(255,255,255,0.03); color:var(--text-muted); border:1px solid var(--border-card);">updated {{ optional($recommendation->updated_at)->diffForHumans() }}</span>
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:.75rem; align-items:stretch;">
+                                    <div style="min-width:90px; text-align:center; border:1px solid var(--border-card); border-radius:12px; padding:.75rem;">
+                                        <div style="font-size:1.25rem; font-weight:950;">{{ number_format((float) $recommendation->impact_score, 1) }}</div>
+                                        <div style="font-size:.62rem; color:var(--text-muted); text-transform:uppercase; font-weight:800;">Impact</div>
+                                    </div>
+                                    <div style="min-width:90px; text-align:center; border:1px solid var(--border-card); border-radius:12px; padding:.75rem;">
+                                        <div style="font-size:1.25rem; font-weight:950;">{{ number_format((float) $recommendation->confidence, 1) }}</div>
+                                        <div style="font-size:.62rem; color:var(--text-muted); text-transform:uppercase; font-weight:800;">Confidence</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid-12" style="margin-top: 1rem;">
+                                <div class="col-6" style="background:rgba(255,255,255,.02); border:1px solid var(--border-card); border-radius:12px; padding:1rem; overflow:auto;">
+                                    <div class="metric-title" style="margin-bottom:.6rem;">Expected Entity</div>
+                                    <pre style="white-space:pre-wrap; color:var(--text-muted); font-family:var(--font-tech); font-size:.72rem; margin:0;">{{ json_encode($recommendation->expected_entity ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                </div>
+                                <div class="col-6" style="background:rgba(255,255,255,.02); border:1px solid var(--border-card); border-radius:12px; padding:1rem; overflow:auto;">
+                                    <div class="metric-title" style="margin-bottom:.6rem;">Evidence</div>
+                                    <pre style="white-space:pre-wrap; color:var(--text-muted); font-family:var(--font-tech); font-size:.72rem; margin:0;">{{ json_encode($recommendation->evidence ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                </div>
+                            </div>
+
+                            @if($recommendation->status !== \App\Models\SearchDemandRecommendation::STATUS_APPLIED)
+                                <div style="display:flex; justify-content:flex-end; gap:.75rem; margin-top:1rem;">
+                                    <form method="POST" action="{{ route('ops.decision-console.recommendations.approve', $recommendation) }}">
+                                        @csrf
+                                        <button class="btn-neo" style="background:#10b981; color:#fff; border-color:rgba(16,185,129,.35);" type="submit">Approve</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('ops.decision-console.recommendations.reject', $recommendation) }}">
+                                        @csrf
+                                        <button class="btn-neo" style="background:#f43f5e; color:#fff; border-color:rgba(244,63,94,.35);" type="submit">Reject</button>
+                                    </form>
+                                </div>
+                            @endif
+                        </div>
+                    @empty
+                        <div class="card-neo" style="padding: 2rem; color: var(--text-muted); text-align:center;">
+                            No recommendations yet. Run <code>php artisan search-signals:recommend</code> to generate proposals from interpreted demand signals.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
+            <!-- Tab: Ledger Tribunal -->
+            <div class="tab-pane" id="tab-tribunal">
+                <div class="grid-12">
+                    <div class="col-7 card-neo" style="display:flex; flex-direction:column; gap:1rem;">
+                        <div>
+                            <div class="metric-title" style="color: var(--primary);">Sovereign Ledger Tribunal</div>
+                            <h2 style="font-size:1.7rem; font-weight:950; margin:.45rem 0; letter-spacing:-.04em;">Ledger Integrity Validator</h2>
+                            <p style="color:var(--text-muted); margin:0; line-height:1.6;">
+                                Validates the cryptographic ledger chain and reports broken fingerprint links. This is audit evidence, not a mutation path.
+                            </p>
+                        </div>
+                        <button class="btn-neo btn-primary-neo" type="button" onclick="validateTribunalChain()" style="align-self:flex-start;">Validate Chain</button>
+                        <div id="tribunal-chain-result" style="background:rgba(0,0,0,.25); border:1px solid var(--border-card); border-radius:12px; padding:1rem; min-height:260px; overflow:auto; font-family:var(--font-tech); font-size:.75rem; color:var(--text-muted);">
+                            Awaiting validation run...
+                        </div>
+                    </div>
+
+                    <div class="col-5 card-neo" style="display:flex; flex-direction:column; height:520px;">
+                        <div style="font-weight:850; font-size:.95rem; margin-bottom:1rem; text-transform:uppercase; letter-spacing:.5px; display:flex; align-items:center; gap:8px;">
+                            <span style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+                            Audit Oracle
+                        </div>
+                        <div id="tribunal-oracle-chat" class="chat-container" style="flex:1;">
+                            <div class="chat-message ai">
+                                Sovereign Audit Oracle is ready. Ask about ledger integrity, transaction anomalies, or hash-chain evidence.
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; margin-top:1rem;">
+                            <input type="text" id="tribunal-oracle-input" class="input-neo" placeholder="Ask the audit oracle..." style="flex:1;" onkeypress="if(event.key==='Enter') sendTribunalOracleMessage()">
+                            <button class="btn-neo btn-primary-neo" type="button" onclick="sendTribunalOracleMessage()">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Tab 6: Support -->
             <div class="tab-pane" id="tab-support">
                 <div class="card-neo" style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:center; gap: 15px; flex-wrap:wrap;">
@@ -1154,10 +1349,10 @@
             <div class="modal-body" style="display:flex; flex-direction:column; gap:18px;">
                 <div style="text-align:center; padding-bottom:0.5rem;">
                     <div class="user-avatar" style="width: 72px; height: 72px; font-size: 2rem; margin: 0 auto 12px auto; border-radius: 16px;">
-                        {{ mb_substr($user->name ?: ($user->email ?: 'А'), 0, 1) }}
+                        {{ mb_substr($user->name ?: ($user->first_name ?: 'А'), 0, 1) }}
                     </div>
                     <div style="font-weight:850; font-size:1.1rem; color:var(--text-main);">{{ $user->name ?: 'Администратор' }}</div>
-                    <div style="font-size:0.7rem; color:var(--primary); font-weight:800; text-transform:uppercase; margin-top:4px;">{{ $user->email }}</div>
+                    <div style="font-size:0.7rem; color:var(--primary); font-weight:800; text-transform:uppercase; margin-top:4px;">{{ $user->sovereignIdentityAddress() }}</div>
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -1272,6 +1467,8 @@
                 'shops': 'Магазины партнеров',
                 'orders': 'Все заказы',
                 'catalog': 'Все товары',
+                'decision-console': 'Decision Console',
+                'tribunal': 'Ledger Tribunal',
                 'support': 'Поддержка и тикеты',
                 'ai-audit': 'Глобальный аудит и ИИ-ассистент'
             };
@@ -1783,6 +1980,80 @@
             container.innerHTML = html;
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            })[char]);
+        }
+
+        function toggleConsoleSwitcher(event) {
+            event.stopPropagation();
+            document.getElementById('console-switch-menu')?.classList.toggle('open');
+        }
+
+        document.addEventListener('click', (event) => {
+            const menu = document.getElementById('console-switch-menu');
+            if (!menu || event.target.closest('.console-selector-wrapper')) {
+                return;
+            }
+            menu.classList.remove('open');
+        });
+
+        async function validateTribunalChain() {
+            const result = document.getElementById('tribunal-chain-result');
+            result.innerHTML = '<span class="loading-spinner"></span> Validating sovereign ledger chain...';
+
+            try {
+                const response = await fetch('{{ route('ops.dashboard.tribunal.validate-chain') }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    }
+                });
+                const json = await response.json();
+                const logs = Array.isArray(json.logs) ? json.logs : [];
+                result.innerHTML = logs.map((entry) => {
+                    const color = entry.type === 'error' ? '#f43f5e' : (entry.type === 'success' ? '#10b981' : '#9ca3af');
+                    return `<div style="color:${color}; margin-bottom:8px;">${escapeHtml(entry.message || '')}</div>`;
+                }).join('') || escapeHtml(json.message || 'No validation output.');
+            } catch (error) {
+                result.innerHTML = `<span style="color:#f43f5e;">Validator failed: ${escapeHtml(error.message)}</span>`;
+            }
+        }
+
+        async function sendTribunalOracleMessage() {
+            const input = document.getElementById('tribunal-oracle-input');
+            const chat = document.getElementById('tribunal-oracle-chat');
+            const message = input.value.trim();
+            if (!message) return;
+
+            chat.insertAdjacentHTML('beforeend', `<div class="chat-message user">${escapeHtml(message)}</div>`);
+            input.value = '';
+
+            try {
+                const response = await fetch('{{ route('ops.dashboard.tribunal.chat') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+                const json = await response.json();
+                chat.insertAdjacentHTML('beforeend', `<div class="chat-message ai">${escapeHtml(json.response || json.error || 'Oracle returned no response.')}</div>`);
+            } catch (error) {
+                chat.insertAdjacentHTML('beforeend', `<div class="chat-message ai" style="border-color:#f43f5e;color:#fecdd3;">${escapeHtml(error.message)}</div>`);
+            }
+
+            chat.scrollTop = chat.scrollHeight;
+        }
+
         // Global Chart JS Setup
         document.addEventListener("DOMContentLoaded", () => {
             // Restore theme or defaults
@@ -1795,7 +2066,8 @@
             setTheme(savedTheme);
 
             // Restore active SPA tab or defaults
-            const savedTab = localStorage.getItem("ops_active_tab") || "dashboard";
+            const requestedTab = @json($activeOpsTab);
+            const savedTab = requestedTab || localStorage.getItem("ops_active_tab") || "dashboard";
             switchTab(savedTab);
 
             // Check if profile modal is requested via URL parameter

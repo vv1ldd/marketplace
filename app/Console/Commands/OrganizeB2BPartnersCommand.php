@@ -7,9 +7,7 @@ use App\Models\User;
 use App\Models\Seller;
 use App\Models\LegalEntity;
 use App\Models\Shop;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
 class OrganizeB2BPartnersCommand extends Command
@@ -62,31 +60,23 @@ class OrganizeB2BPartnersCommand extends Command
                     $this->line("👉 Current owner is a Super Admin. Decoupling and generating a dedicated partner account.");
                 } else {
                     $user = $currentUser;
-                    $this->line("👉 Points to existing client user: [ID: {$user->id}] {$user->email}");
+                    $this->line("👉 Points to existing wallet user: [ID: {$user->id}] {$user->sovereignIdentityAddress()}");
                 }
             }
 
             if ($shouldCreateUser) {
-                // Determine a professional, beautiful email and name for the new partner account
-                $email = $this->generateEmailForEntity($entity);
                 $names = $this->parseDirectorName($entity);
 
-                // Create or find existing dedicated User
-                $user = User::findByEmail($email);
-                if (!$user) {
-                    $user = User::create([
-                        'first_name' => $names['first_name'],
-                        'last_name' => $names['last_name'],
-                        'middle_name' => $names['middle_name'],
-                        'email' => $email,
-                        'type' => 'client',
-                        'password' => Hash::make(Str::random(64)),
-                        'password_login_enabled' => false,
-                    ]);
-                    $this->info("✨ Created new B2B User: [ID: {$user->id}] {$email}");
-                } else {
-                    $this->info("📌 Found existing User: [ID: {$user->id}] {$email}");
-                }
+                $user = User::create([
+                    'first_name' => $names['first_name'],
+                    'last_name' => $names['last_name'],
+                    'middle_name' => $names['middle_name'],
+                    'meta' => [
+                        'registration_source' => 'b2b_organize_command',
+                        'requires_sl1e_claim' => true,
+                    ],
+                ]);
+                $this->info("✨ Created wallet placeholder User: [ID: {$user->id}]");
 
                 // Update LegalEntity user_id reference
                 $entity->update(['user_id' => $user->id]);
@@ -106,23 +96,19 @@ class OrganizeB2BPartnersCommand extends Command
             }
 
             // Create or find Seller account (which is linked to B2B dashboard authentication)
-            $sellerEmail = $user ? $user->email : $this->generateEmailForEntity($entity);
             $sellerNames = $this->parseDirectorName($entity);
             
-            $seller = Seller::findByEmail($sellerEmail);
+            $seller = $entity->seller_id ? Seller::find($entity->seller_id) : null;
             if (!$seller) {
                 $seller = Seller::create([
                     'first_name' => $sellerNames['first_name'],
                     'last_name' => $sellerNames['last_name'],
                     'middle_name' => $sellerNames['middle_name'],
-                    'email' => $sellerEmail,
-                    'password' => Hash::make(Str::random(64)),
-                    'password_login_enabled' => false,
                     'is_active' => true,
                 ]);
-                $this->info("✨ Created new B2B Seller: [ID: {$seller->id}] {$sellerEmail}");
+                $this->info("✨ Created new B2B Seller: [ID: {$seller->id}]");
             } else {
-                $this->info("📌 Found existing Seller: [ID: {$seller->id}] {$sellerEmail}");
+                $this->info("📌 Found existing Seller: [ID: {$seller->id}]");
             }
 
             if (method_exists($seller, 'assignRole')) {

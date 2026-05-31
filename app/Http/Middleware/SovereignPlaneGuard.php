@@ -35,25 +35,85 @@ class SovereignPlaneGuard
 
         // Validate B2B Consortium Plane Access
         if ($request->is('partner*')) {
+            if ($request->routeIs('partner.onboarding') || $request->routeIs('partner.logout')) {
+                return $next($request);
+            }
+
+            $legalEntity = $user->legalEntities()->first()
+                ?? $user->managedLegalEntities()->first();
+
+            if ($legalEntity?->status === 'pending_signature') {
+                if ($request->expectsJson()) {
+                    return response()->json(['error' => 'Legal entity must sign the agreement before partner actions.'], 403);
+                }
+
+                return redirect()->route('partner.register.offer');
+            }
+
+            $status = (string) ($legalEntity?->status ?? '');
+            $isExplicitlyInactive = $legalEntity && $status === 'active' && ! (bool) $legalEntity->is_active;
+
+            if ($legalEntity && (in_array($status, ['pending_signature', 'pending_moderation'], true) || $isExplicitlyInactive)) {
+                if ($request->expectsJson() || ! $request->isMethod('GET')) {
+                    return response()->json(['error' => 'Legal entity must be active before partner actions.'], 403);
+                }
+
+                return redirect()->route('partner.onboarding');
+            }
+
             if (!$user->isB2BPartner() && !$user->isSystemUser()) {
-                $legalEntity = $user->legalEntities()->first()
-                    ?? $user->managedLegalEntities()->first();
-
-                if ($legalEntity?->status === 'pending_signature') {
-                    return redirect()->route('partner.register.offer');
-                }
-
-                if ($legalEntity && ($legalEntity->status === 'pending_moderation' || $legalEntity->agreement_signed_at)) {
-                    return redirect()->route('partner.onboarding');
-                }
-
                 if ($request->expectsJson()) {
                     return response()->json(['error' => 'Forbidden: Access to B2B Consortium Plane denied.'], 403);
                 }
                 abort(403, 'Доступ в Consortium B2B Plane ограничен. Требуется статус B2B партнера.');
             }
+
+            if ($request->isMethod('POST') && ! $this->canPerformPartnerMutation($user, $legalEntity, (string) $request->route()?->getName())) {
+                return response()->json(['error' => 'Forbidden: insufficient partner role for this action.'], 403);
+            }
         }
 
         return $next($request);
+    }
+
+    private function canPerformPartnerMutation($user, $legalEntity, string $routeName): bool
+    {
+        if ($user->isSystemUser() || $user->hasRole('super_admin')) {
+            return true;
+        }
+
+        if (! $legalEntity) {
+            return false;
+        }
+
+        if ((int) $legalEntity->user_id === (int) $user->id) {
+            return true;
+        }
+
+        $managed = $user->managedLegalEntities()->whereKey($legalEntity->id)->first();
+        $role = (string) ($managed?->pivot?->role ?? '');
+
+        $financeRoutes = [
+            'partner.dashboard.finance.deposit',
+            'partner.dashboard.deposit_intent',
+            'partner.dashboard.clear_deposit_intent',
+            'partner.dashboard.finance.sovereign_request.options',
+            'partner.dashboard.finance.sovereign_request.create',
+        ];
+
+        if (in_array($routeName, $financeRoutes, true)) {
+            return in_array($role, ['owner', 'admin', 'finance'], true);
+        }
+
+        $supportRoutes = [
+            'partner.dashboard.tickets.create',
+            'partner.dashboard.tickets.reply',
+        ];
+
+        if (in_array($routeName, $supportRoutes, true)) {
+            return in_array($role, ['owner', 'admin', 'support'], true);
+        }
+
+        return in_array($role, ['owner', 'admin', 'operator', 'manager'], true);
     }
 }

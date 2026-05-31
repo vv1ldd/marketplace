@@ -361,6 +361,46 @@
             font-weight: 800;
             line-height: 1.45;
         }
+        .suggest-panel {
+            display: none;
+            margin-top: 14px;
+            border: 3px solid var(--line);
+            background: var(--panel);
+            box-shadow: 5px 5px 0 var(--line);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .suggest-panel.is-open { display: block; }
+        .suggest-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
+            padding: 12px 14px;
+            border-bottom: 2px solid var(--line);
+            background: var(--panel);
+        }
+        .suggest-item:last-child { border-bottom: 0; }
+        .suggest-item:hover { background: var(--brand-soft); }
+        .suggest-title {
+            display: block;
+            font-weight: 950;
+            letter-spacing: -.02em;
+        }
+        .suggest-meta {
+            display: block;
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 850;
+        }
+        .suggest-price {
+            align-self: center;
+            font-family: "JetBrains Mono", ui-monospace, monospace;
+            font-size: 12px;
+            font-weight: 900;
+            white-space: nowrap;
+            color: var(--brand);
+        }
         .intent-card label {
             display: block;
             font-family: "JetBrains Mono", ui-monospace, monospace;
@@ -571,30 +611,7 @@
             .footer-bottom { flex-direction: column; }
         }
 
-        /* AI Chat Assistant Neobrutalism CSS */
-        .ai-chat-trigger {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            z-index: 998;
-            background: #d8ff6f;
-            color: #050505;
-            border: 4px solid #050505;
-            border-radius: 8px;
-            padding: 12px 20px;
-            font-size: 15px;
-            font-weight: 950;
-            cursor: pointer;
-            box-shadow: 6px 6px 0 #050505;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-        .ai-chat-trigger:hover {
-            transform: translate(2px, 2px);
-            box-shadow: 4px 4px 0 #050505;
-        }
+        /* AI Chat Assistant Drawer */
         .ai-chat-drawer {
             position: fixed;
             top: 0;
@@ -816,18 +833,19 @@
             <div class="hero-search-panel">
                 <div class="intent-card">
                     <label for="intent">Поиск по каталогу</label>
-                    <form method="GET" action="{{ route('home') }}">
+                    <form method="GET" action="{{ route('meanly.storefront.index') }}">
                         <div class="intent-row">
-                            <input id="intent" name="q" type="search" value="{{ $query }}" placeholder="Steam Turkey, PSN 20 EUR, Spotify US..." autocomplete="off" data-live-search-input data-live-search-url="{{ route('meanly.storefront.search') }}">
+                            <input id="intent" name="q" type="search" value="{{ $query }}" placeholder="Steam Turkey, PSN 20 EUR, Spotify US..." autocomplete="off" data-live-search-input data-live-search-url="{{ route('meanly.storefront.suggest') }}">
                             <button class="btn btn-primary" type="submit">Найти</button>
                         </div>
                         <p class="hero-search-note">
                             Ищем по совпадениям и содержанию карточки: название, бренд, категория, регион, номинал, валюта, продавец и активный оффер.
                             <span data-live-search-status aria-live="polite"></span>
                         </p>
+                        <div class="suggest-panel" data-live-suggestions aria-label="Быстрые подсказки поиска"></div>
                         <div class="chips">
                             @foreach(data_get($homepage, 'quick_chips', []) as $chip)
-                                <a class="chip" href="{{ route('home', ['q' => $chip['query']]) }}#storefront">{{ $chip['label'] }}</a>
+                                <a class="chip" href="{{ route('meanly.storefront.index', ['q' => $chip['query']]) }}#storefront">{{ $chip['label'] }}</a>
                             @endforeach
                         </div>
                     </form>
@@ -1005,12 +1023,6 @@
     <!-- AI Chat Assistant Backdrop Overlay -->
     <div id="aiChatOverlay" class="ai-chat-overlay"></div>
 
-    <!-- AI Chat Assistant Floating Button -->
-    <button id="aiChatTrigger" class="ai-chat-trigger" aria-label="Meanly AI">
-        <span style="font-size: 1.3rem; animation: pulseChatSparkle 2s infinite;">🪄</span>
-        <span>Meanly AI</span>
-    </button>
-
     <!-- AI Chat Assistant Drawer -->
     <div id="aiChatDrawer" class="ai-chat-drawer">
         <div class="ai-chat-header">
@@ -1052,10 +1064,10 @@
     <script>
         (() => {
             const input = document.querySelector('[data-live-search-input]');
-            const results = document.querySelector('[data-live-search-results]');
+            const suggestions = document.querySelector('[data-live-suggestions]');
             const status = document.querySelector('[data-live-search-status]');
 
-            if (!input || !results) return;
+            if (!input || !suggestions) return;
 
             const endpoint = input.dataset.liveSearchUrl;
             let timer = null;
@@ -1066,7 +1078,40 @@
                 if (status) status.textContent = text ? ` ${text}` : '';
             };
 
-            const runSearch = async () => {
+            const escape = (value) => String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+
+            const closeSuggestions = () => {
+                suggestions.classList.remove('is-open');
+                suggestions.innerHTML = '';
+            };
+
+            const renderSuggestions = (items) => {
+                if (!items.length) {
+                    closeSuggestions();
+                    return;
+                }
+
+                suggestions.innerHTML = items.map((item) => {
+                    const meta = [item.category, item.match_label].filter(Boolean).join(' · ');
+                    const price = item.price?.formatted || (item.availability === 'soon' ? 'Скоро' : '');
+
+                    return `<a class="suggest-item" href="${escape(item.url)}">
+                        <span>
+                            <span class="suggest-title">${escape(item.name)}</span>
+                            <span class="suggest-meta">${escape(meta)}</span>
+                        </span>
+                        <span class="suggest-price">${escape(price)}</span>
+                    </a>`;
+                }).join('');
+                suggestions.classList.add('is-open');
+            };
+
+            const runSuggest = async () => {
                 const query = input.value.trim();
 
                 if (query === lastQuery) return;
@@ -1075,19 +1120,19 @@
                 if (controller) controller.abort();
 
                 if (query.length === 0) {
-                    results.innerHTML = '';
+                    closeSuggestions();
                     setStatus('');
-                    window.history.replaceState({}, '', '{{ route('home') }}');
                     return;
                 }
 
                 if (query.length < 2) {
+                    closeSuggestions();
                     setStatus('Введите минимум 2 символа.');
                     return;
                 }
 
                 controller = new AbortController();
-                setStatus('Ищем...');
+                setStatus('Подбираем...');
 
                 try {
                     const url = new URL(endpoint, window.location.origin);
@@ -1101,14 +1146,12 @@
                     if (!response.ok) throw new Error('Search failed');
 
                     const payload = await response.json();
-                    results.innerHTML = payload.html || '';
-                    setStatus(payload.total ? `Найдено: ${payload.total}` : 'Ничего не найдено.');
-
-                    const pageUrl = new URL('{{ route('home') }}', window.location.origin);
-                    pageUrl.searchParams.set('q', query);
-                    window.history.replaceState({}, '', pageUrl.toString());
+                    const items = Array.isArray(payload.results) ? payload.results : [];
+                    renderSuggestions(items);
+                    setStatus(items.length ? `Подсказок: ${items.length}. Enter для полного поиска.` : 'Ничего не найдено.');
                 } catch (error) {
                     if (error.name !== 'AbortError') {
+                        closeSuggestions();
                         setStatus('Не удалось обновить результаты.');
                     }
                 }
@@ -1116,7 +1159,13 @@
 
             input.addEventListener('input', () => {
                 window.clearTimeout(timer);
-                timer = window.setTimeout(runSearch, 260);
+                timer = window.setTimeout(runSuggest, 220);
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!suggestions.contains(event.target) && event.target !== input) {
+                    closeSuggestions();
+                }
             });
         })();
 
@@ -1131,20 +1180,22 @@
         let chatHistory = [];
         let isWaitingForAi = false;
 
-        // Toggle chat drawer open/close
-        chatTrigger.addEventListener('click', () => {
-            chatDrawer.classList.add('open');
-            chatOverlay.style.display = 'block';
-            chatInput.focus();
-        });
+        // The floating trigger was removed from the storefront; keep the drawer reusable.
+        if (chatTrigger) {
+            chatTrigger.addEventListener('click', () => {
+                chatDrawer.classList.add('open');
+                chatOverlay.style.display = 'block';
+                chatInput.focus();
+            });
+        }
 
         const closeDrawer = () => {
             chatDrawer.classList.remove('open');
             chatOverlay.style.display = 'none';
         };
 
-        chatClose.addEventListener('click', closeDrawer);
-        chatOverlay.addEventListener('click', closeDrawer);
+        chatClose?.addEventListener('click', closeDrawer);
+        chatOverlay?.addEventListener('click', closeDrawer);
 
         // Escape html helper
         function escapeHtml(text) {
@@ -1279,13 +1330,5 @@
         }
 
     </script>
-
-    <!-- Keyframe animation for float button spark -->
-    <style>
-        @keyframes pulseChatSparkle {
-            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(216, 255, 111, 0)); }
-            50% { transform: scale(1.15); filter: drop-shadow(0 0 8px rgba(216, 255, 111, 0.7)); }
-        }
-    </style>
 </body>
 </html>

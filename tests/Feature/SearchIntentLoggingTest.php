@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\CatalogSearchLog;
+use App\Models\CanonicalProductIdentity;
 use App\Models\Product;
 use App\Models\ProductSalesChannel;
 use App\Models\ProductInventory;
 use App\Models\Order\Order;
 use App\Services\CatalogSearchLogService;
+use App\Services\CanonicalProductSearchProfileBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -94,16 +96,119 @@ class SearchIntentLoggingTest extends TestCase
         ]);
     }
 
-    public function test_storefront_live_search_logs_queries(): void
+    public function test_storefront_live_search_does_not_log_keystrokes(): void
     {
         $this->assertEquals(0, CatalogSearchLog::count());
 
         $this->get('/store/search?q=Steam');
 
-        $this->assertDatabaseHas('catalog_search_logs', [
-            'query' => 'Steam',
-            'source' => 'storefront',
+        $this->assertEquals(0, CatalogSearchLog::count());
+        $this->assertNull(session()->get('last_search_log_id'));
+    }
+
+    public function test_storefront_suggest_returns_lightweight_json_without_logging(): void
+    {
+        $identity = CanonicalProductIdentity::create([
+            'fingerprint' => hash('sha256', 'playstation-us-20-usd'),
+            'identity_slug' => 'playstation-us-20-usd',
+            'canonical_category' => 'gift_cards',
+            'brand' => 'PlayStation',
+            'product_family' => 'PlayStation',
+            'face_value' => 20,
+            'face_value_currency' => 'USD',
+            'region' => 'US',
+            'platform' => 'global',
+            'confidence' => 'high',
+            'signals' => [],
+            'provider_candidates_count' => 1,
+            'seller_offers_count' => 0,
+            'last_seen_at' => now(),
         ]);
+        app(CanonicalProductSearchProfileBuilder::class)->rebuild($identity);
+
+        $this->getJson('/store/suggest?q=play')
+            ->assertOk()
+            ->assertJsonPath('query', 'play')
+            ->assertJsonCount(1, 'results')
+            ->assertJsonPath('results.0.name', 'PlayStation 20 USD US')
+            ->assertJsonPath('results.0.image', null);
+
+        $this->assertEquals(0, CatalogSearchLog::count());
+        $this->assertNull(session()->get('last_search_log_id'));
+    }
+
+    public function test_storefront_suggest_prefers_requested_brand_over_weak_token_matches(): void
+    {
+        $steam = CanonicalProductIdentity::create([
+            'fingerprint' => hash('sha256', 'steam-bahrain-10-usd'),
+            'identity_slug' => 'steam-bahrain-10-usd',
+            'canonical_category' => 'gift_cards',
+            'brand' => 'Steam',
+            'product_family' => 'Steam Wallet',
+            'face_value' => 10,
+            'face_value_currency' => 'USD',
+            'region' => 'Bahrain',
+            'platform' => 'global',
+            'confidence' => 'high',
+            'signals' => [],
+            'provider_candidates_count' => 1,
+            'seller_offers_count' => 0,
+            'last_seen_at' => now(),
+        ]);
+        $xbox = CanonicalProductIdentity::create([
+            'fingerprint' => hash('sha256', 'xbox-us-50-usd'),
+            'identity_slug' => 'xbox-us-50-usd',
+            'canonical_category' => 'console_payment_cards',
+            'brand' => 'Xbox',
+            'product_family' => 'Xbox Gift Card',
+            'face_value' => 50,
+            'face_value_currency' => 'USD',
+            'region' => 'US',
+            'platform' => 'global',
+            'confidence' => 'high',
+            'signals' => [],
+            'provider_candidates_count' => 1,
+            'seller_offers_count' => 0,
+            'last_seen_at' => now(),
+        ]);
+
+        $builder = app(CanonicalProductSearchProfileBuilder::class);
+        $builder->rebuild($steam);
+        $builder->rebuild($xbox);
+
+        $this->getJson('/store/suggest?q=xbox%20usa')
+            ->assertOk()
+            ->assertJsonPath('results.0.brand', 'Xbox')
+            ->assertJsonPath('results.0.name', 'Xbox Xbox Gift Card 50 USD US')
+            ->assertJsonPath('results.0.match_label', 'Бренд + регион');
+    }
+
+    public function test_storefront_suggest_supports_cyrillic_brand_aliases(): void
+    {
+        $identity = CanonicalProductIdentity::create([
+            'fingerprint' => hash('sha256', 'playstation-us-20-usd-cyrillic'),
+            'identity_slug' => 'playstation-us-20-usd-cyrillic',
+            'canonical_category' => 'gift_cards',
+            'brand' => 'PlayStation',
+            'product_family' => 'PlayStation',
+            'face_value' => 20,
+            'face_value_currency' => 'USD',
+            'region' => 'US',
+            'platform' => 'global',
+            'confidence' => 'high',
+            'signals' => [],
+            'provider_candidates_count' => 1,
+            'seller_offers_count' => 0,
+            'last_seen_at' => now(),
+        ]);
+
+        app(CanonicalProductSearchProfileBuilder::class)->rebuild($identity);
+
+        $this->getJson('/store/suggest?q='.rawurlencode('плейстейшн'))
+            ->assertOk()
+            ->assertJsonCount(1, 'results')
+            ->assertJsonPath('results.0.brand', 'PlayStation')
+            ->assertJsonPath('results.0.match_label', 'Совпадение по алиасу');
     }
 
     public function test_checkout_attribution_telemetry(): void
@@ -155,8 +260,9 @@ class SearchIntentLoggingTest extends TestCase
             'expires_at' => now()->addYear(),
         ]);
 
-        // 3. Perform a storefront search via GET request to trigger logging and session assignment
-        $this->get('/store/search?q=Attribution');
+        // 3. Perform a full storefront search to trigger logging and session assignment.
+        // The live-search JSON endpoint intentionally skips logging keystrokes.
+        $this->get('/store?q=Attribution');
 
         // Assert database log has been created
         $this->assertDatabaseHas('catalog_search_logs', [

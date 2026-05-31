@@ -40,7 +40,7 @@ class SyncSovereignGuards
 
             if ($shouldRedirect) {
                 session(['redirect_to_b2b' => true]);
-                $ssoUrl = 'https://meanly.test/cabinet/login';
+                $ssoUrl = route('login');
                 
                 \Illuminate\Support\Facades\Log::info("SyncSovereignGuards: Guest detected on B2B console. Redirecting to Central SSO: {$ssoUrl}");
                 return redirect($ssoUrl);

@@ -355,10 +355,10 @@
                     @auth
                         @if(auth()->user()->hasRole('b2b_partner'))
                             <a class="btn btn-primary" href="{{ route('partner.dashboard') }}">Открыть B2B консоль</a>
-                            <a class="btn btn-secondary" href="/cabinet">Личный кабинет</a>
+                            <a class="btn btn-secondary" href="/vault">Сейф</a>
                         @else
                             <a class="btn btn-primary" href="{{ route('business.register') }}">Подключить бизнес</a>
-                            <a class="btn btn-secondary" href="/cabinet">Личный кабинет</a>
+                            <a class="btn btn-secondary" href="/vault">Сейф</a>
                         @endif
                     @else
                         <a class="btn btn-primary" href="{{ route('business.register') }}">Подключить бизнес</a>

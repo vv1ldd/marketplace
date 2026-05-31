@@ -713,10 +713,6 @@
                 : '';
             $checkoutUser = auth()->user();
             $checkoutUserEmail = trim((string) ($checkoutUser?->email ?? ''));
-            $buyerRubtBalanceMinor = $checkoutUser
-                ? app(\App\Services\BuyerWalletService::class)->balance($checkoutUser)['available_minor']
-                : 0;
-            $buyerHasPasskey = $checkoutUser ? $checkoutUser->passkeys()->exists() : false;
         @endphp
 
         @if($group)
@@ -820,19 +816,13 @@
                                 <input type="hidden" name="is_gift" value="0">
                                 @auth
                                     <div class="group-wallet-note">
-                                        Баланс: <strong>{{ number_format($buyerRubtBalanceMinor / 100, 2, '.', ' ') }} ₽</strong>.
-                                        @if($buyerHasPasskey)
-                                            Подтвердите покупку через Passkey.
-                                        @else
-                                            Подключите Passkey в кабинете, чтобы оплатить балансом.
-                                        @endif
+                                        Баланс и операции живут в SL1 Wallet. На Meanly остается чек, статус оплаты и личный сейф.
                                     </div>
-                                    <button class="btn" type="button" data-wallet-pay @disabled(! $buyerHasPasskey)>
-                                        Оплатить балансом с Passkey
+                                    <button class="btn" type="submit">
+                                        Купить сейчас
                                     </button>
-                                    <p class="wallet-status" data-wallet-status aria-live="polite"></p>
                                 @else
-                                    <a class="btn" href="{{ route('login') }}">Войти и оплатить с Passkey</a>
+                                    <a class="btn" href="{{ route('login') }}">Войти для покупки</a>
                                 @endauth
                             </form>
                             <button class="btn" type="button" disabled data-unavailable-button style="width: 100%; margin-top: 12px; display: {{ ($group['selection_ready'] ?? false) && ! $selectedGroupOffer ? 'inline-flex' : 'none' }};">Нет в продаже</button>
@@ -975,7 +965,6 @@
     </main>
     @include('storefront.partials.footer')
     @if($group)
-        <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
         <script>
             const groupVariantState = @json([
                 'baseUrl' => $baseUrl,
@@ -1145,95 +1134,6 @@
                 render();
             });
 
-            document.querySelectorAll('[data-gift-checkout]').forEach((form) => {
-                const walletButton = form.querySelector('[data-wallet-pay]');
-                const status = form.querySelector('[data-wallet-status]');
-
-                if (!walletButton || !status) {
-                    return;
-                }
-
-                const firstValidationMessage = (payload, fallback) => {
-                    const errors = payload && payload.errors ? Object.values(payload.errors) : [];
-                    const first = errors.length > 0 && Array.isArray(errors[0]) ? errors[0][0] : null;
-
-                    return payload?.message || first || fallback;
-                };
-
-                const setStatus = (message, isError = false) => {
-                    status.textContent = message;
-                    status.style.color = isError ? '#b91c1c' : '#065f46';
-                };
-
-                walletButton.addEventListener('click', async () => {
-                    if (!window.SimpleWebAuthnBrowser || !window.PublicKeyCredential) {
-                        setStatus('Ваш браузер не поддерживает Passkey/WebAuthn для RUBT оплаты.', true);
-                        return;
-                    }
-
-                    walletButton.disabled = true;
-                    setStatus('Готовим покупку для подписи Passkey...');
-
-                    try {
-                        const formData = new FormData(form);
-                        const optionsResponse = await fetch("{{ route('meanly.storefront.checkout.wallet.options') }}", {
-                            method: 'POST',
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-CSRF-TOKEN': formData.get('_token'),
-                            },
-                            body: formData,
-                        });
-                        const options = await optionsResponse.json();
-
-                        if (!optionsResponse.ok) {
-                            throw new Error(firstValidationMessage(options, 'Не удалось подготовить RUBT оплату.'));
-                        }
-
-                        const {
-                            pending_tx_id: pendingTxId,
-                            tx_hash: txHash,
-                            tx_nonce,
-                            l1_address,
-                            amount_minor,
-                            amount,
-                            asset,
-                            canonical_payload,
-                            canonical_json,
-                            ...passkeyOptions
-                        } = options;
-
-                        setStatus('Подтвердите списание RUBT через Passkey...');
-                        const assertion = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: passkeyOptions });
-
-                        setStatus('Проверяем подпись и создаем заказ...');
-                        const confirmResponse = await fetch("{{ route('meanly.storefront.checkout.wallet.confirm') }}", {
-                            method: 'POST',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': formData.get('_token'),
-                            },
-                            body: JSON.stringify({
-                                pending_tx_id: pendingTxId,
-                                tx_hash: txHash,
-                                assertion,
-                            }),
-                        });
-                        const result = await confirmResponse.json();
-
-                        if (!confirmResponse.ok) {
-                            throw new Error(firstValidationMessage(result, 'RUBT оплата отклонена.'));
-                        }
-
-                        setStatus('Оплата подтверждена. Открываем сейф заказа...');
-                        window.location.href = result.cabinet_safe_url || result.safe_url || result.redirect_url || '/cabinet';
-                    } catch (error) {
-                        setStatus(error.message || 'RUBT оплата не завершена.', true);
-                        walletButton.disabled = false;
-                    }
-                });
-            });
         </script>
     @endif
 </body>

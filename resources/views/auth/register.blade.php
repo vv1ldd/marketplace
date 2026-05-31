@@ -103,7 +103,7 @@
             if (csrfInput && optionsPayload.new_csrf) csrfInput.value = optionsPayload.new_csrf;
             const attestation = await window.SimpleWebAuthnBrowser.startRegistration({ optionsJSON: optionsPayload.options });
             await requestJson(@json(route('business.register.submit')), { registration_target: 'profile', display_name: displayName, passkey_attestation: JSON.stringify(attestation) }, csrfInput?.value || optionsPayload.new_csrf || csrf);
-            window.location.assign('/cabinet');
+            window.location.assign('/vault');
         } catch (error) {
             console.error('Profile registration failed', error);
             setError(friendlyPasskeyError(error));

@@ -8,14 +8,6 @@
 
     <title>Вход в Meanly</title>
 
-    <!-- 🧠 SimpleWebAuthn Script Integration -->
-    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
-    <script>
-        window.startAuthentication = SimpleWebAuthnBrowser.startAuthentication;
-        window.startRegistration = SimpleWebAuthnBrowser.startRegistration;
-        window.browserSupportsWebAuthn = SimpleWebAuthnBrowser.browserSupportsWebAuthn;
-    </script>
-
     <!-- ⚡ Alpine.js Core -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
@@ -473,6 +465,11 @@
 </head>
 <body>
 @include('partials.theme-sync-body')
+@include('partials.simple-l1-inline-handoff')
+@php
+    $sl1eModalReturnTo = '/simple-l1/complete?next=/vault';
+    $sl1eConnectUrl = route('meanly.simple_l1.connect', ['return_to' => $sl1eModalReturnTo, 'mode' => 'connect']);
+@endphp
     <div id="sovereign-auth-root" class="sovereign-auth-wrapper" data-theme="{{ $currentTheme ?? request()->cookie('theme') ?? 'consortium' }}" @if(request()->cookie('holiday')) data-holiday="{{ request()->cookie('holiday') }}" @endif>
         
 
@@ -490,29 +487,15 @@
 
             <h1 class="auth-title">Добро пожаловать</h1>
             <p class="auth-subtitle">
-                Рады видеть! Авторизуйтесь с помощью защищенного Passkey ключа, чтобы войти в соответствующую панель управления.
+                Рады видеть! Авторизуйтесь через SL1E Identity: passkey проверяется в identity center, а Meanly получает только proof входа.
             </p>
 
             <div class="auth-interaction">
-                <!-- Passkey Authentication (100% Passwordless) -->
+                <!-- SL1E Identity Authentication -->
                 <div class="space-y-4">
-                    <x-passkeys::authenticate>
-                        <div class="sovereign-btn-trigger">
-                            Войти с помощью Passkey 🛡️
-                        </div>
-                    </x-passkeys::authenticate>
-                    <div id="passkey-login-status" style="margin-top: 0.85rem; min-height: 18px; font-size: 12px; font-weight: 700; color: var(--brand-subtext);"></div>
-                </div>
-
-                <div class="secondary-actions-wrapper" style="margin-top: 2rem; display: flex; flex-direction: column; gap: 10px;">
-                    <div style="font-size: 11px; font-weight: 700; color: var(--brand-subtext); text-transform: uppercase; letter-spacing: 0.05em; text-align: center; margin-bottom: 2px;">
-                        Еще нет профиля?
-                    </div>
-                    <div style="display: flex; justify-content: center; width: 100%;">
-                        <a href="/register" class="sovereign-secondary-btn" style="flex: 1;">
-                            Создать профиль
-                        </a>
-                    </div>
+                    <a href="{{ $sl1eConnectUrl }}" class="sovereign-btn-trigger">
+                        Продолжить через SL1E Identity
+                    </a>
                 </div>
             </div>
 
@@ -526,61 +509,6 @@
             MEANLY.SYSTEMS
         </div>
     </div>
-
-    <script>
-        async function authenticateWithPasskey(remember = false) {
-            const status = document.getElementById('passkey-login-status');
-            const setStatus = (message, isError = false) => {
-                if (!status) return;
-
-                status.style.color = isError ? '#ef4444' : 'var(--brand-subtext)';
-                status.innerText = message;
-            };
-            const setHidden = (form, name, value) => {
-                let input = form.querySelector(`input[name="${name}"]`);
-
-                if (!input) {
-                    input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = name;
-                    form.appendChild(input);
-                }
-
-                input.value = value;
-            };
-
-            try {
-                if (!window.SimpleWebAuthnBrowser?.startAuthentication || !window.PublicKeyCredential) {
-                    throw new Error('Ваш браузер не поддерживает безопасный вход через Passkey.');
-                }
-
-                setStatus('Готовим безопасный вход...');
-
-                const response = await fetch('{{ route('passkeys.authentication_options') }}', {
-                    headers: { 'Accept': 'application/json' },
-                    credentials: 'same-origin',
-                });
-                const options = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(options.message || 'Не удалось подготовить Passkey-вход.');
-                }
-
-                setStatus('Подтвердите вход через Face ID / Touch ID...');
-
-                const startAuthenticationResponse = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: options });
-                const form = document.getElementById('passkey-login-form');
-
-                setHidden(form, 'remember', remember ? '1' : '0');
-                setHidden(form, 'start_authentication_response', JSON.stringify(startAuthenticationResponse));
-
-                setStatus('Проверяем Passkey...');
-                form.submit();
-            } catch (error) {
-                setStatus(error.message || 'Не удалось войти через Passkey.', true);
-            }
-        }
-    </script>
 
 </body>
 </html>

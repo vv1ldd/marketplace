@@ -1247,6 +1247,10 @@ class PartnerDashboardController extends Controller
 
     public function createDepositIntent(Request $request)
     {
+        return response()->json([
+            'error' => 'Partner deposit intents require a trusted settlement provider and are disabled on this surface.',
+        ], 410);
+
         $request->validate([
             'amount' => 'required|numeric|min:10',
         ]);
@@ -1282,6 +1286,10 @@ class PartnerDashboardController extends Controller
 
     public function clearDepositIntent(Request $request)
     {
+        return response()->json([
+            'error' => 'Partner deposit clearing requires trusted settlement proof and is disabled on this surface.',
+        ], 410);
+
         $request->validate([
             'token' => 'required|string',
         ]);
@@ -1353,97 +1361,9 @@ class PartnerDashboardController extends Controller
 
     public function createInviteIntent(Request $request)
     {
-        $request->validate([
-            'role'  => 'required|string|in:admin,manager,viewer,support',
-            'email' => 'nullable|email|max:255',
-            'name'  => 'nullable|string|max:255',
-        ]);
-
-        $user = Auth::user();
-        $legalEntity = $user->legalEntities()->first();
-
-        if (!$legalEntity) {
-            return response()->json(['error' => 'Организация не найдена.'], 404);
-        }
-
-        $role         = $request->role;
-        $inviteeEmail = $request->input('email');
-        $inviteeName  = $request->input('name');
-        $token        = 'INV-' . strtoupper(Str::random(32));
-
-        $roleLabel = match($role) {
-            'admin'   => 'Администратор',
-            'manager' => 'Менеджер',
-            'viewer'  => 'Наблюдатель',
-            'support' => 'Поддержка',
-            default   => ucfirst($role),
-        };
-
-        // Use the new dedicated invite acceptance page
-        $inviteLink = route('invite.accept', ['token' => $token]);
-
-        // Store invite intent in cache for 7 days
-        \Illuminate\Support\Facades\Cache::put("intent:{$token}", [
-            'type'          => 'workspace_invite',
-            'source_type'   => 'legal_entity',
-            'partner_id'    => $legalEntity->id,
-            'partner_name'  => $legalEntity->name,
-            'role'          => $role,
-            'invitee_email' => $inviteeEmail,
-            'invitee_name'  => $inviteeName,
-            'is_b2b'        => true,
-            'created_at'    => now()->toIso8601String(),
-        ], 604800); // 7 days
-
-        // Send invitation email if email was provided
-        $emailSent = false;
-        if ($inviteeEmail) {
-            try {
-                \Illuminate\Support\Facades\Mail::to($inviteeEmail)->send(
-                    new \App\Mail\StaffInviteEmail(
-                        partnerName: $legalEntity->name,
-                        roleLabel: $roleLabel,
-                        inviteLink: $inviteLink,
-                        inviteeName: $inviteeName,
-                    )
-                );
-                $emailSent = true;
-            } catch (\Exception $e) {
-                \Log::warning('Staff invite email failed: ' . $e->getMessage(), [
-                    'to' => $inviteeEmail,
-                    'token' => $token,
-                ]);
-            }
-        }
-
-        // Record invite creation in ledger
-        try {
-            app(\App\Services\LedgerService::class)->record(
-                shop: null,
-                eventType: 'STAFF_INVITE_CREATED',
-                entity: $legalEntity,
-                payload: [
-                    'token'         => $token,
-                    'role'          => $role,
-                    'invitee_email' => $inviteeEmail,
-                    'email_sent'    => $emailSent,
-                ],
-                legalEntity: $legalEntity,
-                triggerSource: "USER:{$user->id}",
-                inputData: $request->only(['role', 'email', 'name'])
-            );
-        } catch (\Exception $e) {
-            \Log::warning('Ledger record failed for invite creation: ' . $e->getMessage());
-        }
-
         return response()->json([
-            'success'    => true,
-            'token'      => $token,
-            'role'       => $role,
-            'role_label' => $roleLabel,
-            'invite_link' => $inviteLink,
-            'email_sent' => $emailSent,
-        ]);
+            'error' => 'Link-based staff invites were retired. Invite a verified SL1E wallet identity instead.',
+        ], 410);
     }
 
     /**
@@ -4786,6 +4706,10 @@ class PartnerDashboardController extends Controller
 
     public function simulateDeposit(Request $request)
     {
+        return response()->json([
+            'error' => 'Simulated partner deposits are disabled outside an explicit sandbox settlement flow.',
+        ], 410);
+
         $user = Auth::user();
         if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
 

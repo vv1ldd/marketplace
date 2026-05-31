@@ -41,7 +41,32 @@ class Seller extends Authenticatable implements HasPasskeys
             return $name;
         }
 
-        return $this->email ? (string) $this->email : "Meanly Profile ".strtoupper(substr(hash('crc32b', (string) $this->id), -4));
+        return "Meanly Seller ".strtoupper(substr(hash('crc32b', (string) $this->id), -4));
+    }
+
+    public function getEmailAttribute(): ?string
+    {
+        return null;
+    }
+
+    public function setEmailAttribute(mixed $value): void
+    {
+        // Business contact email belongs to legal_entities, not seller auth identity.
+    }
+
+    public function setPasswordAttribute(mixed $value): void
+    {
+        // Password login has been retired for seller guard identities.
+    }
+
+    public function setEmailVerifiedAtAttribute(mixed $value): void
+    {
+        // Kept as a no-op for legacy factories and tests.
+    }
+
+    public function setPasswordLoginEnabledAttribute(mixed $value): void
+    {
+        // Kept as a no-op for legacy factories and tests.
     }
 
     protected $fillable = [
@@ -49,40 +74,20 @@ class Seller extends Authenticatable implements HasPasskeys
         'last_name',
         'middle_name',
         'phone',
-        'email',
-        'password',
         'is_active',
-        'password_login_enabled',
     ];
 
     protected $hidden = [
-        'password',
         'remember_token',
     ];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
         'is_active' => 'boolean',
-        'password_login_enabled' => 'boolean',
-        'email' => \App\Casts\VaultEncrypted::class . ':email_bidx',
         'phone' => \App\Casts\VaultEncrypted::class . ':phone_bidx',
         'first_name' => \App\Casts\VaultEncrypted::class . ':first_name_bidx',
         'last_name' => \App\Casts\VaultEncrypted::class . ':last_name_bidx',
         'middle_name' => \App\Casts\VaultEncrypted::class . ':middle_name_bidx',
     ];
-
-    public static function findByEmail(?string $email): ?self
-    {
-        $email = trim((string) $email);
-        if ($email === '') {
-            return null;
-        }
-
-        $salt = config('vault.blind_index.salt', 'default-salt');
-        $bidx = hash_hmac('sha256', strtolower(trim($email)), $salt);
-        return static::where('email_bidx', $bidx)->first();
-    }
 
     public static function findByPhone(string $phone): ?self
     {

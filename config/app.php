@@ -87,7 +87,7 @@ return [
     'locale_labels' => [
         'ru' => 'Русский',
         'en' => 'English',
-        'es' => 'Español',
+        'es' => 'Castellano',
         'tk' => 'Türkmen',
         'uz' => 'Oʻzbek',
         'ka' => 'ქართული',
@@ -148,15 +148,15 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    'domain' => env('APP_DOMAIN', '1gros.local'),
-    'production_domain' => env('APP_PRODUCTION_DOMAIN', env('APP_DOMAIN', '1gros.local')),
+    'domain' => env('APP_DOMAIN', 'meanly.test'),
+    'production_domain' => env('APP_PRODUCTION_DOMAIN', 'meanly.one'),
     'public_domains' => array_values(array_unique(array_filter(array_map(
         static fn (?string $host): string => strtolower(trim((string) $host)),
         array_merge(
             explode(',', (string) env('APP_PUBLIC_DOMAINS', '')),
             [
-                env('APP_DOMAIN', '1gros.local'),
-                env('APP_PRODUCTION_DOMAIN', env('APP_DOMAIN', '1gros.local')),
+                env('APP_DOMAIN', 'meanly.test'),
+                env('APP_PRODUCTION_DOMAIN', 'meanly.one'),
                 parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST),
             ],
         ),

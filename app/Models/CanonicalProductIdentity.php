@@ -49,4 +49,9 @@ class CanonicalProductIdentity extends Model
     {
         return $this->hasOne(CanonicalProductIdentityOverride::class, 'fingerprint', 'fingerprint');
     }
+
+    public function searchProfile(): HasOne
+    {
+        return $this->hasOne(CanonicalProductSearchProfile::class);
+    }
 }

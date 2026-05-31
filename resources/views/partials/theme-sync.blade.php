@@ -6,6 +6,7 @@
 
     if (
         str_starts_with($path, '/partner') || 
+        str_starts_with($path, '/vault') ||
         str_starts_with($path, '/cabinet') || 
         str_starts_with($path, '/login') || 
         str_starts_with($path, '/register') || 

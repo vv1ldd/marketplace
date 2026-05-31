@@ -69,6 +69,16 @@ return [
         'base_url' => env('YANDEX_WEBMASTER_BASE_URL', 'https://api.webmaster.yandex.net'),
         'version' => env('YANDEX_WEBMASTER_API_VERSION', 'v4'),
         'oauth_token' => env('YANDEX_WEBMASTER_OAUTH_TOKEN'),
+        'user_id' => env('YANDEX_WEBMASTER_USER_ID'),
+        'host_id' => env('YANDEX_WEBMASTER_HOST_ID'),
+    ],
+
+    'google_suggest' => [
+        'base_url' => env('GOOGLE_SUGGEST_BASE_URL', 'https://suggestqueries.google.com/complete/search'),
+    ],
+
+    'yandex_suggest' => [
+        'base_url' => env('YANDEX_SUGGEST_BASE_URL', 'https://suggest.yandex.com/suggest-ff.cgi'),
     ],
 
     'bing_web_search' => [
@@ -126,7 +136,7 @@ return [
         'key' => env('IMGBB_API_KEY'),
     ],
 
-    'trusted_hosts' => env('TRUSTED_HOSTS', 'marketplace.wildcloud.ru,1gros.local,platform.local'),
+    'trusted_hosts' => env('TRUSTED_HOSTS', 'meanly.test,meanly.one,www.meanly.one,meanly.ru,meanly.ar'),
 
     /*
     | При смене SKU в wildflow_catalogs парсером: алиасы + обновление products у этих магазинов (id через запятую).

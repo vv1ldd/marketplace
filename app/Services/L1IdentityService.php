@@ -67,7 +67,10 @@ class L1IdentityService
         $publicKey = $passkey->data->credentialPublicKey ?? null;
         $keyAddress = $this->keyAddressFromPublicKey($publicKey);
         $meta = $user->meta ?? [];
-        $entityAddress = $meta['entity_l1_address'] ?? $meta['l1_address'] ?? $this->newEntityAddress();
+        $entityAddress = $user->entity_l1_address
+            ?? $meta['entity_l1_address']
+            ?? $meta['l1_address']
+            ?? $this->newEntityAddress();
 
         if (! is_string($entityAddress) || ! preg_match('/^sl1e_[a-f0-9]{39}$/i', $entityAddress)) {
             $entityAddress = $this->newEntityAddress();
@@ -87,8 +90,12 @@ class L1IdentityService
             ],
         ]);
 
-        $user->meta = $meta;
-        $user->save();
+        $user->forceFill([
+            'entity_l1_address' => strtolower($entityAddress),
+            'key_l1_address' => strtolower($keyAddress),
+            'identity_provider' => $user->identity_provider ?: 'local_passkey',
+            'meta' => $meta,
+        ])->save();
 
         return [
             'entity_l1_address' => strtolower($entityAddress),

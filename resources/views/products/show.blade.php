@@ -1017,7 +1017,7 @@
 
     function openCheckout(productName) {
         @auth
-            window.location.href = '/cabinet';
+            window.location.href = '/vault';
         @else
             let displayProductName = productName;
             @if($isOpenDenomination)

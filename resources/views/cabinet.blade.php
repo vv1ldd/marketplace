@@ -141,7 +141,7 @@
         /* ── CABINET CONTAINER ── */
         .cabinet-container {
             max-width: 1200px;
-            padding: 8rem 1.5rem 4rem;
+            padding: 6.5rem 1.5rem 2.5rem;
             margin: 0 auto;
             position: relative;
             z-index: 10;
@@ -171,11 +171,11 @@
         .welcome-card {
             background: var(--brand-card);
             border: 1px solid var(--brand-border);
-            border-radius: 24px;
-            padding: 3rem;
+            border-radius: 18px;
+            padding: 1.35rem;
             position: relative;
             overflow: hidden;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
         .welcome-card::after {
             content: '';
@@ -340,18 +340,287 @@
         .badge-status.warning:hover {
             background: rgba(245, 48, 3, 0.1);
         }
+        .vault-lock-form {
+            display: inline-flex;
+            margin: 0;
+        }
+        .badge-status.lock-action {
+            appearance: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
         .welcome-title {
-            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-size: clamp(1.35rem, 3vw, 2rem);
             font-weight: 900;
             letter-spacing: -0.03em;
-            margin-top: 0.5rem;
+            margin-top: 0.35rem;
         }
         .welcome-desc {
             color: var(--brand-subtext);
-            font-size: 14.5px;
-            margin-top: 0.5rem;
+            font-size: 12.5px;
+            margin-top: 0.35rem;
             max-width: 600px;
-            line-height: 1.6;
+            line-height: 1.45;
+        }
+        .cabinet-top-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            align-items: start;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid var(--brand-border);
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.035);
+        }
+        .cabinet-top-grid > .cabinet-side-panel {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        .cabinet-top-grid > .vault-workspace-grid {
+            grid-column: 1;
+            grid-row: 1;
+            min-width: 0;
+            margin: 0;
+        }
+        .cabinet-side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .sl1-manage-card {
+            min-height: 0;
+        }
+        .vault-wallet-card {
+            margin-top: 0;
+            background: var(--brand-card);
+            border: 1px solid var(--brand-border);
+            border-radius: 16px;
+            padding: 1rem;
+            text-align: left;
+        }
+        .vault-wallet-card h3 {
+            margin: 0 0 0.45rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--brand-text);
+            font-size: 0.9rem;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+        }
+        .vault-wallet-card p {
+            margin: 0 0 0.75rem;
+            color: var(--brand-subtext);
+            font-size: 11px;
+            line-height: 1.35;
+        }
+        .vault-wallet-balances {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.55rem;
+            margin-bottom: 0.75rem;
+        }
+        .vault-wallet-balance {
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 0.75rem;
+        }
+        .vault-wallet-label {
+            margin-bottom: 0.35rem;
+            color: var(--brand-subtext);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .vault-wallet-value {
+            color: var(--brand-text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            font-weight: 900;
+        }
+        .vault-wallet-note {
+            margin-top: 0.35rem;
+            color: var(--brand-subtext);
+            font-size: 10px;
+        }
+        .vault-wallet-history-title {
+            margin-bottom: 0.75rem;
+            color: var(--brand-subtext);
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .vault-wallet-empty {
+            padding: 0.75rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            color: var(--brand-subtext);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            text-align: center;
+        }
+        .vault-wallet-transactions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .vault-wallet-transaction {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.6rem;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.018);
+        }
+        .vault-wallet-transaction-title {
+            color: var(--brand-text);
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .vault-wallet-transaction-meta {
+            margin-top: 0.25rem;
+            color: var(--brand-subtext);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+        }
+        .vault-wallet-transaction-amount {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+        .vault-wallet-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            padding: 0 0.75rem;
+            border: 1px solid var(--brand-border);
+            border-radius: 10px;
+            color: var(--brand-primary);
+            font-size: 0.75rem;
+            font-weight: 900;
+            text-decoration: none;
+        }
+        .sl1-manage-card {
+            background: var(--brand-card);
+            border: 1px solid var(--brand-border);
+            border-radius: 16px;
+            padding: 1.15rem;
+            text-align: left;
+        }
+        .sl1-manage-head {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.65rem;
+        }
+        .sl1-manage-icon {
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--brand-border);
+            border-radius: 10px;
+            color: var(--brand-primary);
+            background: rgba(124, 58, 237, 0.06);
+            flex-shrink: 0;
+        }
+        .sl1-manage-eyebrow {
+            display: block;
+            color: var(--brand-subtext);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            font-weight: 850;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .sl1-manage-card h3 {
+            margin: 0.15rem 0 0;
+            color: var(--brand-text);
+            font-size: clamp(1rem, 2vw, 1.35rem);
+            font-weight: 900;
+            letter-spacing: -0.02em;
+        }
+        .sl1-manage-card p {
+            margin: 0 0 0.85rem;
+            color: var(--brand-subtext);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+        .sl1-manage-features {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.55rem;
+            margin-bottom: 0.85rem;
+        }
+        .sl1-manage-feature {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: var(--brand-text);
+            font-size: 11px;
+            font-weight: 800;
+            padding: 0.65rem 0.7rem;
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.025);
+        }
+        .sl1-manage-feature i {
+            color: var(--brand-primary);
+            font-size: 0.85rem;
+        }
+        .sl1-manage-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 42px;
+            width: auto;
+            padding: 0 1.25rem;
+            border: 0;
+            border-radius: 10px;
+            background: var(--brand-primary);
+            color: #ffffff;
+            box-shadow: 0 4px 18px rgba(124, 58, 237, 0.28);
+            font-size: 0.82rem;
+            font-weight: 900;
+            text-decoration: none;
+        }
+        .sl1-manage-action:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 25px rgba(124, 58, 237, 0.42);
+        }
+        .workspace-grid.workspace-grid-single {
+            grid-template-columns: 1fr !important;
+        }
+        .workspace-grid.vault-workspace-grid {
+            grid-template-columns: 1fr !important;
+        }
+        @media (max-width: 820px) {
+            .cabinet-top-grid {
+                grid-template-columns: 1fr;
+            }
+            .cabinet-top-grid > .welcome-card,
+            .cabinet-top-grid > .cabinet-side-panel,
+            .cabinet-top-grid > .vault-workspace-grid {
+                grid-column: 1;
+                grid-row: auto;
+            }
+            .cabinet-top-grid > .vault-workspace-grid {
+                order: 1;
+            }
+            .cabinet-top-grid > .cabinet-side-panel {
+                order: 2;
+            }
+            .sl1-manage-features {
+                grid-template-columns: 1fr;
+            }
         }
 
         /* ── STATS ROW ── */
@@ -401,6 +670,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
             margin-bottom: 1.5rem;
         }
         .vault-title-row h2 {
@@ -412,6 +683,58 @@
             gap: 0.6rem;
         }
         .vault-title-row h2 i { color: var(--brand-primary); }
+        .vault-help {
+            position: relative;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--brand-border);
+            border-radius: 50%;
+            color: var(--brand-primary);
+            background: rgba(124, 58, 237, 0.08);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 900;
+            cursor: help;
+        }
+        .vault-help::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            top: calc(100% + 10px);
+            z-index: 40;
+            width: min(280px, calc(100vw - 48px));
+            padding: 0.75rem 0.85rem;
+            border: 1px solid var(--brand-border);
+            border-radius: 12px;
+            background: var(--brand-card);
+            color: var(--brand-text);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.24);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.35;
+            letter-spacing: 0;
+            text-transform: none;
+            white-space: normal;
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, -4px);
+            transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+        .vault-help:hover::after,
+        .vault-help:focus-visible::after {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+        .vault-title-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
 
         .vault-grid {
             display: grid;
@@ -1379,6 +1702,9 @@
                 .workspace-grid {
                     grid-template-columns: 1fr !important;
                 }
+                .vault-wallet-balances {
+                    grid-template-columns: 1fr !important;
+                }
             }
 
             /* Retro overrides for workspace cards */
@@ -1572,42 +1898,48 @@
 
             /* Buyer cabinet shell: keep the safe central, but make the whole page feel useful. */
             .cabinet-container {
-                width: min(1120px, calc(100vw - 32px)) !important;
+                width: min(780px, calc(100vw - 32px)) !important;
                 max-width: none !important;
-                padding: 7.25rem 0 4rem !important;
+                padding: 6.25rem 0 2.5rem !important;
             }
             .b2b-banner,
             footer {
                 display: none !important;
             }
             .welcome-card {
-                margin-bottom: 1rem !important;
-                padding: clamp(1.25rem, 3vw, 2rem) !important;
+                margin-bottom: 0.65rem !important;
+                padding: 1.15rem 1.25rem !important;
                 background: #ffffff !important;
-                border: 4px solid #050505 !important;
+                border: 3px solid #050505 !important;
                 border-radius: 0 !important;
-                box-shadow: 8px 8px 0 #050505 !important;
+                box-shadow: 6px 6px 0 #050505 !important;
                 color: #050505 !important;
+            }
+            .welcome-card,
+            .sl1-manage-card {
+                min-height: 148px !important;
             }
             .welcome-card::after {
                 display: none !important;
             }
             .welcome-header {
-                margin-bottom: 0.65rem !important;
+                margin-bottom: 0.4rem !important;
             }
             .welcome-title {
                 margin: 0 !important;
                 color: #050505 !important;
-                font-size: clamp(1.65rem, 4vw, 2.55rem) !important;
-                line-height: 0.95 !important;
-                letter-spacing: -0.06em !important;
+                font-size: clamp(1.35rem, 3vw, 2rem) !important;
+                line-height: 1 !important;
+                letter-spacing: -0.045em !important;
                 text-transform: uppercase !important;
             }
             .welcome-desc {
                 max-width: 720px !important;
                 color: #374151 !important;
-                font-size: 1rem !important;
+                font-size: 0.8rem !important;
                 font-weight: 800 !important;
+                line-height: 1.35 !important;
+                margin-top: 0.45rem !important;
             }
             .badge-type,
             .badge-status {
@@ -1705,6 +2037,39 @@
                 margin: 0 auto !important;
                 align-items: start !important;
             }
+            .workspace-grid.workspace-grid-single {
+                grid-template-columns: 1fr !important;
+            }
+            .workspace-grid.vault-workspace-grid {
+                grid-template-columns: 1fr !important;
+            }
+            .cabinet-top-grid {
+                display: grid !important;
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+                align-items: start !important;
+                margin-bottom: 0 !important;
+                padding: 1rem !important;
+                background: #ffffff !important;
+                border: 3px solid #050505 !important;
+                border-radius: 0 !important;
+                box-shadow: 7px 7px 0 #050505 !important;
+            }
+            .cabinet-top-grid > .cabinet-side-panel {
+                grid-column: 1 !important;
+                grid-row: 2 !important;
+            }
+            .cabinet-top-grid > .vault-workspace-grid {
+                grid-column: 1 !important;
+                grid-row: 1 !important;
+                min-width: 0 !important;
+                margin: 0 !important;
+            }
+            .cabinet-side-panel {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+            }
             .workspace-left {
                 width: 100% !important;
             }
@@ -1738,8 +2103,9 @@
                 border-radius: 0 !important;
             }
             .vault-title-row {
-                justify-content: flex-start !important;
-                margin-bottom: 0.85rem !important;
+                justify-content: space-between !important;
+                gap: 0.65rem !important;
+                margin-bottom: 0.45rem !important;
             }
             .vault-title-row h2 {
                 color: #050505 !important;
@@ -1749,24 +2115,40 @@
                 letter-spacing: 0.08em !important;
                 text-transform: uppercase !important;
             }
+            .vault-help {
+                width: 18px !important;
+                height: 18px !important;
+                border: 2px solid #050505 !important;
+                border-radius: 0 !important;
+                background: #f7f3ff !important;
+                color: #7c3aed !important;
+                box-shadow: 2px 2px 0 #050505 !important;
+            }
+            .vault-help::after {
+                border: 2px solid #050505 !important;
+                border-radius: 0 !important;
+                background: #ffffff !important;
+                color: #050505 !important;
+                box-shadow: 5px 5px 0 #050505 !important;
+            }
             .vault-entry-card {
                 isolation: isolate;
                 width: 100% !important;
-                min-height: 430px !important;
-                margin: 0 0 1.25rem !important;
-                padding: clamp(1.8rem, 5vw, 3rem) !important;
+                min-height: 330px !important;
+                margin: 0 0 1rem !important;
+                padding: 1.7rem !important;
                 position: relative !important;
                 overflow: hidden !important;
                 background: #ffffff !important;
-                border: 5px solid #050505 !important;
+                border: 4px solid #050505 !important;
                 border-radius: 0 !important;
-                box-shadow: 12px 12px 0 #050505 !important;
+                box-shadow: none !important;
                 color: #050505 !important;
             }
             .vault-entry-card::before {
                 content: '';
                 position: absolute;
-                inset: 22px;
+                inset: 14px;
                 z-index: -1;
                 border: 3px solid #050505;
                 border-radius: 0;
@@ -1777,10 +2159,10 @@
             .vault-entry-card::after {
                 content: '';
                 position: absolute;
-                width: 118px;
-                height: 118px;
-                right: 34px;
-                top: 34px;
+                width: 72px;
+                height: 72px;
+                right: 22px;
+                top: 22px;
                 border: 3px solid #050505;
                 border-radius: 0;
                 background:
@@ -1790,46 +2172,46 @@
                 opacity: 0.95;
             }
             .vault-entry-card .lock-icon-container {
-                width: 108px !important;
-                height: 108px !important;
-                margin-bottom: 1.35rem !important;
+                width: 88px !important;
+                height: 88px !important;
+                margin-bottom: 1.1rem !important;
                 background: #7c3aed !important;
                 border: 4px solid #050505 !important;
                 border-radius: 0 !important;
-                box-shadow: 7px 7px 0 #050505 !important;
+                box-shadow: 5px 5px 0 #050505 !important;
                 animation: none !important;
                 transform: rotate(-2deg);
             }
             .vault-entry-card .lock-icon-container i {
                 color: #ffffff !important;
-                font-size: 3rem !important;
+                font-size: 2.35rem !important;
             }
             .vault-entry-card h3 {
-                max-width: 460px;
-                margin-bottom: 0.85rem !important;
+                max-width: 420px;
+                margin-bottom: 0.6rem !important;
                 color: #050505 !important;
-                font-size: clamp(2rem, 5vw, 3.25rem) !important;
-                line-height: 0.92 !important;
-                letter-spacing: -0.07em !important;
+                font-size: clamp(1.55rem, 4vw, 2.45rem) !important;
+                line-height: 1 !important;
+                letter-spacing: -0.045em !important;
                 text-transform: uppercase;
             }
             .vault-entry-card p {
                 max-width: 450px !important;
-                margin-bottom: 1.6rem !important;
+                margin-bottom: 1.15rem !important;
                 color: #374151 !important;
-                font-size: 1rem !important;
+                font-size: 0.84rem !important;
                 font-weight: 800 !important;
-                line-height: 1.45 !important;
+                line-height: 1.3 !important;
             }
             .vault-entry-card .btn-unlock-vault {
-                min-height: 52px !important;
-                padding: 0 1.35rem !important;
-                border: 4px solid #050505 !important;
+                min-height: 42px !important;
+                padding: 0 1.05rem !important;
+                border: 3px solid #050505 !important;
                 border-radius: 0 !important;
                 background: #7c3aed !important;
                 color: #ffffff !important;
-                box-shadow: 6px 6px 0 #050505 !important;
-                font-size: 0.82rem !important;
+                box-shadow: 4px 4px 0 #050505 !important;
+                font-size: 0.74rem !important;
                 letter-spacing: 0.04em !important;
             }
             .vault-entry-card .btn-unlock-vault:hover:not(:disabled) {
@@ -1852,20 +2234,180 @@
             }
             .empty-vault-container {
                 background: #ffffff !important;
-                border: 5px dashed #050505 !important;
+                min-height: 300px !important;
+                margin-bottom: 0 !important;
+                padding: 2.25rem 1.5rem !important;
+                border: 4px dashed #050505 !important;
                 border-radius: 0 !important;
-                box-shadow: 10px 10px 0 #050505 !important;
+                box-shadow: none !important;
                 color: #050505 !important;
+                width: 100% !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+            }
+            .empty-vault-container h3 {
+                margin-bottom: 0.45rem !important;
+                font-size: 1.2rem !important;
+                line-height: 1.1 !important;
+            }
+            .empty-vault-container p {
+                max-width: 430px !important;
+                margin-bottom: 1.2rem !important;
+                font-size: 0.82rem !important;
+                line-height: 1.4 !important;
             }
             .empty-vault-container h3,
             .empty-vault-container p {
                 color: #050505 !important;
             }
             .empty-vault-icon {
+                width: 64px !important;
+                height: 64px !important;
+                margin-bottom: 1rem !important;
                 background: #f7f3ff !important;
                 border: 3px solid #050505 !important;
                 border-radius: 0 !important;
-                box-shadow: 5px 5px 0 #050505 !important;
+                box-shadow: 4px 4px 0 #050505 !important;
+            }
+            .empty-vault-icon i {
+                font-size: 1.85rem !important;
+            }
+            .empty-vault-container .btn-nav-cta,
+            .empty-vault-container a {
+                padding: 0.55rem 1rem !important;
+                font-size: 0.68rem !important;
+            }
+            .vault-wallet-card {
+                margin-top: 0.65rem !important;
+                padding: 0.85rem !important;
+                background: #ffffff !important;
+                border: 2px solid #050505 !important;
+                border-radius: 0 !important;
+                box-shadow: 4px 4px 0 #050505 !important;
+                color: #050505 !important;
+            }
+            .vault-wallet-card h3 {
+                color: #050505 !important;
+                font-size: 0.74rem !important;
+                margin-bottom: 0.35rem !important;
+            }
+            .vault-wallet-card p {
+                color: #374151 !important;
+                font-size: 0.64rem !important;
+                line-height: 1.25 !important;
+                margin-bottom: 0.6rem !important;
+            }
+            .vault-wallet-balances {
+                gap: 0.5rem !important;
+                margin-bottom: 0.65rem !important;
+            }
+            .vault-wallet-balance {
+                padding: 0.6rem !important;
+                border-radius: 0 !important;
+                border: 1px solid #d1d5db !important;
+            }
+            .vault-wallet-value {
+                font-size: 0.8rem !important;
+            }
+            .vault-wallet-history-title {
+                margin-bottom: 0.45rem !important;
+                font-size: 0.58rem !important;
+            }
+            .vault-wallet-empty {
+                padding: 0.55rem !important;
+                font-size: 0.6rem !important;
+            }
+            .vault-wallet-action {
+                min-height: 28px !important;
+                padding: 0 0.55rem !important;
+                border: 2px solid #050505 !important;
+                border-radius: 0 !important;
+                color: #7c3aed !important;
+                font-size: 0.62rem !important;
+                box-shadow: 2px 2px 0 #050505 !important;
+            }
+            .sl1-manage-card {
+                padding: 1.1rem !important;
+                background: #ffffff !important;
+                border: 2px solid #050505 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                color: #050505 !important;
+            }
+            .sl1-manage-head {
+                display: flex !important;
+                align-items: center !important;
+                gap: 0.55rem !important;
+                margin-bottom: 0.65rem !important;
+            }
+            .sl1-manage-icon {
+                width: 34px !important;
+                height: 34px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: #f7f3ff !important;
+                border: 2px solid #050505 !important;
+                border-radius: 0 !important;
+                color: #7c3aed !important;
+                box-shadow: 2px 2px 0 #050505 !important;
+                flex-shrink: 0 !important;
+            }
+            .sl1-manage-eyebrow {
+                display: block !important;
+                color: #4b5563 !important;
+                font-family: 'JetBrains Mono', monospace !important;
+                font-size: 0.52rem !important;
+                font-weight: 900 !important;
+                letter-spacing: 0.08em !important;
+                text-transform: uppercase !important;
+            }
+            .sl1-manage-card h3 {
+                color: #050505 !important;
+                font-size: clamp(1.05rem, 2vw, 1.35rem) !important;
+                margin: 0.1rem 0 0 !important;
+            }
+            .sl1-manage-card p {
+                color: #374151 !important;
+                font-size: 0.8rem !important;
+                line-height: 1.35 !important;
+                margin-bottom: 0.75rem !important;
+            }
+            .sl1-manage-features {
+                display: grid !important;
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                gap: 0.55rem !important;
+                margin-bottom: 0.85rem !important;
+            }
+            .sl1-manage-feature {
+                display: flex !important;
+                align-items: center !important;
+                gap: 0.42rem !important;
+                color: #050505 !important;
+                font-size: 0.68rem !important;
+                font-weight: 900 !important;
+                padding: 0.6rem 0.7rem !important;
+                border: 2px solid #050505 !important;
+                border-radius: 0 !important;
+                background: #f8fafc !important;
+            }
+            .sl1-manage-feature i {
+                color: #7c3aed !important;
+            }
+            .sl1-manage-action {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 0.45rem !important;
+                min-height: 42px !important;
+                width: auto !important;
+                padding: 0 1rem !important;
+                border: 2px solid #050505 !important;
+                border-radius: 0 !important;
+                background: #7c3aed !important;
+                color: #ffffff !important;
+                font-size: 0.68rem !important;
+                box-shadow: 4px 4px 0 #050505 !important;
             }
             .vault-prod-title,
             .vault-card .vault-meta-row,
@@ -1883,7 +2425,7 @@
                 color: #ffffff !important;
                 box-shadow: 3px 3px 0 #050505 !important;
             }
-            @media (max-width: 720px) {
+            @media (max-width: 900px) {
                 .vault-entry-card {
                     min-height: 380px !important;
                     border-radius: 0 !important;
@@ -1897,6 +2439,27 @@
                 .stats-grid,
                 .cabinet-action-grid,
                 .workspace-grid {
+                    grid-template-columns: 1fr !important;
+                }
+                .cabinet-top-grid {
+                    grid-template-columns: 1fr !important;
+                }
+                .cabinet-top-grid > .welcome-card,
+                .cabinet-top-grid > .cabinet-side-panel,
+                .cabinet-top-grid > .vault-workspace-grid {
+                    grid-column: 1 !important;
+                    grid-row: auto !important;
+                }
+                .cabinet-top-grid > .vault-workspace-grid {
+                    order: 1 !important;
+                }
+                .cabinet-top-grid > .cabinet-side-panel {
+                    order: 2 !important;
+                }
+                .sl1-manage-features {
+                    grid-template-columns: 1fr !important;
+                }
+                .vault-wallet-balances {
                     grid-template-columns: 1fr !important;
                 }
             }
@@ -2024,80 +2587,70 @@
 
 @php
     $focusedSafeUuid = (string) request()->query('safe', '');
+    $simpleL1ManageUrl = rtrim((string) config('simple_l1.identity_provider_url', 'https://simplel1.online'), '/').'#wallet';
 @endphp
 
 <main class="cabinet-container">
-    <!-- Welcome Card -->
-    <div class="welcome-card">
-        <div class="welcome-header">
-            <div class="welcome-meta">
-                <span class="badge-type">Личный аккаунт</span>
-                @if(!$user->passkeys()->exists())
-                    <a href="#passkey-security-center" class="badge-status warning">
-                        <i class="ph-bold ph-shield-warning" style="animation: pulse 2s infinite;"></i> Подключить Passkey &rarr;
-                    </a>
-                @elseif($vaultUnlocked)
-                    <span class="badge-status success">
-                        <i class="ph-bold ph-lock-open"></i> Сейф открыт
-                    </span>
-                @else
-                    <span class="badge-status warning">
-                        <i class="ph-bold ph-lock-key"></i> Сейф закрыт
-                    </span>
-                @endif
+    <div class="cabinet-top-grid">
+    <div class="cabinet-side-panel">
+        <div class="sl1-manage-card">
+            <div class="sl1-manage-head">
+                <div class="sl1-manage-icon"><i class="ph-bold ph-circles-three-plus"></i></div>
+                <div>
+                    <span class="sl1-manage-eyebrow">Meanly работает на Simple Layer One</span>
+                    <h3>Зачем здесь Simple Layer One?</h3>
+                </div>
             </div>
+            <p>Это отдельный слой, где живут ваш вход, кошелек и история операций. Meanly использует его как основу: здесь остаются только покупки и сейф, а деньги и ключи не хранятся на сайте.</p>
+            <div class="sl1-manage-features">
+                <div class="sl1-manage-feature"><i class="ph-bold ph-fingerprint"></i> Вход без пароля</div>
+                <div class="sl1-manage-feature"><i class="ph-bold ph-wallet"></i> Кошелек, баланс и история</div>
+                <div class="sl1-manage-feature"><i class="ph-bold ph-shield-check"></i> Подтверждение перед сейфом</div>
+            </div>
+            <a href="{{ $simpleL1ManageUrl }}" class="sl1-manage-action" target="_blank" rel="noopener">
+                <i class="ph-bold ph-wallet"></i> Открыть SL1 Wallet
+            </a>
         </div>
-        <h1 class="welcome-title">Приветствуем, {{ $user->first_name ?: ($user->name ?: 'Клиент') }}!</h1>
-        <p class="welcome-desc">
-            Здесь хранятся ваши покупки, коды, баланс и история операций. Откройте сейф через Passkey, чтобы увидеть личные данные.
-        </p>
-    </div>
-
-    <!-- Stats Row -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <i class="ph-bold ph-shopping-bag"></i>
-            <span class="stat-label">Покупки в сейфе</span>
-            <span class="stat-value">{{ $vaultUnlocked ? $totalOrders : '••' }}</span>
-            <span class="stat-desc">{{ $vaultUnlocked ? 'Оформлено заказов' : 'Скрыто до входа в сейф' }}</span>
-        </div>
-        <div class="stat-card">
-            <i class="ph-bold ph-key"></i>
-            <span class="stat-label">Ключей в Сейфе</span>
-            <span class="stat-value">{{ $vaultUnlocked ? $activeKeysCount : '••' }}</span>
-            <span class="stat-desc">{{ $vaultUnlocked ? 'Готовы к активации' : 'Откройте сейф через Passkey' }}</span>
-        </div>
-        <div class="stat-card">
-            <i class="ph-bold ph-fingerprint"></i>
-            <span class="stat-label">Защита сейфа</span>
-            <span class="stat-value" style="color: var(--brand-primary, #f53003);">{{ $vaultUnlocked ? 'Открыт' : 'Passkey' }}</span>
-            <span class="stat-desc">{{ $vaultUnlocked ? 'Личные данные доступны' : 'Face ID, Touch ID или PIN' }}</span>
-        </div>
-    </div>
-
-    <div class="cabinet-action-grid" aria-label="Быстрые действия личного кабинета">
-        <a class="cabinet-action-card" href="/">
-            <strong><i class="ph-bold ph-storefront"></i> Витрина</strong>
-            <span>Вернуться к каталогу и выбрать новую карту, подписку или игру.</span>
-        </a>
-        <a class="cabinet-action-card" href="{{ $vaultUnlocked ? '#vault-grid-content' : '#vault-locked-overlay' }}">
-            <strong><i class="ph-bold ph-receipt"></i> Покупки</strong>
-            <span>{{ $vaultUnlocked ? 'Список заказов и кодов уже открыт ниже.' : 'Откройте сейф, чтобы увидеть заказы и коды.' }}</span>
-        </a>
-        <a class="cabinet-action-card" href="#passkey-security-center">
-            <strong><i class="ph-bold ph-fingerprint"></i> Защита</strong>
-            <span>Проверить Passkey и управлять доступом к личному сейфу.</span>
-        </a>
     </div>
 
     <!-- Main Workspace Grid -->
-    <div class="workspace-grid">
+    <div class="workspace-grid vault-workspace-grid">
         
         <!-- Left Column: License Keys Vault -->
         <div class="workspace-left">
             <!-- Vault Title -->
             <div class="vault-title-row">
-                <h2><i class="ph-bold ph-vault"></i> Сейф покупок</h2>
+                <h2>
+                    <i class="ph-bold ph-vault"></i>
+                    Сейф покупок
+                    <span
+                        class="vault-help"
+                        tabindex="0"
+                        aria-label="Что такое сейф покупок"
+                        data-tooltip="Здесь лежат ваши покупки и коды после оплаты. Чтобы их увидеть, нужно заново подтвердить себя через SL1 Passkey."
+                    >?</span>
+                </h2>
+                <div class="vault-title-actions">
+                    @if(! $hasVaultAuthenticator)
+                        <a href="{{ route('register') }}" class="badge-status warning">
+                            <i class="ph-bold ph-shield-warning" style="animation: pulse 2s infinite;"></i> Создать Passkey &rarr;
+                        </a>
+                    @elseif($vaultUnlocked)
+                        <span class="badge-status success">
+                            <i class="ph-bold ph-lock-open"></i> Сейф открыт
+                        </span>
+                        <form method="POST" action="{{ route('cabinet.vault.lock') }}" class="vault-lock-form">
+                            @csrf
+                            <button type="submit" class="badge-status warning lock-action">
+                                <i class="ph-bold ph-lock-key"></i> Закрыть сейф
+                            </button>
+                        </form>
+                    @else
+                        <span class="badge-status warning">
+                            <i class="ph-bold ph-lock-key"></i> Сейф закрыт
+                        </span>
+                    @endif
+                </div>
             </div>
 
             <!-- Vault Grid / Items -->
@@ -2107,15 +2660,14 @@
                         <i class="ph-bold ph-fingerprint"></i>
                     </div>
                     <h3>Сейф закрыт</h3>
-                    <p>Покупки, коды, баланс и операции скрыты. Подтвердите личность через Face ID, Touch ID или Passkey, чтобы войти в сейф.</p>
-                    @if($user->passkeys()->exists())
-                        <button type="button" class="btn-unlock-vault" onclick="unlockVaultIntent(this)">
-                            Открыть сейф Passkey
-                        </button>
-                        <div id="vault-unlock-status"></div>
+                    <p>Мы скрыли покупки и коды. Подтвердите себя через SL1 Passkey, и сейф откроется на короткое время.</p>
+                    @if($hasSovereignIdentity)
+                        <a href="{{ $vaultUnlockUrl }}" class="btn-unlock-vault" style="text-decoration: none;">
+                            Открыть сейф
+                        </a>
                     @else
                         <a href="{{ route('register') }}" class="btn-unlock-vault" style="text-decoration: none;">
-                            Подключить Passkey
+                            Создать SL1 Identity
                         </a>
                     @endif
                 </div>
@@ -2124,9 +2676,9 @@
                     <div class="empty-vault-icon" style="width: 80px; height: 80px; border-radius: 50%; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
                         <i class="ph-bold ph-vault" style="font-size: 2.5rem; color: var(--brand-subtext);"></i>
                     </div>
-                    <h3 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--brand-text);">Ваш персональный сейф пока пуст</h3>
+                    <h3 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--brand-text);">Здесь пока пусто</h3>
                     <p style="color: var(--brand-subtext); margin-bottom: 2rem; font-size: 14px; max-width: 400px; line-height: 1.5;">
-                        Покупайте игры, подписки и карты оплаты напрямую без переплат. После оплаты покупка появится в сейфе и откроется только после Passkey.
+                        После покупки игра, подписка или карта появится здесь. Код будет видно только после подтверждения через SL1 Passkey.
                     </p>
                     
                     <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
@@ -2136,24 +2688,6 @@
                         <a href="#wishlist" style="background: rgba(255,255,255,0.05); border: 1px solid var(--brand-border); color: var(--brand-text); padding: 0.8rem 2rem; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;">
                             <i class="ph-bold ph-heart"></i> Избранное
                         </a>
-                    </div>
-                </div>
-                
-                <!-- Extra sections for empty state -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
-                    <div style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 16px; padding: 1.5rem;">
-                        <h4 style="font-size: 1rem; font-weight: 800; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;"><i class="ph-bold ph-clock-counter-clockwise" style="color: var(--brand-primary);"></i> История операций</h4>
-                        <p style="font-size: 13px; color: var(--brand-subtext); margin-bottom: 1rem;">Детализация пополнений и списаний.</p>
-                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--brand-subtext); text-align: center; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                            {{ $transactions->isEmpty() ? 'Операций пока нет' : $transactions->count().' записей в журнале операций' }}
-                        </div>
-                    </div>
-                    <div style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 16px; padding: 1.5rem;">
-                        <h4 style="font-size: 1rem; font-weight: 800; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;"><i class="ph-bold ph-lifebuoy" style="color: #0d9488;"></i> Запросы в поддержку</h4>
-                        <p style="font-size: 13px; color: var(--brand-subtext); margin-bottom: 1rem;">Связь с поддержкой по конкретным покупкам.</p>
-                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--brand-subtext); text-align: center; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                            Нет активных тикетов
-                        </div>
                     </div>
                 </div>
             @else
@@ -2267,150 +2801,9 @@
             @endif
         </div>
 
-        <!-- Right Column: Safe balance and Passkey Center -->
-        <div class="workspace-right" style="display: flex; flex-direction: column; gap: 2rem;">
-            @if(! $vaultUnlocked)
-                <div class="sec-card" style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 20px; padding: 2rem; position: relative; overflow: hidden; text-align: center;">
-                    <div class="lock-icon-container" style="width: 64px; height: 64px; margin: 0 auto 1rem;">
-                        <i class="ph-bold ph-wallet"></i>
-                    </div>
-                    <h3 style="font-size: 1.15rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 0.75rem; color: var(--brand-text);">
-                        Баланс и операции в сейфе
-                    </h3>
-                    <p style="font-size: 12.5px; color: var(--brand-subtext); margin: 0 0 1.25rem; line-height: 1.5;">
-                        Мы не показываем баланс и историю транзакций, пока сейф закрыт. Откройте его через Passkey, чтобы увидеть покупки, коды и операции.
-                    </p>
-                    @if($user->passkeys()->exists())
-                        <button type="button" class="btn-unlock-vault" onclick="unlockVaultIntent(this)">
-                            Открыть сейф Passkey
-                        </button>
-                    @else
-                        <a href="#passkey-security-center" class="btn-unlock-vault" style="text-decoration: none;">
-                            Подключить Passkey
-                        </a>
-                    @endif
-                </div>
-            @else
-            <!-- Wallet Card -->
-            <div class="sec-card" style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 20px; padding: 2rem; position: relative; overflow: hidden; text-align: left;">
-                <h3 style="font-size: 1.15rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: var(--brand-text);">
-                    <i class="ph-bold ph-wallet" style="color: var(--brand-primary);"></i> Баланс и операции
-                </h3>
-                <p style="font-size: 12.5px; color: var(--brand-subtext); margin-bottom: 1.25rem; line-height: 1.5;">
-                    Здесь видны ваши средства и история покупок. Коды открываются отдельно в карточках покупок внутри сейфа.
-                </p>
-
-                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
-                    <div style="background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1rem;">
-                        <div style="font-size: 10px; color: var(--brand-subtext); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; margin-bottom: 0.35rem;">Доступно</div>
-                        <div style="font-family: 'JetBrains Mono', monospace; color: var(--brand-text); font-size: 18px; font-weight: 900;">{{ $walletBalances['RUBT']['available'] }} ₽</div>
-                        <div style="font-size: 10px; color: var(--brand-subtext); margin-top: 0.35rem;">В резерве: {{ $walletBalances['RUBT']['reserved'] }} ₽</div>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1rem;">
-                        <div style="font-size: 10px; color: var(--brand-subtext); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; margin-bottom: 0.35rem;">Бонусы</div>
-                        <div style="font-family: 'JetBrains Mono', monospace; color: var(--brand-text); font-size: 18px; font-weight: 900;">{{ $walletBalances['SL1']['available'] }}</div>
-                        <div style="font-size: 10px; color: var(--brand-subtext); margin-top: 0.35rem;">Для сервисных операций</div>
-                    </div>
-                </div>
-
-                <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--brand-subtext); margin-bottom: 0.75rem;">
-                    История операций
-                </div>
-                @if($transactions->isEmpty())
-                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--brand-subtext); text-align: center; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 10px;">
-                        Операций пока нет
-                    </div>
-                @else
-                    <div style="display: flex; flex-direction: column; gap: 0.55rem;">
-                        @foreach($transactions as $transaction)
-                            @php
-                                $typeLabels = [
-                                    'MINT' => 'Пополнение баланса',
-                                    'BUYER_PURCHASE_DEBIT' => 'Покупка на витрине',
-                                    'CASHBACK' => 'Кэшбэк',
-                                ];
-                                $asset = $transaction->asset;
-                                $scale = $asset === 'SL1' ? 4 : 2;
-                                $amount = number_format($transaction->amount_minor / (10 ** $scale), $scale, '.', ' ');
-                                $assetDisplay = match ($asset) {
-                                    'RUBT' => '₽',
-                                    'SL1' => 'баллов',
-                                    default => $asset,
-                                };
-                                $sign = $transaction->direction === 'debit' ? '-' : '+';
-                                $amountColor = $transaction->direction === 'debit' ? '#ef4444' : '#22c55e';
-                                $orderReference = data_get($transaction->payload, 'checkout_result.order_reference');
-                            @endphp
-                            <div style="display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.75rem; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; background: rgba(255,255,255,0.018);">
-                                <div style="min-width: 0;">
-                                    <div style="font-size: 12px; color: var(--brand-text); font-weight: 800;">{{ $typeLabels[$transaction->entry_type] ?? $transaction->entry_type }}</div>
-                                    <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--brand-subtext); margin-top: 0.25rem;">
-                                        {{ $transaction->created_at?->format('d.m.Y H:i') }}
-                                        @if($orderReference)
-                                            · {{ $orderReference }}
-                                        @endif
-                                        @if($transaction->tx_hash)
-                                            · операция {{ \Illuminate\Support\Str::limit($transaction->tx_hash, 14) }}
-                                        @endif
-                                    </div>
-                                </div>
-                                <div style="font-family: 'JetBrains Mono', monospace; color: {{ $amountColor }}; font-weight: 900; white-space: nowrap;">
-                                    {{ $sign }}{{ $amount }} {{ $assetDisplay }}
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-            @endif
-            
-            <!-- 🛡️ Passkey Security Center Card -->
-            <div class="sec-card" id="passkey-security-center" style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 20px; padding: 2rem; position: relative; overflow: hidden; text-align: left;">
-                <h3 style="font-size: 1.15rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: var(--brand-text);">
-                    <i class="ph-bold ph-fingerprint" style="color: var(--brand-primary);"></i> Ключи доступа (Passkeys)
-                </h3>
-                <p style="font-size: 12.5px; color: var(--brand-subtext); margin-bottom: 1.5rem; line-height: 1.5;">
-                    Используйте аппаратные ключи для мгновенного и безопасного беспарольного входа по Face ID, Touch ID или PIN.
-                </p>
-                
-                @livewire('passkeys')
-            </div>
-
-            <!-- 🔒 Buyer-friendly safety summary -->
-            <div class="sec-card" style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 20px; padding: 2rem; position: relative; overflow: hidden; text-align: left;">
-                <h3 style="font-size: 1.15rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: var(--brand-text);">
-                    <i class="ph-bold ph-shield-check" style="color: #107c10;"></i> Безопасность аккаунта
-                </h3>
-                <p style="font-size: 12px; color: var(--brand-subtext); margin-bottom: 1.5rem; line-height: 1.4;">
-                    Простыми словами: ваши покупки и баланс не показываются без подтверждения Passkey.
-                </p>
-                
-                <div class="terminal-stats" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--brand-subtext); display: flex; flex-direction: column; gap: 0.75rem;">
-                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.04); padding-bottom: 0.5rem; align-items: center;">
-                        <span>Вход в аккаунт</span>
-                        <span style="color: #107c10; font-weight: 700;">Защищен</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.04); padding-bottom: 0.5rem; align-items: center;">
-                        <span>Покупки и коды</span>
-                        <span style="color: var(--brand-primary); font-weight: 700;">В сейфе</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.04); padding-bottom: 0.5rem; align-items: center;">
-                        <span>Баланс и операции</span>
-                        <span style="color: #ffffff; font-weight: 700;">В сейфе</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.04); padding-bottom: 0.5rem; align-items: center;">
-                        <span>Подтверждение</span>
-                        <span style="color: #ffffff; font-weight: 700;">Passkey</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Статус сейфа</span>
-                        <span style="color: #ffaa00; font-weight: 700;">{{ $vaultUnlocked ? 'Открыт' : 'Закрыт' }}</span>
-                    </div>
-                </div>
-            </div>
-
+        @if($user->hasRole('super_admin'))
+        <div class="workspace-right" style="display: flex; flex-direction: column; gap: 1rem;">
             <!-- Operations Runtime Panel -->
-            @if($user->hasRole('super_admin'))
             <div class="sec-card" id="constitutional-panel" style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 20px; padding: 2rem; position: relative; overflow: hidden; text-align: left;">
                 <!-- Subtle glow -->
                 <div style="position: absolute; top: -60px; right: -60px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(245,48,3,0.04) 0%, rgba(0,0,0,0) 70%); pointer-events: none;"></div>
@@ -2549,10 +2942,10 @@
                     </div>
                 </div>
             </div>
-            @endif
-
         </div>
+        @endif
 
+    </div>
     </div>
 
     <!-- B2B Wholesale Perimeter Promo Banner -->

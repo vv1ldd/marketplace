@@ -9,7 +9,7 @@ class AccountGenerator
 {
     public function generateForOrder(User $user): array
     {
-        $clientEmail = $user->email ?? ('user' . $user->id . '@example.com');
+        $clientEmail = $user->sovereignIdentityAddress() ?? ('user' . $user->id);
 
         $login = preg_replace('/@.*/', '', $clientEmail) . '@gmailess.com';
         $password = $this->generatePassword();

@@ -1458,7 +1458,7 @@
 
     function openCheckout(productName) {
         @auth
-            window.location.href = '/cabinet';
+            window.location.href = '/vault';
         @else
             document.getElementById('checkoutDesc').innerText = `Для мгновенного оформления заказа на "${productName}" авторизуйтесь в суверенном личном кабинете через Passkey.`;
             document.getElementById('checkoutModal').classList.add('active');

@@ -1104,7 +1104,7 @@
                     <div id="background-data"></div>
 
                     <button type="submit" id="submit-btn" class="btn-submit">
-                        Продолжить регистрацию
+                        {{ Auth::check() && Auth::user()->hasSovereignIdentity() ? 'Продолжить регистрацию' : 'Подключить SL1E и продолжить' }}
                     </button>
                 </div>
             @endif
@@ -1113,6 +1113,12 @@
 </div>
 
 
+@php
+    $sl1eBusinessConnectUrl = route('meanly.simple_l1.connect', [
+        'return_to' => route('meanly.simple_l1.complete', ['next' => route('business.register', [], false)], false),
+        'mode' => 'register',
+    ]);
+@endphp
 <script src="https://unpkg.com/@simplewebauthn/browser@13.3.0/dist/bundle/index.umd.min.js"></script>
 <script>
     const { startRegistration, startAuthentication } = SimpleWebAuthnBrowser;
@@ -1121,8 +1127,11 @@
     const profileError = document.getElementById('profile-error');
 
     // Server-side flags
-    const isUpgrade = @json(Auth::check() && Auth::user()->passkeys()->exists());
+    const isUpgrade = @json(Auth::check() && (Auth::user()->passkeys()->exists() || Auth::user()->hasSovereignIdentity()));
     const isBusinessRegistration = @json(($registrationTarget ?? 'legal_entity') === 'legal_entity');
+    let hasSovereignIdentity = @json(Auth::check() && Auth::user()->hasSovereignIdentity());
+    const sl1eBusinessConnectUrl = @json($sl1eBusinessConnectUrl);
+    const csrfRefreshUrl = @json(route('csrf.token'));
     let isBusinessEmailVerified = @json(!empty($businessVerifiedEmail) || !empty($inviteIntent));
     const signingOptionsRaw = @json($signingOptions);
     let confirmedPrincipalName = '';
@@ -1134,6 +1143,7 @@
     const businessEmailVerify = document.getElementById('business-email-verify');
     const businessEmailStatus = document.getElementById('business-email-status');
     const jurisdictionSection = document.getElementById('jurisdiction-section');
+    let sl1eCompletionHandled = false;
     const normalizeDisplayName = (value) => {
         const name = value.replace(/\s+/g, ' ').trim();
         if (!name) return '';
@@ -1170,12 +1180,87 @@
 
         return error?.message || 'Попробуйте еще раз.';
     };
+    const idleSubmitLabel = () => {
+        if (isBusinessRegistration) {
+            return hasSovereignIdentity ? 'Продолжить регистрацию' : 'Подключить SL1E и продолжить';
+        }
+
+        return isUpgrade ? 'Продолжить регистрацию' : 'Создать профиль';
+    };
     const setBusinessEmailStatus = (message = '', ok = false) => {
         if (!businessEmailStatus) return;
         businessEmailStatus.textContent = message;
         businessEmailStatus.style.color = ok ? '#10b981' : '#ef4444';
         businessEmailStatus.classList.toggle('is-visible', Boolean(message));
     };
+    const refreshCsrfToken = async () => {
+        const response = await fetch(csrfRefreshUrl, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            cache: 'no-store',
+        });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.csrf_token) {
+            throw new Error('Не удалось обновить защищенный токен формы.');
+        }
+
+        const csrfInput = registrationForm.querySelector('input[name="_token"]');
+        if (csrfInput) csrfInput.value = payload.csrf_token;
+
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) csrfMeta.setAttribute('content', payload.csrf_token);
+    };
+    const continueBusinessRegistrationAfterSl1e = async () => {
+        if (sl1eCompletionHandled) return;
+        sl1eCompletionHandled = true;
+        hasSovereignIdentity = true;
+        registrationForm.dataset.submitting = 'true';
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'SL1E подтвержден. Обновляем сессию...';
+
+        try {
+            await refreshCsrfToken();
+            submitBtn.innerText = 'Сохраняем организацию...';
+            registrationForm.submit();
+        } catch (error) {
+            sl1eCompletionHandled = false;
+            registrationForm.dataset.submitting = 'false';
+            submitBtn.disabled = false;
+            submitBtn.innerText = idleSubmitLabel();
+            setProfileError(error.message || 'Сессия обновилась. Обновите страницу и попробуйте продолжить снова.');
+        }
+    };
+    const redirectToSl1eConnect = () => {
+        window.location.href = sl1eBusinessConnectUrl;
+    };
+    window.addEventListener('message', (event) => {
+        if (event.origin === window.location.origin && event.data?.type === 'meanly:sl1e-connected') {
+            continueBusinessRegistrationAfterSl1e();
+        }
+    });
+    if ('BroadcastChannel' in window) {
+        const sl1eChannel = new BroadcastChannel('meanly-sl1e-connect');
+        sl1eChannel.addEventListener('message', (event) => {
+            if (event.data?.type === 'meanly:sl1e-connected') {
+                continueBusinessRegistrationAfterSl1e();
+            }
+        });
+    }
+    window.addEventListener('storage', (event) => {
+        if (event.key !== 'meanly:sl1e-connected' || !event.newValue) {
+            return;
+        }
+
+        try {
+            const payload = JSON.parse(event.newValue);
+            if (payload?.type === 'meanly:sl1e-connected') {
+                continueBusinessRegistrationAfterSl1e();
+            }
+        } catch {
+            // Ignore malformed storage events from older tabs.
+        }
+    });
     const unlockBusinessDetails = (email) => {
         isBusinessEmailVerified = true;
         if (businessVerifiedEmailInput) businessVerifiedEmailInput.value = email;
@@ -1208,8 +1293,24 @@
             return;
         }
 
+        if (isBusinessRegistration && hasSovereignIdentity) {
+            // SL1E users already have wallet identity. Submit company data without local marketplace passkey creation.
+            registrationForm.dataset.submitting = 'true';
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Сохранение данных организации... ⏳';
+            return;
+        }
+
+        if (isBusinessRegistration && !hasSovereignIdentity) {
+            e.preventDefault();
+            registrationForm.dataset.submitting = 'true';
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Переходим в SL1E Identity...';
+            redirectToSl1eConnect();
+            return;
+        }
+
         if (isUpgrade) {
-            // Logged-in user: just submit the form natively to process company data
             registrationForm.dataset.submitting = 'true';
             submitBtn.disabled = true;
             submitBtn.innerText = 'Сохранение данных организации... ⏳';
@@ -1302,7 +1403,7 @@
             console.error('Identity Error:', err);
             setProfileError(friendlyPasskeyError(err));
             submitBtn.disabled = false;
-            submitBtn.innerText = isUpgrade ? 'Продолжить регистрацию' : 'Создать профиль';
+            submitBtn.innerText = idleSubmitLabel();
         }
     });
 

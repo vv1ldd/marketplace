@@ -48,19 +48,16 @@ class StockManagementService
                     }
                 }
 
-                // B. Send Email notification to sellers
-                $sellers = $shop->sellers;
-                foreach ($sellers as $seller) {
-                    // Email
-                    if ($seller->email) {
-                        try {
-                            Mail::raw($message, function ($mail) use ($seller) {
-                                $mail->to($seller->email)
-                                    ->subject('Уведомление о низком остатке товара');
-                            });
-                        } catch (\Exception $e) {
-                            Log::error('Stock Notify: Email failed', ['error' => $e->getMessage()]);
-                        }
+                // B. Send Email notification to the legal entity contact
+                $contactEmail = $shop->legalEntity?->email;
+                if ($contactEmail) {
+                    try {
+                        Mail::raw($message, function ($mail) use ($contactEmail) {
+                            $mail->to($contactEmail)
+                                ->subject('Уведомление о низком остатке товара');
+                        });
+                    } catch (\Exception $e) {
+                        Log::error('Stock Notify: Email failed', ['error' => $e->getMessage()]);
                     }
                 }
 

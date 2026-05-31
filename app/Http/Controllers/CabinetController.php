@@ -5,9 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order\Order;
 use App\Models\ProductInventory;
 use App\Models\User;
-use App\Models\WalletAccount;
 use App\Models\WalletLedgerEntry;
-use App\Services\BuyerWalletService;
 use App\Services\IntentLedgerService;
 use App\Services\OrderSupportTicketService;
 use Illuminate\Support\Facades\Cache;
@@ -30,6 +28,19 @@ class CabinetController extends Controller
         /** @var User $user */
         $user = $request->user();
         $vaultUnlocked = $this->vaultUnlocked($request);
+        $hasLocalPasskey = $user->passkeys()->exists();
+        $hasSovereignIdentity = $user->hasSovereignIdentity();
+        $hasVaultAuthenticator = $hasSovereignIdentity;
+        $simpleL1Alias = $this->simpleL1Alias($request, $user);
+        $vaultUnlockUrl = route('meanly.simple_l1.connect', [
+            'return_to' => $request->getRequestUri(),
+            'mode' => 'login',
+            'intent_type' => 'meanly.vault.open',
+            'intent_title' => 'Открыть сейф Meanly',
+            'intent_description' => 'Meanly получит свежий identity proof, чтобы показать ваши покупки и коды. Доступ к ключам SL1 не передается.',
+            'intent_cta' => 'Открыть сейф',
+            'intent_resource' => 'meanly:cabinet:vault',
+        ]);
 
         $orders = collect();
         $safeOrders = collect();
@@ -62,22 +73,9 @@ class CabinetController extends Controller
             ? $safeOrders->where('ready', true)->sum('codes_count')
             : null;
 
-        $walletBalances = [];
         $transactions = collect();
 
         if ($vaultUnlocked) {
-            $wallets = app(BuyerWalletService::class);
-            $walletAccounts = WalletAccount::query()
-                ->where('user_id', $user->id)
-                ->whereIn('asset', [BuyerWalletService::ASSET_RUBT, BuyerWalletService::ASSET_SL1])
-                ->get()
-                ->keyBy('asset');
-
-            $walletBalances = [
-                BuyerWalletService::ASSET_RUBT => $this->walletBalance($wallets, $user, BuyerWalletService::ASSET_RUBT, $walletAccounts),
-                BuyerWalletService::ASSET_SL1 => $this->walletBalance($wallets, $user, BuyerWalletService::ASSET_SL1, $walletAccounts),
-            ];
-
             $transactions = WalletLedgerEntry::query()
                 ->where('user_id', $user->id)
                 ->latest()
@@ -91,9 +89,32 @@ class CabinetController extends Controller
             'activeKeysCount',
             'safeOrders',
             'transactions',
-            'walletBalances',
             'vaultUnlocked',
+            'hasLocalPasskey',
+            'hasSovereignIdentity',
+            'hasVaultAuthenticator',
+            'simpleL1Alias',
+            'vaultUnlockUrl',
         ));
+    }
+
+    private function simpleL1Alias(Request $request, User $user): ?string
+    {
+        foreach ([
+            data_get($request->session()->get('simple_l1_identity'), 'alias'),
+            data_get($user->meta, 'simple_l1.alias'),
+            data_get($user->meta, 'simple_l1.display_name'),
+            data_get($user->meta, 'display_name'),
+        ] as $candidate) {
+            $alias = trim((string) $candidate);
+            if ($alias === '') {
+                continue;
+            }
+
+            return str_contains($alias, '@') ? $alias : $alias.'@simplelayer.one';
+        }
+
+        return null;
     }
 
     public function vaultPasskeyOptions(Request $request)
@@ -198,6 +219,7 @@ class CabinetController extends Controller
         $unlockedUntil = now()->addMinutes(15);
         $ledgerEntry = $this->recordVaultOpenIntent($request, $user, $passkey, $pending, $data['unlock_id'], $unlockedUntil);
 
+        $request->session()->forget('cabinet_vault_manually_locked');
         $request->session()->put('cabinet_vault_unlocked_until', $unlockedUntil->timestamp);
         $request->session()->put('cabinet_vault_unlock_ledger_id', $ledgerEntry->id);
         $request->session()->put('cabinet_vault_unlock_fingerprint', $ledgerEntry->fingerprint);
@@ -210,6 +232,20 @@ class CabinetController extends Controller
                 'unlocked_until' => $unlockedUntil->toIso8601String(),
             ],
         ]);
+    }
+
+    public function vaultLock(Request $request)
+    {
+        $request->session()->forget([
+            'cabinet_vault_unlocked_until',
+            'cabinet_vault_unlock_ledger_id',
+            'cabinet_vault_unlock_fingerprint',
+        ]);
+        $request->session()->put('cabinet_vault_manually_locked', true);
+
+        return redirect()
+            ->route('cabinet.dashboard')
+            ->with('status', 'Сейф закрыт.');
     }
 
     /**
@@ -257,7 +293,15 @@ class CabinetController extends Controller
 
     private function vaultUnlocked(Request $request): bool
     {
-        return (int) $request->session()->get('cabinet_vault_unlocked_until', 0) >= now()->timestamp;
+        if ((bool) $request->session()->get('cabinet_vault_manually_locked', false)) {
+            return false;
+        }
+
+        if ((int) $request->session()->get('cabinet_vault_unlocked_until', 0) >= now()->timestamp) {
+            return true;
+        }
+
+        return false;
     }
 
     private function vaultUnlockCacheKey(string $unlockId): string
@@ -395,23 +439,4 @@ class CabinetController extends Controller
         return route('cabinet.dashboard', ['safe' => $order->uuid]).'#'.$anchor;
     }
 
-    /**
-     * @param Collection<string, WalletAccount> $walletAccounts
-     * @return array<string, mixed>
-     */
-    private function walletBalance(BuyerWalletService $wallets, User $user, string $asset, Collection $walletAccounts): array
-    {
-        $balance = $wallets->balance($user, $asset);
-        $scale = $asset === BuyerWalletService::ASSET_SL1 ? 4 : 2;
-
-        return [
-            'available_minor' => $balance['available_minor'],
-            'reserved_minor' => $balance['reserved_minor'],
-            'total_minor' => $balance['total_minor'],
-            'available' => $wallets->minorToDecimalString($balance['available_minor'], $scale),
-            'reserved' => $wallets->minorToDecimalString($balance['reserved_minor'], $scale),
-            'total' => $wallets->minorToDecimalString($balance['total_minor'], $scale),
-            'l1_address' => $walletAccounts->get($asset)?->l1_address,
-        ];
-    }
 }

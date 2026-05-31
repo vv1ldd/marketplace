@@ -100,7 +100,7 @@ class PasskeyAuthenticateController extends BaseController
 
         }
 
-        return redirect('/cabinet');
+        return redirect('/vault');
     }
 
     private function cachedOptionsForAssertion(string $assertionJson): ?string
@@ -158,7 +158,7 @@ class PasskeyAuthenticateController extends BaseController
 
         }
 
-        return '/cabinet';
+        return '/vault';
     }
 
     private function forgetCachedOptions(string $optionsJson): void

@@ -25,6 +25,10 @@ class CanonicalProductIdentityCurationService
         'signals',
     ];
 
+    private ?bool $identityTablesExist = null;
+
+    private ?bool $overrideTableExists = null;
+
     public function __construct(
         private readonly ProductIndexingPolicyService $indexingPolicy,
     ) {}
@@ -355,12 +359,12 @@ class CanonicalProductIdentityCurationService
 
     private function identityTablesExist(): bool
     {
-        return Schema::hasTable('canonical_product_identities')
+        return $this->identityTablesExist ??= Schema::hasTable('canonical_product_identities')
             && Schema::hasTable('canonical_product_identity_sources');
     }
 
     private function overrideTableExists(): bool
     {
-        return Schema::hasTable('canonical_product_identity_overrides');
+        return $this->overrideTableExists ??= Schema::hasTable('canonical_product_identity_overrides');
     }
 }

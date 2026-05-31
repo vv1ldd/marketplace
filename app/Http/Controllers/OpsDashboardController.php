@@ -6,10 +6,12 @@ use App\Models\Order\Order;
 use App\Models\Shop;
 use App\Models\LegalEntity;
 use App\Models\Product;
+use App\Models\SearchDemandRecommendation;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\SovereignLedger;
 use App\Models\ApiApplication;
+use App\Services\AccessPlaneRegistry;
 use App\Services\Ai\OpsAnalystService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 
 class OpsDashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         if (! $this->canAccessOps($user)) {
@@ -49,6 +51,19 @@ class OpsDashboardController extends Controller
             ->limit(50)
             ->get();
 
+        $decisionRecommendations = SearchDemandRecommendation::query()
+            ->orderByRaw("CASE status WHEN 'proposed' THEN 0 WHEN 'approved' THEN 1 WHEN 'rejected' THEN 2 WHEN 'applied' THEN 3 ELSE 4 END")
+            ->orderByDesc('impact_score')
+            ->orderByDesc('confidence')
+            ->latest()
+            ->limit(25)
+            ->get();
+
+        $decisionStatusCounts = SearchDemandRecommendation::query()
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
         return view('ops.dashboard', [
             'user' => $user,
             'stats' => $stats,
@@ -58,6 +73,10 @@ class OpsDashboardController extends Controller
             'shops' => $shops,
             'partners' => $partners,
             'ledgerTransactions' => $ledgerTransactions,
+            'decisionRecommendations' => $decisionRecommendations,
+            'decisionStatusCounts' => $decisionStatusCounts,
+            'activeOpsTab' => $request->query('tab'),
+            'accessPlanes' => app(AccessPlaneRegistry::class)->forUser($user),
         ]);
     }
 

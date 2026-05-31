@@ -113,7 +113,7 @@ class MintBuyerWalletCommand extends Command
                     $query->orWhereKey((int) $identifier);
                 }
 
-                foreach (['first_name', 'last_name', 'middle_name', 'email', 'phone'] as $column) {
+                foreach (['first_name', 'last_name', 'middle_name', 'phone', 'entity_l1_address'] as $column) {
                     if (in_array($column, $columns, true)) {
                         $needles->each(fn (string $needle) => $query->orWhere($column, $needle));
                     }
@@ -146,7 +146,7 @@ class MintBuyerWalletCommand extends Command
             $user->first_name,
             $user->last_name,
             $user->middle_name,
-            $user->email,
+            $user->sovereignIdentityAddress(),
             $user->phone,
             $user->meta['nickname'] ?? null,
             $user->meta['handle'] ?? null,
@@ -168,7 +168,7 @@ class MintBuyerWalletCommand extends Command
         return sprintf(
             '#%d <%s> %s %s',
             $user->id,
-            $user->email,
+            $user->sovereignIdentityAddress(),
             $user->first_name,
             $user->last_name,
         );

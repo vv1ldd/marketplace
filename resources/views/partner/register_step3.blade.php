@@ -188,32 +188,6 @@
             cursor: not-allowed;
         }
  
-        .qr-section {
-            margin-top: 2.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1.5rem;
-            padding-top: 2rem;
-            border-top: 1px solid var(--brand-border);
-        }
- 
-        .qr-code {
-            width: 80px;
-            height: 80px;
-            background: white;
-            padding: 6px;
-            border-radius: 6px;
-            filter: invert(0.9);
-        }
- 
-        .qr-text {
-            font-size: 11px;
-            color: #444;
-            text-align: left;
-            max-width: 240px;
-        }
- 
         .footer-brand {
             margin-top: 3rem;
             font-size: 11px;
@@ -365,16 +339,6 @@
             box-shadow: 6px 6px 0px #000000 !important;
             background-color: var(--brand-primary) !important;
         }
-        body[data-theme="retro"] .qr-section {
-            border-top: 2px solid #000000 !important;
-        }
-        body[data-theme="retro"] .qr-code {
-            border: 2px solid #000000 !important;
-            box-shadow: 4px 4px 0px #000000 !important;
-            border-radius: 0px !important;
-            filter: none !important;
-        }
-
         /* 🍃 Theme 4: Nordic (Warm Eco / Scandinavian Minimalist) */
         body[data-theme="nordic"] {
             --brand-primary: #1e3f20;
@@ -438,15 +402,6 @@
             background: #152d16 !important;
             box-shadow: 0 6px 20px rgba(30, 63, 32, 0.4) !important;
         }
-        body[data-theme="nordic"] .qr-section {
-            border-top: 1px solid #e6dfd5 !important;
-        }
-        body[data-theme="nordic"] .qr-code {
-            border: 1px solid #e6dfd5 !important;
-            box-shadow: none !important;
-            filter: none !important;
-        }
-
         /* 🟣 Theme 5: Synthwave (Retrofuturism / Pink-Purple Neon) */
         body[data-theme="synthwave"] {
             --brand-primary: #ff007f;
@@ -507,14 +462,6 @@
             background: #e60072 !important;
             box-shadow: 0 6px 20px rgba(255, 0, 127, 0.4) !important;
         }
-        body[data-theme="synthwave"] .qr-section {
-            border-top: 1px solid rgba(255, 0, 127, 0.2) !important;
-        }
-        body[data-theme="synthwave"] .qr-code {
-            border: 1px solid rgba(255, 0, 127, 0.2) !important;
-            filter: invert(0.9) !important;
-        }
-
         /* 🏁 Theme 6: Carbon (High-Performance Stealth / Motorsport Yellow) */
         body[data-theme="carbon"] {
             --brand-primary: #facc15;
@@ -581,17 +528,6 @@
             background: #eab308 !important;
             box-shadow: 0 6px 20px rgba(250, 204, 21, 0.4) !important;
         }
-        body[data-theme="carbon"] .qr-section {
-            border-top: 2px solid #222226 !important;
-        }
-        body[data-theme="carbon"] .qr-code {
-            border: 2px solid #222226 !important;
-            border-radius: 4px !important;
-            filter: none !important;
-        }
-            color: #000000 !important;
-        }
-
         /* 🎉 Sons Birthday / Holiday (Albiceleste) Overrides */
         body[data-holiday="sons-birthday"] {
             --brand-primary: #74acdf !important;
@@ -659,15 +595,6 @@
             <p id="status-msg" style="margin-top: 1rem; font-size: 12px; color: var(--brand-primary); display: none;"></p>
         </div>
  
-        <div class="qr-section">
-            <div class="qr-code">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ urlencode(url()->current()) }}" alt="QR Code" style="width: 100%; height: 100%;">
-            </div>
-            <div class="qr-text">
-                <strong>Подписание через FaceID / TouchID</strong><br>
-                Отсканируйте код камерой смартфона, чтобы использовать биометрию для подписи.
-            </div>
-        </div>
     </div>
  
     <div class="footer-brand">
@@ -675,54 +602,128 @@
     </div>
 </div>
  
-<script src="https://unpkg.com/@simplewebauthn/browser@13.3.0/dist/bundle/index.umd.min.js"></script>
+@php
+    $offerLegalName = session('partner_registration')['legal_name'] ?? 'партнера';
+    $offerIntentTitle = 'Подписать публичную оферту';
+    $offerIntentDescription = trim('Вы подписываете документ «' . ($agreementTitle ?? 'Публичная оферта') . '» от имени ' . $offerLegalName . '. После подтверждения мы вернем вас в Meanly и завершим оформление.');
+    $offerReturnQuery = request()->query();
+    unset($offerReturnQuery['sl1e_offer_complete']);
+    $offerReturnPath = route('partner.register.offer', [], false);
+    if ($offerReturnQuery !== []) {
+        $offerReturnPath .= '?' . http_build_query($offerReturnQuery);
+    }
+    $offerReturnPath .= str_contains($offerReturnPath, '?') ? '&sl1e_offer_complete=1' : '?sl1e_offer_complete=1';
+    $sl1eOfferSignUrl = route('meanly.simple_l1.connect', [
+        'return_to' => $offerReturnPath,
+        'mode' => 'login',
+        'intent_type' => 'agreement.sign',
+        'intent_title' => $offerIntentTitle,
+        'intent_description' => $offerIntentDescription,
+        'intent_cta' => 'Подтвердить подпись',
+        'intent_nonce' => $agreementSigningNonce ?? '',
+        'intent_resource' => $agreementSigningResource ?? '',
+    ]);
+@endphp
 <script>
-    const { startAuthentication } = SimpleWebAuthnBrowser;
     const signBtn = document.getElementById('sign-offer-btn');
     const legalConfirm = document.getElementById('legal-confirm');
     const statusMsg = document.getElementById('status-msg');
+    const sl1eOfferSignUrl = @json($sl1eOfferSignUrl);
+    let sl1eSignInProgress = false;
+    let sl1eCompletionHandled = false;
  
     function toggleSignButton() {
         signBtn.disabled = !legalConfirm.checked;
     }
  
-    signBtn.addEventListener('click', async () => {
-        const optionsRaw = @json($signingOptions);
-        let options = typeof optionsRaw === 'string' ? JSON.parse(optionsRaw) : optionsRaw;
-        
-        signBtn.disabled = true;
-        signBtn.innerText = "Подписание... 🛡️";
-        statusMsg.style.display = 'block';
-        statusMsg.innerText = "Формирование криптографического интента...";
- 
+    async function refreshCsrfToken() {
+        const response = await fetch(@json(route('csrf.token', [], false)), {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        });
+        if (!response.ok) {
+            throw new Error('Не удалось обновить защищенную сессию. Обновите страницу и попробуйте снова.');
+        }
+
+        const payload = await response.json();
+        return payload.csrf_token;
+    }
+
+    async function finalizeSl1eSignature() {
+        const csrfToken = await refreshCsrfToken();
+        const signRes = await fetch("{{ route('partner.register.agreement.sign') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify({ simple_l1_sign: true }),
+        });
+
+        const result = await signRes.json();
+        if (result.success) {
+            statusMsg.innerText = "Оферта подписана через SL1E. Переходим в терминал...";
+            setTimeout(() => window.location.href = result.redirect, 1000);
+            return;
+        }
+
+        throw new Error(result.error || 'Ошибка при финализации подписи');
+    }
+
+    function redirectToSl1e() {
+        window.location.href = sl1eOfferSignUrl;
+    }
+
+    async function handleSl1eConnected(event) {
+        const payload = event?.data || event;
+        if (!payload || payload.type !== 'meanly:sl1e-connected' || !sl1eSignInProgress || sl1eCompletionHandled) {
+            return;
+        }
+
         try {
-            if (!options || !options.challenge) {
-                throw new Error('Контекст Passkey-подписи устарел. Обновите страницу и попробуйте снова.');
-            }
-            options.rpId = window.location.hostname;
-            const assertionResponse = await startAuthentication({ optionsJSON: options });
-            const signRes = await fetch("{{ route('partner.register.agreement.sign') }}", {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}' 
-                },
-                body: JSON.stringify({ assertion: assertionResponse })
-            });
- 
-            const result = await signRes.json();
-            if (result.success) {
-                statusMsg.innerText = "Оферта подписана! Переходим в терминал...";
-                setTimeout(() => window.location.href = result.redirect, 1000);
-            } else {
-                throw new Error(result.error || 'Ошибка при финализации подписи');
-            }
+            sl1eCompletionHandled = true;
+            statusMsg.innerText = "SL1E proof получен. Финализируем подпись оферты...";
+            await finalizeSl1eSignature();
         } catch (error) {
-            signBtn.disabled = false;
+            sl1eCompletionHandled = false;
+            sl1eSignInProgress = false;
+            signBtn.disabled = !legalConfirm.checked;
             signBtn.innerText = "Попробовать снова ✍️";
             statusMsg.innerText = "Ошибка: " + error.message;
         }
+    }
+
+    signBtn.addEventListener('click', async () => {
+        signBtn.disabled = true;
+        signBtn.innerText = "Переходим в SL1E Identity...";
+        statusMsg.style.display = 'block';
+        statusMsg.innerText = "Подтвердите подпись в Simple Layer Identity. После этого мы вернем вас и завершим оферту.";
+        sl1eSignInProgress = true;
+        sl1eCompletionHandled = false;
+        redirectToSl1e();
+    });
+
+    if (new URLSearchParams(window.location.search).get('sl1e_offer_complete') === '1') {
+        statusMsg.style.display = 'block';
+        statusMsg.innerText = "SL1E proof получен. Финализируем подпись оферты...";
+        finalizeSl1eSignature().catch((error) => {
+            signBtn.disabled = !legalConfirm.checked;
+            signBtn.innerText = "Попробовать снова ✍️";
+            statusMsg.innerText = "Ошибка: " + (error.message || 'Не удалось финализировать подпись.');
+        });
+    }
+
+    window.addEventListener('message', handleSl1eConnected);
+    try {
+        const channel = new BroadcastChannel('meanly-sl1e-connect');
+        channel.onmessage = handleSl1eConnected;
+    } catch (error) {}
+    window.addEventListener('storage', (event) => {
+        if (event.key !== 'meanly:sl1e-connected' || !event.newValue) return;
+        try {
+            handleSl1eConnected(JSON.parse(event.newValue));
+        } catch (error) {}
     });
 </script>
 </body>

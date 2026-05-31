@@ -1554,10 +1554,10 @@
                 <div class="sidebar-footer" style="justify-content: space-between; position: relative; z-index: 10;">
                     <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; cursor: pointer;" onclick="openProfileModal()">
                         <div class="user-avatar">
-                            {{ mb_substr($user->name ?: ($user->first_name ?: ($user->email ?: 'П')), 0, 1) }}
+                            {{ mb_substr($user->name ?: ($user->first_name ?: 'П'), 0, 1) }}
                         </div>
                         <div class="user-info">
-                            <span class="user-name">{{ $user->name ?: ($user->first_name ?: ($user->email ?: 'Партнер')) }}</span>
+                            <span class="user-name">{{ $user->name ?: ($user->first_name ?: 'Партнер') }}</span>
                             <span class="user-role">ID: {{ $legalEntity->inn }}</span>
                         </div>
                     </div>
@@ -2635,81 +2635,12 @@
                     </div>
                 </div>
 
-                <!-- Tab: Team / Staff Invites -->
+                <!-- Tab: Team -->
                 <div class="tab-pane" id="tab-team">
                     <div class="grid-12">
-                        <!-- Invite form card -->
-                        <div class="col-5 card-neo" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 320px;">
-                            <div>
-                                <h3 style="font-size: 1.1rem; font-weight: 800; margin: 0 0 0.5rem 0;">Пригласить сотрудника</h3>
-                                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 1.25rem; line-height: 1.5;">Отправьте защищённую ссылку-приглашение. Сотрудник создаст аккаунт с Passkey и сразу получит доступ к вашей команде.</p>
-
-                                <div style="display: flex; flex-direction: column; gap: 10px;">
-                                    <div>
-                                        <label style="font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 5px;">Email (необязательно)</label>
-                                        <input type="email" id="invite-email" class="input-neo" placeholder="ivan@company.ru" style="font-size: 0.8rem;">
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 5px;">Имя сотрудника (необязательно)</label>
-                                        <input type="text" id="invite-name" class="input-neo" placeholder="Иван Иванов" style="font-size: 0.8rem;">
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 5px;">Роль в системе</label>
-                                        <select id="invite-role" class="input-neo" style="font-size: 0.8rem; cursor: pointer;">
-                                            <option value="manager">Менеджер — полный доступ к операциям</option>
-                                            <option value="admin">Администратор — управление настройками</option>
-                                            <option value="viewer">Наблюдатель — только чтение</option>
-                                            <option value="support">Поддержка — работа с тикетами</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button onclick="createTeamInvite()" class="btn-neo btn-primary-neo" id="btn-create-invite" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 1.25rem;">
-                                <span id="invite-btn-label">Создать ссылку-приглашение 🎟️</span>
-                                <div id="invite-loader" class="loader" style="display:none; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent;"></div>
-                            </button>
-                        </div>
-
-                        <!-- Generated invite link display -->
-                        <div class="col-7 card-neo" style="display: flex; flex-direction: column; gap: 1rem;">
-                            <h3 style="font-size: 1.1rem; font-weight: 800; margin: 0 0 0.5rem 0;">Ссылка приглашения</h3>
-
-                            <div id="invite-empty-state" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; border: 1px dashed var(--border-card); border-radius: 12px; gap: 12px;">
-                                <div style="font-size: 2.5rem; opacity: 0.4;">🔗</div>
-                                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Здесь появится ссылка после создания приглашения</p>
-                            </div>
-
-                            <div id="invite-result" style="display: none; flex-direction: column; gap: 12px;">
-                                <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 10px;">
-                                    <span style="font-size: 18px;">✅</span>
-                                    <div>
-                                        <div style="font-size: 0.75rem; font-weight: 800; color: #10b981;">Приглашение создано!</div>
-                                        <div id="invite-result-email-note" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;"></div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label style="font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 6px;">Ссылка для отправки</label>
-                                    <div style="display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.2); border: 1px solid var(--border-card); border-radius: 8px; padding: 10px 12px;">
-                                        <span id="invite-link-display" style="font-size: 0.72rem; color: var(--primary); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;"></span>
-                                        <button onclick="copyInviteLink()" class="btn-neo" style="padding: 4px 10px; font-size: 0.65rem; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">Копировать 📋</button>
-                                    </div>
-                                </div>
-
-                                <div style="display: flex; gap: 8px;">
-                                    <div style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid var(--border-card); border-radius: 8px; padding: 10px 12px;">
-                                        <div style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; font-weight: 800; margin-bottom: 4px;">Роль</div>
-                                        <div id="invite-result-role" style="font-size: 0.8rem; font-weight: 700; color: #fff;"></div>
-                                    </div>
-                                    <div style="flex: 1; background: rgba(255,255,255,0.02); border: 1px solid var(--border-card); border-radius: 8px; padding: 10px 12px;">
-                                        <div style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; font-weight: 800; margin-bottom: 4px;">Действует</div>
-                                        <div style="font-size: 0.8rem; font-weight: 700; color: #fff;">7 дней</div>
-                                    </div>
-                                </div>
-
-                                <button onclick="resetInviteForm()" class="btn-neo" style="width: 100%; font-size: 0.75rem; padding: 8px;">Создать ещё одно приглашение</button>
-                            </div>
+                        <div class="col-12 card-neo" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <h3 style="font-size: 1.1rem; font-weight: 800; margin: 0;">Командный доступ</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0; line-height: 1.5;">Ссылки-приглашения через email и локальный Passkey отключены. Следующий поток должен привязывать уже подтверждённый SL1E wallet identity к роли в юрлице без одноразовых invite-link.</p>
                         </div>
                     </div>
                 </div>
@@ -3247,8 +3178,8 @@
                                 <input type="text" id="prof-phone" class="input-neo" value="{{ $user->phone }}">
                             </div>
                             <div>
-                                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Email (Идентификатор сессии)</label>
-                                <input type="email" class="input-neo" value="{{ $user->email }}" disabled style="opacity: 0.6; cursor: not-allowed; background: rgba(0,0,0,0.2);">
+                                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">SL1E Identity</label>
+                                <input type="text" class="input-neo" value="{{ $user->sovereignIdentityAddress() }}" disabled style="opacity: 0.6; cursor: not-allowed; background: rgba(0,0,0,0.2);">
                             </div>
                         </div>
                     </div>
@@ -4619,86 +4550,6 @@
                         </div>
                     </div>
                 `;
-            }
-
-            // ====================================================
-            // 🎟️ TEAM INVITE FUNCTIONS
-            // ====================================================
-            let currentInviteLink = '';
-
-            async function createTeamInvite() {
-                const email = document.getElementById('invite-email').value.trim();
-                const name  = document.getElementById('invite-name').value.trim();
-                const role  = document.getElementById('invite-role').value;
-
-                const btn   = document.getElementById('btn-create-invite');
-                const label = document.getElementById('invite-btn-label');
-                const loader = document.getElementById('invite-loader');
-
-                btn.disabled = true;
-                label.style.display = 'none';
-                loader.style.display = 'block';
-
-                try {
-                    const res = await fetch('/partner/dashboard/invite-intent', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                            'Accept': 'application/json',
-                        },
-                        body: JSON.stringify({ email: email || null, name: name || null, role }),
-                    });
-
-                    const data = await res.json();
-
-                    if (!res.ok) {
-                        showToast(data.error || 'Ошибка создания приглашения', 'danger');
-                        return;
-                    }
-
-                    currentInviteLink = data.invite_link;
-
-                    document.getElementById('invite-link-display').textContent = data.invite_link;
-                    document.getElementById('invite-result-role').textContent = data.role_label;
-
-                    const emailNote = document.getElementById('invite-result-email-note');
-                    if (data.email_sent) {
-                        emailNote.textContent = `📧 Письмо отправлено на ${email}`;
-                    } else if (email) {
-                        emailNote.textContent = `⚠️ Не удалось отправить письмо — скопируйте ссылку вручную`;
-                    } else {
-                        emailNote.textContent = `💡 Скопируйте ссылку и отправьте сотруднику`;
-                    }
-
-                    document.getElementById('invite-empty-state').style.display = 'none';
-                    document.getElementById('invite-result').style.display = 'flex';
-
-                    showToast('Приглашение создано!', 'success');
-
-                } catch (err) {
-                    showToast('Сетевая ошибка: ' + err.message, 'danger');
-                } finally {
-                    btn.disabled = false;
-                    label.style.display = 'inline';
-                    loader.style.display = 'none';
-                }
-            }
-
-            function copyInviteLink() {
-                if (!currentInviteLink) return;
-                navigator.clipboard.writeText(currentInviteLink).then(() => {
-                    showToast('Ссылка скопирована в буфер обмена!', 'success');
-                });
-            }
-
-            function resetInviteForm() {
-                document.getElementById('invite-email').value = '';
-                document.getElementById('invite-name').value = '';
-                document.getElementById('invite-role').value = 'manager';
-                document.getElementById('invite-result').style.display = 'none';
-                document.getElementById('invite-empty-state').style.display = 'flex';
-                currentInviteLink = '';
             }
 
             function openDepositModal() {

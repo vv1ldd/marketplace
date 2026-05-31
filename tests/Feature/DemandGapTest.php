@@ -275,8 +275,8 @@ class DemandGapTest extends TestCase
             'phone' => '+79998887766',
         ];
         $payment = [
-            'method' => 'meanly_storefront_demo',
-            'status' => 'captured',
+            'method' => 'meanly_storefront_pending',
+            'status' => 'pending',
         ];
 
         /** @var \App\Services\MeanlyRetailCheckoutService $checkoutService */

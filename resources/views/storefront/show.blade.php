@@ -1,11 +1,6 @@
 @php
     $checkoutUser = auth()->user();
-    $checkoutUserEmail = trim((string) ($checkoutUser?->email ?? ''));
     $giftCheckoutSelected = filter_var(old('is_gift', false), FILTER_VALIDATE_BOOLEAN);
-    $buyerRubtBalanceMinor = $checkoutUser
-        ? app(\App\Services\BuyerWalletService::class)->balance($checkoutUser)['available_minor']
-        : 0;
-    $buyerHasPasskey = $checkoutUser ? $checkoutUser->passkeys()->exists() : false;
     $initialCheckoutAvailability = $checkoutAvailability ?? [
         'status' => 'idle',
         'reason' => 'Проверим наличие у продавца перед оплатой.',
@@ -221,6 +216,54 @@
             font-weight: 850;
             color: var(--muted);
             margin-bottom: 16px;
+        }
+        .payment-methods {
+            display: grid;
+            gap: 10px;
+            margin: 14px 0;
+        }
+        .payment-method-card {
+            border: 3px solid var(--line);
+            background: #eef2ff;
+            padding: 12px;
+            box-shadow: 3px 3px 0 var(--line);
+        }
+        .payment-method-card.is-disabled {
+            background: #f4f4f5;
+            color: var(--muted);
+        }
+        .payment-method-card strong {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            color: var(--ink);
+            font-weight: 950;
+        }
+        .payment-badge {
+            display: inline-flex;
+            align-items: center;
+            border: 2px solid var(--line);
+            background: #d9f99d;
+            padding: 3px 7px;
+            color: var(--ink);
+            font-family: "JetBrains Mono", ui-monospace, monospace;
+            font-size: 10px;
+            font-weight: 950;
+            text-transform: uppercase;
+            box-shadow: 2px 2px 0 var(--line);
+            white-space: nowrap;
+        }
+        .payment-method-card p {
+            margin: 7px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.35;
+        }
+        .payment-method-card button {
+            width: 100%;
+            margin-top: 10px;
         }
         .simple-l1-panel {
             border: 3px solid var(--line);
@@ -985,10 +1028,10 @@
                         Проверить наличие
                     </button>
 
-                    @if($checkoutUserEmail !== '')
+                    @if($checkoutUser)
                         <div class="checkout-recipient-summary">
-                            Код придет на ваш email
-                            <strong>{{ $checkoutUserEmail }}</strong>
+                            Код появится в личном сейфе
+                            <strong>{{ $checkoutUser->sovereignIdentityAddress() }}</strong>
                         </div>
                         <input type="hidden" name="is_gift" value="0">
                         <input
@@ -1014,26 +1057,27 @@
                         <input id="email" name="email" type="email" required value="{{ old('email') }}" placeholder="укажите адрес доставки кода">
                         <label for="name">Имя получателя</label>
                         <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="укажите имя">
-                        <p class="recipient-help">Войдите в аккаунт с email, чтобы получать коды без повторного ввода адреса.</p>
+                        <p class="recipient-help">Войдите через SL1E wallet, чтобы получать коды в личный сейф без email.</p>
                     @endif
+
+                    <div class="payment-methods" aria-label="Способы оплаты">
+                        <div class="payment-method-card is-disabled" aria-disabled="true">
+                            <strong>
+                                СБП
+                                <span class="payment-badge">Скоро</span>
+                            </strong>
+                            <p>Оплата через Систему быстрых платежей появится здесь: QR/deep link банка, подтверждение платежа и выдача кода только после verified capture.</p>
+                            <button class="btn btn-secondary" type="button" disabled>
+                                Оплата СБП скоро будет
+                            </button>
+                        </div>
+                    </div>
 
                     @if($checkoutUser)
                         <div class="buyer-wallet-secondary">
-                            <details>
-                                <summary>Оплатить балансом</summary>
-                                <div class="checkout-note" style="background: #ecfdf5; border-color: #10b981; margin-top: 12px;">
-                                    Баланс: <strong>{{ number_format($buyerRubtBalanceMinor / 100, 2, '.', ' ') }} ₽</strong>.
-                                    @if($buyerHasPasskey)
-                                        Подтверждение пройдет через Passkey.
-                                    @else
-                                        Добавьте Passkey в профиле, чтобы оплатить балансом.
-                                    @endif
-                                </div>
-                                <button class="btn btn-secondary" style="width: 100%; margin-top: 8px;" type="button" data-wallet-pay data-passkey-ready="{{ $buyerHasPasskey ? '1' : '0' }}" @disabled(! $buyerHasPasskey || ! $initialCheckoutAvailable)>
-                                    Оплатить балансом с Passkey
-                                </button>
-                                <p class="recipient-help" data-wallet-status aria-live="polite"></p>
-                            </details>
+                            <div class="checkout-note" style="background: #ecfdf5; border-color: #10b981; margin-top: 12px;">
+                                Баланс и операции живут в SL1 Wallet. Meanly хранит только чек, статус оплаты и выдачу кода в сейфе.
+                            </div>
                         </div>
                     @endif
 
@@ -1067,7 +1111,6 @@
         </section>
     </main>
     @include('storefront.partials.footer')
-    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
     <script>
         document.querySelectorAll('[data-gift-checkout]').forEach((form) => {
             const toggle = form.querySelector('[data-gift-toggle]');
@@ -1110,11 +1153,11 @@
             try {
                 const parsed = new URL(safeUrl, window.location.origin);
 
-                if (parsed.pathname.includes('/cabinet')) {
+                if (parsed.pathname.includes('/cabinet') || parsed.pathname.includes('/vault')) {
                     return null;
                 }
             } catch (error) {
-                if (String(safeUrl).includes('/cabinet')) {
+                if (String(safeUrl).includes('/cabinet') || String(safeUrl).includes('/vault')) {
                     return null;
                 }
             }
@@ -1638,8 +1681,6 @@
         };
 
         document.querySelectorAll('[data-gift-checkout]').forEach((form) => {
-            const walletButton = form.querySelector('[data-wallet-pay]');
-            const status = form.querySelector('[data-wallet-status]');
             const availabilityPanel = form.querySelector('[data-availability-panel]');
             const availabilityTitle = form.querySelector('[data-availability-title]');
             const availabilityMessage = form.querySelector('[data-availability-message]');
@@ -1665,10 +1706,6 @@
             const setPaymentEnabled = (isAvailable) => {
                 if (submitButton) {
                     submitButton.disabled = !isAvailable;
-                }
-
-                if (walletButton) {
-                    walletButton.disabled = !isAvailable || walletButton.dataset.passkeyReady !== '1';
                 }
             };
 
@@ -1742,99 +1779,6 @@
                 }
             });
 
-            if (!walletButton || !status) {
-                return;
-            }
-
-            walletButton.addEventListener('click', async () => {
-                if (!window.SimpleWebAuthnBrowser || !window.PublicKeyCredential) {
-                    setStatus('Ваш браузер не поддерживает Passkey/WebAuthn для RUBT оплаты.', true);
-                    return;
-                }
-
-                walletButton.disabled = true;
-                setStatus('Собираем SL1-транзакцию для подписи...');
-
-                try {
-                    await ensureAvailability();
-                    const formData = new FormData(form);
-                    const optionsResponse = await fetch("{{ route('meanly.storefront.checkout.wallet.options') }}", {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': formData.get('_token'),
-                        },
-                        body: formData,
-                    });
-                    const options = await optionsResponse.json();
-                    if (!optionsResponse.ok) {
-                        throw new Error(options.message || Object.values(options.errors || {})?.[0]?.[0] || 'Не удалось подготовить RUBT оплату.');
-                    }
-
-                    const {
-                        pending_tx_id: pendingTxId,
-                        tx_hash: txHash,
-                        tx_nonce,
-                        l1_address,
-                        amount_minor,
-                        amount,
-                        asset,
-                        canonical_payload,
-                        canonical_json,
-                        ...passkeyOptions
-                    } = options;
-
-                    setStatus('Подтвердите списание RUBT через Passkey...');
-                    const assertion = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: passkeyOptions });
-
-                    setStatus('Проверяем подпись и списываем RUBT...');
-                    const confirmResponse = await fetch("{{ route('meanly.storefront.checkout.wallet.confirm') }}", {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': formData.get('_token'),
-                        },
-                        body: JSON.stringify({
-                            pending_tx_id: pendingTxId,
-                            tx_hash: txHash,
-                            assertion,
-                        }),
-                    });
-                    const result = await confirmResponse.json();
-                    if (!confirmResponse.ok) {
-                        throw new Error(result.message || Object.values(result.errors || {})?.[0]?.[0] || 'RUBT оплата отклонена.');
-                    }
-
-                    setStatus('Оплата подтверждена. Показываем выдачу заказа на этой странице...');
-
-                    let renderedInlineSafe = false;
-
-                    try {
-                        renderedInlineSafe = renderInlineOrderSafe(result, formData.get('_token'));
-                    } catch (safeError) {
-                        if (renderStandaloneSafeFallback(result, safeError.message || 'Не удалось встроить выдачу заказа на страницу.')) {
-                            return;
-                        }
-
-                        throw safeError;
-                    }
-
-                    if (!renderedInlineSafe) {
-                        const renderedFallback = renderStandaloneSafeFallback(
-                            result,
-                            'Заказ оплачен, но встроенная выдача не получила inline endpoint. Откройте отдельную защищенную страницу заказа.',
-                        );
-
-                        if (!renderedFallback) {
-                            throw new Error('Выдача заказа создана, но ссылка не вернулась.');
-                        }
-                    }
-                } catch (error) {
-                    setStatus(error.message || 'RUBT оплата не завершена.', true);
-                    setPaymentEnabled(false);
-                }
-            });
         });
 
         const recentStorageKey = 'meanly_marketplace_recently_viewed';

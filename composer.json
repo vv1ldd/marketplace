@@ -18,6 +18,7 @@
         "mrt1m/playstation-store-api": "^2.2",
         "opcodesio/log-viewer": "^3.18",
         "php-ffmpeg/php-ffmpeg": "^1.4",
+        "simplelayer/sl1e-client": "*",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/laravel-passkeys": "^1.7",
         "spatie/laravel-permission": "^7.4",
@@ -40,7 +41,10 @@
             "AppYandexSdk\\": "app/YandexSdk/lib/",
             "Meanly\\Mdk\\Kernel\\": "/Users/w1ld/Documents/GitHub/MDK/kernel/src/",
             "Meanly\\SimpleL1\\": "/Users/w1ld/Documents/GitHub/new/simple-l1/laravel-package/src/"
-        }
+        },
+        "files": [
+            "app/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -90,6 +94,16 @@
     "minimum-stability": "beta",
     "prefer-stable": true,
     "repositories": [
+        {
+            "type": "path",
+            "url": "../sl1e-client",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "simplelayer/sl1e-client": "0.1.0"
+                }
+            }
+        },
         {
             "type": "package",
             "package": {

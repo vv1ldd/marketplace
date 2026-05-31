@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "23f5b501e3b0fee824e9e3342548742f",
+    "content-hash": "dd7271ecb8c3c66f9b92e28a68f30082",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -4605,6 +4605,41 @@
                 "source": "https://github.com/ramsey/uuid/tree/4.9.2"
             },
             "time": "2025-12-14T04:43:48+00:00"
+        },
+        {
+            "name": "simplelayer/sl1e-client",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "../sl1e-client",
+                "reference": "7dce25093c915c3f526dd6055180491abbf042d1"
+            },
+            "require": {
+                "ext-json": "*",
+                "php": "^8.2"
+            },
+            "suggest": {
+                "ext-curl": "Required when using the built-in CurlHttpClient transport."
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "SimpleLayer\\Sl1e\\": "src/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "php tests/smoke.php"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Framework-neutral PHP client for Simple Layer SL1E authorization-code flows.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "simplesoftwareio/simple-qrcode",

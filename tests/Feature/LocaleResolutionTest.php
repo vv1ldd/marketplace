@@ -48,6 +48,32 @@ class LocaleResolutionTest extends TestCase
             ->assertHeader('Content-Language', 'kk');
     }
 
+    public function test_argentina_region_resolves_to_spanish(): void
+    {
+        $entity = LegalEntity::create([
+            'name' => 'Argentina Entity',
+            'short_name' => 'AR Entity',
+            'inn' => '30712345678',
+            'email' => 'ar@example.test',
+            'country_code' => 'AR',
+            'is_active' => true,
+        ]);
+
+        $this->withSession(['active_legal_entity_id' => $entity->id])
+            ->withHeader('Accept-Language', 'en-US,en;q=0.9')
+            ->get('/login')
+            ->assertOk()
+            ->assertHeader('Content-Language', 'es');
+    }
+
+    public function test_argentina_browser_language_resolves_to_spanish(): void
+    {
+        $this->withHeader('Accept-Language', 'es-AR,es;q=0.9,en;q=0.5')
+            ->get('/login')
+            ->assertOk()
+            ->assertHeader('Content-Language', 'es');
+    }
+
     public function test_profile_locale_beats_region_and_browser_language(): void
     {
         $user = User::factory()->create([

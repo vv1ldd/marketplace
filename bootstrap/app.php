@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['theme', 'holiday']);
 
         $middleware->web(append: [
+            \App\Http\Middleware\ResolveMarketContext::class,
             \App\Http\Middleware\SetLocale::class,
             \App\Http\Middleware\SetTheme::class,
             \App\Http\Middleware\EnsureUserHasPasskey::class,

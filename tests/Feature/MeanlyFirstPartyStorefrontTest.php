@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\LegalEntity;
 use App\Models\Order\Order;
+use App\Models\Order\OrderItems;
 use App\Models\Product;
 use App\Models\ProductInventory;
 use App\Models\ProductSalesChannel;
@@ -101,14 +102,55 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         return $user;
     }
 
-    private function fundBuyerWallet(User $user, int $amountMinor = 50000): void
+    private function createCapturedSafeOrder(Product $product, User $user): Order
     {
-        app(\App\Services\BuyerWalletService::class)->mintRUBT(
-            user: $user,
-            amountMinor: $amountMinor,
-            reason: 'Feature test buyer wallet funding',
-            idempotencyKey: 'feature-test-wallet-funding:'.$user->id.':'.$amountMinor.':'.\Illuminate\Support\Str::random(8),
-        );
+        $order = Order::create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'order_id' => 'MS-CAPTURED-'.\Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(6)),
+            'status' => 'COMPLETED',
+            'sub_status' => 'DIRECT_STOREFRONT',
+            'progress_id' => 4,
+            'shop_id' => $product->shop_id,
+            'user_id' => $user->id,
+            'sales_channel' => 'meanly_storefront',
+            'total_amount' => 150,
+            'currency' => 'RUB',
+            'info' => [
+                'payment_status' => 'captured',
+                'payment_method' => 'sbp_bank_capture',
+            ],
+            'client_info' => [
+                'buyer_user_id' => $user->id,
+                'delivery_email' => $user->email,
+            ],
+        ]);
+
+        $item = OrderItems::create([
+            'key' => 'MEAN-EMAIL-TEST01-ZZ',
+            'original_code' => 'MEAN-EMAIL-TEST01-ZZ',
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'order_id' => $order->id,
+            'activate_till' => now()->addYear()->format('Y-m-d'),
+            'sku' => $product->sku,
+            'count' => 1,
+            'price_rub' => 15000,
+            'type_form_id' => 2,
+            'purchase_status' => 'success',
+            'client_info' => [
+                'buyer_user_id' => $user->id,
+                'channel' => 'meanly_storefront',
+            ],
+        ]);
+
+        ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->update([
+            'is_used' => true,
+            'status' => 'sold',
+            'order_item_id' => $item->id,
+            'reservation_reference' => 'test-captured-safe:'.$order->order_id,
+            'reserved_at' => now(),
+        ]);
+
+        return $order->refresh();
     }
 
     /**
@@ -458,33 +500,41 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('vouchers.0.code', 'MEAN-ABCDE-TEST01-ZZ');
+            ->assertJsonPath('vouchers', [])
+            ->assertJsonPath('safe_status', 'payment_pending');
 
         $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
         $this->assertSame($shop->id, $order->shop_id);
         $this->assertSame(150.0, (float) $order->total_amount);
 
+        $this->assertSame('NEW', $order->status);
+        $this->assertSame('pending', data_get($order->info, 'payment_status'));
+
         $inventory = ProductInventory::where('voucher', 'MEAN-ABCDE-TEST01-ZZ')->firstOrFail();
-        $this->assertTrue($inventory->is_used);
-        $this->assertSame('sold', $inventory->status);
-        $this->assertNotNull($inventory->order_item_id);
+        $this->assertFalse($inventory->is_used);
+        $this->assertSame('available', $inventory->status);
+        $this->assertNull($inventory->order_item_id);
 
         $this->assertDatabaseHas('sovereign_ledger', [
             'shop_id' => $shop->id,
             'event_type' => 'ORDER_RECEIVE',
         ]);
-        $this->assertDatabaseHas('sovereign_ledger', [
+        $this->assertDatabaseMissing('sovereign_ledger', [
+            'shop_id' => $shop->id,
+            'event_type' => 'FINANCE_CAPTURE',
+        ]);
+        $this->assertDatabaseMissing('sovereign_ledger', [
             'shop_id' => $shop->id,
             'event_type' => 'VOUCHER_SLIP_ISSUED',
         ]);
-        $this->assertDatabaseHas('token_metering_events', [
+        $this->assertDatabaseMissing('token_metering_events', [
             'legal_entity_id' => $shop->legal_entity_id,
             'shop_id' => $shop->id,
             'event_type' => 'order_fulfillment',
         ]);
     }
 
-    public function test_authenticated_storefront_checkout_uses_account_email_when_not_gift(): void
+    public function test_authenticated_storefront_checkout_uses_wallet_safe_when_not_gift(): void
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
@@ -496,12 +546,16 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('vouchers.0.code', 'MEAN-EMAIL-TEST01-ZZ');
+            ->assertJsonPath('vouchers', [])
+            ->assertJsonPath('safe_status', 'payment_pending');
 
         $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
-        $this->assertSame('account-buyer@example.test', data_get($order->client_info, 'email'));
-        $this->assertSame('account-buyer@example.test', data_get($order->client_info, 'delivery_email'));
-        $this->assertSame('account-buyer@example.test', data_get($order->client_info, 'buyer_email'));
+        $this->assertSame('NEW', $order->status);
+        $this->assertSame('pending', data_get($order->info, 'payment_status'));
+        $this->assertNull(data_get($order->client_info, 'email'));
+        $this->assertNull(data_get($order->client_info, 'delivery_email'));
+        $this->assertNull(data_get($order->client_info, 'buyer_email'));
+        $this->assertSame($user->sovereignIdentityAddress(), data_get($order->client_info, 'buyer_l1_address'));
         $this->assertSame($user->id, data_get($order->client_info, 'buyer_user_id'));
         $this->assertFalse(data_get($order->client_info, 'is_gift'));
     }
@@ -538,7 +592,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
     }
 
-    public function test_guest_storefront_checkout_with_delivery_email_still_fulfills(): void
+    public function test_guest_storefront_checkout_with_delivery_email_creates_pending_order_without_fulfillment(): void
     {
         $product = $this->seedStorefrontCheckoutProduct();
 
@@ -551,12 +605,17 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('vouchers.0.code', 'MEAN-EMAIL-TEST01-ZZ');
+            ->assertJsonPath('vouchers', [])
+            ->assertJsonPath('safe_status', 'payment_pending');
 
         $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
+        $this->assertSame('NEW', $order->status);
+        $this->assertSame('pending', data_get($order->info, 'payment_status'));
         $this->assertSame('guest-buyer@example.test', data_get($order->client_info, 'email'));
         $this->assertSame('guest-buyer@example.test', data_get($order->client_info, 'delivery_email'));
         $this->assertNull(data_get($order->client_info, 'buyer_user_id'));
+        $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
+        $this->assertDatabaseMissing('sovereign_ledger', ['event_type' => 'FINANCE_CAPTURE']);
     }
 
     public function test_canonical_product_checkout_view_hides_email_requirement_until_gift_mode(): void
@@ -578,6 +637,8 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertStringContainsString('data-inline-order-safe-template', $html);
         $this->assertStringContainsString('renderInlineOrderSafe', $html);
         $this->assertStringContainsString('renderStandaloneSafeFallback', $html);
+        $this->assertStringContainsString('СБП', $html);
+        $this->assertStringContainsString('Оплата СБП скоро будет', $html);
         $this->assertStringContainsString('openSafe({ automatic: true });', $html);
         $this->assertStringContainsString('safeLink.href = result.cabinet_safe_url;', $html);
         $this->assertStringContainsString('Открыть код', $html);
@@ -602,6 +663,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertStringContainsString('data-inline-order-safe-template', $html);
         $this->assertStringContainsString('renderInlineOrderSafe', $html);
         $this->assertStringContainsString('renderStandaloneSafeFallback', $html);
+        $this->assertStringContainsString('Оплата СБП скоро будет', $html);
         $this->assertStringContainsString('safeLink.href = result.cabinet_safe_url;', $html);
         $this->assertStringContainsString('Открыть код', $html);
         $this->assertStringNotContainsString('window.location.assign(result.cabinet_safe_url || result.redirect_url || result.safe_url)', $html);
@@ -618,10 +680,13 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertSee('Connect Simple L1 wallet')
             ->assertSee(route('meanly.simple_l1.connect', ['return_to' => '/store/products/'.$product->slug]), false);
 
+        \Illuminate\Support\Facades\Cache::put('simple_l1:proof_token:test-proof-handle', 'proof-token', now()->addMinutes(10));
+
         $this->withSession([
             'simple_l1_identity' => [
                 'l1_address' => $l1Address,
-                'proof_token' => 'proof-token',
+                'proof_token_hash' => hash('sha256', 'proof-token'),
+                'proof_handle' => 'test-proof-handle',
             ],
         ])->get(route('meanly.storefront.products.show', $product->slug))
             ->assertOk()
@@ -630,44 +695,303 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertSee('Переподключить SL1 wallet');
     }
 
+    public function test_simple_l1_connect_passes_marketplace_theme_context_to_pass(): void
+    {
+        $response = $this->get(route('meanly.simple_l1.connect', [
+            'return_to' => '/store',
+            'mode' => 'login',
+        ]));
+
+        $response->assertOk();
+        $location = (string) $response->viewData('authorizeUrl');
+
+        $this->assertStringStartsWith('https://simplel1.online/authorize?', $location);
+        $this->assertStringContainsString('client_name=Meanly', $location);
+        $this->assertStringContainsString('ui_theme=neobrutalism', $location);
+        $this->assertStringContainsString('response_mode=code', $location);
+        $response->assertSee('Входим через Simple Layer One?', false);
+    }
+
+    public function test_simple_l1_connect_skips_handoff_after_user_has_seen_it(): void
+    {
+        $response = $this
+            ->withSession(['simple_l1_handoff_seen.identity_confirm' => now()->toIso8601String()])
+            ->get(route('meanly.simple_l1.connect', [
+                'return_to' => '/store',
+                'mode' => 'login',
+            ]));
+
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+
+        $this->assertStringStartsWith('https://simplel1.online/authorize?', $location);
+        $this->assertStringContainsString('client_name=Meanly', $location);
+    }
+
+    public function test_simple_l1_connect_handoff_is_tracked_per_action(): void
+    {
+        $response = $this
+            ->withSession(['simple_l1_handoff_seen.identity_confirm' => now()->toIso8601String()])
+            ->get(route('meanly.simple_l1.connect', [
+                'return_to' => '/vault',
+                'mode' => 'login',
+                'intent_type' => 'meanly.vault.open',
+            ]));
+
+        $response->assertOk();
+        $response->assertSee('Открываете сейф?', false);
+    }
+
+    public function test_simple_l1_connect_returns_inline_handoff_payload_for_ui_clicks(): void
+    {
+        $response = $this->getJson(route('meanly.simple_l1.connect', [
+            'return_to' => '/vault',
+            'mode' => 'login',
+            'intent_type' => 'meanly.vault.open',
+        ]));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('show_handoff', true)
+            ->assertJsonPath('handoff.key', 'vault_open')
+            ->assertJsonPath('handoff.title', 'Открываете сейф?');
+    }
+
     public function test_simple_l1_callback_verifies_proof_and_stores_marketplace_session_identity(): void
     {
         $l1Address = 'sl1e_'.str_repeat('d', 39);
 
-        config(['simple_l1.identity_provider_url' => 'https://api.wildflow.test']);
+        config([
+            'simple_l1.identity_provider_url' => 'https://simplel1.online',
+            'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
+        ]);
         Http::fake([
-            'https://api.wildflow.test/api/simple-l1/proofs/introspect' => Http::response([
+            'https://simplel1.online/api/sl1e/proofs/introspect' => Http::response([
                 'protocol' => 'simple-l1',
                 'active' => true,
-                'identity' => [
-                    'l1_address' => $l1Address,
-                    'entity_l1_address' => $l1Address,
-                    'key_l1_address' => 'sl1_'.str_repeat('e', 40),
-                    'address_version' => 'simple-l1:v1:entity',
-                    'key_address_version' => 'simple-l1:v1:passkey',
-                    'user_id' => 1,
-                ],
                 'proof' => [
-                    'expires_at' => now()->addMinutes(5)->toIso8601String(),
-                    'context' => ['action' => 'meanly.marketplace.connect'],
+                    'type' => 'sl1e.login.proof.v1',
+                    'clientId' => config('simple_l1.client_id'),
+                    'redirectUri' => route('meanly.simple_l1.callback'),
+                    'state' => 'expected-state',
+                    'nonce' => 'expected-nonce',
+                    'mode' => 'login',
+                    'entityAddress' => $l1Address,
+                    'keyAddress' => 'sl1_'.str_repeat('e', 40),
+                    'alias' => 'selimmmm@simplelayer.one',
+                    'username' => 'identity-user@example.test',
+                    'displayName' => 'Identity User',
+                    'expiresAt' => now()->addMinutes(5)->toIso8601String(),
                 ],
             ]),
         ]);
 
         $this->withSession([
             'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.nonce' => 'expected-nonce',
+            'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+            'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+            'simple_l1_connect.mode' => 'login',
             'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
-        ])->get('/simple-l1/callback?state=expected-state&proof_token=proof-token')
+        ])->post('/simple-l1/callback', [
+            'state' => 'expected-state',
+            'proof_token' => 'proof-token',
+        ])
             ->assertRedirect('/store/products/meanly-sl1-connect')
             ->assertSessionHas('sovereign_l1_address', $l1Address)
             ->assertSessionHas('simple_l1_identity.l1_address', $l1Address)
             ->assertSessionHas('simple_l1_identity.entity_l1_address', $l1Address)
-            ->assertSessionHas('simple_l1_identity.key_l1_address', 'sl1_'.str_repeat('e', 40));
+            ->assertSessionHas('simple_l1_identity.key_l1_address', 'sl1_'.str_repeat('e', 40))
+            ->assertSessionHas('simple_l1_identity.alias', 'selimmmm@simplelayer.one')
+            ->assertSessionMissing('simple_l1_identity.proof_token')
+            ->assertSessionHas('simple_l1_identity.proof_token_hash', hash('sha256', 'proof-token'));
+
+        $this->assertAuthenticated();
+        $this->assertSame($l1Address, data_get(auth()->user()?->meta, 'entity_l1_address'));
+        $this->assertSame('external_identity_provider', data_get(auth()->user()?->meta, 'simple_l1.identity_rule'));
+        $this->assertSame('selimmmm@simplelayer.one', data_get(auth()->user()?->meta, 'simple_l1.alias'));
+        $this->assertSame('selimmmm', auth()->user()?->first_name);
+        $this->assertSame('selimmmm', data_get(auth()->user()?->meta, 'display_name'));
 
         $connectEvent = SovereignLedger::where('event_type', 'IDENTITY_CONNECT_EXTERNAL_INTENT')->firstOrFail();
         $this->assertSame('identity.connect_external', data_get($connectEvent->payload, 'intent_type'));
         $this->assertSame($l1Address, data_get($connectEvent->payload, 'connected_entity_l1_address'));
         $this->assertSame(hash('sha256', 'proof-token'), data_get($connectEvent->payload, 'proof_token_hash'));
+    }
+
+    public function test_simple_l1_callback_exchanges_authorization_code_over_top_level_get(): void
+    {
+        $l1Address = 'sl1e_'.str_repeat('d', 39);
+
+        config([
+            'simple_l1.identity_provider_url' => 'https://simplel1.online',
+            'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
+        ]);
+        Http::fake([
+            'https://simplel1.online/api/sl1e/authorization-code/exchange' => Http::response([
+                'success' => true,
+                'active' => true,
+                'proof_token' => 'proof-token-from-code',
+                'proof' => [
+                    'type' => 'sl1e.login.proof.v1',
+                    'clientId' => config('simple_l1.client_id'),
+                    'redirectUri' => route('meanly.simple_l1.callback'),
+                    'state' => 'expected-state',
+                    'nonce' => 'expected-nonce',
+                    'mode' => 'login',
+                    'entityAddress' => $l1Address,
+                    'keyAddress' => 'sl1_'.str_repeat('e', 40),
+                    'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        $this->withSession([
+            'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.nonce' => 'expected-nonce',
+            'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+            'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+            'simple_l1_connect.mode' => 'login',
+            'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
+        ])->get('/simple-l1/callback?state=expected-state&code=sl1c_test')
+            ->assertRedirect('/store/products/meanly-sl1-connect')
+            ->assertSessionHas('simple_l1_identity.proof_token_hash', hash('sha256', 'proof-token-from-code'))
+            ->assertSessionMissing('simple_l1_identity.proof_token');
+
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/sl1e/authorization-code/exchange')
+            && $request['code'] === 'sl1c_test'
+            && $request['client_id'] === config('simple_l1.client_id')
+            && $request['redirect_uri'] === route('meanly.simple_l1.callback'));
+    }
+
+    public function test_simple_l1_callback_rejects_proof_with_mismatched_nonce(): void
+    {
+        $l1Address = 'sl1e_'.str_repeat('d', 39);
+
+        config([
+            'simple_l1.identity_provider_url' => 'https://simplel1.online',
+            'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
+        ]);
+        Http::fake([
+            'https://simplel1.online/api/sl1e/proofs/introspect' => Http::response([
+                'protocol' => 'simple-l1',
+                'active' => true,
+                'proof' => [
+                    'type' => 'sl1e.login.proof.v1',
+                    'clientId' => config('simple_l1.client_id'),
+                    'redirectUri' => route('meanly.simple_l1.callback'),
+                    'state' => 'expected-state',
+                    'nonce' => 'wrong-nonce',
+                    'mode' => 'login',
+                    'entityAddress' => $l1Address,
+                    'keyAddress' => 'sl1_'.str_repeat('e', 40),
+                    'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        $this->withSession([
+            'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.nonce' => 'expected-nonce',
+            'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+            'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+            'simple_l1_connect.mode' => 'login',
+            'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
+        ])->post('/simple-l1/callback', [
+            'state' => 'expected-state',
+            'proof_token' => 'proof-token',
+        ])
+            ->assertForbidden();
+
+        $this->assertGuest();
+    }
+
+    public function test_simple_l1_callback_rejects_wallet_already_owned_by_another_user(): void
+    {
+        $l1Address = 'sl1e_'.str_repeat('d', 39);
+        $owner = User::factory()->create([
+            'entity_l1_address' => $l1Address,
+            'meta' => ['entity_l1_address' => $l1Address],
+        ]);
+        $current = User::factory()->create();
+        $currentAddress = $current->sovereignIdentityAddress();
+        \Spatie\LaravelPasskeys\Models\Passkey::factory()->create([
+            'authenticatable_id' => $current->id,
+        ]);
+
+        config([
+            'simple_l1.identity_provider_url' => 'https://simplel1.online',
+            'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
+        ]);
+        Http::fake([
+            'https://simplel1.online/api/sl1e/proofs/introspect' => Http::response([
+                'protocol' => 'simple-l1',
+                'active' => true,
+                'proof' => [
+                    'type' => 'sl1e.login.proof.v1',
+                    'clientId' => config('simple_l1.client_id'),
+                    'redirectUri' => route('meanly.simple_l1.callback'),
+                    'state' => 'expected-state',
+                    'nonce' => 'expected-nonce',
+                    'mode' => 'login',
+                    'entityAddress' => $l1Address,
+                    'keyAddress' => 'sl1_'.str_repeat('e', 40),
+                    'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        $this->actingAs($current)
+            ->withSession([
+                'simple_l1_connect.state' => 'expected-state',
+                'simple_l1_connect.nonce' => 'expected-nonce',
+                'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+                'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+                'simple_l1_connect.mode' => 'login',
+                'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
+            ])->post('/simple-l1/callback', [
+                'state' => 'expected-state',
+                'proof_token' => 'proof-token',
+            ])
+            ->assertStatus(409);
+
+        $this->assertSame($l1Address, $owner->refresh()->sovereignIdentityAddress());
+        $this->assertSame($currentAddress, $current->refresh()->sovereignIdentityAddress());
+    }
+
+    public function test_simple_l1_status_hides_proof_token_and_raw_proof(): void
+    {
+        $this->withSession([
+            'simple_l1_identity' => [
+                'l1_address' => 'sl1e_'.str_repeat('d', 39),
+                'entity_l1_address' => 'sl1e_'.str_repeat('d', 39),
+                'key_l1_address' => 'sl1_'.str_repeat('e', 40),
+                'proof_token' => 'secret-proof-token',
+                'proof' => ['challenge' => 'secret-challenge'],
+                'mode' => 'login',
+                'protocol' => 'simple-l1',
+                'connected_at' => now()->toIso8601String(),
+            ],
+        ])->getJson(route('meanly.simple_l1.status'))
+            ->assertOk()
+            ->assertJsonMissingPath('identity.proof_token')
+            ->assertJsonMissingPath('identity.proof');
+    }
+
+    public function test_simple_l1_complete_requires_connected_session_identity(): void
+    {
+        $this->get(route('meanly.simple_l1.complete', ['next' => '/business/register']))
+            ->assertForbidden();
+    }
+
+    public function test_simple_l1_complete_redirects_directly_inside_marketplace(): void
+    {
+        $this->withSession([
+            'simple_l1_identity' => [
+                'entity_l1_address' => 'sl1e_'.str_repeat('d', 39),
+            ],
+        ])->get(route('meanly.simple_l1.complete', ['next' => '/business/register']))
+            ->assertRedirect('/business/register');
     }
 
     public function test_storefront_checkout_submits_simple_l1_intent_and_stores_projection(): void
@@ -678,7 +1002,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         config(['simple_l1.identity_provider_url' => 'https://api.wildflow.test']);
         Http::fake([
-            'https://api.wildflow.test/api/simple-l1/intents' => Http::response([
+            'https://api.wildflow.test/api/simple-l1/intents' => fn ($request) => Http::response([
                 'protocol' => 'simple-l1',
                 'created' => true,
                 'identity' => [
@@ -690,19 +1014,22 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
                     'status' => 'accepted',
                     'capability' => 'marketplace.checkout.create',
                     'scope' => 'marketplace:meanly',
-                    'payload_hash' => str_repeat('1', 64),
+                    'payload_hash' => (string) $request['payload']['payload_hash'],
                     'decision' => 'allow',
                     'reason_codes' => ['grant.allow.matched'],
                 ],
             ], 201),
         ]);
 
+        \Illuminate\Support\Facades\Cache::put('simple_l1:proof_token:test-checkout-handle', 'proof-token', now()->addMinutes(10));
+
         $this->withSession([
             'simple_l1_identity' => [
                 'l1_address' => $l1Address,
                 'entity_l1_address' => $l1Address,
                 'key_l1_address' => $keyAddress,
-                'proof_token' => 'proof-token',
+                'proof_token_hash' => hash('sha256', 'proof-token'),
+                'proof_handle' => 'test-checkout-handle',
             ],
         ])->postJson(route('meanly.storefront.checkout'), [
             'product_id' => $product->id,
@@ -716,12 +1043,14 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertSame('sl1i_checkout_intent_001', data_get($order->info, 'simple_l1.intent_id'));
         $this->assertSame('accepted', data_get($order->info, 'simple_l1.intent_status'));
         $this->assertSame($l1Address, data_get($order->info, 'simple_l1.entity_l1_address'));
+        $this->assertSame(data_get($order->info, 'checkout_payload_hash'), data_get($order->info, 'simple_l1.payload_hash'));
         $this->assertNull(data_get($order->info, 'simple_l1.receipt'));
 
         Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/simple-l1/intents')
             && $request['capability'] === 'marketplace.checkout.create'
             && $request['scope'] === 'marketplace:meanly'
-            && $request['proof_token'] === 'proof-token');
+            && $request['proof_token'] === 'proof-token'
+            && $request['payload']['payload_hash'] === data_get($order->info, 'checkout_payload_hash'));
     }
 
     public function test_storefront_checkout_stops_when_simple_l1_intent_is_rejected(): void
@@ -744,11 +1073,14 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ], 201),
         ]);
 
+        \Illuminate\Support\Facades\Cache::put('simple_l1:proof_token:test-rejected-handle', 'proof-token', now()->addMinutes(10));
+
         $this->withSession([
             'simple_l1_identity' => [
                 'l1_address' => $l1Address,
                 'entity_l1_address' => $l1Address,
-                'proof_token' => 'proof-token',
+                'proof_token_hash' => hash('sha256', 'proof-token'),
+                'proof_handle' => 'test-rejected-handle',
             ],
         ])->postJson(route('meanly.storefront.checkout'), [
             'product_id' => $product->id,
@@ -770,54 +1102,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         ])->assertUnauthorized();
     }
 
-    public function test_wallet_checkout_options_challenge_equals_transaction_hash(): void
-    {
-        $product = $this->seedStorefrontCheckoutProduct();
-        $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user);
-
-        $response = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
-            'product_id' => $product->id,
-            'quantity' => 1,
-        ]);
-
-        $response->assertOk()
-            ->assertJsonPath('asset', 'RUBT')
-            ->assertJsonPath('canonical_payload.intent', 'BUYER_PURCHASE_DEBIT')
-            ->assertJsonPath('canonical_payload.asset', 'RUBT');
-
-        $payload = $response->json();
-        $this->assertSame(hash('sha256', $payload['canonical_json']), $payload['tx_hash']);
-        $this->assertSame($this->base64UrlEncode(hex2bin($payload['tx_hash']) ?: ''), $payload['challenge']);
-        $this->assertSame(15000, $payload['amount_minor']);
-    }
-
-    public function test_wallet_checkout_confirm_requires_passkey_and_does_not_debit_or_consume_stock(): void
-    {
-        $product = $this->seedStorefrontCheckoutProduct();
-        $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user);
-
-        $options = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
-            'product_id' => $product->id,
-            'quantity' => 1,
-        ])->assertOk()->json();
-
-        $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.confirm'), [
-            'pending_tx_id' => $options['pending_tx_id'],
-            'tx_hash' => $options['tx_hash'],
-        ])->assertStatus(422)->assertJsonValidationErrors('assertion');
-
-        $this->assertSame(50000, app(\App\Services\BuyerWalletService::class)->balance($user)['available_minor']);
-        $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
-        $this->assertDatabaseMissing('wallet_ledger_entries', [
-            'user_id' => $user->id,
-            'direction' => 'debit',
-            'tx_hash' => $options['tx_hash'],
-        ]);
-    }
-
-    public function test_wallet_checkout_rejects_insufficient_rubt_before_voucher_consumption(): void
+    public function test_wallet_checkout_options_are_retired_to_sl1_wallet(): void
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
@@ -825,7 +1110,38 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
             'product_id' => $product->id,
             'quantity' => 1,
-        ])->assertStatus(422)->assertJsonValidationErrors('wallet');
+        ])->assertStatus(410)
+            ->assertJsonPath('message', 'Локальная оплата RUBT отключена. Баланс и операции находятся в SL1 Wallet.');
+    }
+
+    public function test_wallet_checkout_confirm_is_retired_and_does_not_consume_stock(): void
+    {
+        $product = $this->seedStorefrontCheckoutProduct();
+        $user = $this->checkoutUser();
+
+        $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.confirm'), [
+            'pending_tx_id' => 'retired',
+            'tx_hash' => str_repeat('a', 64),
+            'assertion' => [],
+        ])->assertStatus(410)
+            ->assertJsonPath('message', 'Локальная оплата RUBT отключена. Подтверждение покупок будет идти через банк и SL1 Wallet.');
+
+        $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
+        $this->assertDatabaseMissing('wallet_ledger_entries', [
+            'user_id' => $user->id,
+            'direction' => 'debit',
+        ]);
+    }
+
+    public function test_wallet_checkout_no_longer_checks_local_rubt_balance(): void
+    {
+        $product = $this->seedStorefrontCheckoutProduct();
+        $user = $this->checkoutUser();
+
+        $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ])->assertStatus(410);
 
         $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
     }
@@ -834,7 +1150,6 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user);
 
         $this->actingAs($user)->postJson(route('meanly.storefront.checkout'), [
             'product_id' => $product->id,
@@ -843,159 +1158,96 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('payment_method');
 
         $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
-        $this->assertSame(50000, app(\App\Services\BuyerWalletService::class)->balance($user)['available_minor']);
     }
 
-    public function test_wallet_checkout_confirms_with_passkey_then_debits_and_fulfills(): void
+    public function test_storefront_checkout_rejects_sbp_stub_without_creating_paid_order(): void
+    {
+        $product = $this->seedStorefrontCheckoutProduct();
+
+        $this->postJson(route('meanly.storefront.checkout'), [
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'email' => 'sbp-buyer@example.test',
+            'payment_method' => 'sbp',
+        ])->assertStatus(422)->assertJsonValidationErrors('payment_method');
+
+        $this->assertDatabaseMissing('orders', [
+            'sales_channel' => 'meanly_storefront',
+        ]);
+        $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
+    }
+
+    public function test_wallet_checkout_no_longer_debits_or_fulfills_orders(): void
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user);
-
-        $options = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
-            'product_id' => $product->id,
-            'quantity' => 1,
-        ])->assertOk()->json();
-
-        $passkey = $user->passkeys()->first();
-        $this->mock(\Spatie\LaravelPasskeys\Actions\FindPasskeyToAuthenticateAction::class, function ($mock) use ($passkey) {
-            $mock->shouldReceive('execute')->andReturn($passkey);
-        });
 
         $response = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.confirm'), [
-            'pending_tx_id' => $options['pending_tx_id'],
-            'tx_hash' => $options['tx_hash'],
-            'assertion' => $this->walletAssertionForTx($user, $options['tx_hash']),
+            'pending_tx_id' => 'retired',
+            'tx_hash' => str_repeat('b', 64),
+            'assertion' => $this->walletAssertionForTx($user, str_repeat('b', 64)),
         ]);
 
-        $response->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('tx_hash', $options['tx_hash'])
-            ->assertJsonPath('safe_status', 'local_code_ready')
-            ->assertJsonStructure(['safe_url', 'safe_status_url', 'safe_open_url', 'cabinet_safe_url', 'redirect_url']);
-        $this->assertArrayNotHasKey('vouchers', $response->json());
-        $this->assertSame($response->json('safe_url'), $response->json('redirect_url'));
-        $this->assertStringNotContainsString('/cabinet', $response->json('redirect_url'));
+        $response->assertStatus(410)
+            ->assertJsonPath('message', 'Локальная оплата RUBT отключена. Подтверждение покупок будет идти через банк и SL1 Wallet.');
 
-        $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
-        $cabinetSafeUrl = $response->json('cabinet_safe_url');
-        $this->assertStringContainsString('/cabinet?safe='.$order->uuid, $cabinetSafeUrl);
-        $this->assertStringEndsWith('#safe-'.$order->uuid, $cabinetSafeUrl);
-
-        $this->actingAs($user)
-            ->get(route('cabinet.dashboard', ['safe' => $order->uuid], false))
-            ->assertOk()
-            ->assertSee('Сейф закрыт', false)
-            ->assertSee('Открыть сейф Passkey', false)
-            ->assertDontSee('data-safe-uuid="'.$order->uuid.'"', false);
-
-        $vaultOptions = $this->actingAs($user)
-            ->getJson(route('cabinet.vault.passkey.options'))
-            ->assertOk()
-            ->assertJsonStructure(['unlock_id', 'challenge'])
-            ->json();
-
-        session()->forget('cabinet_vault_unlock.'.$vaultOptions['unlock_id']);
-
-        $this->actingAs($user)
-            ->postJson(route('cabinet.vault.passkey.confirm'), [
-                'unlock_id' => $vaultOptions['unlock_id'],
-                'assertion' => $this->walletAssertionForChallenge($user, $vaultOptions['challenge']),
-            ])
-            ->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonStructure(['vault_event' => ['ledger_id', 'fingerprint', 'unlocked_until']]);
-
-        $vaultEvent = SovereignLedger::query()
-            ->where('event_type', 'VAULT_OPEN_INTENT')
-            ->where('entity_type', User::class)
-            ->where('entity_id', $user->id)
-            ->latest('id')
-            ->firstOrFail();
-
-        $this->assertSame('vault.open', data_get($vaultEvent->payload, 'intent_type'));
-        $this->assertSame('cabinet.safe', data_get($vaultEvent->payload, 'scope'));
-        $this->assertSame(hash('sha256', $vaultOptions['challenge']), data_get($vaultEvent->payload, 'challenge_hash'));
-        $this->assertSame($vaultEvent->fingerprint, session('cabinet_vault_unlock_fingerprint'));
-
-        $cabinet = $this->actingAs($user)->get(route('cabinet.dashboard', ['safe' => $order->uuid], false));
-
-        $cabinet
-            ->assertOk()
-            ->assertSee('id="safe-'.$order->uuid.'"', false)
-            ->assertSee('data-safe-uuid="'.$order->uuid.'"', false)
-            ->assertSee('data-safe-open-url="'.route('meanly.storefront.orders.safe.open', ['order' => $order->uuid]).'"', false)
-            ->assertSee('data-safe-open-button', false)
-            ->assertSee('data-safe-inline-panel', false)
-            ->assertSee('Открыть отдельно', false)
-            ->assertSee('class="vault-card is-focused"', false)
-            ->assertDontSee('MEAN-EMAIL-TEST01-ZZ', false)
-            ->assertDontSee('target="_blank"', false);
-
-        $this->assertSame(35000, app(\App\Services\BuyerWalletService::class)->balance($user)['available_minor']);
-        $this->assertTrue(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
-        $this->assertDatabaseHas('wallet_ledger_entries', [
+        $this->assertSame(0, Order::where('sales_channel', 'meanly_storefront')->count());
+        $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
+        $this->assertDatabaseMissing('wallet_ledger_entries', [
             'user_id' => $user->id,
             'direction' => 'debit',
             'entry_type' => 'BUYER_PURCHASE_DEBIT',
-            'amount_minor' => 15000,
-            'tx_hash' => $options['tx_hash'],
         ]);
-        $this->assertSame('buyer_wallet_rubt', data_get(Order::firstOrFail()->info, 'payment_method'));
     }
 
     public function test_order_safe_page_hides_code_until_opened(): void
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user);
+        $order = $this->createCapturedSafeOrder($product, $user);
+        $safeUrl = \Illuminate\Support\Facades\URL::signedRoute('meanly.storefront.orders.safe.show', [
+            'order' => $order->uuid,
+        ]);
 
-        $options = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
-            'product_id' => $product->id,
-            'quantity' => 1,
-        ])->assertOk()->json();
-
-        $passkey = $user->passkeys()->first();
-        $this->mock(\Spatie\LaravelPasskeys\Actions\FindPasskeyToAuthenticateAction::class, function ($mock) use ($passkey) {
-            $mock->shouldReceive('execute')->andReturn($passkey);
-        });
-
-        $checkout = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.confirm'), [
-            'pending_tx_id' => $options['pending_tx_id'],
-            'tx_hash' => $options['tx_hash'],
-            'assertion' => $this->walletAssertionForTx($user, $options['tx_hash']),
-        ])->assertOk()->json();
-
-        $this->get($checkout['safe_url'])
+        $this->get($safeUrl)
             ->assertOk()
             ->assertSee('Сейф заказа', false)
             ->assertSee('Сейф готов', false)
             ->assertDontSee('MEAN-EMAIL-TEST01-ZZ', false);
     }
 
+    public function test_vault_requires_fresh_sl1_proof_even_when_identity_is_connected(): void
+    {
+        $user = User::factory()->create([
+            'first_name' => 'SL1E Connected',
+            'meta' => [
+                'simple_l1' => [
+                    'identity_rule' => 'external_identity_provider',
+                ],
+            ],
+        ]);
+        $entityAddress = $user->sovereignIdentityAddress();
+
+        $this->actingAs($user)
+            ->withSession([
+                'simple_l1_identity' => [
+                    'entity_l1_address' => $entityAddress,
+                    'l1_address' => $entityAddress,
+                    'key_l1_address' => 'sl1_'.str_repeat('f', 40),
+                ],
+            ])
+            ->get(route('cabinet.dashboard', [], false))
+            ->assertOk()
+            ->assertSee('Сейф закрыт', false)
+            ->assertSee('Открыть сейф через SL1E', false)
+            ->assertDontSee('Создать SL1E Passkey', false);
+    }
+
     public function test_order_safe_open_returns_code_for_authorized_buyer(): void
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user);
-
-        $options = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
-            'product_id' => $product->id,
-            'quantity' => 1,
-        ])->assertOk()->json();
-
-        $passkey = $user->passkeys()->first();
-        $this->mock(\Spatie\LaravelPasskeys\Actions\FindPasskeyToAuthenticateAction::class, function ($mock) use ($passkey) {
-            $mock->shouldReceive('execute')->andReturn($passkey);
-        });
-
-        $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.confirm'), [
-            'pending_tx_id' => $options['pending_tx_id'],
-            'tx_hash' => $options['tx_hash'],
-            'assertion' => $this->walletAssertionForTx($user, $options['tx_hash']),
-        ])->assertOk();
-
-        $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
+        $order = $this->createCapturedSafeOrder($product, $user);
         $openUrl = \Illuminate\Support\Facades\URL::signedRoute('meanly.storefront.orders.safe.open', [
             'order' => $order->uuid,
         ]);
@@ -1016,25 +1268,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user);
-
-        $options = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
-            'product_id' => $product->id,
-            'quantity' => 1,
-        ])->assertOk()->json();
-
-        $passkey = $user->passkeys()->first();
-        $this->mock(\Spatie\LaravelPasskeys\Actions\FindPasskeyToAuthenticateAction::class, function ($mock) use ($passkey) {
-            $mock->shouldReceive('execute')->andReturn($passkey);
-        });
-
-        $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.confirm'), [
-            'pending_tx_id' => $options['pending_tx_id'],
-            'tx_hash' => $options['tx_hash'],
-            'assertion' => $this->walletAssertionForTx($user, $options['tx_hash']),
-        ])->assertOk();
-
-        $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
+        $order = $this->createCapturedSafeOrder($product, $user);
         $openUrl = route('meanly.storefront.orders.safe.open', ['order' => $order->uuid]);
         session()->forget('storefront_order_safe.'.$order->uuid);
 
@@ -1165,7 +1399,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $this->mock(ProviderHub::class, function ($mock) use ($driver) {
             $mock->shouldReceive('forProvider')
-                ->once()
+                ->never()
                 ->andReturn($driver);
         });
 
@@ -1177,7 +1411,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('safe_status', 'provider_code_ready')
+            ->assertJsonPath('safe_status', 'payment_pending')
             ->assertJsonPath('fulfillment_mode', 'instant')
             ->assertJsonPath('vouchers', []);
 
@@ -1185,23 +1419,19 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $item = $order->items()->firstOrFail();
         $inventory = ProductInventory::where('voucher', 'LOCAL-ENTITLEMENT-DO-NOT-REVEAL')->firstOrFail();
 
-        $this->assertSame('REAL-PROVIDER-CODE-123', $item->original_code);
-        $this->assertSame('provider_code_ready', data_get($item->client_info, 'provider_redemption.status'));
-        $this->assertSame('exchanged', $inventory->status);
-        $this->assertSame('exchanged', data_get($item->client_info, 'local_entitlement.status'));
-        $this->assertSame(1, $driver->createCalls);
-
-        app(\App\Services\StorefrontFulfillmentService::class)->fulfillProviderOrder($order->refresh());
-        $this->assertSame(1, $driver->createCalls);
+        $this->assertNull($item->original_code);
+        $this->assertNull(data_get($item->client_info, 'provider_redemption.status'));
+        $this->assertSame('available', $inventory->status);
+        $this->assertNull(data_get($item->client_info, 'local_entitlement.status'));
+        $this->assertSame(0, $driver->createCalls);
 
         $openUrl = \Illuminate\Support\Facades\URL::signedRoute('meanly.storefront.orders.safe.open', [
             'order' => $order->uuid,
         ]);
 
         $this->postJson($openUrl)
-            ->assertOk()
-            ->assertJsonPath('status', 'provider_code_ready')
-            ->assertJsonPath('codes.0.code', 'REAL-PROVIDER-CODE-123');
+            ->assertStatus(202)
+            ->assertJsonPath('status', 'payment_pending');
     }
 
     public function test_provider_backed_entitlement_exchange_failure_does_not_reveal_local_voucher(): void
@@ -1248,7 +1478,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $this->mock(ProviderHub::class, function ($mock) use ($driver) {
             $mock->shouldReceive('forProvider')
-                ->once()
+                ->never()
                 ->andReturn($driver);
         });
 
@@ -1260,7 +1490,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('safe_status', 'provider_redeem_failed')
+            ->assertJsonPath('safe_status', 'payment_pending')
             ->assertJsonPath('vouchers', []);
 
         $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
@@ -1268,54 +1498,20 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $inventory = ProductInventory::where('voucher', 'LOCAL-ENTITLEMENT-FAILED-SECRET')->firstOrFail();
 
         $this->assertNull($item->original_code);
-        $this->assertSame('provider_redeem_failed', data_get($item->client_info, 'provider_redemption.status'));
-        $this->assertSame('exchange_failed', $inventory->status);
-        $this->assertSame('exchange_failed', data_get($item->client_info, 'local_entitlement.status'));
+        $this->assertNull(data_get($item->client_info, 'provider_redemption.status'));
+        $this->assertSame('available', $inventory->status);
+        $this->assertNull(data_get($item->client_info, 'local_entitlement.status'));
 
         $openUrl = \Illuminate\Support\Facades\URL::signedRoute('meanly.storefront.orders.safe.open', [
             'order' => $order->uuid,
         ]);
 
-        $safeResponse = $this->postJson($openUrl)
-            ->assertStatus(422)
-            ->assertJsonPath('status', 'provider_redeem_failed')
+        $this->postJson($openUrl)
+            ->assertStatus(202)
+            ->assertJsonPath('status', 'payment_pending')
             ->assertJsonPath('codes', null);
 
-        $ticket = Ticket::where('order_id', $order->id)->firstOrFail();
-
-        $safeResponse
-            ->assertJsonPath('support_ticket_id', $ticket->id)
-            ->assertJsonStructure(['support_ticket_url']);
-
-        $supportUrl = $safeResponse->json('support_ticket_url');
-
-        $this->get($supportUrl)
-            ->assertOk()
-            ->assertSee('Чат с поддержкой')
-            ->assertSee('Тикет #'.$ticket->id)
-            ->assertDontSee('/partner-old', false);
-
-        $messagesUrl = \Illuminate\Support\Facades\URL::signedRoute('meanly.storefront.orders.safe.support-ticket.messages', [
-            'order' => $order->uuid,
-        ]);
-
-        $this->getJson($messagesUrl)
-            ->assertOk()
-            ->assertJsonPath('ticket.id', $ticket->id)
-            ->assertJsonPath('messages.0.role', 'user');
-
-        $replyUrl = \Illuminate\Support\Facades\URL::signedRoute('meanly.storefront.orders.safe.support-ticket.reply', [
-            'order' => $order->uuid,
-        ]);
-
-        $this->post($replyUrl, ['message' => 'Покупатель ждет проверку выдачи.'])
-            ->assertRedirect();
-
-        $this->assertSame($order->shop_id, $ticket->shop_id);
-        $this->assertSame('high', $ticket->priority);
-        $this->assertSame('open', $ticket->status);
-        $this->assertStringContainsString($order->order_id, $ticket->subject);
-        $this->assertCount(2, $ticket->refresh()->messages);
+        $this->assertSame(0, Ticket::where('order_id', $order->id)->count());
     }
 
     public function test_public_storefront_checkout_rejects_preorder_mode_from_buyer_request(): void
@@ -1348,32 +1544,28 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('safe_status', 'local_code_ready')
+            ->assertJsonPath('safe_status', 'payment_pending')
             ->assertJsonPath('fulfillment_mode', 'instant');
 
         $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
         $item = $order->items()->firstOrFail();
 
-        $this->assertSame('success', $item->purchase_status);
+        $this->assertSame('payment_pending', $item->purchase_status);
         $this->assertSame('instant', data_get($order->info, 'fulfillment_mode'));
-        $this->assertTrue(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
+        $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
     }
 
-    public function test_wallet_checkout_options_reject_preorder_mode_from_buyer_request(): void
+    public function test_wallet_checkout_options_retired_before_preorder_validation(): void
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user, 500000);
 
         $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
             'product_id' => $product->id,
             'quantity' => 1,
             'fulfillment_mode' => 'preorder',
             'preorder_acknowledged' => true,
-        ])->assertStatus(422)
-            ->assertJsonValidationErrors('fulfillment_mode');
-
-        $this->assertSame(500000, app(\App\Services\BuyerWalletService::class)->balance($user)['available_minor']);
+        ])->assertStatus(410);
     }
 
     public function test_public_storefront_availability_reports_provider_inventory_source_when_unavailable(): void
@@ -1408,12 +1600,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertSee('data-submit-checkout disabled', false);
     }
 
-    public function test_wallet_checkout_options_block_unavailable_provider_product_before_debit(): void
+    public function test_wallet_checkout_options_retired_before_provider_availability_or_debit(): void
     {
         $fixture = $this->seedProviderBackedStorefrontProduct(preOrder: false);
         $this->mockPublicProviderAvailability(false);
         $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user, 500000);
 
         $this->mock(ProviderHub::class, function ($mock) {
             $mock->shouldNotReceive('forProvider');
@@ -1422,10 +1613,8 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
             'product_id' => $fixture['product']->id,
             'quantity' => 1,
-        ])->assertStatus(422)
-            ->assertJsonValidationErrors('availability');
+        ])->assertStatus(410);
 
-        $this->assertSame(500000, app(\App\Services\BuyerWalletService::class)->balance($user)['available_minor']);
         $this->assertDatabaseMissing('wallet_ledger_entries', [
             'user_id' => $user->id,
             'direction' => 'debit',
@@ -1447,11 +1636,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('safe_status', 'provider_code_ready')
+            ->assertJsonPath('safe_status', 'payment_pending')
             ->assertJsonPath('fulfillment_mode', 'instant')
             ->assertJsonPath('vouchers', []);
 
-        $this->assertSame(1, $driver->createCalls);
+        $this->assertSame(0, $driver->createCalls);
 
         $this->assertDatabaseHas('orders', [
             'sales_channel' => 'meanly_storefront',
@@ -1594,25 +1783,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
     {
         $product = $this->seedStorefrontCheckoutProduct();
         $user = $this->checkoutUser();
-        $this->fundBuyerWallet($user);
-
-        $options = $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.options'), [
-            'product_id' => $product->id,
-            'quantity' => 1,
-        ])->assertOk()->json();
-
-        $passkey = $user->passkeys()->first();
-        $this->mock(\Spatie\LaravelPasskeys\Actions\FindPasskeyToAuthenticateAction::class, function ($mock) use ($passkey) {
-            $mock->shouldReceive('execute')->andReturn($passkey);
-        });
-
-        $this->actingAs($user)->postJson(route('meanly.storefront.checkout.wallet.confirm'), [
-            'pending_tx_id' => $options['pending_tx_id'],
-            'tx_hash' => $options['tx_hash'],
-            'assertion' => $this->walletAssertionForTx($user, $options['tx_hash']),
-        ])->assertOk();
-
-        $order = Order::where('sales_channel', 'meanly_storefront')->firstOrFail();
+        $order = $this->createCapturedSafeOrder($product, $user);
         session()->forget('storefront_order_safe.'.$order->uuid);
         $otherUser = $this->checkoutUser(['email' => 'other-buyer@example.test']);
 

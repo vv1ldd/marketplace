@@ -18,35 +18,21 @@ class VaultUserProvider extends EloquentUserProvider
             return null;
         }
 
-        if (isset($credentials['email'])) {
+        if (isset($credentials['entity_l1_address'])) {
             $model = $this->createModel();
-            
-            // Если в модели есть хелпер findByEmail, используем его
-            if (method_exists($model, 'findByEmail')) {
-                return $model::findByEmail($credentials['email']);
+
+            if (method_exists($model, 'findByEntityL1Address')) {
+                return $model::findByEntityL1Address($credentials['entity_l1_address']);
             }
 
-            // Иначе ищем сами по email_bidx
             $salt = config('vault.blind_index.salt', 'default-salt');
-            $bidx = hash_hmac('sha256', strtolower(trim($credentials['email'])), $salt);
-            
-            $query = $this->newModelQuery();
-            
-            // Поддержка "открытых" email-ов (как у старого admin@admin.com) 
-            // ИЛИ зашифрованных через email_bidx
-            $query->where(function ($q) use ($credentials, $bidx) {
-                $q->where('email_bidx', $bidx)
-                  ->orWhere('email', $credentials['email']);
-            });
+            $bidx = hash_hmac('sha256', strtolower(trim($credentials['entity_l1_address'])), $salt);
 
-            // Добавляем остальные поля, если есть
-            foreach ($credentials as $key => $value) {
-                if ($key !== 'email') {
-                    $query->where($key, $value);
-                }
-            }
-            
-            return $query->first();
+            return $this->newModelQuery()->where('entity_l1_address_bidx', $bidx)->first();
+        }
+
+        if (isset($credentials['email'])) {
+            return null;
         }
 
         return parent::retrieveByCredentials($credentials);

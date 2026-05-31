@@ -8,7 +8,6 @@ use App\Mail\VerificationCodeMail;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\Settings;
-use App\Models\User;
 use App\Models\WildflowCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -57,7 +56,7 @@ class CodeController extends Controller
                 'intent_token' => $intentToken
             ]);
         }
-        session()->put('user_exists', User::findByEmail($email) !== null);
+        session()->put('user_exists', false);
         session()->put('client_email', $email);
         session()->put('verification_code', $verificationCode);
 
@@ -484,7 +483,7 @@ class CodeController extends Controller
                         $order->update(['progress_id' => 4]);
                     }
 
-                    Mail::to($user->email)->send(new SendActivationCode($original_code, $order));
+                    Mail::to((string) session('client_email'))->send(new SendActivationCode($original_code, $order));
 
                     if ($order->chat_id && data_get($data, 'deliver_to_chat') === 'on') {
                         try {

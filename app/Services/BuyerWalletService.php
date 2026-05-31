@@ -12,7 +12,7 @@ use InvalidArgumentException;
 class BuyerWalletService
 {
     public const ASSET_RUBT = 'RUBT';
-    public const ASSET_SL1 = 'SL1';
+    public const ASSET_SL1 = 'SL';
 
     /**
      * @return array{available_minor:int,reserved_minor:int,total_minor:int}
@@ -159,6 +159,28 @@ class BuyerWalletService
         );
     }
 
+    public function mintSL1(
+        User $user,
+        int $amountMinor,
+        string $reason,
+        string $idempotencyKey,
+        array $payload = [],
+    ): WalletLedgerEntry {
+        return $this->credit(
+            user: $user,
+            asset: self::ASSET_SL1,
+            amountMinor: $amountMinor,
+            entryType: 'CASHBACK',
+            idempotencyKey: $idempotencyKey,
+            payload: [
+                'reason' => $reason,
+                'source' => 'sl1:bonus_mint',
+                'amount_sl' => $this->minorToDecimalString($amountMinor, 4),
+                'token_currency' => self::ASSET_SL1,
+            ] + $payload,
+        );
+    }
+
     public function debitRUBT(
         User $user,
         int $amountMinor,
@@ -289,6 +311,132 @@ class BuyerWalletService
         });
     }
 
+    public function reserve(
+        User $user,
+        string $asset,
+        int $amountMinor,
+        string $entryType,
+        string $idempotencyKey,
+        array $payload = [],
+    ): WalletLedgerEntry {
+        $asset = $this->normalizeAsset($asset);
+
+        if ($amountMinor <= 0) {
+            throw new InvalidArgumentException('Reserve amount must be positive minor units.');
+        }
+
+        if (trim($idempotencyKey) === '') {
+            throw new InvalidArgumentException('Wallet reserve requires an idempotency key.');
+        }
+
+        $existing = WalletLedgerEntry::query()
+            ->where('idempotency_key', $idempotencyKey)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return DB::transaction(function () use ($user, $asset, $amountMinor, $entryType, $idempotencyKey, $payload) {
+            $existing = WalletLedgerEntry::query()
+                ->where('idempotency_key', $idempotencyKey)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            $account = $this->lockedAccount($user, $asset);
+
+            if ((int) $account->available_minor < $amountMinor) {
+                throw ValidationException::withMessages([
+                    'wallet' => 'Недостаточно средств для резервирования.',
+                ]);
+            }
+
+            $account->available_minor = (int) $account->available_minor - $amountMinor;
+            $account->reserved_minor = (int) $account->reserved_minor + $amountMinor;
+            $account->save();
+
+            $entry = WalletLedgerEntry::create([
+                'user_id' => $user->id,
+                'asset' => $asset,
+                'direction' => 'reserve',
+                'entry_type' => $entryType,
+                'amount_minor' => $amountMinor,
+                'balance_after_minor' => (int) $account->available_minor,
+                'idempotency_key' => $idempotencyKey,
+                'payload' => $payload,
+            ]);
+
+            $ledger = app(LedgerService::class)->recordGlobal(
+                'BUYER_WALLET_RESERVE',
+                $entry,
+                [
+                    'wallet_ledger_entry_id' => $entry->id,
+                    'user_id' => $user->id,
+                    'asset' => $asset,
+                    'amount_minor' => $amountMinor,
+                    'available_after_minor' => (int) $account->available_minor,
+                    'reserved_after_minor' => (int) $account->reserved_minor,
+                    'idempotency_key' => $idempotencyKey,
+                    'l1_address' => $account->l1_address,
+                    'entry_type' => $entryType,
+                ] + $payload,
+            );
+
+            $entry->tx_hash ??= $ledger->fingerprint;
+            $entry->payload = array_merge($entry->payload ?? [], [
+                'sovereign_ledger_id' => $ledger->id,
+                'sovereign_ledger_fingerprint' => $ledger->fingerprint,
+            ]);
+            $entry->save();
+
+            return $entry->refresh();
+        });
+    }
+
+    public function commitReserved(
+        User $user,
+        string $asset,
+        int $amountMinor,
+        string $entryType,
+        string $idempotencyKey,
+        array $payload = [],
+    ): WalletLedgerEntry {
+        return $this->settleReserved(
+            user: $user,
+            asset: $asset,
+            amountMinor: $amountMinor,
+            entryType: $entryType,
+            idempotencyKey: $idempotencyKey,
+            direction: 'debit',
+            ledgerEventType: 'BUYER_WALLET_RESERVED_DEBIT',
+            payload: $payload,
+        );
+    }
+
+    public function releaseReserved(
+        User $user,
+        string $asset,
+        int $amountMinor,
+        string $entryType,
+        string $idempotencyKey,
+        array $payload = [],
+    ): WalletLedgerEntry {
+        return $this->settleReserved(
+            user: $user,
+            asset: $asset,
+            amountMinor: $amountMinor,
+            entryType: $entryType,
+            idempotencyKey: $idempotencyKey,
+            direction: 'release',
+            ledgerEventType: 'BUYER_WALLET_RESERVATION_RELEASE',
+            payload: $payload,
+        );
+    }
+
     public function rubToMinor(string $amount): int
     {
         $amount = str_replace(',', '.', trim($amount));
@@ -315,11 +463,130 @@ class BuyerWalletService
     private function normalizeAsset(string $asset): string
     {
         $asset = strtoupper(trim($asset));
+        $asset = $asset === 'SL1' ? self::ASSET_SL1 : $asset;
 
         if (! in_array($asset, [self::ASSET_RUBT, self::ASSET_SL1], true)) {
             throw new InvalidArgumentException('Unsupported wallet asset: '.$asset);
         }
 
         return $asset;
+    }
+
+    private function lockedAccount(User $user, string $asset): WalletAccount
+    {
+        $account = WalletAccount::query()->firstOrCreate(
+            [
+                'user_id' => $user->id,
+                'asset' => $asset,
+            ],
+            [
+                'l1_address' => $user->meta['l1_address'] ?? null,
+                'available_minor' => 0,
+                'reserved_minor' => 0,
+            ],
+        );
+
+        $account = WalletAccount::query()
+            ->whereKey($account->id)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        if (! $account->l1_address && isset($user->meta['l1_address'])) {
+            $account->l1_address = $user->meta['l1_address'];
+            $account->save();
+        }
+
+        return $account;
+    }
+
+    private function settleReserved(
+        User $user,
+        string $asset,
+        int $amountMinor,
+        string $entryType,
+        string $idempotencyKey,
+        string $direction,
+        string $ledgerEventType,
+        array $payload = [],
+    ): WalletLedgerEntry {
+        $asset = $this->normalizeAsset($asset);
+
+        if ($amountMinor <= 0) {
+            throw new InvalidArgumentException('Reserved settlement amount must be positive minor units.');
+        }
+
+        if (trim($idempotencyKey) === '') {
+            throw new InvalidArgumentException('Reserved settlement requires an idempotency key.');
+        }
+
+        $existing = WalletLedgerEntry::query()
+            ->where('idempotency_key', $idempotencyKey)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return DB::transaction(function () use ($user, $asset, $amountMinor, $entryType, $idempotencyKey, $direction, $ledgerEventType, $payload) {
+            $existing = WalletLedgerEntry::query()
+                ->where('idempotency_key', $idempotencyKey)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            $account = $this->lockedAccount($user, $asset);
+
+            if ((int) $account->reserved_minor < $amountMinor) {
+                throw ValidationException::withMessages([
+                    'wallet' => 'Недостаточно зарезервированных средств.',
+                ]);
+            }
+
+            $account->reserved_minor = (int) $account->reserved_minor - $amountMinor;
+            if ($direction === 'release') {
+                $account->available_minor = (int) $account->available_minor + $amountMinor;
+            }
+            $account->save();
+
+            $entry = WalletLedgerEntry::create([
+                'user_id' => $user->id,
+                'asset' => $asset,
+                'direction' => $direction,
+                'entry_type' => $entryType,
+                'amount_minor' => $amountMinor,
+                'balance_after_minor' => (int) $account->available_minor,
+                'idempotency_key' => $idempotencyKey,
+                'payload' => $payload,
+            ]);
+
+            $ledger = app(LedgerService::class)->recordGlobal(
+                $ledgerEventType,
+                $entry,
+                [
+                    'wallet_ledger_entry_id' => $entry->id,
+                    'user_id' => $user->id,
+                    'asset' => $asset,
+                    'amount_minor' => $amountMinor,
+                    'available_after_minor' => (int) $account->available_minor,
+                    'reserved_after_minor' => (int) $account->reserved_minor,
+                    'idempotency_key' => $idempotencyKey,
+                    'l1_address' => $account->l1_address,
+                    'entry_type' => $entryType,
+                    'direction' => $direction,
+                ] + $payload,
+            );
+
+            $entry->tx_hash ??= $ledger->fingerprint;
+            $entry->payload = array_merge($entry->payload ?? [], [
+                'sovereign_ledger_id' => $ledger->id,
+                'sovereign_ledger_fingerprint' => $ledger->fingerprint,
+            ]);
+            $entry->save();
+
+            return $entry->refresh();
+        });
     }
 }

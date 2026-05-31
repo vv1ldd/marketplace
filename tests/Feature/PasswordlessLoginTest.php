@@ -7,7 +7,6 @@ use App\Models\Seller;
 use App\Models\SovereignLedger;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -23,11 +22,35 @@ class PasswordlessLoginTest extends TestCase
         config(['session.domain' => null]);
     }
 
+    private function agreementSigningContext(User $user, LegalEntity $entity, string $nonce = 'agreement-nonce'): array
+    {
+        $context = [
+            'action' => 'agreement.sign',
+            'legal_entity_id' => $entity->id,
+            'expected_status' => 'pending_signature',
+            'user_id' => $user->id,
+            'entity_l1_address' => strtolower((string) $user->sovereignIdentityAddress()),
+            'inn_hash' => hash('sha256', (string) $entity->inn),
+            'legal_name_hash' => hash('sha256', mb_strtolower(trim((string) $entity->name))),
+            'agreement_id' => null,
+            'agreement_type' => 'b2b',
+            'agreement_hash' => hash('sha256', 'offer-body'),
+            'agreement_published_at' => null,
+            'signer_role' => 'ceo',
+            'signer_name_hash' => hash('sha256', mb_strtolower('offer signer')),
+            'nonce' => $nonce,
+        ];
+        $context['context_hash'] = hash('sha256', json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return $context;
+    }
+
     public function test_public_login_page_is_passkey_only(): void
     {
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Войти с помощью Passkey')
+            ->assertSee('Продолжить через SL1E Identity')
+            ->assertDontSee('Войти с помощью Passkey')
             ->assertDontSee('Войти по паролю');
     }
 
@@ -84,11 +107,9 @@ class PasswordlessLoginTest extends TestCase
     {
         Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
 
-        $user = User::factory()->create(['email' => 'b2b-role-user@example.test']);
+        $user = User::factory()->create();
         $seller = Seller::create([
             'first_name' => 'B2B',
-            'email' => 'b2b-role-user@example.test',
-            'password' => 'secret',
             'is_active' => true,
         ]);
 
@@ -104,10 +125,7 @@ class PasswordlessLoginTest extends TestCase
 
     public function test_pending_moderation_partner_sees_onboarding_instead_of_dashboard(): void
     {
-        $user = User::factory()->create([
-            'email' => null,
-            'email_verified_at' => null,
-        ]);
+        $user = User::factory()->create();
         \Spatie\LaravelPasskeys\Models\Passkey::factory()->create([
             'authenticatable_id' => $user->id,
         ]);
@@ -138,6 +156,72 @@ class PasswordlessLoginTest extends TestCase
             ->assertSee('Pending Business LLC')
             ->assertDontSee('Meanly Support')
             ->assertDontSee('Напишите, пожалуйста');
+    }
+
+    public function test_partner_deposit_mutation_endpoints_are_disabled(): void
+    {
+        Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+
+        $user = User::factory()->create([
+            'entity_l1_address' => 'sl1e_'.str_repeat('c', 39),
+            'meta' => ['simple_l1' => ['identity_rule' => 'external_identity_provider']],
+        ]);
+        $user->assignRole('b2b_partner');
+
+        $entity = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Active Business LLC',
+            'inn' => '770000000009',
+            'status' => 'active',
+            'is_active' => true,
+            'available_balance' => 100,
+            'balance' => 100,
+        ]);
+        $user->managedLegalEntities()->attach($entity->id, ['role' => 'owner']);
+
+        $this->actingAs($user)
+            ->postJson(route('partner.dashboard.finance.deposit'), ['amount' => 1000])
+            ->assertStatus(410);
+
+        $this->actingAs($user)
+            ->postJson(route('partner.dashboard.deposit_intent'), ['amount' => 1000])
+            ->assertStatus(410);
+
+        $this->actingAs($user)
+            ->postJson(route('partner.dashboard.clear_deposit_intent'), ['token' => 'DEP-TEST'])
+            ->assertStatus(410);
+
+        $entity->refresh();
+        $this->assertSame(100.0, (float) $entity->available_balance);
+        $this->assertSame(100.0, (float) $entity->balance);
+    }
+
+    public function test_partner_finance_mutations_require_privileged_role(): void
+    {
+        Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+
+        $user = User::factory()->create([
+            'entity_l1_address' => 'sl1e_'.str_repeat('d', 39),
+            'meta' => ['simple_l1' => ['identity_rule' => 'external_identity_provider']],
+        ]);
+        $user->assignRole('b2b_partner');
+
+        $entity = LegalEntity::create([
+            'name' => 'Viewer Business LLC',
+            'inn' => '770000000010',
+            'status' => 'active',
+            'is_active' => true,
+            'available_balance' => 100,
+            'balance' => 100,
+        ]);
+        $user->managedLegalEntities()->attach($entity->id, ['role' => 'viewer']);
+
+        $this->actingAs($user)
+            ->postJson(route('partner.dashboard.finance.deposit'), ['amount' => 1000])
+            ->assertForbidden()
+            ->assertJsonPath('error', 'Forbidden: insufficient partner role for this action.');
+
+        $this->assertSame(100.0, (float) $entity->refresh()->available_balance);
     }
 
     public function test_business_registration_validates_representative_full_name(): void
@@ -213,10 +297,413 @@ class PasswordlessLoginTest extends TestCase
             ->assertSee('Получить код')
             ->assertSee('ИНН организации')
             ->assertSee('Найдена организация')
+            ->assertSee('Подключить SL1E и продолжить')
             ->assertDontSee('Имя владельца профиля')
             ->assertDontSee('Телефон для связи')
             ->assertSee('name="registration_target"', false)
             ->assertSee('value="legal_entity"', false);
+    }
+
+    public function test_business_registration_with_sl1_identity_does_not_require_local_passkey_attestation(): void
+    {
+        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
+
+        $user = User::factory()->create([
+            'meta' => [
+                'simple_l1' => [
+                    'identity_rule' => 'external_identity_provider',
+                ],
+            ],
+        ]);
+
+        $this->mock(\App\Services\DaDataService::class, function ($mock): void {
+            $mock->shouldReceive('findByInn')->andReturn([
+                'type' => 'LEGAL',
+                'inn' => '7700000000',
+                'name' => ['short_with_opf' => 'ООО Ромашка'],
+                'ogrn' => '1234567890123',
+                'kpp' => '770001001',
+                'address' => ['value' => 'Москва'],
+                'management' => ['name' => 'Иванов Иван Иванович'],
+            ]);
+        });
+
+        $this->actingAs($user)
+            ->withSession(['business_registration_verified_email' => 'company@example.test'])
+            ->post(route('business.register.submit'), [
+                'inn' => '7700000000',
+                'jurisdiction' => 'RU',
+                'signer_role' => 'ceo',
+                'business_email' => 'company@example.test',
+            ])
+            ->assertRedirect(route('partner.register.offer'));
+
+        $entity = \App\Models\LegalEntity::where('user_id', $user->id)->firstOrFail();
+
+        $this->assertSame('pending_signature', $entity->status);
+        $this->assertSame($user->sovereignIdentityAddress(), data_get($entity->agreement_metadata, 'l1_address'));
+        $this->assertNull($entity->agreement_signature);
+    }
+
+    public function test_offer_signature_uses_sl1e_redirect_without_local_passkey_or_qr(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('a', 39);
+        $keyAddress = 'sl1_'.str_repeat('b', 40);
+
+        $user = User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+            'key_l1_address' => $keyAddress,
+            'identity_provider' => 'identity_wildflow',
+            'meta' => [
+                'simple_l1' => [
+                    'identity_rule' => 'external_identity_provider',
+                ],
+            ],
+        ]);
+
+        $this->actingAs($user)
+            ->withSession([
+                'partner_registration' => [
+                    'is_b2b' => true,
+                    'legal_name' => 'Offer Test LLC',
+                    'signer_role' => 'ceo',
+                    'signer_name' => 'Offer Signer',
+                    'business_email' => 'offer@example.test',
+                ],
+            ])
+            ->get(route('partner.register.offer'))
+            ->assertOk()
+            ->assertSee("window.location.search).get('sl1e_offer_complete')", false)
+            ->assertSee('Переходим в SL1E Identity')
+            ->assertSee('intent_type=agreement.sign', false)
+            ->assertSee(rawurlencode('Подписать публичную оферту'), false)
+            ->assertSee(rawurlencode('Подтвердить подпись'), false)
+            ->assertDontSee(rawurlencode('proof token'), false)
+            ->assertDontSee(rawurlencode('wallet key'), false)
+            ->assertDontSee('@simplewebauthn/browser')
+            ->assertDontSee('startAuthentication')
+            ->assertDontSee('api.qrserver.com')
+            ->assertDontSee('Подписание через FaceID');
+    }
+
+    public function test_offer_signature_accepts_matching_sl1e_proof(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('a', 39);
+        $keyAddress = 'sl1_'.str_repeat('b', 40);
+
+        $user = User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+            'key_l1_address' => $keyAddress,
+            'identity_provider' => 'identity_wildflow',
+            'meta' => [
+                'simple_l1' => [
+                    'identity_rule' => 'external_identity_provider',
+                ],
+            ],
+        ]);
+
+        $entity = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Offer Test LLC',
+            'inn' => '1234567890',
+            'email' => 'offer@example.test',
+            'status' => 'pending_signature',
+            'is_active' => false,
+            'agreement_metadata' => [],
+        ]);
+        $user->managedLegalEntities()->attach($entity->id, ['role' => 'admin']);
+        $context = $this->agreementSigningContext($user, $entity);
+        $resource = 'agreement_context:'.$context['context_hash'];
+
+        $this->actingAs($user)
+            ->withSession([
+                'partner_registration' => [
+                    'is_b2b' => true,
+                    'legal_name' => 'Offer Test LLC',
+                    'signer_role' => 'ceo',
+                    'signer_name' => 'Offer Signer',
+                    'business_email' => 'offer@example.test',
+                ],
+                'simple_l1_identity' => [
+                    'entity_l1_address' => $entityAddress,
+                    'key_l1_address' => $keyAddress,
+                    'proof_token_hash' => hash('sha256', 'proof-token'),
+                    'proof' => [
+                        'intent' => [
+                            'type' => 'agreement.sign',
+                            'nonce' => 'agreement-nonce',
+                            'resource' => $resource,
+                        ],
+                    ],
+                ],
+                'agreement_signing_entity_l1_address' => $entityAddress,
+                'agreement_signing_nonce' => 'agreement-nonce',
+                'agreement_signing_resource' => $resource,
+                'agreement_signing_context' => $context,
+                'agreement_signing_started_at' => now()->toIso8601String(),
+            ])
+            ->postJson(route('partner.register.agreement.sign'), ['simple_l1_sign' => true])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $entity->refresh();
+        $this->assertSame('pending_moderation', $entity->status);
+        $this->assertSame('simple_l1_proof_v1', data_get($entity->agreement_metadata, 'signature_type'));
+        $this->assertSame($keyAddress, data_get($entity->agreement_metadata, 'key_l1_address'));
+        $this->assertNotNull($entity->agreement_signed_at);
+        $this->assertStringContainsString('simple_l1_proof_v1', $entity->agreement_signature);
+    }
+
+    public function test_offer_completion_does_not_rotate_signing_context_before_finalize(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('a', 39);
+        $keyAddress = 'sl1_'.str_repeat('b', 40);
+
+        $user = User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+            'key_l1_address' => $keyAddress,
+            'identity_provider' => 'identity_wildflow',
+            'meta' => ['simple_l1' => ['identity_rule' => 'external_identity_provider']],
+        ]);
+
+        $entity = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Offer Test LLC',
+            'inn' => '1234567890',
+            'email' => 'offer@example.test',
+            'status' => 'pending_signature',
+            'is_active' => false,
+            'agreement_metadata' => [],
+        ]);
+        $user->managedLegalEntities()->attach($entity->id, ['role' => 'admin']);
+
+        $context = $this->agreementSigningContext($user, $entity);
+        $resource = 'agreement_context:'.$context['context_hash'];
+        $other = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Newer Pending LLC',
+            'inn' => '1234567891',
+            'email' => 'newer@example.test',
+            'status' => 'pending_signature',
+            'is_active' => false,
+            'agreement_metadata' => [],
+        ]);
+        $user->managedLegalEntities()->attach($other->id, ['role' => 'admin']);
+
+        $this->actingAs($user)
+            ->withSession([
+                'partner_registration' => [
+                    'is_b2b' => true,
+                    'legal_name' => 'Offer Test LLC',
+                    'signer_role' => 'ceo',
+                    'signer_name' => 'Offer Signer',
+                    'business_email' => 'offer@example.test',
+                ],
+                'agreement_signing_entity_l1_address' => $entityAddress,
+                'agreement_signing_nonce' => 'agreement-nonce',
+                'agreement_signing_resource' => $resource,
+                'agreement_signing_context' => $context,
+                'agreement_signing_started_at' => now()->toIso8601String(),
+            ])
+            ->get(route('partner.register.offer', ['sl1e_offer_complete' => 1]))
+            ->assertOk()
+            ->assertSessionHas('agreement_signing_nonce', 'agreement-nonce')
+            ->assertSessionHas('agreement_signing_resource', $resource);
+    }
+
+    public function test_offer_signature_does_not_apply_context_to_another_pending_entity(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('a', 39);
+        $keyAddress = 'sl1_'.str_repeat('b', 40);
+
+        $user = User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+            'key_l1_address' => $keyAddress,
+            'identity_provider' => 'identity_wildflow',
+            'meta' => ['simple_l1' => ['identity_rule' => 'external_identity_provider']],
+        ]);
+
+        $signedFor = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Signed For LLC',
+            'inn' => '1234567890',
+            'email' => 'one@example.test',
+            'status' => 'pending_signature',
+            'is_active' => false,
+            'agreement_metadata' => [],
+        ]);
+        $other = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Other Pending LLC',
+            'inn' => '1234567891',
+            'email' => 'two@example.test',
+            'status' => 'pending_signature',
+            'is_active' => false,
+            'agreement_metadata' => [],
+        ]);
+        $user->managedLegalEntities()->attach($signedFor->id, ['role' => 'admin']);
+        $user->managedLegalEntities()->attach($other->id, ['role' => 'admin']);
+
+        $context = $this->agreementSigningContext($user, $signedFor);
+        $resource = 'agreement_context:'.$context['context_hash'];
+
+        $this->actingAs($user)
+            ->withSession([
+                'partner_registration' => [
+                    'is_b2b' => true,
+                    'legal_name' => 'Signed For LLC',
+                    'signer_role' => 'ceo',
+                    'signer_name' => 'Offer Signer',
+                    'business_email' => 'one@example.test',
+                ],
+                'simple_l1_identity' => [
+                    'entity_l1_address' => $entityAddress,
+                    'key_l1_address' => $keyAddress,
+                    'proof_token_hash' => hash('sha256', 'proof-token'),
+                    'proof' => [
+                        'intent' => [
+                            'type' => 'agreement.sign',
+                            'nonce' => 'agreement-nonce',
+                            'resource' => $resource,
+                        ],
+                    ],
+                ],
+                'agreement_signing_entity_l1_address' => $entityAddress,
+                'agreement_signing_nonce' => 'agreement-nonce',
+                'agreement_signing_resource' => $resource,
+                'agreement_signing_context' => $context,
+                'agreement_signing_started_at' => now()->toIso8601String(),
+            ])
+            ->postJson(route('partner.register.agreement.sign'), ['simple_l1_sign' => true])
+            ->assertOk();
+
+        $this->assertSame('pending_moderation', $signedFor->refresh()->status);
+        $this->assertSame('pending_signature', $other->refresh()->status);
+        $this->assertNull($other->agreement_signature);
+    }
+
+    public function test_offer_signature_recovers_context_from_sl1e_intent_when_session_rotated(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('a', 39);
+        $keyAddress = 'sl1_'.str_repeat('b', 40);
+
+        $user = User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+            'key_l1_address' => $keyAddress,
+            'identity_provider' => 'identity_wildflow',
+            'meta' => ['simple_l1' => ['identity_rule' => 'external_identity_provider']],
+        ]);
+
+        $entity = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Offer Test LLC',
+            'inn' => '1234567890',
+            'email' => 'offer@example.test',
+            'status' => 'pending_signature',
+            'is_active' => false,
+            'agreement_metadata' => [],
+        ]);
+        $user->managedLegalEntities()->attach($entity->id, ['role' => 'admin']);
+
+        $signedContext = $this->agreementSigningContext($user, $entity, 'signed-nonce');
+        $signedResource = 'agreement_context:'.$signedContext['context_hash'];
+        $rotatedContext = $this->agreementSigningContext($user, $entity, 'rotated-nonce');
+        $rotatedResource = 'agreement_context:'.$rotatedContext['context_hash'];
+
+        $this->actingAs($user)
+            ->withSession([
+                'partner_registration' => [
+                    'is_b2b' => true,
+                    'legal_name' => 'Offer Test LLC',
+                    'signer_role' => 'ceo',
+                    'signer_name' => 'Offer Signer',
+                    'business_email' => 'offer@example.test',
+                ],
+                'simple_l1_identity' => [
+                    'entity_l1_address' => $entityAddress,
+                    'key_l1_address' => $keyAddress,
+                    'proof_token_hash' => hash('sha256', 'proof-token'),
+                    'proof' => [
+                        'intent' => [
+                            'type' => 'agreement.sign',
+                            'nonce' => 'signed-nonce',
+                            'resource' => $signedResource,
+                        ],
+                    ],
+                ],
+                'agreement_signing_entity_l1_address' => $entityAddress,
+                'agreement_signing_nonce' => 'rotated-nonce',
+                'agreement_signing_resource' => $rotatedResource,
+                'agreement_signing_context' => $rotatedContext,
+                'agreement_signing_started_at' => now()->toIso8601String(),
+            ])
+            ->postJson(route('partner.register.agreement.sign'), ['simple_l1_sign' => true])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertSame('pending_moderation', $entity->refresh()->status);
+        $this->assertSame($signedContext['context_hash'], data_get($entity->agreement_metadata, 'signing_context_hash'));
+    }
+
+    public function test_offer_signature_rejects_stale_login_proof_without_agreement_intent(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('a', 39);
+        $keyAddress = 'sl1_'.str_repeat('b', 40);
+
+        $user = User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+            'key_l1_address' => $keyAddress,
+            'identity_provider' => 'identity_wildflow',
+            'meta' => [
+                'simple_l1' => [
+                    'identity_rule' => 'external_identity_provider',
+                ],
+            ],
+        ]);
+
+        $entity = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Offer Test LLC',
+            'inn' => '1234567890',
+            'email' => 'offer@example.test',
+            'status' => 'pending_signature',
+            'is_active' => false,
+            'agreement_metadata' => [],
+        ]);
+        $user->managedLegalEntities()->attach($entity->id, ['role' => 'admin']);
+        $context = $this->agreementSigningContext($user, $entity);
+
+        $this->actingAs($user)
+            ->withSession([
+                'partner_registration' => [
+                    'is_b2b' => true,
+                    'legal_name' => 'Offer Test LLC',
+                    'signer_role' => 'ceo',
+                    'signer_name' => 'Offer Signer',
+                    'business_email' => 'offer@example.test',
+                ],
+                'simple_l1_identity' => [
+                    'entity_l1_address' => $entityAddress,
+                    'key_l1_address' => $keyAddress,
+                    'proof_token_hash' => hash('sha256', 'proof-token'),
+                    'proof' => [
+                        'intent' => [
+                            'type' => 'identity.login',
+                        ],
+                    ],
+                ],
+                'agreement_signing_entity_l1_address' => $entityAddress,
+                'agreement_signing_nonce' => 'agreement-nonce',
+                'agreement_signing_resource' => 'agreement_context:'.$context['context_hash'],
+                'agreement_signing_context' => $context,
+                'agreement_signing_started_at' => now()->toIso8601String(),
+            ])
+            ->postJson(route('partner.register.agreement.sign'), ['simple_l1_sign' => true])
+            ->assertUnprocessable()
+            ->assertJsonFragment(['error' => 'Fresh agreement signing proof is required.']);
+
+        $this->assertSame('pending_signature', $entity->refresh()->status);
+        $this->assertNull($entity->agreement_signature);
     }
 
     public function test_business_registration_verifies_email_before_inn_flow(): void
@@ -243,93 +730,23 @@ class PasswordlessLoginTest extends TestCase
         $this->assertSame('founder@example.test', session('business_registration_verified_email'));
     }
 
-    public function test_cabinet_registration_creates_simple_l1_identity_without_email(): void
+    public function test_cabinet_registration_redirects_to_sl1e_identity_without_local_passkey(): void
     {
-        $this->get('http://meanly.test/cabinet/register')
-            ->assertOk()
-            ->assertSee('Создание аккаунта')
-            ->assertSee('Как вас называть?')
-            ->assertSee('Например, Selim')
-            ->assertSee('required', false)
-            ->assertSee('Создайте профиль без почты')
-            ->assertSee('Профиль входа')
-            ->assertSee('Создать профиль')
-            ->assertDontSee('Ваш Email')
-            ->assertDontSee('mail@example.com')
-            ->assertDontSee('Simple L1 identity')
-            ->assertDontSee('trusted device');
+        $this->get('/vault/register')
+            ->assertRedirect(route('meanly.simple_l1.connect', [
+                'return_to' => route('cabinet.dashboard', [], false),
+                'mode' => 'register',
+            ]));
     }
 
-    public function test_registration_options_create_email_less_simple_l1_user_with_display_name(): void
+    public function test_local_passkey_registration_options_are_retired(): void
     {
-        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
-
-        $response = $this->postJson('/business/register/options', [
-            'registration_target' => 'profile',
-            'display_name' => 'selim',
-        ]);
-
-        $response->assertOk()
-            ->assertJsonStructure(['options', 'identity' => ['label', 'user_id'], 'new_csrf'])
-            ->assertJsonPath('identity.label', 'Selim');
-
-        $user = User::findOrFail($response->json('identity.user_id'));
-
-        $this->assertNull($user->email);
-        $this->assertSame('simple_l1_identity', $user->meta['registration_source'] ?? null);
-        $this->assertSame('Selim', $user->meta['display_name'] ?? null);
-        $this->assertSame('Selim', $user->getPassKeyDisplayName());
-        $this->assertAuthenticatedAs($user);
-
-        Auth::logout();
-        $this->flushSession();
-    }
-
-    public function test_business_registration_options_keep_user_email_less_before_inn_registration(): void
-    {
-        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
-
-        $response = $this->withSession(['business_registration_verified_email' => 'founder@example.test'])
-            ->postJson('/business/register/options', [
-            'registration_target' => 'legal_entity',
-            'display_name' => 'selim',
-            'business_email' => 'founder@example.test',
-        ]);
-
-        $response->assertOk()
-            ->assertJsonPath('identity.label', 'Selim');
-
-        $user = User::findOrFail($response->json('identity.user_id'));
-        $this->assertNull($user->email);
-        $this->assertNull($user->email_verified_at);
-        $this->assertNull($user->phone);
-
-        Auth::logout();
-        $this->flushSession();
-    }
-
-    public function test_business_registration_options_require_display_name_for_business_profile(): void
-    {
-        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
-
-        $this->withSession(['business_registration_verified_email' => 'founder@example.test'])
-            ->postJson('/business/register/options', [
-                'registration_target' => 'legal_entity',
-                'business_email' => 'founder@example.test',
-            ])
-            ->assertStatus(422)
-            ->assertJsonPath('error', 'Введите имя владельца профиля.');
-    }
-
-    public function test_registration_options_require_display_name_for_personal_profile(): void
-    {
-        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
-
         $this->postJson('/business/register/options', [
             'registration_target' => 'profile',
+            'display_name' => 'selim',
         ])
-            ->assertStatus(422)
-            ->assertJsonPath('error', 'Введите имя владельца профиля.');
+            ->assertStatus(410)
+            ->assertJsonPath('error', 'Local passkey registration options were retired. Use SL1E Identity instead.');
     }
 
     public function test_l1_identity_service_keeps_entity_address_separate_from_device_key(): void
@@ -358,7 +775,6 @@ class PasswordlessLoginTest extends TestCase
         $role = Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
         $user = User::factory()->create([
             'first_name' => 'Connected',
-            'email' => 'connected-business@example.test',
         ]);
         $user->assignRole($role);
         \Spatie\LaravelPasskeys\Models\Passkey::factory()->create([

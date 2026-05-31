@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 use Spatie\LaravelPasskeys\Models\Concerns\InteractsWithPasskeys;
 use Spatie\LaravelPasskeys\Models\Concerns\HasPasskeys;
@@ -46,25 +47,66 @@ class User extends Authenticatable implements HasPasskeys
             return $name;
         }
 
-        if ($this->email) {
-            return (string) $this->email;
-        }
-
-        $suffix = strtoupper((string) data_get($this->meta, 'profile_suffix', substr(hash('crc32b', (string) $this->id), -4)));
+        $suffix = strtoupper((string) data_get(
+            $this->meta,
+            'profile_suffix',
+            substr((string) $this->sovereignIdentityAddress(), -6) ?: substr(hash('crc32b', (string) $this->id), -4),
+        ));
 
         return "Meanly Profile {$suffix}";
     }
 
     public function sovereignIdentityAddress(): ?string
     {
-        $address = (string) data_get($this->meta, 'entity_l1_address', data_get($this->meta, 'l1_address', ''));
+        $address = (string) (
+            $this->entity_l1_address
+            ?: data_get($this->meta, 'entity_l1_address')
+            ?: data_get($this->meta, 'l1_address')
+            ?: ''
+        );
 
         return preg_match('/^sl1e_[a-f0-9]{39}$/i', $address) ? $address : null;
+    }
+
+    public function sovereignKeyAddress(): ?string
+    {
+        $address = (string) (
+            $this->key_l1_address
+            ?: data_get($this->meta, 'key_l1_address')
+            ?: ''
+        );
+
+        return preg_match('/^sl1_[a-f0-9]{40}$/i', $address) ? $address : null;
     }
 
     public function hasSovereignIdentity(): bool
     {
         return $this->sovereignIdentityAddress() !== null;
+    }
+
+    public function getEmailAttribute(): ?string
+    {
+        return null;
+    }
+
+    public function setEmailAttribute(mixed $value): void
+    {
+        // Users are wallet principals; business contact email belongs to legal_entities.
+    }
+
+    public function setPasswordAttribute(mixed $value): void
+    {
+        // Password login has been retired for wallet principals.
+    }
+
+    public function setEmailVerifiedAtAttribute(mixed $value): void
+    {
+        // Kept as a no-op for legacy factories and tests.
+    }
+
+    public function setPasswordLoginEnabledAttribute(mixed $value): void
+    {
+        // Kept as a no-op for legacy factories and tests.
     }
 
     public function primarySellerAccount(): ?Seller
@@ -78,7 +120,7 @@ class User extends Authenticatable implements HasPasskeys
             return Seller::find($entity->seller_id);
         }
 
-        return $this->email ? Seller::findByEmail($this->email) : null;
+        return null;
     }
 
     /**
@@ -92,14 +134,14 @@ class User extends Authenticatable implements HasPasskeys
         'last_name',
         'middle_name',
         'phone',
-        'email',
-        'password',
         'ym_user_id',
         'meta',
         'source_site',
         'source_user_id',
-        'password_login_enabled',
         'theme',
+        'entity_l1_address',
+        'key_l1_address',
+        'identity_provider',
     ];
 
     /**
@@ -108,7 +150,6 @@ class User extends Authenticatable implements HasPasskeys
      * @var list<string>
      */
     protected $hidden = [
-        'password',
         'remember_token',
     ];
 
@@ -132,15 +173,13 @@ class User extends Authenticatable implements HasPasskeys
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'password_login_enabled' => 'boolean',
             'meta' => \App\Casts\VaultEncryptedJson::class,
-            'email' => \App\Casts\VaultEncrypted::class . ':email_bidx',
             'phone' => \App\Casts\VaultEncrypted::class . ':phone_bidx',
             'first_name' => \App\Casts\VaultEncrypted::class . ':first_name_bidx',
             'last_name' => \App\Casts\VaultEncrypted::class . ':last_name_bidx',
             'middle_name' => \App\Casts\VaultEncrypted::class . ':middle_name_bidx',
+            'entity_l1_address' => \App\Casts\VaultEncrypted::class . ':entity_l1_address_bidx',
+            'key_l1_address' => \App\Casts\VaultEncrypted::class . ':key_l1_address_bidx',
         ];
     }
 
@@ -208,20 +247,17 @@ class User extends Authenticatable implements HasPasskeys
         return static::where('phone_bidx', $bidx)->exists();
     }
 
-    /**
-     * Helper to find user by email using Blind Index
-     */
-    public static function findByEmail(?string $email): ?self
+    public static function findByEntityL1Address(?string $address): ?self
     {
-        $email = trim((string) $email);
-        if ($email === '') {
+        $address = Str::lower(trim((string) $address));
+        if (! preg_match('/^sl1e_[a-f0-9]{39}$/', $address)) {
             return null;
         }
 
         $salt = config('vault.blind_index.salt', 'default-salt');
-        $bidx = hash_hmac('sha256', strtolower(trim($email)), $salt);
+        $bidx = hash_hmac('sha256', $address, $salt);
 
-        return static::where('email_bidx', $bidx)->first();
+        return static::where('entity_l1_address_bidx', $bidx)->first();
     }
 
     public function shop(): \Illuminate\Database\Eloquent\Relations\BelongsTo

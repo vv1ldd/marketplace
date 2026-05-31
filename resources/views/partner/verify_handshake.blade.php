@@ -650,7 +650,7 @@
             
             const isB2b = {{ (session('partner_registration')['is_b2b'] ?? false) ? 'true' : 'false' }};
             setTimeout(() => {
-                window.location.href = isB2b ? '{{ route('partner.register.offer') }}' : '/cabinet';
+                window.location.href = isB2b ? '{{ route('partner.register.offer') }}' : '/vault';
             }, 1000);
 
         } catch (err) {

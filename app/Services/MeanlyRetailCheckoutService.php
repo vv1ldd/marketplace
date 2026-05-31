@@ -21,7 +21,7 @@ class MeanlyRetailCheckoutService
     ) {}
 
     /**
-     * @param array{name:string|null,email:string,phone:string|null,is_gift?:bool,buyer_user_id?:int|null,buyer_email?:string|null,delivery_email?:string|null} $customer
+     * @param array{name:string|null,email:string|null,phone:string|null,is_gift?:bool,buyer_user_id?:int|null,buyer_email?:string|null,buyer_l1_address?:string|null,delivery_email?:string|null} $customer
      * @param array<string, mixed> $payment
      * @return array<string, mixed>
      */
@@ -48,11 +48,23 @@ class MeanlyRetailCheckoutService
             $orderReference = 'MS-' . strtoupper(Str::random(10));
             $reservationReference = 'meanly-storefront:' . $orderReference;
             $totalRub = round($unitPriceRub * $quantity, 2);
-            $paymentMethod = (string) ($payment['method'] ?? 'meanly_storefront_demo');
-            $paymentStatus = (string) ($payment['status'] ?? 'captured');
+            $paymentMethod = (string) ($payment['method'] ?? 'meanly_storefront_pending');
+            $paymentStatus = (string) ($payment['status'] ?? 'pending');
             $paymentProof = $payment['simple_layer_one'] ?? null;
             $txHash = $payment['tx_hash'] ?? data_get($paymentProof, 'tx_hash');
             $txNonce = $payment['tx_nonce'] ?? data_get($paymentProof, 'tx_nonce');
+            $captured = $paymentStatus === 'captured';
+            $trustedCapture = $captured
+                && $paymentMethod === 'buyer_wallet_rubt'
+                && ! empty($payment['wallet_ledger_entry_id'])
+                && is_array($paymentProof);
+
+            if ($captured && ! $trustedCapture) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Captured checkout requires a verified settlement proof.',
+                ]);
+            }
+
             $fulfillmentMode = (string) ($payment['fulfillment_mode'] ?? StorefrontFulfillmentService::FULFILLMENT_INSTANT);
             $requiresProviderExchange = $this->fulfillment->isProviderBacked($product);
             if ($fulfillmentMode === StorefrontFulfillmentService::FULFILLMENT_PREORDER) {
@@ -85,10 +97,10 @@ class MeanlyRetailCheckoutService
             $order = Order::create([
                 'order_id' => $orderReference,
                 'uuid' => Str::uuid()->toString(),
-                'status' => 'COMPLETED',
+                'status' => $trustedCapture ? 'COMPLETED' : 'NEW',
                 'sub_status' => 'DIRECT_STOREFRONT',
                 'shop_id' => $shop->id,
-                'progress_id' => 4,
+                'progress_id' => $trustedCapture ? 4 : 1,
                 'user_id' => $customer['buyer_user_id'] ?? null,
                 'sales_channel' => $this->storefront->storefrontChannel(),
                 'total_amount' => $totalRub,
@@ -104,6 +116,7 @@ class MeanlyRetailCheckoutService
                     'is_gift' => (bool) ($customer['is_gift'] ?? false),
                     'buyer_user_id' => $customer['buyer_user_id'] ?? null,
                     'buyer_email' => $customer['buyer_email'] ?? null,
+                    'buyer_l1_address' => $customer['buyer_l1_address'] ?? null,
                     'delivery_email' => $customer['delivery_email'] ?? $customer['email'],
                 ],
                 'info' => [
@@ -112,6 +125,7 @@ class MeanlyRetailCheckoutService
                     'wallet_ledger_entry_id' => $payment['wallet_ledger_entry_id'] ?? null,
                     'tx_hash' => $txHash,
                     'tx_nonce' => $txNonce,
+                    'checkout_payload_hash' => $payment['checkout_payload_hash'] ?? null,
                     'fulfillment_mode' => $fulfillmentMode,
                     'preorder_acknowledged' => $preorderAcknowledged,
                     'checkout_availability' => $payment['availability'] ?? null,
@@ -123,7 +137,7 @@ class MeanlyRetailCheckoutService
                 ],
                 'comment' => $paymentMethod === 'buyer_wallet_rubt'
                     ? 'Retail checkout through Meanly marketplace storefront with passkey-signed RUBT wallet payment.'
-                    : 'Retail checkout through Meanly marketplace storefront.',
+                    : 'Retail checkout through Meanly marketplace storefront pending verified payment.',
             ]);
 
             // Save multi-touch search journey attributions
@@ -155,7 +169,9 @@ class MeanlyRetailCheckoutService
 
 
             $orderItem = OrderItems::create([
-                'key' => VoucherEngine::issue($shop->voucher_prefix ?: 'MEAN', $product->sku),
+                'key' => $trustedCapture
+                    ? VoucherEngine::issue($shop->voucher_prefix ?: 'MEAN', $product->sku)
+                    : 'PENDING-'.$orderReference,
                 'uuid' => Str::uuid()->toString(),
                 'order_id' => $order->id,
                 'activate_till' => now()->addYear()->format('Y-m-d'),
@@ -164,7 +180,7 @@ class MeanlyRetailCheckoutService
                 'price_rub' => $unitPriceRub * 100,
                 'price_try' => 0,
                 'type_form_id' => 2,
-                'purchase_status' => 'success',
+                'purchase_status' => $trustedCapture ? 'success' : 'payment_pending',
                 'client_info' => [
                     'email' => $customer['email'],
                     'delivery_email' => $customer['delivery_email'] ?? $customer['email'],
@@ -176,13 +192,17 @@ class MeanlyRetailCheckoutService
                 ],
             ]);
 
-            $fulfillmentStatus = $requiresProviderExchange ? 'provider_redeem_pending' : 'local_code_ready';
+            $fulfillmentStatus = $trustedCapture
+                ? ($requiresProviderExchange ? 'provider_redeem_pending' : 'local_code_ready')
+                : 'payment_pending';
             $vouchers = [];
             $providerInventoryCheckout = $requiresProviderExchange
                 && data_get($payment, 'availability.source') === 'provider_inventory'
                 && data_get($payment, 'availability.status') === 'available';
 
-            if ($this->hasLocalVouchers($product, $shop, $quantity) || ! $requiresProviderExchange) {
+            if (! $trustedCapture) {
+                $vouchers = [];
+            } elseif ($this->hasLocalVouchers($product, $shop, $quantity) || ! $requiresProviderExchange) {
                 $vouchers = $this->reserveVouchers(
                     product: $product,
                     order: $order,
@@ -208,7 +228,7 @@ class MeanlyRetailCheckoutService
                 ]);
             }
 
-            if ($requiresProviderExchange) {
+            if ($trustedCapture && $requiresProviderExchange) {
                 $this->fulfillment->markProviderPending($order, $orderItem, $product, $fulfillmentMode);
                 $order->refresh();
                 $orderItem->refresh();
@@ -220,29 +240,31 @@ class MeanlyRetailCheckoutService
                 'quantity' => $quantity,
             ], $legalEntity);
 
-            $this->ledger->record($shop, 'FINANCE_CAPTURE', $order, [
-                'asset' => $paymentMethod === 'buyer_wallet_rubt' ? 'RUBT' : 'RUB',
-                'amount_rub' => $totalRub,
-                'token_amount' => $paymentMethod === 'buyer_wallet_rubt' ? $totalRub : null,
-                'reference' => $orderReference,
-                'payment_method' => $paymentMethod,
-                'wallet_ledger_entry_id' => $payment['wallet_ledger_entry_id'] ?? null,
-                'simple_layer_one' => $paymentProof,
-                'tx_hash' => $txHash,
-                'tx_nonce' => $txNonce,
-                'description' => $paymentMethod === 'buyer_wallet_rubt'
-                    ? 'Meanly storefront RUBT wallet checkout captured after Passkey verification.'
-                    : 'Meanly storefront retail checkout captured.',
-            ], $legalEntity);
+            if ($trustedCapture) {
+                $this->ledger->record($shop, 'FINANCE_CAPTURE', $order, [
+                    'asset' => $paymentMethod === 'buyer_wallet_rubt' ? 'RUBT' : 'RUB',
+                    'amount_rub' => $totalRub,
+                    'token_amount' => $paymentMethod === 'buyer_wallet_rubt' ? $totalRub : null,
+                    'reference' => $orderReference,
+                    'payment_method' => $paymentMethod,
+                    'wallet_ledger_entry_id' => $payment['wallet_ledger_entry_id'] ?? null,
+                    'simple_layer_one' => $paymentProof,
+                    'tx_hash' => $txHash,
+                    'tx_nonce' => $txNonce,
+                    'description' => $paymentMethod === 'buyer_wallet_rubt'
+                        ? 'Meanly storefront RUBT wallet checkout captured after Passkey verification.'
+                        : 'Meanly storefront retail checkout captured.',
+                ], $legalEntity);
 
-            $this->ledger->record($shop, 'VOUCHER_SLIP_ISSUED', $orderItem, [
-                'order_id' => $order->id,
-                'count' => $requiresProviderExchange ? $quantity : count($vouchers),
-                'channel' => $this->storefront->storefrontChannel(),
-                'stock_type' => $requiresProviderExchange ? 'seller_entitlement' : 'local_code',
-            ], $legalEntity);
+                $this->ledger->record($shop, 'VOUCHER_SLIP_ISSUED', $orderItem, [
+                    'order_id' => $order->id,
+                    'count' => $requiresProviderExchange ? $quantity : count($vouchers),
+                    'channel' => $this->storefront->storefrontChannel(),
+                    'stock_type' => $requiresProviderExchange ? 'seller_entitlement' : 'local_code',
+                ], $legalEntity);
 
-            $this->meterCheckout($legalEntity, $shop, $order, $totalRub, $quantity);
+                $this->meterCheckout($legalEntity, $shop, $order, $totalRub, $quantity);
+            }
 
             try {
                 session()->forget('last_search_log_id');

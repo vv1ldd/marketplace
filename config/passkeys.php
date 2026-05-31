@@ -13,7 +13,7 @@ return [
      * After a successful authentication attempt using a passkey
      * we'll redirect to this URL.
      */
-    'redirect_to_after_login' => '/cabinet',
+    'redirect_to_after_login' => '/vault',
 
     /*
      * These class are responsible for performing core tasks regarding passkeys.

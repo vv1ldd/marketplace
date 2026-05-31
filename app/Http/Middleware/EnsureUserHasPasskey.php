@@ -10,7 +10,7 @@ class EnsureUserHasPasskey
 {
     public function handle(Request $request, Closure $next)
     {
-        // 🛡️ Bypass check during the Passkey enrollment ceremony
+        // Registration and identity popup flows establish SL1E identity before protected areas.
         if (
             $request->routeIs('partner.register.*')
             || $request->routeIs('business.register*')
@@ -25,11 +25,6 @@ class EnsureUserHasPasskey
             || $request->is('theme/*')
             || $request->is('register/verify-intent')
         ) {
-            return $next($request);
-        }
-
-        // 🎟️ Bypass for staff invite accept flow (public onboarding)
-        if ($request->routeIs('invite.accept') || $request->routeIs('invite.accept.options') || $request->routeIs('invite.accept.submit') || $request->is('invite/*')) {
             return $next($request);
         }
 
@@ -58,31 +53,33 @@ class EnsureUserHasPasskey
                 
                 \Illuminate\Support\Facades\Log::debug("EnsureUserHasPasskey: Resolved core user for Seller", [
                     'core_user_found' => !is_null($coreUser),
-                    'core_user_has_passkeys' => $coreUser ? $coreUser->passkeys()->exists() : false,
+                    'core_user_has_identity' => $coreUser instanceof \App\Models\User && $coreUser->hasSovereignIdentity(),
                 ]);
 
-                if (!$coreUser || !$coreUser->passkeys()->exists()) {
-                    \Illuminate\Support\Facades\Log::warning("EnsureUserHasPasskey: Seller core user has NO passkeys. Forced logout.", [
+                if (!$coreUser || !($coreUser instanceof \App\Models\User && $coreUser->hasSovereignIdentity())) {
+                    \Illuminate\Support\Facades\Log::warning("EnsureUserHasPasskey: Seller core user has no SL1E identity. Forced logout.", [
                         'seller_id' => $user->id,
                     ]);
                     Auth::logout();
-                    return redirect('/cabinet/login');
+                    return redirect()->route('login');
                 }
             } else {
                 $hasPasskeys = $user->passkeys()->exists();
+                $hasExternalIdentityProvider = $user instanceof \App\Models\User
+                    && $user->sovereignIdentityAddress() !== null
+                    && data_get($user->meta, 'simple_l1.identity_rule') === 'external_identity_provider';
                 \Illuminate\Support\Facades\Log::debug("EnsureUserHasPasskey: Standard User check", [
                     'has_passkeys' => $hasPasskeys,
+                    'has_external_identity_provider' => $hasExternalIdentityProvider,
                 ]);
 
-                if (!$hasPasskeys) {
-                    \Illuminate\Support\Facades\Log::warning("EnsureUserHasPasskey: Standard User has NO passkeys. Deleting ghost record.", [
+                if (!$hasPasskeys && ! $hasExternalIdentityProvider) {
+                    \Illuminate\Support\Facades\Log::warning("EnsureUserHasPasskey: Standard User has no local passkey or SL1E identity. Forced logout.", [
                         'user_id' => $user->id,
                         'sl1e' => $user->sovereignIdentityAddress(),
                     ]);
                     Auth::logout();
-                    // 🧼 Clean up the ghost B2C user record so it doesn't pollute our database
-                    $user->delete();
-                    return redirect('/cabinet/login');
+                    return redirect()->route('login');
                 }
             }
         }

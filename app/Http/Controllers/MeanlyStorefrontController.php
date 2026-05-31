@@ -8,16 +8,15 @@ use App\Models\ProductInventory;
 use App\Services\CanonicalStorefrontHomepageService;
 use App\Services\LlmProductFactsService;
 use App\Services\MarketplaceDiscoveryService;
-use App\Services\BuyerWalletService;
-use App\Services\BuyerWalletTransactionService;
 use App\Services\MeanlyFirstPartyStorefrontService;
 use App\Services\MeanlyAnalyticsService;
+use App\Services\CanonicalProductSearchSuggestService;
 use App\Services\MeanlyRetailCheckoutService;
 use App\Services\IntentLedgerService;
 use App\Services\OrderSupportTicketService;
 use App\Services\SimpleL1ProtocolClient;
 use App\Services\StorefrontFulfillmentService;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -41,22 +40,23 @@ class MeanlyStorefrontController extends Controller
         return view('storefront.index', compact('shop', 'products', 'query', 'catalogJsonLd') + ['homepage' => $data]);
     }
 
-    public function search(Request $request, CanonicalStorefrontHomepageService $homepage, \App\Services\CatalogSearchLogService $logService): JsonResponse
+    public function search(Request $request, CanonicalStorefrontHomepageService $homepage): JsonResponse
     {
         $data = $homepage->searchPage($request);
         $query = $data['query'];
         $products = $data['browse_products'];
         $products->setPath(route('home'));
 
-        if (filled($query)) {
-            $logService->log($query, 'storefront', $products->total());
-        }
-
         return response()->json([
             'query' => $query,
             'total' => $products->total(),
             'html' => view('storefront.partials.search-results', compact('query', 'products'))->render(),
         ]);
+    }
+
+    public function suggest(Request $request, CanonicalProductSearchSuggestService $suggest): JsonResponse
+    {
+        return response()->json($suggest->suggestions($request));
     }
 
     public function show(Request $request, string $slug, MeanlyFirstPartyStorefrontService $storefront, MarketplaceDiscoveryService $discovery, LlmProductFactsService $llmFacts, StorefrontFulfillmentService $fulfillment)
@@ -113,7 +113,13 @@ class MeanlyStorefrontController extends Controller
 
         if ($this->isRubtWalletPayment($data['payment_method'] ?? null)) {
             throw ValidationException::withMessages([
-                'payment_method' => 'Оплата RUBT требует Passkey-подписи. Используйте защищенный RUBT checkout.',
+                'payment_method' => 'Локальная оплата RUBT отключена. Баланс и операции перенесены в SL1 Wallet.',
+            ]);
+        }
+
+        if ($this->isSbpPaymentStub($data['payment_method'] ?? null)) {
+            throw ValidationException::withMessages([
+                'payment_method' => 'Оплата через СБП скоро будет доступна. Мы не создаем оплаченный заказ без подтверждения банка.',
             ]);
         }
 
@@ -128,12 +134,15 @@ class MeanlyStorefrontController extends Controller
             $request->boolean('preorder_acknowledged'),
         );
         $customer = $this->checkoutCustomer($request, $data);
-        $simpleL1Intent = $this->submitSimpleL1CheckoutIntent($request, $product, (int) $data['quantity'], $availability, $customer);
+        $checkoutPayload = $this->canonicalCheckoutPayload($product, (int) $data['quantity'], $availability, $customer);
+        $checkoutPayloadHash = hash('sha256', json_encode($checkoutPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $simpleL1Intent = $this->submitSimpleL1CheckoutIntent($request, $checkoutPayload, $checkoutPayloadHash);
 
         $result = $checkout->checkout($product, $customer, (int) $data['quantity'], [
             'fulfillment_mode' => $availability['fulfillment_mode'],
             'preorder_acknowledged' => $availability['preorder_acknowledged'],
             'availability' => $availability,
+            'checkout_payload_hash' => $checkoutPayloadHash,
         ]);
         $this->attachSimpleL1IntentProjection($result['order'], $simpleL1Intent);
         if (($result['fulfillment_status'] ?? null) === 'provider_redeem_pending') {
@@ -238,268 +247,18 @@ class MeanlyStorefrontController extends Controller
     }
 
 
-    public function walletOptions(
-        Request $request,
-        MeanlyFirstPartyStorefrontService $storefront,
-        BuyerWalletService $wallets,
-        BuyerWalletTransactionService $transactions,
-        StorefrontFulfillmentService $fulfillment,
-    ) {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-
-        $data = $request->validate([
-            'product_id' => 'required|integer|exists:products,id',
-            'quantity' => 'required|integer|min:1|max:5',
-            'name' => 'nullable|string|max:120',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:64',
-            'is_gift' => 'nullable|boolean',
-            'fulfillment_mode' => 'nullable|in:instant',
-            'preorder_acknowledged' => 'nullable|boolean',
-        ]);
-
-        $product = $storefront->marketplaceProductsQuery()
-            ->whereKey($data['product_id'])
-            ->firstOrFail();
-        $availability = $fulfillment->assertCheckoutAvailability(
-            $product,
-            (int) $data['quantity'],
-            $data['fulfillment_mode'] ?? null,
-            $request->boolean('preorder_acknowledged'),
-        );
-        $customer = $this->checkoutCustomer($request, $data);
-        $envelope = $transactions->buildPurchaseDebitEnvelope(
-            $user,
-            $product,
-            $customer,
-            (int) $data['quantity'],
-            $availability['fulfillment_mode'],
-        );
-        $balance = $wallets->balance($user);
-
-        if ($balance['available_minor'] < $envelope['amount_minor']) {
-            throw ValidationException::withMessages([
-                'wallet' => 'Недостаточно RUBT на балансе для оплаты заказа.',
-            ]);
-        }
-
-        $signing = $transactions->authenticationOptions($user, $request, $envelope);
-        $pending = [
-            'envelope' => $envelope,
-            'signing_options' => $signing['json'],
-            'checkout' => [
-                'product_id' => (int) $product->id,
-                'quantity' => (int) $envelope['quantity'],
-                'customer' => $customer,
-                'fulfillment_mode' => $availability['fulfillment_mode'],
-                'preorder_acknowledged' => $availability['preorder_acknowledged'],
-                'availability' => $availability,
-            ],
-            'expires_at' => now()->addMinutes(10)->timestamp,
-        ];
-
-        session([
-            'buyer_wallet_checkout.'.$envelope['pending_tx_id'] => $pending,
-        ]);
-
-        app(MeanlyAnalyticsService::class)->track('checkout.wallet.options_created', [
-            'quantity' => (int) $envelope['quantity'],
-            'amount_minor' => $envelope['amount_minor'],
-            'asset' => 'RUBT',
-            'fulfillment_mode' => $availability['fulfillment_mode'] ?? null,
-        ], [
-            'event_type' => 'checkout',
-            'surface' => 'storefront',
-            'product_id' => $product->id,
-            'user_id' => $user->id,
-            'shop_id' => $product->shop_id,
-            'category' => $product->canonical_category ?? $product->category,
-            'currency' => 'RUBT',
-        ]);
-
-        return response()->json($signing['options'] + [
-            'pending_tx_id' => $envelope['pending_tx_id'],
-            'tx_hash' => $envelope['tx_hash'],
-            'tx_nonce' => $envelope['payload']['nonce'],
-            'l1_address' => $envelope['payload']['buyer_l1_address'],
-            'amount_minor' => $envelope['amount_minor'],
-            'amount' => $envelope['amount'],
-            'asset' => 'RUBT',
-            'fulfillment_mode' => $availability['fulfillment_mode'],
-            'canonical_payload' => $envelope['payload'],
-            'canonical_json' => $envelope['canonical_json'],
-        ]);
+    public function walletOptions(Request $request): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Локальная оплата RUBT отключена. Баланс и операции находятся в SL1 Wallet.',
+        ], 410);
     }
 
-    public function walletConfirm(
-        Request $request,
-        MeanlyFirstPartyStorefrontService $storefront,
-        MeanlyRetailCheckoutService $checkout,
-        BuyerWalletService $wallets,
-        BuyerWalletTransactionService $transactions,
-        StorefrontFulfillmentService $fulfillment,
-    ) {
-        $user = $request->user();
-        if (! $user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-
-        $data = $request->validate([
-            'pending_tx_id' => 'required|string',
-            'tx_hash' => 'required|string|size:64',
-            'assertion' => 'required|array',
-        ]);
-
-        $sessionKey = 'buyer_wallet_checkout.'.$data['pending_tx_id'];
-        $pending = session($sessionKey);
-        if (! is_array($pending)) {
-            throw ValidationException::withMessages([
-                'pending_tx_id' => 'Контекст RUBT-подписи утерян. Обновите страницу и повторите оплату.',
-            ]);
-        }
-
-        if ((int) ($pending['expires_at'] ?? 0) < now()->timestamp) {
-            session()->forget($sessionKey);
-            throw ValidationException::withMessages([
-                'pending_tx_id' => 'Контекст RUBT-подписи истек. Подпишите оплату заново.',
-            ]);
-        }
-
-        $envelope = $pending['envelope'] ?? null;
-        if (! is_array($envelope) || ! hash_equals((string) ($envelope['tx_hash'] ?? ''), (string) $data['tx_hash'])) {
-            throw ValidationException::withMessages([
-                'tx_hash' => 'RUBT transaction hash does not match the pending checkout.',
-            ]);
-        }
-
-        $proof = $transactions->verifyAssertion(
-            $user,
-            $data['assertion'],
-            (string) $pending['signing_options'],
-            $envelope,
-        );
-
-        $product = $storefront->marketplaceProductsQuery()
-            ->whereKey((int) data_get($pending, 'checkout.product_id'))
-            ->firstOrFail();
-        $quantity = (int) data_get($pending, 'checkout.quantity', 1);
-        $customer = (array) data_get($pending, 'checkout.customer', []);
-        $availability = $fulfillment->assertCheckoutAvailability(
-            $product,
-            $quantity,
-            (string) data_get($pending, 'checkout.fulfillment_mode', 'instant'),
-            (bool) data_get($pending, 'checkout.preorder_acknowledged', false),
-        );
-        $balance = $wallets->balance($user);
-
-        if ($balance['available_minor'] < (int) $envelope['amount_minor']) {
-            throw ValidationException::withMessages([
-                'wallet' => 'Недостаточно RUBT на балансе для оплаты заказа.',
-            ]);
-        }
-
-        $result = DB::transaction(function () use ($user, $wallets, $checkout, $product, $customer, $quantity, $envelope, $proof, $availability) {
-            $walletEntry = $wallets->debitRUBT(
-                user: $user,
-                amountMinor: (int) $envelope['amount_minor'],
-                entryType: 'BUYER_PURCHASE_DEBIT',
-                idempotencyKey: 'buyer-wallet-checkout:'.$envelope['tx_hash'],
-                payload: [
-                    'source' => 'meanly_storefront_wallet_checkout',
-                    'simple_layer_one' => $proof,
-                    'checkout' => [
-                        'product_id' => (int) $product->id,
-                        'sku' => (string) $product->sku,
-                        'quantity' => $quantity,
-                        'fulfillment_mode' => $availability['fulfillment_mode'],
-                    ],
-                ],
-                txHash: (string) $envelope['tx_hash'],
-                nonce: (int) data_get($envelope, 'payload.nonce'),
-            );
-
-            $result = $checkout->checkout($product, $customer, $quantity, [
-                'method' => 'buyer_wallet_rubt',
-                'status' => 'captured',
-                'wallet_ledger_entry_id' => $walletEntry->id,
-                'simple_layer_one' => $proof,
-                'tx_hash' => (string) $envelope['tx_hash'],
-                'tx_nonce' => (int) data_get($envelope, 'payload.nonce'),
-                'fulfillment_mode' => $availability['fulfillment_mode'],
-                'preorder_acknowledged' => $availability['preorder_acknowledged'],
-                'availability' => $availability,
-            ]);
-
-            $walletEntry->payload = array_merge($walletEntry->payload ?? [], [
-                'checkout_result' => [
-                    'order_id' => $result['order']->id,
-                    'order_reference' => $result['order']->order_id,
-                    'vouchers_count' => count($result['vouchers'] ?? []),
-                    'fulfillment_mode' => $availability['fulfillment_mode'],
-                ],
-            ]);
-            $walletEntry->save();
-
-            return $result + ['wallet_ledger_entry' => $walletEntry->refresh()];
-        });
-
-        if (($result['fulfillment_status'] ?? null) === 'provider_redeem_pending') {
-            $fulfillment->fulfillProviderOrder($result['order']);
-            $result['order'] = $result['order']->refresh();
-        }
-
-        session()->forget($sessionKey);
-
-        $safeUrl = URL::signedRoute('meanly.storefront.orders.safe.show', [
-            'order' => $result['order']->uuid,
-        ]);
-        $safeStatusUrl = URL::signedRoute('meanly.storefront.orders.safe.status', [
-            'order' => $result['order']->uuid,
-        ]);
-        $safeOpenUrl = URL::signedRoute('meanly.storefront.orders.safe.open', [
-            'order' => $result['order']->uuid,
-        ]);
-
-        session([
-            'storefront_order_safe.'.$result['order']->uuid => true,
-        ]);
-
-        app(MeanlyAnalyticsService::class)->track('checkout.wallet.confirmed', [
-            'quantity' => $quantity,
-            'amount_minor' => $envelope['amount_minor'],
-            'fulfillment_status' => $result['fulfillment_status'] ?? null,
-            'safe_status' => $this->orderSafeStatus($result['order'])['status'],
-            'asset' => 'RUBT',
-        ], [
-            'event_type' => 'checkout',
-            'surface' => 'storefront',
-            'product_id' => $product->id,
-            'order_id' => $result['order']->id ?? null,
-            'user_id' => $user->id,
-            'shop_id' => $product->shop_id,
-            'category' => $product->canonical_category ?? $product->category,
-            'currency' => 'RUBT',
-        ]);
-
+    public function walletConfirm(Request $request): JsonResponse
+    {
         return response()->json([
-            'success' => true,
-            'order_id' => $result['order']->order_id,
-            'total_rub' => $result['total_rub'],
-            'safe_status' => $this->orderSafeStatus($result['order'])['status'],
-            'fulfillment_mode' => $availability['fulfillment_mode'],
-            'safe_url' => $safeUrl,
-            'safe_status_url' => $safeStatusUrl,
-            'safe_open_url' => $safeOpenUrl,
-            'cabinet_safe_url' => $this->cabinetSafeUrl($result['order']),
-            'redirect_url' => $safeUrl,
-            'wallet_ledger_entry_id' => $result['wallet_ledger_entry']->id,
-            'tx_hash' => $proof['tx_hash'],
-            'tx_nonce' => $proof['tx_nonce'],
-            'l1_address' => $proof['l1_address'],
-        ]);
+            'message' => 'Локальная оплата RUBT отключена. Подтверждение покупок будет идти через банк и SL1 Wallet.',
+        ], 410);
     }
 
     public function orderSafe(Request $request, Order $order)
@@ -780,9 +539,8 @@ class MeanlyStorefrontController extends Controller
     {
         $user = $request->user();
         $isGift = $request->boolean('is_gift');
-        $accountEmail = trim((string) ($user?->email ?? ''));
         $submittedEmail = trim((string) ($data['email'] ?? ''));
-        $requiresRecipientEmail = $isGift || ! $user || $accountEmail === '';
+        $requiresRecipientEmail = $isGift || ! $user;
 
         if ($requiresRecipientEmail && $submittedEmail === '') {
             throw ValidationException::withMessages([
@@ -790,7 +548,7 @@ class MeanlyStorefrontController extends Controller
             ]);
         }
 
-        $deliveryEmail = $requiresRecipientEmail ? $submittedEmail : $accountEmail;
+        $deliveryEmail = $submittedEmail !== '' ? $submittedEmail : null;
 
         return [
             'name' => $isGift
@@ -800,7 +558,8 @@ class MeanlyStorefrontController extends Controller
             'phone' => $data['phone'] ?? null,
             'is_gift' => $isGift,
             'buyer_user_id' => $user?->id,
-            'buyer_email' => $accountEmail !== '' ? $accountEmail : null,
+            'buyer_email' => null,
+            'buyer_l1_address' => $user?->sovereignIdentityAddress(),
             'delivery_email' => $deliveryEmail,
         ];
     }
@@ -821,38 +580,24 @@ class MeanlyStorefrontController extends Controller
         return $fallback;
     }
 
-    private function submitSimpleL1CheckoutIntent(Request $request, Product $product, int $quantity, array $availability, array $customer): ?array
+    private function submitSimpleL1CheckoutIntent(Request $request, array $payload, string $payloadHash): ?array
     {
         $identity = session('simple_l1_identity');
 
-        if (! is_array($identity) || empty($identity['proof_token']) || empty($identity['entity_l1_address'])) {
+        if (! is_array($identity) || empty($identity['proof_handle']) || empty($identity['entity_l1_address'])) {
             return null;
         }
 
-        $payload = [
-            'type' => 'commerce.order.checkout',
-            'product_id' => $product->id,
-            'product_slug' => $product->slug,
-            'quantity' => $quantity,
-            'fulfillment_mode' => $availability['fulfillment_mode'] ?? null,
-            'amount' => (string) ($product->price ?? $product->sell_price ?? ''),
-            'currency' => 'RUB',
-            'buyer_user_id' => $customer['buyer_user_id'] ?? null,
-            'delivery_email_hash' => isset($customer['delivery_email'])
-                ? hash('sha256', strtolower((string) $customer['delivery_email']))
-                : null,
-        ];
+        $proofToken = Cache::get('simple_l1:proof_token:'.(string) $identity['proof_handle']);
+        if (! is_string($proofToken) || $proofToken === '') {
+            return null;
+        }
 
-        $idempotencyKey = hash('sha256', implode('|', [
-            'commerce.order.checkout',
-            (string) $identity['entity_l1_address'],
-            (string) $product->id,
-            (string) $quantity,
-            (string) ($customer['delivery_email'] ?? ''),
-        ]));
+        $payload['payload_hash'] = $payloadHash;
+        $idempotencyKey = hash('sha256', (string) $identity['entity_l1_address'].'|'.$payloadHash);
 
         $response = app(SimpleL1ProtocolClient::class)->submitIntent(
-            proofToken: (string) $identity['proof_token'],
+            proofToken: $proofToken,
             capability: 'marketplace.checkout.create',
             scope: 'marketplace:meanly',
             payload: $payload,
@@ -865,7 +610,35 @@ class MeanlyStorefrontController extends Controller
             ]);
         }
 
+        $gatewayPayloadHash = (string) data_get($response, 'intent.payload_hash', '');
+        if ($gatewayPayloadHash !== '' && ! hash_equals($payloadHash, $gatewayPayloadHash)) {
+            throw ValidationException::withMessages([
+                'simple_l1' => 'Simple L1 intent payload does not match this checkout.',
+            ]);
+        }
+
         return $response;
+    }
+
+    private function canonicalCheckoutPayload(Product $product, int $quantity, array $availability, array $customer): array
+    {
+        $unitPriceRub = round(((float) ($product->price_rub ?? 0)) / 100, 2);
+        $deliveryEmail = $customer['delivery_email'] ?? $customer['email'] ?? null;
+
+        return [
+            'type' => 'commerce.order.checkout',
+            'product_id' => (int) $product->id,
+            'product_slug' => (string) $product->slug,
+            'sku' => (string) $product->sku,
+            'quantity' => $quantity,
+            'unit_price' => $unitPriceRub,
+            'total' => round($unitPriceRub * $quantity, 2),
+            'currency' => 'RUB',
+            'fulfillment_mode' => $availability['fulfillment_mode'] ?? null,
+            'buyer_user_id' => $customer['buyer_user_id'] ?? null,
+            'buyer_l1_address' => $customer['buyer_l1_address'] ?? null,
+            'delivery_hash' => $deliveryEmail ? hash('sha256', strtolower((string) $deliveryEmail)) : null,
+        ];
     }
 
     private function attachSimpleL1IntentProjection(Order $order, ?array $intentResponse): void
@@ -901,6 +674,16 @@ class MeanlyStorefrontController extends Controller
             'rub_token',
             'buyer_wallet_rubt',
             'wallet',
+        ], true);
+    }
+
+    private function isSbpPaymentStub(?string $paymentMethod): bool
+    {
+        return in_array(strtolower(trim((string) $paymentMethod)), [
+            'sbp',
+            'sbp_qr',
+            'sbp_link',
+            'sbp_coming_soon',
         ], true);
     }
 
@@ -1019,7 +802,7 @@ class MeanlyStorefrontController extends Controller
         }
 
         return [
-            'status' => 'paid',
+            'status' => 'payment_pending',
             'label' => 'Ожидаем подтверждение',
             'message' => 'Проверяем подтверждение оплаты и готовим сейф заказа.',
             'paid' => false,
