@@ -6,20 +6,20 @@ use App\Models\SovereignLedger;
 use App\Models\Shop;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Meanly\Mdk\Kernel\Identity\CanonicalJsonEncoder;
-use Meanly\Mdk\Kernel\Core\DLVMKernel;
-use Meanly\Mdk\Kernel\Core\EngineConfig;
-use Meanly\Mdk\Kernel\Contracts\StateInterface;
 
 class LedgerService
 {
-    private ?DLVMKernel $kernel = null;
+    private const CONSTITUTION_ID = 'consortium-sovereign-v1';
+    private const ENGINE_CONFIG = [
+        'mathMode' => 'atto',
+        'strictIdentity' => true,
+    ];
 
     public function __construct()
     {
-        // 🚀 Initialize deterministic execution environment
-        // In a real scenario, we would load the latest state from DB
+        //
     }
+
     public function record(
         ?Shop $shop,
         string $eventType,
@@ -31,19 +31,6 @@ class LedgerService
         ?array $outputState = null
     ): SovereignLedger {
         return DB::transaction(function () use ($shop, $eventType, $entity, $payload, $legalEntity, $triggerSource, $inputData, $outputState) {
-            $encoder = new CanonicalJsonEncoder();
-            
-            // 🚀 Deterministic Identity Kernel initialization
-            $config = new EngineConfig(
-                constitutionId: 'consortium-sovereign-v1',
-                mathMode: 'atto',
-                strictIdentity: true
-            );
-            $fingerprint = new \Meanly\Mdk\Kernel\Identity\ExecutionFingerprint(
-                constitutionId: 'consortium-sovereign-v1',
-                config: $config
-            );
-
             // Auto-resolve legal entity from shop if not explicitly provided
             $legalEntityId = $legalEntity?->id ?? $shop?->legal_entity_id;
             
@@ -81,7 +68,7 @@ class LedgerService
 
             // 2. Build the Document of Intent (Deterministic Packet)
             $enrichedPayload = array_merge($payload, [
-                'kernel_fp' => $fingerprint->getHash(),
+                'kernel_fp' => $this->kernelFingerprint(),
                 'roles' => $roles ?? []
             ]);
 
@@ -97,7 +84,7 @@ class LedgerService
                 'out' => $outputState,
             ];
 
-            $canonicalJson = $encoder->encode($data);
+            $canonicalJson = $this->canonicalJson($data);
             $entryFingerprint = hash('sha256', $canonicalJson);
 
             // 3. Store with Kernel Proof
@@ -174,8 +161,6 @@ class LedgerService
         $errors = [];
         // Initialize expectedPrev from the FIRST record in our subset to allow segmented chain verification!
         $expectedPrev = $entries->first()?->previous_fingerprint ?? null; 
-        $encoder = new CanonicalJsonEncoder();
-
         foreach ($entries as $entry) {
             // Check chaining
             if ($entry->previous_fingerprint !== $expectedPrev) {
@@ -195,7 +180,7 @@ class LedgerService
                 'out' => $entry->output_state,
             ];
 
-            $calculated = hash('sha256', $encoder->encode($data));
+            $calculated = hash('sha256', $this->canonicalJson($data));
 
             if ($entry->fingerprint !== $calculated) {
                 $errors[] = "Data corruption at ID {$entry->id}: Fingerprint mismatch.";
@@ -227,8 +212,6 @@ class LedgerService
 
         $errors = [];
         $expectedPrev = $entries->first()?->previous_fingerprint ?? null; 
-        $encoder = new CanonicalJsonEncoder();
-
         foreach ($entries as $entry) {
             if ($entry->previous_fingerprint !== $expectedPrev) {
                 $errors[] = "Chain broken at ID {$entry->id}: Previous hash mismatch.";
@@ -246,7 +229,7 @@ class LedgerService
                 'out' => $entry->output_state,
             ];
 
-            $calculated = hash('sha256', $encoder->encode($data));
+            $calculated = hash('sha256', $this->canonicalJson($data));
 
             if ($entry->fingerprint !== $calculated) {
                 $errors[] = "Data corruption at ID {$entry->id}: Fingerprint mismatch.";
@@ -260,5 +243,44 @@ class LedgerService
             'errors' => $errors,
             'count' => $entries->count()
         ];
+    }
+
+    private function kernelFingerprint(): string
+    {
+        return hash('sha256', $this->canonicalJson([
+            'constitutionId' => self::CONSTITUTION_ID,
+            'config' => self::ENGINE_CONFIG,
+        ]));
+    }
+
+    private function canonicalJson(mixed $value): string
+    {
+        $encoded = json_encode(
+            $this->canonicalize($value),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR
+        );
+
+        return $encoded;
+    }
+
+    private function canonicalize(mixed $value): mixed
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if (! array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        }
+
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->canonicalize($item);
+        }
+
+        return $value;
     }
 }
