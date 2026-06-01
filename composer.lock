@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "69879ec21939148458d029602e97ec94",
+    "content-hash": "6efd62eadbe2b3e58ae8a4705fe94b9a",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2647,29 +2647,29 @@
         },
         {
             "name": "meanly/mdk-kernel",
-            "version": "0.1.0",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/vv1ldd/MDK-Kernel.git",
+                "reference": "b7dd8dde5a27eb21b2abb6878a6d0ed8e030b40a"
+            },
             "dist": {
-                "type": "path",
-                "url": "packages/mdk-kernel",
-                "reference": "86bae5ba9f07c6c8a13dee6cff1e7a851d5b1547"
+                "type": "zip",
+                "url": "https://api.github.com/repos/vv1ldd/MDK-Kernel/zipball/b7dd8dde5a27eb21b2abb6878a6d0ed8e030b40a",
+                "reference": "b7dd8dde5a27eb21b2abb6878a6d0ed8e030b40a",
+                "shasum": ""
             },
             "require": {
-                "ext-bcmath": "*",
-                "ext-pdo": "*",
                 "php": ">=8.2"
             },
             "require-dev": {
                 "phpunit/phpunit": "^10.0"
             },
+            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
                     "Meanly\\Mdk\\Kernel\\": "src/"
-                }
-            },
-            "autoload-dev": {
-                "psr-4": {
-                    "Meanly\\Mdk\\Kernel\\Tests\\": "tests/"
                 }
             },
             "license": [
@@ -2677,12 +2677,10 @@
             ],
             "description": "Deterministic Ledger Virtual Machine (DLVM) - Pure financial execution engine",
             "support": {
-                "source": "https://github.com/vv1ldd/MDK-Kernel.git"
+                "source": "https://github.com/vv1ldd/MDK-Kernel/tree/main",
+                "issues": "https://github.com/vv1ldd/MDK-Kernel/issues"
             },
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
+            "time": "2026-04-12T13:28:28+00:00"
         },
         {
             "name": "monolog/monolog",
@@ -11201,7 +11199,9 @@
     ],
     "aliases": [],
     "minimum-stability": "beta",
-    "stability-flags": {},
+    "stability-flags": {
+        "meanly/mdk-kernel": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

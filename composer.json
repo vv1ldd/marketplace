@@ -15,7 +15,7 @@
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.32",
         "livewire/livewire": "^4.3",
-        "meanly/mdk-kernel": "0.1.0",
+        "meanly/mdk-kernel": "dev-main",
         "mrt1m/playstation-store-api": "^2.2",
         "opcodesio/log-viewer": "^3.18",
         "php-ffmpeg/php-ffmpeg": "^1.4",
@@ -95,14 +95,8 @@
     "prefer-stable": true,
     "repositories": [
         {
-            "type": "path",
-            "url": "packages/mdk-kernel",
-            "options": {
-                "symlink": true,
-                "versions": {
-                    "meanly/mdk-kernel": "0.1.0"
-                }
-            }
+            "type": "vcs",
+            "url": "https://github.com/vv1ldd/MDK-Kernel.git"
         },
         {
             "type": "path",
