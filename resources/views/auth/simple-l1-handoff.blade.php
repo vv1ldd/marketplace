@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="refresh" content="6;url={{ $authorizeUrl }}">
-    <title>Переход в Simple Layer One</title>
+    <title>{{ __('auth.simple_l1.page_title') }}</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800;900&display=swap">
     <style>
         :root {
@@ -149,7 +149,7 @@
         </div>
         <div class="actions">
             <a class="primary" href="{{ $authorizeUrl }}">{{ $handoff['cta'] }}</a>
-            <span class="small">Переходим через <span data-handoff-countdown>5</span> секунд...</span>
+            <span class="small">{{ __('auth.simple_l1.countdown_prefix') }} <span data-handoff-countdown>5</span> {{ __('auth.simple_l1.countdown_suffix') }}</span>
         </div>
     </main>
     <script>

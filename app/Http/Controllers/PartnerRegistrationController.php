@@ -339,11 +339,10 @@ class PartnerRegistrationController extends Controller
 
         $user = Auth::user();
         if (! $user instanceof User || ! $user->hasSovereignIdentity()) {
-            return redirect()
-                ->route('meanly.simple_l1.connect', [
-                    'return_to' => route('business.register', [], false),
-                    'mode' => 'login',
-                ]);
+            return redirect(route('meanly.simple_l1.connect', [
+                'return_to' => route('business.register', [], false),
+                'mode' => 'login',
+            ], false));
         }
         $businessEmail = mb_strtolower(trim((string) ($request->input('business_email') ?: session('business_registration_verified_email'))));
         if ($this->registrationTarget($request) === 'legal_entity' && (! $businessEmail || $businessEmail !== session('business_registration_verified_email'))) {
@@ -603,10 +602,10 @@ class PartnerRegistrationController extends Controller
         $user = Auth::user();
         if (!$reg || !$user) return redirect()->route('partner.register');
         if (! $user->hasSovereignIdentity()) {
-            return redirect()->route('meanly.simple_l1.connect', [
+            return redirect(route('meanly.simple_l1.connect', [
                 'return_to' => route('meanly.simple_l1.complete', ['next' => route('partner.register.offer', [], false)], false),
                 'mode' => 'login',
-            ]);
+            ], false));
         }
 
         $type = $this->agreementTypeForRegistration($reg);

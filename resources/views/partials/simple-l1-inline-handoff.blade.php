@@ -136,16 +136,26 @@
     <div class="sl1-inline-handoff" data-sl1-inline-handoff aria-hidden="true">
         <section class="sl1-inline-handoff-card" role="status" aria-live="polite">
             <div class="sl1-inline-handoff-eyebrow"><span class="sl1-inline-handoff-mark">SL</span> Simple Layer One</div>
-            <h2 class="sl1-inline-handoff-title" data-sl1-inline-handoff-title>Сейчас откроется Simple Layer One</h2>
-            <p class="sl1-inline-handoff-body" data-sl1-inline-handoff-body>Подтвердите действие через passkey, затем вернетесь обратно в Meanly.</p>
+            <h2 class="sl1-inline-handoff-title" data-sl1-inline-handoff-title>{{ __('auth.simple_l1.inline.title') }}</h2>
+            <p class="sl1-inline-handoff-body" data-sl1-inline-handoff-body>{{ __('auth.simple_l1.inline.body') }}</p>
             <div class="sl1-inline-handoff-facts" data-sl1-inline-handoff-facts></div>
             <div class="sl1-inline-handoff-actions">
-                <a class="sl1-inline-handoff-primary" href="#" data-sl1-inline-handoff-action>Продолжить сейчас</a>
-                <span class="sl1-inline-handoff-countdown" data-sl1-inline-handoff-status>Переходим через 5 секунд...</span>
+                <a class="sl1-inline-handoff-primary" href="#" data-sl1-inline-handoff-action>{{ __('auth.simple_l1.inline.cta') }}</a>
+                <span class="sl1-inline-handoff-countdown" data-sl1-inline-handoff-status>{{ __('auth.simple_l1.inline.countdown', ['seconds' => 5]) }}</span>
             </div>
         </section>
     </div>
+    @php
+        $simpleL1HandoffCopy = [
+            'title' => __('auth.simple_l1.inline.title'),
+            'body' => __('auth.simple_l1.inline.body'),
+            'cta' => __('auth.simple_l1.inline.cta'),
+            'countdown' => __('auth.simple_l1.inline.countdown', ['seconds' => '__SECONDS__']),
+            'redirecting' => __('auth.simple_l1.inline.redirecting'),
+        ];
+    @endphp
     <script>
+        window.meanlySimpleL1HandoffCopy = @json($simpleL1HandoffCopy);
         (() => {
             const initSimpleL1InlineHandoff = () => {
                 const overlay = document.querySelector('[data-sl1-inline-handoff]');
@@ -185,9 +195,10 @@
 
                 const showHandoff = (handoff, redirectUrl) => {
                     clearTimers();
-                    titleNode.textContent = handoff?.title || 'Сейчас откроется Simple Layer One';
-                    bodyNode.textContent = handoff?.body || 'Подтвердите действие через passkey, затем вернетесь обратно в Meanly.';
-                    actionNode.textContent = handoff?.cta || 'Продолжить сейчас';
+                    const copy = window.meanlySimpleL1HandoffCopy || {};
+                    titleNode.textContent = handoff?.title || copy.title || 'Simple Layer One is opening';
+                    bodyNode.textContent = handoff?.body || copy.body || 'Confirm with your passkey, then return to Meanly.';
+                    actionNode.textContent = handoff?.cta || copy.cta || 'Continue now';
                     actionNode.href = redirectUrl;
                     factsNode.innerHTML = '';
                     (handoff?.facts || []).forEach((fact) => {
@@ -200,12 +211,12 @@
                     overlay.classList.add('is-visible');
 
                     let secondsLeft = 5;
-                    statusNode.textContent = `Переходим через ${secondsLeft} секунд...`;
+                    statusNode.textContent = (copy.countdown || 'Redirecting in __SECONDS__ seconds...').replace('__SECONDS__', secondsLeft);
                     countdownTimer = window.setInterval(() => {
                         secondsLeft -= 1;
                         statusNode.textContent = secondsLeft > 0
-                            ? `Переходим через ${secondsLeft} секунд...`
-                            : 'Переходим...';
+                            ? (copy.countdown || 'Redirecting in __SECONDS__ seconds...').replace('__SECONDS__', secondsLeft)
+                            : (copy.redirecting || 'Redirecting...');
                     }, 1000);
                     redirectTimer = window.setTimeout(() => {
                         window.location.assign(redirectUrl);

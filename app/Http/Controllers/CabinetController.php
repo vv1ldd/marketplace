@@ -40,7 +40,7 @@ class CabinetController extends Controller
             'intent_description' => 'Meanly получит свежий identity proof, чтобы показать ваши покупки и коды. Доступ к ключам SL1 не передается.',
             'intent_cta' => 'Открыть сейф',
             'intent_resource' => 'meanly:cabinet:vault',
-        ]);
+        ], false);
 
         $orders = collect();
         $safeOrders = collect();

@@ -24,7 +24,7 @@ class SimpleL1ConnectController extends Controller
         $mode = $requestedMode === 'register' ? 'register' : 'login';
         $state = Str::random(40);
         $nonce = Str::random(40);
-        $redirectUri = route('meanly.simple_l1.callback');
+        $redirectUri = $this->absoluteCurrentHostRoute($request, 'meanly.simple_l1.callback');
         $intent = [
             'intent_type' => $this->cleanIntentParam($request->query('intent_type'), 80),
             'intent_title' => $this->cleanIntentParam($request->query('intent_title'), 96),
@@ -109,7 +109,10 @@ class SimpleL1ConnectController extends Controller
         $expectedState = (string) session('simple_l1_connect.state');
         $expectedNonce = (string) session('simple_l1_connect.nonce');
         $expectedClientId = (string) session('simple_l1_connect.client_id', config('simple_l1.client_id'));
-        $expectedRedirectUri = (string) session('simple_l1_connect.redirect_uri', route('meanly.simple_l1.callback'));
+        $expectedRedirectUri = (string) session(
+            'simple_l1_connect.redirect_uri',
+            $this->absoluteCurrentHostRoute($request, 'meanly.simple_l1.callback')
+        );
         $returnTo = $this->safeReturnTo((string) session('simple_l1_connect.return_to', '/store'));
         $mode = (string) session('simple_l1_connect.mode', 'login');
 
@@ -257,6 +260,16 @@ class SimpleL1ConnectController extends Controller
         return $returnTo;
     }
 
+    /**
+     * Named routes are registered once per public domain. Use a path-only route
+     * and attach the current request host so auth round-trips stay on the market
+     * domain that initiated them.
+     */
+    private function absoluteCurrentHostRoute(Request $request, string $name, array $parameters = []): string
+    {
+        return rtrim($request->getSchemeAndHttpHost(), '/').route($name, $parameters, false);
+    }
+
     private function cleanIntentParam(mixed $value, int $limit): string
     {
         $value = trim((string) $value);
@@ -304,51 +317,51 @@ class SimpleL1ConnectController extends Controller
         if ($intentType === 'meanly.vault.open' || str_starts_with($returnTo, '/vault') || str_starts_with($returnTo, '/cabinet')) {
             return [
                 'key' => 'vault_open',
-                'title' => 'Открываете сейф?',
-                'body' => 'Сейчас откроется SL1 Connect. Подтвердите себя через passkey, и мы вернем вас обратно к сейфу с покупками.',
+                'title' => __('auth.simple_l1.vault_open.title'),
+                'body' => __('auth.simple_l1.vault_open.body'),
                 'facts' => [
-                    'Так коды увидит только владелец аккаунта.',
-                    'Meanly не получает ваши ключи и не видит лишнего.',
+                    __('auth.simple_l1.vault_open.facts.owner_only'),
+                    __('auth.simple_l1.vault_open.facts.no_keys'),
                 ],
-                'cta' => 'Подтвердить в Simple Layer One',
+                'cta' => __('auth.simple_l1.vault_open.cta'),
             ];
         }
 
         if (str_contains($intentType, 'pay') || str_contains($intentType, 'checkout') || str_contains($intentType, 'wallet')) {
             return [
                 'key' => 'wallet_pay',
-                'title' => 'Хотите оплатить кошельком?',
-                'body' => 'Сейчас откроется SL1 Wallet. Подтвердите оплату там, а мы вернем вас обратно к покупке.',
+                'title' => __('auth.simple_l1.wallet_pay.title'),
+                'body' => __('auth.simple_l1.wallet_pay.body'),
                 'facts' => [
-                    'Баланс и операции остаются в вашем SL1 Wallet.',
-                    'Meanly получит только результат оплаты.',
+                    __('auth.simple_l1.wallet_pay.facts.wallet_stays_private'),
+                    __('auth.simple_l1.wallet_pay.facts.result_only'),
                 ],
-                'cta' => 'Перейти к оплате',
+                'cta' => __('auth.simple_l1.wallet_pay.cta'),
             ];
         }
 
         if ($mode === 'register') {
             return [
                 'key' => 'identity_create',
-                'title' => 'Создаем аккаунт через SL1?',
-                'body' => 'Сейчас откроется SL1 Connect. Там вы выберете имя и создадите passkey, чтобы потом входить в Meanly без пароля.',
+                'title' => __('auth.simple_l1.identity_create.title'),
+                'body' => __('auth.simple_l1.identity_create.body'),
                 'facts' => [
-                    'Passkey остается на вашем устройстве.',
-                    'После создания аккаунта вы вернетесь обратно в Meanly.',
+                    __('auth.simple_l1.identity_create.facts.passkey_device'),
+                    __('auth.simple_l1.identity_create.facts.return_after'),
                 ],
-                'cta' => 'Создать в Simple Layer One',
+                'cta' => __('auth.simple_l1.identity_create.cta'),
             ];
         }
 
         return [
             'key' => 'identity_confirm',
-            'title' => 'Входим через Simple Layer One?',
-            'body' => 'Сейчас откроется SL1 Connect. Если аккаунт уже есть, войдите через passkey. Если нет — создайте его за пару шагов. После этого вернем вас в Meanly.',
+            'title' => __('auth.simple_l1.identity_confirm.title'),
+            'body' => __('auth.simple_l1.identity_confirm.body'),
             'facts' => [
-                'Пароль не нужен.',
-                'Passkey остается на вашем устройстве.',
+                __('auth.simple_l1.identity_confirm.facts.no_password'),
+                __('auth.simple_l1.identity_confirm.facts.passkey_device'),
             ],
-            'cta' => 'Войти через Simple Layer One',
+            'cta' => __('auth.simple_l1.identity_confirm.cta'),
         ];
     }
 

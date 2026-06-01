@@ -346,7 +346,12 @@ $meanlyPublicRoutes = function () {
 
 };
 
-foreach (config('app.public_domains', [config('app.domain')]) as $domain) {
+foreach (array_values(array_unique(array_filter(array_merge(
+    config('app.public_domains', [config('app.domain')]),
+    collect(config('markets.markets', []))
+        ->flatMap(fn (array $market): array => (array) ($market['domains'] ?? []))
+        ->all(),
+)))) as $domain) {
     Route::domain($domain)->group($meanlyPublicRoutes);
 }
 

@@ -42,6 +42,59 @@ class MarketContextTest extends TestCase
         }
     }
 
+    public function test_market_login_keeps_auth_flow_on_current_domain(): void
+    {
+        $expectations = [
+            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'copy' => 'Сейчас откроется Simple Layer One'],
+            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'copy' => 'Simple Layer One se abrirá ahora'],
+            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'copy' => 'Simple Layer One ახლავე გაიხსნება'],
+        ];
+
+        foreach ($expectations as $host => $expected) {
+            $this->get("https://{$host}/login")
+                ->assertOk()
+                ->assertHeader('X-Market', $expected['market'])
+                ->assertHeader('Content-Language', $expected['locale'])
+                ->assertSee('/simple-l1/connect?', false)
+                ->assertSee($expected['copy'])
+                ->assertDontSee('https://meanly.one/simple-l1/connect', false);
+        }
+    }
+
+    public function test_market_simple_l1_handoff_uses_market_locale_and_callback_host(): void
+    {
+        $expectations = [
+            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'title' => 'Входим через Simple Layer One?'],
+            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'title' => '¿Entrar con Simple Layer One?'],
+            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'title' => 'შევიდეთ Simple Layer One-ით?'],
+        ];
+
+        foreach ($expectations as $host => $expected) {
+            $response = $this
+                ->withHeader('Accept', 'application/json')
+                ->withHeader('X-Requested-With', 'XMLHttpRequest')
+                ->get("https://{$host}/simple-l1/connect?return_to=/store&mode=connect");
+
+            $response
+                ->assertOk()
+                ->assertHeader('X-Market', $expected['market'])
+                ->assertHeader('Content-Language', $expected['locale'])
+                ->assertJsonPath('show_handoff', true)
+                ->assertJsonPath('handoff.title', $expected['title']);
+
+            $this->assertStringContainsString(
+                rawurlencode("https://{$host}/simple-l1/callback"),
+                (string) $response->json('redirect_url')
+            );
+            $this->assertStringNotContainsString(
+                rawurlencode('https://meanly.one/simple-l1/callback'),
+                (string) $response->json('redirect_url')
+            );
+            $this->assertSame("https://{$host}/simple-l1/callback", session('simple_l1_connect.redirect_uri'));
+            session()->flush();
+        }
+    }
+
     public function test_georgia_domain_resolves_market_context_and_locale(): void
     {
         foreach (['tsipruli.ge', 'www.tsipruli.ge'] as $host) {

@@ -468,7 +468,7 @@
 @include('partials.simple-l1-inline-handoff')
 @php
     $sl1eModalReturnTo = '/simple-l1/complete?next=/vault';
-    $sl1eConnectUrl = route('meanly.simple_l1.connect', ['return_to' => $sl1eModalReturnTo, 'mode' => 'connect']);
+    $sl1eConnectUrl = route('meanly.simple_l1.connect', ['return_to' => $sl1eModalReturnTo, 'mode' => 'connect'], false);
 @endphp
     <div id="sovereign-auth-root" class="sovereign-auth-wrapper" data-theme="{{ $currentTheme ?? request()->cookie('theme') ?? 'consortium' }}" @if(request()->cookie('holiday')) data-holiday="{{ request()->cookie('holiday') }}" @endif>
         

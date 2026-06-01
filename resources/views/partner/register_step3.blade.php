@@ -622,7 +622,7 @@
         'intent_cta' => 'Подтвердить подпись',
         'intent_nonce' => $agreementSigningNonce ?? '',
         'intent_resource' => $agreementSigningResource ?? '',
-    ]);
+    ], false);
 @endphp
 <script>
     const signBtn = document.getElementById('sign-offer-btn');
