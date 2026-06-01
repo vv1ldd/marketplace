@@ -204,7 +204,7 @@ class AddCatalogItemToShop implements ShouldQueue
             WildflowSkuAlias::syncForProduct($product);
 
             // --- 4. Link to sales channels ---
-            $selectedChannels = SalesChannels::normalizeSelection($this->salesChannels);
+            $selectedChannels = SalesChannels::filterSelectionForShop($this->salesChannels, $shop);
             $unavailableChannels = array_values(array_filter(
                 $selectedChannels,
                 fn (string $channel): bool => ! SalesChannels::isChannelConfigured($channel, $shop)

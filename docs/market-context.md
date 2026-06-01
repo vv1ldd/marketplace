@@ -76,15 +76,20 @@ ar.marketplace.one
 ru.marketplace.one
 meanly.ar
 meanly.ru
+www.meanly.ru
+digitienda.ar
+tsipruli.ge
 ```
 
 The domains must also be included in `APP_PUBLIC_DOMAINS`, because storefront routes are domain-scoped. Market aliases can be configured independently:
 
 ```dotenv
-APP_PUBLIC_DOMAINS=meanly.one,www.meanly.one,meanly.test,meanly.ar,meanly.ru,marketplace.one,www.marketplace.one
+APP_PUBLIC_DOMAINS=meanly.one,www.meanly.one,meanly.test,meanly.ar,meanly.ru,www.meanly.ru,digitienda.ar,www.digitienda.ar,tsipruli.ge,www.tsipruli.ge,marketplace.one,www.marketplace.one
 MARKET_GLOBAL_DOMAINS=meanly.one,www.meanly.one,meanly.test,marketplace.one,www.marketplace.one
-MARKET_LATAM_AR_DOMAINS=meanly.ar,ar.marketplace.one,ar.marketplace.test
-MARKET_RU_DOMAINS=meanly.ru,ru.marketplace.one,ru.marketplace.test
+MARKET_LATAM_AR_DOMAINS=meanly.ar,ar.marketplace.one,ar.marketplace.test,digitienda.ar,www.digitienda.ar
+MARKET_RU_DOMAINS=meanly.ru,www.meanly.ru,ru.marketplace.one,ru.marketplace.test
+MARKET_GE_DOMAINS=tsipruli.ge,www.tsipruli.ge
+APP_SUPPORTED_LOCALES=en,ru,es,ka
 ```
 
 Keep sessions domain-local unless there is a deliberate cross-domain auth requirement:

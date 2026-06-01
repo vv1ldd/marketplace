@@ -6,6 +6,7 @@ class MarketContext
 {
     /**
      * @param array<int, string> $preferredProductRegions
+     * @param array<int, string> $salesChannels
      */
     public function __construct(
         public readonly string $market,
@@ -17,6 +18,7 @@ class MarketContext
         public readonly string $pricingScope,
         public readonly ?string $demandRegion,
         public readonly array $preferredProductRegions,
+        public readonly array $salesChannels,
         public readonly bool $matchedDomain,
     ) {}
 
@@ -35,6 +37,7 @@ class MarketContext
             'pricing_scope' => $this->pricingScope,
             'demand_region' => $this->demandRegion,
             'preferred_product_regions' => $this->preferredProductRegions,
+            'sales_channels' => $this->salesChannels,
             'matched_domain' => $this->matchedDomain,
         ];
     }

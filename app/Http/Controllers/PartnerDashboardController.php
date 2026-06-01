@@ -2107,7 +2107,7 @@ class PartnerDashboardController extends Controller
             ], 422);
         }
 
-        $selectedChannels = \App\Support\SalesChannels::normalizeSelection($request->sales_channels);
+        $selectedChannels = \App\Support\SalesChannels::filterSelectionForShop($request->sales_channels, $shop);
         $unavailableChannels = collect($selectedChannels)
             ->reject(fn (string $channel) => \App\Support\SalesChannels::isChannelConfigured($channel, $shop))
             ->values();
@@ -2402,6 +2402,12 @@ class PartnerDashboardController extends Controller
         if (!$record || !$shop) {
             return null;
         }
+
+        $intent['sales_channels'] = \App\Support\SalesChannels::filterSelectionForShop(
+            $intent['sales_channels'],
+            $shop
+        );
+        sort($intent['sales_channels']);
 
         $signingPasskey = $this->resolveSimpleLayerOneSigningPasskey($user, $legalEntity);
         if (!$signingPasskey) {

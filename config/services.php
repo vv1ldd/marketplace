@@ -136,7 +136,7 @@ return [
         'key' => env('IMGBB_API_KEY'),
     ],
 
-    'trusted_hosts' => env('TRUSTED_HOSTS', 'meanly.test,meanly.one,www.meanly.one,meanly.ru,meanly.ar'),
+    'trusted_hosts' => env('TRUSTED_HOSTS', 'meanly.test,meanly.one,www.meanly.one,meanly.ru,www.meanly.ru,meanly.ar,digitienda.ar,www.digitienda.ar,tsipruli.ge,www.tsipruli.ge'),
 
     /*
     | При смене SKU в wildflow_catalogs парсером: алиасы + обновление products у этих магазинов (id через запятую).

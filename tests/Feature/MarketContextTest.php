@@ -15,13 +15,13 @@ class MarketContextTest extends TestCase
 
         config([
             'app.locale' => 'en',
-            'app.supported_locales' => ['ru', 'en', 'es'],
+            'app.supported_locales' => ['ru', 'en', 'es', 'ka'],
         ]);
     }
 
     public function test_argentina_domain_resolves_market_context_and_locale(): void
     {
-        foreach (['ar.marketplace.test', 'meanly.ar'] as $host) {
+        foreach (['ar.marketplace.test', 'meanly.ar', 'digitienda.ar'] as $host) {
             $this->get("https://{$host}/theme/consortium")
                 ->assertRedirect()
                 ->assertHeader('X-Market', 'latam_ar')
@@ -38,7 +38,49 @@ class MarketContextTest extends TestCase
             $this->assertSame('latam_ar', $context->pricingScope);
             $this->assertSame('AR', $context->demandRegion);
             $this->assertSame(['AR', 'US', 'TR'], $context->preferredProductRegions);
+            $this->assertNotContains('yandex_market', $context->salesChannels);
         }
+    }
+
+    public function test_georgia_domain_resolves_market_context_and_locale(): void
+    {
+        foreach (['tsipruli.ge', 'www.tsipruli.ge'] as $host) {
+            $this->get("https://{$host}/theme/consortium")
+                ->assertRedirect()
+                ->assertHeader('X-Market', 'ge')
+                ->assertHeader('X-Pricing-Scope', 'ge')
+                ->assertHeader('X-Display-Currency', 'GEL')
+                ->assertHeader('Content-Language', 'ka');
+
+            $context = market();
+            $this->assertSame('ge', $context->market);
+            $this->assertSame($host, $context->host);
+            $this->assertSame('ka', $context->locale);
+            $this->assertSame('GEL', $context->currency);
+            $this->assertSame('ge', $context->catalogScope);
+            $this->assertSame('ge', $context->pricingScope);
+            $this->assertSame('GE', $context->demandRegion);
+            $this->assertSame(['GE', 'TR', 'US'], $context->preferredProductRegions);
+            $this->assertNotContains('yandex_market', $context->salesChannels);
+        }
+    }
+
+    public function test_explicit_english_locale_does_not_change_georgia_market_commerce(): void
+    {
+        $this->get('https://tsipruli.ge/theme/consortium?locale=en')
+            ->assertRedirect()
+            ->assertHeader('X-Market', 'ge')
+            ->assertHeader('X-Pricing-Scope', 'ge')
+            ->assertHeader('X-Display-Currency', 'GEL')
+            ->assertHeader('Content-Language', 'en');
+
+        $context = market();
+        $this->assertSame('ge', $context->market);
+        $this->assertSame('ka', $context->locale);
+        $this->assertSame('GEL', $context->currency);
+        $this->assertSame('ge', $context->catalogScope);
+        $this->assertSame('ge', $context->pricingScope);
+        $this->assertSame('GE', $context->demandRegion);
     }
 
     public function test_russia_domain_resolves_market_context_and_locale(): void
@@ -58,6 +100,27 @@ class MarketContextTest extends TestCase
             $this->assertSame('ru', $context->catalogScope);
             $this->assertSame('ru', $context->pricingScope);
             $this->assertSame('RU', $context->demandRegion);
+            $this->assertContains('yandex_market', $context->salesChannels);
+        }
+    }
+
+    public function test_yandex_market_channel_is_only_allowed_for_russia_market(): void
+    {
+        $expectations = [
+            'meanly.ru' => true,
+            'meanly.one' => false,
+            'digitienda.ar' => false,
+            'tsipruli.ge' => false,
+        ];
+
+        foreach ($expectations as $host => $allowed) {
+            $this->get("https://{$host}/theme/consortium")->assertRedirect();
+
+            $this->assertSame(
+                $allowed,
+                in_array('yandex_market', market()->salesChannels, true),
+                "Unexpected yandex_market market eligibility for {$host}."
+            );
         }
     }
 

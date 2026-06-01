@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\Shop;
+use App\Services\MarketChannelPolicy;
+
 class SalesChannels
 {
     /**
@@ -17,7 +20,7 @@ class SalesChannels
     /**
      * @return array<string, string>
      */
-    public static function optionsForUi(?\App\Models\Shop $shop = null): array
+    public static function optionsForUi(?Shop $shop = null): array
     {
         $options = [];
 
@@ -39,7 +42,7 @@ class SalesChannels
     /**
      * @return array<string, string>
      */
-    public static function descriptionsForUi(?\App\Models\Shop $shop = null): array
+    public static function descriptionsForUi(?Shop $shop = null): array
     {
         $descriptions = [];
 
@@ -60,7 +63,23 @@ class SalesChannels
         return $descriptions;
     }
 
-    public static function isChannelConfigured(string $key, \App\Models\Shop $shop): bool
+    public static function isChannelAllowedForMarket(string $key, MarketContext|string $market): bool
+    {
+        return app(MarketChannelPolicy::class)->isAllowedForMarket($key, $market);
+    }
+
+    public static function isChannelAllowedForShop(string $key, Shop $shop): bool
+    {
+        return app(MarketChannelPolicy::class)->isAllowedForShop($key, $shop);
+    }
+
+    public static function isChannelConfigured(string $key, Shop $shop): bool
+    {
+        return self::isChannelAllowedForShop($key, $shop)
+            && self::isChannelActivatedByShop($key, $shop);
+    }
+
+    public static function isChannelActivatedByShop(string $key, Shop $shop): bool
     {
         return match ($key) {
             'meanly_storefront' => true,
@@ -70,6 +89,21 @@ class SalesChannels
             // Other channels can be added here as they become configurable
             default => false,
         };
+    }
+
+    /**
+     * Drop channels that do not belong to the shop market. Remaining channels
+     * still need shop-level activation before they can be used.
+     *
+     * @param  array<int, string>|null  $selection
+     * @return array<int, string>
+     */
+    public static function filterSelectionForShop(?array $selection, Shop $shop): array
+    {
+        return array_values(array_filter(
+            self::normalizeSelection($selection),
+            fn (string $channel): bool => self::isChannelAllowedForShop($channel, $shop)
+        ));
     }
 
     /**
