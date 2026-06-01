@@ -1,18 +1,18 @@
 @php
-    $homeUrl = \Illuminate\Support\Facades\Route::has('home') ? route('home') : url('/');
-    $howItWorksUrl = \Illuminate\Support\Facades\Route::has('storefront.ai-chat') ? route('storefront.ai-chat') : $homeUrl.'#infrastructure';
-    $cabinetUrl = \Illuminate\Support\Facades\Route::has('cabinet.dashboard') ? route('cabinet.dashboard') : url('/vault');
+    $homeUrl = \Illuminate\Support\Facades\Route::has('home') ? route('home', [], false) : '/';
+    $howItWorksUrl = \Illuminate\Support\Facades\Route::has('storefront.ai-chat') ? route('storefront.ai-chat', [], false) : $homeUrl.'#infrastructure';
+    $cabinetUrl = \Illuminate\Support\Facades\Route::has('cabinet.dashboard') ? route('cabinet.dashboard', [], false) : '/vault';
     $loginUrl = \Illuminate\Support\Facades\Route::has('meanly.simple_l1.connect')
         ? route('meanly.simple_l1.connect', [
             'return_to' => \Illuminate\Support\Facades\Route::has('meanly.simple_l1.complete')
                 ? route('meanly.simple_l1.complete', ['next' => route('cabinet.dashboard', [], false)], false)
                 : '/vault',
             'mode' => 'connect',
-        ])
-        : (\Illuminate\Support\Facades\Route::has('login') ? route('login') : url('/login'));
-    $logoutUrl = \Illuminate\Support\Facades\Route::has('logout') ? route('logout') : url('/logout');
-    $opsUrl = url('/ops');
-    $partnerUrl = url('/partner');
+        ], false)
+        : (\Illuminate\Support\Facades\Route::has('login') ? route('login', [], false) : '/login');
+    $logoutUrl = \Illuminate\Support\Facades\Route::has('logout') ? route('logout', [], false) : '/logout';
+    $opsUrl = '/ops';
+    $partnerUrl = '/partner';
 @endphp
 
 @once

@@ -1012,7 +1012,7 @@
                         <p class="recipient-help" style="margin-bottom: 0;">{{ __('product.public.wallet_help') }}</p>
                     @endif
                     <a class="btn {{ $simpleL1Address ? 'btn-secondary' : 'btn-primary' }}"
-                       href="{{ route('meanly.simple_l1.connect', ['return_to' => request()->getRequestUri()]) }}">
+                       href="{{ route('meanly.simple_l1.connect', ['return_to' => request()->getRequestUri()], false) }}">
                         {{ $simpleL1Address ? __('product.public.reconnect_wallet') : 'Connect Simple L1 wallet' }}
                     </a>
                 </div>

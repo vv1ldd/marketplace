@@ -1,15 +1,15 @@
 <footer class="marketplace-footer">
     <div class="footer-grid">
         <div class="footer-brand-block">
-            <a class="footer-logo" href="{{ route('home') }}"><span class="logo-mark"></span> MEANLY</a>
+            <a class="footer-logo" href="{{ route('home', [], false) }}"><span class="logo-mark"></span> MEANLY</a>
             <p>{{ __('storefront.footer.description') }}</p>
         </div>
 
         <div class="footer-links-block">
             <span class="footer-title">{{ __('storefront.footer.marketplace') }}</span>
-            <a href="{{ route('home') }}">{{ __('storefront.footer.home') }}</a>
-            <a href="{{ route('meanly.catalog.index') }}">{{ __('storefront.footer.catalog') }}</a>
-            <a href="{{ route('home') }}#infrastructure">{{ __('storefront.footer.how_it_works') }}</a>
+            <a href="{{ route('home', [], false) }}">{{ __('storefront.footer.home') }}</a>
+            <a href="{{ route('meanly.catalog.index', [], false) }}">{{ __('storefront.footer.catalog') }}</a>
+            <a href="{{ route('home', [], false) }}#infrastructure">{{ __('storefront.footer.how_it_works') }}</a>
         </div>
 
         <div class="footer-links-block">
@@ -20,15 +20,15 @@
                     <a href="/partner">{{ __('storefront.footer.b2b_console') }}</a>
                 @endif
             @else
-                <a href="{{ route('login') }}">{{ __('storefront.footer.login_sl1e') }}</a>
+                <a href="{{ route('login', [], false) }}">{{ __('storefront.footer.login_sl1e') }}</a>
             @endauth
         </div>
 
         <div class="footer-links-block">
             <span class="footer-title">{{ __('storefront.footer.business') }}</span>
-            <a href="{{ route('business.services.index') }}">{{ __('storefront.footer.business_services') }}</a>
-            <a href="{{ route('business.register') }}">{{ __('storefront.footer.become_seller') }}</a>
-            <a href="{{ route('business.landing') }}">{{ __('storefront.footer.b2b_console') }}</a>
+            <a href="{{ route('business.services.index', [], false) }}">{{ __('storefront.footer.business_services') }}</a>
+            <a href="{{ route('business.register', [], false) }}">{{ __('storefront.footer.become_seller') }}</a>
+            <a href="{{ route('business.landing', [], false) }}">{{ __('storefront.footer.b2b_console') }}</a>
         </div>
     </div>
 

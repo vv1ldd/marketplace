@@ -61,6 +61,17 @@ class MarketContextTest extends TestCase
         }
     }
 
+    public function test_market_homepage_keeps_header_auth_links_on_current_domain(): void
+    {
+        foreach (['meanly.ru', 'digitienda.ar', 'tsipruli.ge'] as $host) {
+            $this->get("https://{$host}/")
+                ->assertOk()
+                ->assertSee('/simple-l1/connect?', false)
+                ->assertDontSee('https://meanly.one/simple-l1/connect', false)
+                ->assertDontSee('storefront.index.title');
+        }
+    }
+
     public function test_market_simple_l1_handoff_uses_market_locale_and_callback_host(): void
     {
         $expectations = [
