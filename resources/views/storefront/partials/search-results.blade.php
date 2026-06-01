@@ -2,13 +2,13 @@
     <section id="storefront" data-search-results-section>
         <div class="section-head">
             <div>
-                <h2>Результаты поиска: «{{ $query }}»</h2>
-                <p>Найдено {{ $products->total() }} товаров по вашему запросу.</p>
+                <h2>{{ __('storefront.search_results.title', ['query' => $query]) }}</h2>
+                <p>{{ __('storefront.search_results.found', ['count' => $products->total()]) }}</p>
             </div>
         </div>
 
         @if($products->isEmpty())
-            <div class="empty">Витрина пуста для этого запроса. Попробуйте другой бренд, регион или номинал.</div>
+            <div class="empty">{{ __('storefront.search_results.empty') }}</div>
         @else
             <section class="grid">
                 @foreach($products as $product)
@@ -16,9 +16,9 @@
                         $variantGroup = (array) data_get($product, 'variant_group', []);
                         $isGrouped = (bool) ($variantGroup['is_grouped'] ?? false);
                         $variantSummary = collect([
-                            $isGrouped ? (($variantGroup['variant_count'] ?? 0).' вариантов') : null,
-                            $isGrouped && ($variantGroup['region_count'] ?? 0) > 0 ? (($variantGroup['region_count'] ?? 0).' регионов') : null,
-                            $isGrouped && ($variantGroup['nominal_count'] ?? 0) > 0 ? (($variantGroup['nominal_count'] ?? 0).' номиналов') : null,
+                            $isGrouped ? trans_choice('storefront.search_results.variants', (int) ($variantGroup['variant_count'] ?? 0), ['count' => (int) ($variantGroup['variant_count'] ?? 0)]) : null,
+                            $isGrouped && ($variantGroup['region_count'] ?? 0) > 0 ? trans_choice('storefront.search_results.regions_count', (int) ($variantGroup['region_count'] ?? 0), ['count' => (int) ($variantGroup['region_count'] ?? 0)]) : null,
+                            $isGrouped && ($variantGroup['nominal_count'] ?? 0) > 0 ? trans_choice('storefront.search_results.nominals', (int) ($variantGroup['nominal_count'] ?? 0), ['count' => (int) ($variantGroup['nominal_count'] ?? 0)]) : null,
                         ])->filter()->implode(' · ');
                     @endphp
                     <article class="card">
@@ -38,22 +38,22 @@
                                 @endif
                                 @if(!empty($product['face_value']) && (float)$product['face_value'] > 0)
                                     <div style="margin-top: 6px; margin-bottom: 6px;">
-                                        <span class="tag" style="background: #e7fff2; border: 2px solid var(--line); font-size: 11px; padding: 4px 8px; box-shadow: 2px 2px 0 var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">пополнение: {{ $product['face_value'] }} {{ $product['face_value_currency'] }}</span>
+                                        <span class="tag" style="background: #e7fff2; border: 2px solid var(--line); font-size: 11px; padding: 4px 8px; box-shadow: 2px 2px 0 var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">{{ __('storefront.search_results.top_up') }}: {{ $product['face_value'] }} {{ $product['face_value_currency'] }}</span>
                                     </div>
                                 @endif
-                                <div class="seller-line">{{ $product['has_selected_offer'] ? 'Доступно для покупки' : 'Скоро в продаже' }}</div>
-                                <span class="status-pill {{ $product['has_selected_offer'] ? '' : 'network' }}">{{ $product['has_selected_offer'] ? 'Доступно' : 'Скоро доступно' }}</span>
+                                <div class="seller-line">{{ $product['has_selected_offer'] ? __('storefront.search_results.available_for_purchase') : __('storefront.search_results.soon_for_sale') }}</div>
+                                <span class="status-pill {{ $product['has_selected_offer'] ? '' : 'network' }}">{{ $product['has_selected_offer'] ? __('storefront.search_results.available') : __('storefront.search_results.soon_available') }}</span>
                                 @if($isGrouped && !empty($variantGroup['regions']))
-                                    <div class="offer-summary">Регионы: {{ collect($variantGroup['regions'])->take(4)->implode(', ') }}@if(($variantGroup['region_count'] ?? 0) > 4) и другие@endif</div>
+                                    <div class="offer-summary">{{ __('storefront.search_results.regions') }}: {{ collect($variantGroup['regions'])->take(4)->implode(', ') }}@if(($variantGroup['region_count'] ?? 0) > 4) {{ __('storefront.search_results.and_others') }}@endif</div>
                                 @endif
                                 @if(data_get($product, 'selected_offer'))
                                     <div class="price">{{ data_get($product, 'selected_offer.price.label', number_format((float) data_get($product, 'selected_offer.price.amount'), 2, '.', ' ')) }}</div>
-                                    <div class="offer-summary">Продавец: {{ data_get($product, 'selected_offer.seller.name') }} · {{ data_get($product, 'selected_offer.availability') }}</div>
+                                    <div class="offer-summary">{{ __('storefront.search_results.seller') }}: {{ data_get($product, 'selected_offer.seller.name') }} · {{ data_get($product, 'selected_offer.availability') }}</div>
                                 @else
-                                    <div class="offer-summary">Покупка откроется, когда продавец подключит товар к витрине.</div>
+                                    <div class="offer-summary">{{ __('storefront.search_results.purchase_pending') }}</div>
                                 @endif
                                 <div class="card-actions">
-                                    <span class="btn btn-primary">{{ data_get($product, 'cta_label', 'Открыть') }}</span>
+                                    <span class="btn btn-primary">{{ data_get($product, 'cta_label', __('storefront.search_results.open')) }}</span>
                                 </div>
                             </div>
                         </a>
@@ -74,7 +74,7 @@
                         }
                     }
                 @endphp
-                <nav class="pagination-neo" aria-label="Навигация по витрине">
+                <nav class="pagination-neo" aria-label="{{ __('storefront.search_results.pagination_label') }}">
                     @if($products->onFirstPage())
                         <span class="disabled" aria-hidden="true">←</span>
                     @else

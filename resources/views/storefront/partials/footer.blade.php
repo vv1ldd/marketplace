@@ -2,38 +2,38 @@
     <div class="footer-grid">
         <div class="footer-brand-block">
             <a class="footer-logo" href="{{ route('home') }}"><span class="logo-mark"></span> MEANLY</a>
-            <p>Маркетплейс цифровых карт, игровых ключей и подписок с быстрой выдачей кодов и понятным статусом заказа.</p>
+            <p>{{ __('storefront.footer.description') }}</p>
         </div>
 
         <div class="footer-links-block">
-            <span class="footer-title">Маркетплейс</span>
-            <a href="{{ route('home') }}">Главная</a>
-            <a href="{{ route('meanly.catalog.index') }}">Каталог</a>
-            <a href="{{ route('home') }}#infrastructure">Как работает</a>
+            <span class="footer-title">{{ __('storefront.footer.marketplace') }}</span>
+            <a href="{{ route('home') }}">{{ __('storefront.footer.home') }}</a>
+            <a href="{{ route('meanly.catalog.index') }}">{{ __('storefront.footer.catalog') }}</a>
+            <a href="{{ route('home') }}#infrastructure">{{ __('storefront.footer.how_it_works') }}</a>
         </div>
 
         <div class="footer-links-block">
-            <span class="footer-title">Аккаунт</span>
+            <span class="footer-title">{{ __('storefront.footer.account') }}</span>
             @auth
-                <a href="/vault">Сейф</a>
+                <a href="/vault">{{ __('storefront.footer.vault') }}</a>
                 @if(auth()->user()->hasRole('b2b_partner'))
-                    <a href="/partner">B2B Консоль</a>
+                    <a href="/partner">{{ __('storefront.footer.b2b_console') }}</a>
                 @endif
             @else
-                <a href="{{ route('login') }}">Войти через SL1E Identity</a>
+                <a href="{{ route('login') }}">{{ __('storefront.footer.login_sl1e') }}</a>
             @endauth
         </div>
 
         <div class="footer-links-block">
-            <span class="footer-title">Для бизнеса</span>
-            <a href="{{ route('business.services.index') }}">Услуги для бизнеса</a>
-            <a href="{{ route('business.register') }}">Стать продавцом</a>
-            <a href="{{ route('business.landing') }}">B2B Консоль</a>
+            <span class="footer-title">{{ __('storefront.footer.business') }}</span>
+            <a href="{{ route('business.services.index') }}">{{ __('storefront.footer.business_services') }}</a>
+            <a href="{{ route('business.register') }}">{{ __('storefront.footer.become_seller') }}</a>
+            <a href="{{ route('business.landing') }}">{{ __('storefront.footer.b2b_console') }}</a>
         </div>
     </div>
 
     <div class="footer-bottom">
         <span>© {{ now()->year }} Meanly Systems</span>
-        <span>Digital assets storefront · Fast checkout · Seller support</span>
+        <span>{{ __('storefront.footer.bottom') }}</span>
     </div>
 </footer>

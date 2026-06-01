@@ -106,6 +106,25 @@ class MarketContextTest extends TestCase
             ->assertDontSee('Meanly помогает быстро найти цифровой товар.');
     }
 
+    public function test_meanly_one_catalog_footer_uses_english_copy(): void
+    {
+        $this->withHeader('Accept-Language', 'ru,en;q=0.8')
+            ->withSession(['locale' => 'ru'])
+            ->get('https://meanly.one/catalog')
+            ->assertOk()
+            ->assertHeader('X-Market', 'global')
+            ->assertHeader('Content-Language', 'en')
+            ->assertSee('All digital goods.')
+            ->assertSee('Catalog filters')
+            ->assertSee('Digital cards, game keys, and subscriptions with fast code delivery')
+            ->assertSee('Marketplace')
+            ->assertSee('For business')
+            ->assertDontSee('Все цифровые товары.')
+            ->assertDontSee('Фильтры каталога')
+            ->assertDontSee('Маркетплейс цифровых карт')
+            ->assertDontSee('Для бизнеса');
+    }
+
     public function test_explicit_locale_can_override_global_market_ui_language(): void
     {
         $this->withHeader('Accept-Language', 'en,ru;q=0.8')
@@ -183,5 +202,21 @@ class MarketContextTest extends TestCase
             ->assertHeader('X-Market', 'ru')
             ->assertHeader('Content-Language', 'ru')
             ->assertSee('Meanly помогает быстро найти цифровой товар.');
+    }
+
+    public function test_meanly_ru_catalog_uses_russian_copy(): void
+    {
+        $this->withHeader('Accept-Language', 'en,ru;q=0.8')
+            ->withSession(['locale' => 'en'])
+            ->get('https://meanly.ru/catalog')
+            ->assertOk()
+            ->assertHeader('X-Market', 'ru')
+            ->assertHeader('Content-Language', 'ru')
+            ->assertSee('Все цифровые товары.')
+            ->assertSee('Фильтры каталога')
+            ->assertSee('Маркетплейс цифровых карт')
+            ->assertSee('Для бизнеса')
+            ->assertDontSee('All digital goods.')
+            ->assertDontSee('Catalog filters');
     }
 }

@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
+<html lang="{{ app()->getLocale() }}" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
 <head>
     @include('partials.theme-sync')
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ isset($landing) ? $landing['title'] : (isset($collection) && $collection->meta_title ? $collection->meta_title : 'Каталог цифровых товаров Meanly') }}</title>
-    <meta name="description" content="{{ isset($landing) ? $landing['description'] : (isset($collection) && $collection->meta_description ? $collection->meta_description : 'Общий каталог цифровых товаров Meanly: подарочные карты, игровые коды, подписки, лицензии и prepaid-карты с фильтрами.') }}">
+    <title>{{ isset($landing) ? $landing['title'] : (isset($collection) && $collection->meta_title ? $collection->meta_title : __('catalog.index.meta_title')) }}</title>
+    <meta name="description" content="{{ isset($landing) ? $landing['description'] : (isset($collection) && $collection->meta_description ? $collection->meta_description : __('catalog.index.meta_description')) }}">
     @isset($landing)
         <link rel="canonical" href="{{ $landing['canonical_url'] }}">
     @else
@@ -284,7 +284,7 @@
             $regionFacets = collect($facetData['regions'] ?? []);
             $nominalFacets = collect($facetData['nominals'] ?? []);
             $selectedFacets = (array) ($facetData['selected'] ?? []);
-            $sortOptions = (array) ($facetData['sort_options'] ?? ['relevance' => 'Сначала лучшие']);
+            $sortOptions = (array) ($facetData['sort_options'] ?? ['relevance' => __('catalog.index.sort_best')]);
             $selectedQuery = (string) ($selectedFacets['query'] ?? request('q', ''));
             $selectedCategory = (string) ($selectedFacets['category'] ?? '');
             $selectedBrand = (string) ($selectedFacets['brand'] ?? '');
@@ -306,23 +306,23 @@
         @endphp
 
         @if(isset($collection) || isset($landing))
-            <a class="back-link" href="{{ route('meanly.catalog.index') }}">← Весь каталог</a>
+            <a class="back-link" href="{{ route('meanly.catalog.index') }}">← {{ __('catalog.index.all_catalog') }}</a>
         @endif
 
         <section class="hero">
-            <div class="eyebrow">{{ isset($landing) ? $landing['eyebrow'] : (isset($collection) ? 'Коллекция' : 'Каталог') }}</div>
-            <h1>{{ isset($landing) ? $landing['h1'] : (isset($collection) && $collection->h1 ? $collection->h1 : 'Все цифровые товары.') }}</h1>
-            <p class="lead">{{ isset($landing) ? $landing['description'] : (isset($collection) && $collection->title ? $collection->title : 'Единая сетка карточек Meanly: подарочные карты, игровые коды, подписки и prepaid-карты. Фильтруйте по категории, бренду и номиналу.') }}</p>
+            <div class="eyebrow">{{ isset($landing) ? $landing['eyebrow'] : (isset($collection) ? __('catalog.index.collection') : __('catalog.index.catalog')) }}</div>
+            <h1>{{ isset($landing) ? $landing['h1'] : (isset($collection) && $collection->h1 ? $collection->h1 : __('catalog.index.title')) }}</h1>
+            <p class="lead">{{ isset($landing) ? $landing['description'] : (isset($collection) && $collection->title ? $collection->title : __('catalog.index.lead')) }}</p>
             <div class="meta">
-                <span class="tag">{{ $products->total() }} товаров</span>
+                <span class="tag">{{ trans_choice('catalog.index.products_count', $products->total(), ['count' => $products->total()]) }}</span>
                 @if($selectedCategory !== '')
-                    <span class="tag">Категория выбрана</span>
+                    <span class="tag">{{ __('catalog.index.category_selected') }}</span>
                 @endif
                 @if($selectedBrand !== '')
-                    <span class="tag">Бренд: {{ $selectedBrand }}</span>
+                    <span class="tag">{{ __('catalog.index.brand') }}: {{ $selectedBrand }}</span>
                 @endif
                 @if($selectedRegion !== '')
-                    <span class="tag">Регион: {{ strtoupper($selectedRegion) }}</span>
+                    <span class="tag">{{ __('catalog.index.region') }}: {{ strtoupper($selectedRegion) }}</span>
                 @endif
             </div>
             @isset($landing)
@@ -333,7 +333,7 @@
                         ->take(12);
                 @endphp
                 @if($relatedLinks->isNotEmpty())
-                    <div class="related-discovery" aria-label="Связанные сущности">
+                    <div class="related-discovery" aria-label="{{ __('catalog.index.related_entities') }}">
                         @foreach($relatedLinks as $link)
                             <a href="{{ $link['url'] }}">{{ $link['label'] ?? $link['name'] ?? $link['category'] }}@if(isset($link['product_count'])) · {{ $link['product_count'] }}@endif</a>
                         @endforeach
@@ -342,17 +342,17 @@
             @endisset
         </section>
 
-        <section class="filter-panel" aria-label="Фильтры каталога">
+        <section class="filter-panel" aria-label="{{ __('catalog.index.filters_label') }}">
             <form class="filter-form" method="GET" action="{{ route('meanly.catalog.index') }}">
                 <label class="filter-field">
-                    <span>Поиск</span>
+                    <span>{{ __('catalog.index.search') }}</span>
                     <input name="q" value="{{ $selectedQuery }}" placeholder="Steam, PlayStation, Spotify...">
                 </label>
 
                 <label class="filter-field">
-                    <span>Категория</span>
+                    <span>{{ __('catalog.index.category') }}</span>
                     <select name="category">
-                        <option value="">Все категории</option>
+                        <option value="">{{ __('catalog.index.all_categories') }}</option>
                         @foreach($categoryFacets as $categoryFacet)
                             <option value="{{ $categoryFacet['slug'] }}" @selected($selectedCategory === $categoryFacet['slug'])>
                                 {{ $categoryFacet['label_ru'] ?? $categoryFacet['name'] ?? $categoryFacet['slug'] }} ({{ $categoryFacet['product_count'] ?? $categoryFacet['count'] ?? 0 }})
@@ -362,9 +362,9 @@
                 </label>
 
                 <label class="filter-field">
-                    <span>Бренд</span>
+                    <span>{{ __('catalog.index.brand') }}</span>
                     <select name="brand">
-                        <option value="">Все бренды</option>
+                        <option value="">{{ __('catalog.index.all_brands') }}</option>
                         @foreach($brandFacets as $brandFacet)
                             <option value="{{ $brandFacet['value'] }}" @selected($selectedBrand === $brandFacet['name'])>
                                 {{ $brandFacet['name'] }}@if($brandFacet['count'] !== null) ({{ $brandFacet['count'] }})@endif
@@ -374,9 +374,9 @@
                 </label>
 
                 <label class="filter-field">
-                    <span>Номинал</span>
+                    <span>{{ __('catalog.index.nominal') }}</span>
                     <select name="nominal">
-                        <option value="">Любой номинал</option>
+                        <option value="">{{ __('catalog.index.any_nominal') }}</option>
                         @foreach($nominalFacets as $nominalFacet)
                             <option value="{{ $nominalFacet['value'] }}" @selected($selectedNominalKey === $nominalFacet['key'])>
                                 {{ $nominalFacet['label'] }}@if($nominalFacet['count'] !== null) ({{ $nominalFacet['count'] }})@endif
@@ -386,9 +386,9 @@
                 </label>
 
                 <label class="filter-field">
-                    <span>Регион</span>
+                    <span>{{ __('catalog.index.region') }}</span>
                     <select name="region">
-                        <option value="">Все регионы</option>
+                        <option value="">{{ __('catalog.index.all_regions') }}</option>
                         @foreach($regionFacets as $regionFacet)
                             <option value="{{ $regionFacet['value'] }}" @selected($selectedRegion === $regionFacet['name'])>
                                 {{ $regionFacet['label'] ?? strtoupper($regionFacet['name']) }}@if($regionFacet['count'] !== null) ({{ $regionFacet['count'] }})@endif
@@ -398,7 +398,7 @@
                 </label>
 
                 <label class="filter-field filter-field--sort">
-                    <span>Сортировка</span>
+                    <span>{{ __('catalog.index.sort') }}</span>
                     <select name="sort">
                         @foreach($sortOptions as $sortValue => $sortLabel)
                             <option value="{{ $sortValue }}" @selected($selectedSort === $sortValue)>{{ $sortLabel }}</option>
@@ -406,9 +406,9 @@
                     </select>
                 </label>
 
-                <button class="btn filter-submit" type="submit">Показать</button>
+                <button class="btn filter-submit" type="submit">{{ __('catalog.index.show') }}</button>
                 @if($hasActiveFilters)
-                    <a class="btn filter-clear" href="{{ $clearUrl }}">Сбросить</a>
+                    <a class="btn filter-clear" href="{{ $clearUrl }}">{{ __('catalog.index.reset') }}</a>
                 @endif
             </form>
         </section>
@@ -416,54 +416,54 @@
         @if($products->isEmpty())
             <div class="empty">
                 @if($hasActiveFilters)
-                    По выбранным фильтрам ничего не найдено. Попробуйте другой запрос, бренд или номинал.
+                    {{ __('catalog.index.empty_filtered') }}
                 @else
-                    В каталоге пока нет публичных товаров.
+                    {{ __('catalog.index.empty') }}
                 @endif
             </div>
         @else
-            <section class="grid" aria-label="Товарная сетка каталога">
+            <section class="grid" aria-label="{{ __('catalog.index.grid_label') }}">
                 @foreach($products as $product)
                     @php
                         $selectedOffer = data_get($product, 'selected_offer');
                         $faceValue = data_get($product, 'face_value');
                         $faceCurrency = strtoupper(trim((string) data_get($product, 'face_value_currency', '')));
                         $region = trim((string) data_get($product, 'region', 'global'));
-                        $regionLabel = $region !== '' && strtolower($region) !== 'global' ? strtoupper($region) : 'Все регионы';
+                        $regionLabel = $region !== '' && strtolower($region) !== 'global' ? strtoupper($region) : __('catalog.index.all_regions');
                         $variantGroup = (array) data_get($product, 'variant_group', []);
                         $isGrouped = (bool) ($variantGroup['is_grouped'] ?? false);
                         $variantSummary = collect([
-                            $isGrouped ? (($variantGroup['variant_count'] ?? 0).' вариантов') : null,
-                            $isGrouped && ($variantGroup['region_count'] ?? 0) > 0 ? (($variantGroup['region_count'] ?? 0).' регионов') : null,
-                            $isGrouped && ($variantGroup['nominal_count'] ?? 0) > 0 ? (($variantGroup['nominal_count'] ?? 0).' номиналов') : null,
+                            $isGrouped ? trans_choice('catalog.index.variants', (int) ($variantGroup['variant_count'] ?? 0), ['count' => (int) ($variantGroup['variant_count'] ?? 0)]) : null,
+                            $isGrouped && ($variantGroup['region_count'] ?? 0) > 0 ? trans_choice('catalog.index.regions_count', (int) ($variantGroup['region_count'] ?? 0), ['count' => (int) ($variantGroup['region_count'] ?? 0)]) : null,
+                            $isGrouped && ($variantGroup['nominal_count'] ?? 0) > 0 ? trans_choice('catalog.index.nominals', (int) ($variantGroup['nominal_count'] ?? 0), ['count' => (int) ($variantGroup['nominal_count'] ?? 0)]) : null,
                         ])->filter()->implode(' · ');
                     @endphp
                     <article class="card">
                         <div class="card-body">
                             <a class="product-title" href="{{ $product['url'] }}">{{ $product['name'] }}</a>
                             <div class="muted">{{ data_get($product, 'brand') ?: data_get($product, 'category_label', 'Digital goods') }}</div>
-                            <div class="muted">{{ data_get($product, 'category_label', 'Digital goods') }} · {{ $isGrouped ? 'несколько регионов' : $regionLabel }}</div>
+                            <div class="muted">{{ data_get($product, 'category_label', 'Digital goods') }} · {{ $isGrouped ? __('catalog.index.multiple_regions') : $regionLabel }}</div>
                             @if($isGrouped)
                                 <div>
                                     <span class="tag" style="background: #efe6ff;">{{ $variantSummary }}</span>
                                 </div>
                                 @if(!empty($variantGroup['regions']))
-                                    <div class="muted">Регионы: {{ collect($variantGroup['regions'])->take(4)->implode(', ') }}@if(($variantGroup['region_count'] ?? 0) > 4) и другие@endif</div>
+                                    <div class="muted">{{ __('catalog.index.regions') }}: {{ collect($variantGroup['regions'])->take(4)->implode(', ') }}@if(($variantGroup['region_count'] ?? 0) > 4) {{ __('catalog.index.and_others') }}@endif</div>
                                 @endif
                             @endif
                             @if(is_numeric($faceValue) && (float) $faceValue > 0)
                                 <div>
-                                    <span class="tag" style="background: #e7fff2;">Номинал: {{ rtrim(rtrim(number_format((float) $faceValue, 2, '.', ' '), '0'), '.') }} {{ $faceCurrency }}</span>
+                                    <span class="tag" style="background: #e7fff2;">{{ __('catalog.index.nominal') }}: {{ rtrim(rtrim(number_format((float) $faceValue, 2, '.', ' '), '0'), '.') }} {{ $faceCurrency }}</span>
                                 </div>
                             @endif
                             @if($selectedOffer)
                                 <div class="price">{{ data_get($selectedOffer, 'price.label', number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ')) }}</div>
-                                <div class="muted">Продавец: {{ data_get($selectedOffer, 'seller.name', 'Meanly seller') }}</div>
+                                <div class="muted">{{ __('catalog.index.seller') }}: {{ data_get($selectedOffer, 'seller.name', 'Meanly seller') }}</div>
                             @else
-                                <div class="price" style="font-size: 20px;">Скоро в продаже</div>
-                                <div class="muted">Доступно через сеть поставщиков: {{ (int) data_get($product, 'provider_count', 0) }}</div>
+                                <div class="price" style="font-size: 20px;">{{ __('catalog.index.soon_for_sale') }}</div>
+                                <div class="muted">{{ __('catalog.index.available_through_providers', ['count' => (int) data_get($product, 'provider_count', 0)]) }}</div>
                             @endif
-                            <a class="btn" href="{{ $product['url'] }}">{{ data_get($product, 'cta_label', 'Открыть') }}</a>
+                            <a class="btn" href="{{ $product['url'] }}">{{ data_get($product, 'cta_label', __('catalog.index.open')) }}</a>
                         </div>
                     </article>
                 @endforeach

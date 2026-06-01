@@ -82,7 +82,7 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
-    'supported_locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('APP_SUPPORTED_LOCALES', 'ru,en,es,tk,uz,ka,hy,kk,tr'))))),
+    'supported_locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('APP_SUPPORTED_LOCALES', 'en,ru'))))),
 
     'locale_labels' => [
         'ru' => 'Русский',
