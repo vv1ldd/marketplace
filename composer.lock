@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2cc028e29939ce690248eabb9a0e97f1",
+    "content-hash": "69879ec21939148458d029602e97ec94",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2644,6 +2644,45 @@
                 }
             ],
             "time": "2026-05-01T00:46:07+00:00"
+        },
+        {
+            "name": "meanly/mdk-kernel",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/mdk-kernel",
+                "reference": "86bae5ba9f07c6c8a13dee6cff1e7a851d5b1547"
+            },
+            "require": {
+                "ext-bcmath": "*",
+                "ext-pdo": "*",
+                "php": ">=8.2"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^10.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Meanly\\Mdk\\Kernel\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Meanly\\Mdk\\Kernel\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Deterministic Ledger Virtual Machine (DLVM) - Pure financial execution engine",
+            "support": {
+                "source": "https://github.com/vv1ldd/MDK-Kernel.git"
+            },
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "monolog/monolog",
