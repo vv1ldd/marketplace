@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Сейф заказа {{ $order->order_id }} | Meanly</title>
+    <title>{{ __('storefront.safe.title', ['order' => $order->order_id]) }}</title>
     <style>
         :root {
             --bg: #eef0fc;
@@ -293,19 +293,19 @@
 </head>
 <body class="meanly-buyer-page">
     <!-- Hidden test assets -->
-    <span style="display: none;">Сейф готов</span>
-    <span style="display: none;" data-open-safe>Открыть сейф и показать код</span>
+    <span style="display: none;">{{ __('storefront.safe.ready') }}</span>
+    <span style="display: none;" data-open-safe>{{ __('storefront.safe.open') }}</span>
     <div class="status-grid" style="display: none !important;">
         <div class="status-card">
-            <span>Оплата</span>
-            <strong>{{ $safe['paid'] ? 'Подтверждена' : 'Проверяется' }}</strong>
+            <span>{{ __('storefront.safe.payment') }}</span>
+            <strong>{{ $safe['paid'] ? __('storefront.safe.confirmed') : __('storefront.safe.checking') }}</strong>
         </div>
         <div class="status-card">
-            <span>Выдача</span>
+            <span>{{ __('storefront.safe.fulfillment') }}</span>
             <strong id="safe-status-label">{{ $safe['label'] }}</strong>
         </div>
         <div class="status-card">
-            <span>Сумма</span>
+            <span>{{ __('storefront.safe.amount') }}</span>
             <strong>{{ number_format((float) $order->total_amount, 2, '.', ' ') }} {{ $order->currency ?: 'RUB' }}</strong>
         </div>
     </div>
@@ -316,28 +316,28 @@
 
         <section class="safe">
             <div class="safe-head">
-                <div class="eyebrow">Оплата подтверждена</div>
-                <h1>Сейф заказа</h1>
-                <p class="lead">Заказ {{ $order->order_id }} оплачен. Мы закрепили выдачу за вашим заказом и открываем код только после отдельного действия в сейфе.</p>
+                <div class="eyebrow">{{ __('storefront.safe.payment_confirmed') }}</div>
+                <h1>{{ __('storefront.safe.heading') }}</h1>
+                <p class="lead">{{ __('storefront.safe.lead', ['order' => $order->order_id]) }}</p>
             </div>
 
             <div class="safe-body">
                 <div class="vault">
-                    <h2>Личный Сейф Выдачи Кода</h2>
+                    <h2>{{ __('storefront.safe.code_safe') }}</h2>
                     
                     <div class="storefront-scratch-wrapper" data-storefront-scratch-wrapper>
                         <div style="padding: 20px; text-align: center; color: var(--muted); font-weight: 800;">
-                            Загрузка защищенного сейфа...
+                            {{ __('storefront.safe.loading') }}
                         </div>
                     </div>
 
                     <span class="hint" data-safe-hint>
-                        Сейф обновляет статус автоматически. Пожалуйста, подождите, пока код подготовится.
+                        {{ __('storefront.safe.wait') }}
                     </span>
                     <div class="support-ticket-panel" data-support-ticket-panel style="{{ ! empty($safe['support_ticket_url']) ? '' : 'display: none;' }}">
-                        <strong>Тикет поддержки открыт</strong>
-                        <p>Площадка уже видит этот заказ в очереди поддержки. Можно перейти в чат по обращению и отслеживать проверку.</p>
-                        <a href="{{ $safe['support_ticket_url'] ?? '#' }}" data-support-ticket-link>Перейти в чат с поддержкой</a>
+                        <strong>{{ __('storefront.safe.ticket_open') }}</strong>
+                        <p>{{ __('storefront.safe.ticket_note') }}</p>
+                        <a href="{{ $safe['support_ticket_url'] ?? '#' }}" data-support-ticket-link>{{ __('storefront.safe.open_support') }}</a>
                     </div>
                 </div>
             </div>
@@ -364,8 +364,8 @@
         };
 
         const renderStatus = (payload) => {
-            if (label) label.textContent = payload.label || 'Готовим код';
-            if (message) message.textContent = payload.message || 'Обновляем статус сейфа.';
+            if (label) label.textContent = payload.label || @json(__('storefront.safe.preparing_code'));
+            if (message) message.textContent = payload.message || @json(__('storefront.safe.refreshing'));
 
             const ready = payload.ready || false;
             const failed = payload.failed || false;
@@ -391,12 +391,12 @@
             } else if (failed) {
                 window.clearTimeout(state.pollTimer);
                 if (hint) {
-                    hint.textContent = payload.message || 'Выдача требует проверки. Поддержка проверит заказ или оформит возврат.';
+                    hint.textContent = payload.message || @json(__('storefront.safe.review_needed'));
                     hint.style.color = '#ef4444';
                 }
             } else {
                 if (hint) {
-                    hint.textContent = payload.message || 'Сейф обновляет статус автоматически. Код будет доступен совсем скоро.';
+                    hint.textContent = payload.message || @json(__('storefront.safe.auto_update'));
                 }
             }
         };
@@ -404,7 +404,7 @@
         const pollStatus = async () => {
             state.pollCount += 1;
             if (state.pollCount >= state.maxPolls) {
-                if (hint) hint.textContent = 'Статус можно обновить вручную, перезагрузив страницу.';
+                if (hint) hint.textContent = @json(__('storefront.safe.reload_hint'));
                 return;
             }
 
@@ -443,7 +443,7 @@
             revealedCode.className = 'revealed-inline-code';
 
             const codeElement = document.createElement('code');
-            codeElement.textContent = 'РАСШИФРОВКА...';
+            codeElement.textContent = @json(__('storefront.safe.decrypting'));
             codeElement.style.userSelect = 'none';
 
             revealedCode.appendChild(codeElement);
@@ -467,7 +467,7 @@
                 revealBtn = document.createElement('button');
                 revealBtn.type = 'button';
                 revealBtn.className = 'inline-reveal-btn';
-                revealBtn.textContent = 'Стереть карту';
+                revealBtn.textContent = @json(__('storefront.safe.scratch'));
                 container.appendChild(revealBtn);
 
                 dpr = window.devicePixelRatio || 1;
@@ -480,7 +480,7 @@
                 ctx.scale(dpr, dpr);
             }
 
-            const paintCanvas = (text = 'ЛИЧНЫЙ СЕЙФ // СТЕРЕТЬ МОНЕТКОЙ') => {
+            const paintCanvas = (text = @json(__('storefront.safe.canvas'))) => {
                 if (isScratched || !canvas) return;
                 const w = rect.width;
                 const h = rect.height;
@@ -540,7 +540,7 @@
             };
 
             if (!isScratched) {
-                paintCanvas('ЛИЧНЫЙ СЕЙФ // СТЕРЕТЬ МОНЕТКОЙ');
+                paintCanvas(@json(__('storefront.safe.canvas')));
             }
 
             let codeItem = null;
@@ -575,14 +575,14 @@
 
                 const copyBtn = document.createElement('button');
                 copyBtn.type = 'button';
-                copyBtn.textContent = 'Скопировать';
+                copyBtn.textContent = @json(__('storefront.safe.copy'));
                 copyBtn.addEventListener('click', async () => {
                     try {
                         await navigator.clipboard.writeText(codeItem.code || '');
-                        copyBtn.textContent = 'Скопировано';
-                        window.setTimeout(() => copyBtn.textContent = 'Скопировать', 1800);
+                        copyBtn.textContent = @json(__('storefront.safe.copied'));
+                        window.setTimeout(() => copyBtn.textContent = @json(__('storefront.safe.copy')), 1800);
                     } catch (error) {
-                        copyBtn.textContent = 'Ошибка';
+                        copyBtn.textContent = @json(__('storefront.safe.error'));
                     }
                 });
 
@@ -592,7 +592,7 @@
                     const redeemLink = document.createElement('a');
                     redeemLink.href = codeItem.redeem_url;
                     redeemLink.target = '_blank';
-                    redeemLink.textContent = 'Активировать';
+                    redeemLink.textContent = @json(__('storefront.safe.activate'));
                     actionsRow.appendChild(redeemLink);
                 }
                 
@@ -656,12 +656,12 @@
                         if (revealBtn) revealBtn.style.display = 'block';
                     }
                 } else {
-                    throw new Error('Код недоступен');
+                    throw new Error(@json(__('storefront.safe.code_unavailable')));
                 }
             })
             .catch(err => {
-                codeElement.textContent = err.message || 'Ошибка загрузки';
-                if (!isScratched) paintCanvas('ОШИБКА ДЕШИФРОВАНИЯ');
+                codeElement.textContent = err.message || @json(__('storefront.safe.load_error'));
+                if (!isScratched) paintCanvas(@json(__('storefront.safe.decrypt_error')));
             });
 
             if (!isScratched) {

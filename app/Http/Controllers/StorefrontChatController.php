@@ -31,7 +31,7 @@ class StorefrontChatController extends Controller
         if (empty(trim((string) $message))) {
             return response()->json([
                 'success' => false,
-                'error' => 'Запрос пуст'
+                'error' => __('runtime.chat.empty_request')
             ], 400);
         }
 
@@ -65,9 +65,9 @@ class StorefrontChatController extends Controller
                 'brand' => $card['brand'] ?? 'Meanly',
                 'region' => $card['region'] ?? 'global',
                 'category' => $card['category_label'] ?? '',
-                'price' => $offerPrice !== null ? ($offerPrice.' ₽') : 'Скоро в продаже',
+                'price' => $offerPrice !== null ? ($offerPrice.' ₽') : __('runtime.chat.coming_soon'),
                 'availability' => $card['has_selected_offer'] ? 'active_offer' : 'catalog_only',
-                'cta' => $card['cta_label'] ?? ($card['has_selected_offer'] ? 'Купить' : 'Открыть товар'),
+                'cta' => $card['cta_label'] ?? ($card['has_selected_offer'] ? __('runtime.chat.buy') : __('runtime.chat.open_product')),
                 'url' => $this->catalogUrlForPrompt((string) $card['url']),
                 'is_grouped' => (bool) ($variantGroup['is_grouped'] ?? false),
                 'variant_count' => (int) ($variantGroup['variant_count'] ?? 1),
@@ -177,7 +177,7 @@ class StorefrontChatController extends Controller
 
         return response()->json([
             'success' => false,
-            'error' => 'Не удалось связаться с LLM provider layer: '.$response->error,
+            'error' => __('runtime.chat.llm_error', ['error' => $response->error]),
         ], 500);
     }
 
@@ -194,9 +194,9 @@ class StorefrontChatController extends Controller
                 'brand' => (string) ($item['brand'] ?? 'Meanly'),
                 'region' => (string) ($item['region'] ?? 'global'),
                 'category' => (string) ($item['category'] ?? ''),
-                'price' => (string) ($item['price'] ?? 'Скоро в продаже'),
+                'price' => (string) ($item['price'] ?? __('runtime.chat.coming_soon')),
                 'availability' => (string) ($item['availability'] ?? 'catalog_only'),
-                'cta' => (string) ($item['cta'] ?? 'Открыть товар'),
+                'cta' => (string) ($item['cta'] ?? __('runtime.chat.open_product')),
                 'url' => (string) ($item['url'] ?? '#'),
                 'is_grouped' => (bool) ($item['is_grouped'] ?? false),
                 'variant_count' => (string) ($item['variant_count'] ?? '1'),
@@ -239,9 +239,9 @@ class StorefrontChatController extends Controller
         $externalSummary = '';
         if ($externalResults !== []) {
             $first = $externalResults[0];
-            $installPrice = $first['install_price_label'] ?? ('Установка: '.$first['price']);
-            $note = $first['monetization_note'] ?? 'Подписки и покупки внутри приложения могут оплачиваться отдельно.';
-            $externalSummary = "По App Store нашёл {$first['name']} для региона {$first['country']}: {$installPrice}. {$note}\n\n";
+            $installPrice = $first['install_price_label'] ?? (__('runtime.chat.install_price', ['price' => $first['price']]));
+            $note = $first['monetization_note'] ?? __('runtime.chat.iap_note');
+            $externalSummary = __('runtime.chat.external_summary', ['name' => $first['name'], 'country' => $first['country'], 'price' => $installPrice, 'note' => $note]);
         }
 
         $lines = collect($products)
@@ -249,16 +249,16 @@ class StorefrontChatController extends Controller
             ->map(function (array $product): string {
                 $isGrouped = (bool) ($product['is_grouped'] ?? false);
                 $note = $isGrouped
-                    ? "групповой товар: выберите регион и номинал на странице"
+                    ? __('runtime.chat.grouped_product_hint')
                     : ($product['availability'] === 'active_offer'
                         ? $product['price']
-                        : 'есть в каталоге, активный оффер появится позже');
+                        : __('runtime.chat.catalog_only_hint'));
 
                 return "- [{$product['name']}]({$product['url']}) — {$product['region']}, {$note}";
             })
             ->implode("\n");
 
-        return "{$externalSummary}Чтобы оплатить подписку или покупки внутри приложения, обычно нужен баланс Apple ID того же региона. Поэтому даю не отдельный номинал, а групповой товар Meanly: внутри можно выбрать страну и номинал.\n{$lines}";
+        return $externalSummary.__('runtime.chat.apple_balance_summary', ['lines' => $lines]);
     }
 
     private function catalogCardsForMessage(string $message, CanonicalStorefrontHomepageService $homepageService)
@@ -412,9 +412,6 @@ class StorefrontChatController extends Controller
         return isset($parts['query']) ? "{$path}?{$parts['query']}" : $path;
     }
 
-    /**
-     * Строит изолированный промпт для Meanly AI.
-     */
     private function buildSystemPrompt(array $catalog, string $userMessage, array $chatHistory, array $externalResults = []): string
     {
         $catalogJson = json_encode($catalog, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
@@ -422,39 +419,15 @@ class StorefrontChatController extends Controller
         
         $historyText = "";
         foreach ($chatHistory as $msg) {
-            $role = ($msg['role'] ?? 'user') === 'user' ? 'Пользователь' : 'Meanly AI';
+            $role = ($msg['role'] ?? 'user') === 'user' ? __('runtime.chat.user_role') : 'Meanly AI';
             $historyText .= "{$role}: " . ($msg['content'] ?? '') . "\n";
         }
 
-        return <<<EOT
-Ты — Meanly AI, интеллектуальный ИИ-ассистент цифрового маркетплейса Meanly.
-Твоя единственная цель — помочь пользователю подобрать товар ИЗ НАШЕГО КАТАЛОГА.
-
-ДОСТУПНЫЙ КАТАЛОГ ТОВАРОВ (в формате JSON):
-{$catalogJson}
-
-ВНЕШНИЕ APP STORE ФАКТЫ (если есть, в формате JSON):
-{$externalJson}
-
-КРИТИЧЕСКИЕ ПРАВИЛА ОБЩЕНИЯ:
-1. Отвечай дружелюбно, профессионально, кратко и только на РУССКОМ языке.
-2. Сопоставляй запрос пользователя с товарами в каталоге. Обращай внимание на бренд, регион (например, US, TR, global) и цену.
-3. НИКОГДА НЕ ПИШИ ВНЕШНИЕ ССЫЛКИ И ВНЕШНИЕ ДОМЕНЫ (такие как www.example.com, playstation.com и т.д.).
-4. При предложении товара ОБЯЗАТЕЛЬНО вставляй ссылку на него СТРОГО в формате Markdown: [Название товара](url_из_каталога).
-5. Ссылку (URL) бери СТРОГО ИЗ ПОЛЯ "url" в JSON каталога! Например, если у товара поле "url" равно "/catalog/products/psn-70-usd-us", то ссылка в ответе должна быть строго: [PlayStation Network 70 USD](/catalog/products/psn-70-usd-us).
-6. Если товар есть в JSON каталоге, но availability = "catalog_only" или price = "Скоро в продаже", НЕ говори, что товара нет. Скажи, что он найден в каталоге, но сейчас без активного оффера, и дай ссылку "Открыть товар".
-7. Если пользователь пишет "Apple ID", понимай это как Apple App Store / iTunes gift card.
-8. Если есть внешние App Store факты, различай install_price и подписку: price/install_price из Apple Search API — это цена установки приложения, НЕ обязательно цена подписки. Если monetization_note говорит о подписке/IAP, обязательно объясни это.
-9. Для Apple Music, Spotify, YouTube, Netflix и похожих сервисов: если App Store показывает Free, говори "приложение бесплатно скачать, подписка оплачивается отдельно", а не "подписка бесплатная".
-10. Если в каталоге есть grouped товар (is_grouped=true), рекомендуй именно его одной ссылкой: это страница выбора региона и номинала. Не перечисляй каждый номинал как отдельный товар.
-11. Объясняй связку: "цена установки/подписки в App Store" → "для оплаты нужен баланс Apple ID региона" → "на Meanly открываем групповой товар и выбираем регион/номинал".
-12. Не выдумывай товары и ссылки, которых нет в JSON каталоге. Только если JSON каталог пустой, вежливо ответь: "К сожалению, этого товара сейчас нет в каталоге."
-13. Пиши структурированно, используй списки, абзацы и эмодзи (🎮, 🔑, 💳).
-
-ИСТОРИЯ ДИАЛОГА:
-{$historyText}
-Пользователь: {$userMessage}
-Meanly AI:
-EOT;
+        return __('runtime.chat.system_prompt', [
+            'catalog' => $catalogJson,
+            'external' => $externalJson,
+            'history' => $historyText,
+            'message' => $userMessage,
+        ]);
     }
 }

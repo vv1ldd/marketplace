@@ -3,14 +3,14 @@
     $intentLabel = $intentResolution['intent_label'] ?? 'Best offer';
     $intentKey = $intentResolution['intent'] ?? 'best_offer';
     $intentOptions = [
-        'best_offer' => 'Лучший оффер',
-        'lowest_price' => 'Сначала дешевле',
-        'in_stock' => 'В наличии',
-        'trusted_seller' => 'Проверенный продавец',
+        'best_offer' => __('catalog.product.best_offer'),
+        'lowest_price' => __('catalog.product.lowest_price'),
+        'in_stock' => __('catalog.product.in_stock'),
+        'trusted_seller' => __('catalog.product.trusted_seller'),
     ];
     $canonicalIdentity = $facts['canonical_identity'] ?? [];
-    $categoryLabel = $facts['canonical_category_label'] ?? 'Цифровой товар';
-    $productName = $facts['name'] ?? 'Цифровой товар';
+    $categoryLabel = $facts['canonical_category_label'] ?? __('catalog.product.digital_product');
+    $productName = $facts['name'] ?? __('catalog.product.digital_product');
     $brandName = trim((string) ($facts['brand'] ?? data_get($canonicalIdentity, 'brand') ?? ''));
     $platformName = trim((string) data_get($canonicalIdentity, 'platform', ''));
     $productFamily = trim((string) data_get($canonicalIdentity, 'product_family', ''));
@@ -22,7 +22,7 @@
     $serviceRegion = trim((string) ($facts['region'] ?? data_get($canonicalIdentity, 'region') ?? ''));
     $serviceRegionLabel = $serviceRegion !== '' && strtolower($serviceRegion) !== 'global'
         ? $serviceRegion
-        : 'Глобальный регион';
+        : __('catalog.show.global_region');
     $faceValue = $facts['face_value'] ?? data_get($canonicalIdentity, 'face_value');
     $faceCurrency = strtoupper(trim((string) ($facts['face_value_currency'] ?? data_get($canonicalIdentity, 'face_value_currency') ?? '')));
     $formatAmount = function ($amount): string {
@@ -62,10 +62,10 @@
     }
     $paymentPriceLabel = is_numeric($paymentAmount) && (float) $paymentAmount > 0
         ? $formatMoney($paymentAmount, $paymentCurrency)
-        : 'Ожидает цену продавца';
+        : __('catalog.product.waiting_seller_price');
     $paymentContextLabel = $paymentCurrency === 'RUB'
-        ? 'Россия / RUB'
-        : ($paymentCurrency !== '' ? 'Валюта оплаты: '.$paymentCurrency : 'Валюта оплаты');
+        ? __('catalog.product.russia_rub')
+        : ($paymentCurrency !== '' ? __('catalog.product.payment_currency').': '.$paymentCurrency : __('catalog.product.payment_currency'));
     $selectedSellerName = trim((string) (data_get($selectedOffer, 'seller.name') ?: 'Meanly seller'));
     $selectedSellerLegalName = trim((string) data_get($selectedOffer, 'seller.legal_entity', ''));
     $checkoutUser = auth()->user();
@@ -888,7 +888,7 @@
         <section class="product-layout">
             <div class="product-main-column">
                 <article class="product-panel">
-                    <div class="buyer-product-hero" aria-label="Карточка товара">
+                    <div class="buyer-product-hero" aria-label="{{ __('product.public.card_label') }}">
                         <div class="buyer-product-image">
                             <img src="{{ $displayImage }}" alt="{{ $productName }}">
                         </div>
@@ -896,14 +896,14 @@
                             <div class="eyebrow">{{ $categoryLabel }} · {{ $serviceRegionLabel }}</div>
                             <h1>{{ $productName }}</h1>
                             <p>
-                                Цифровой код для {{ $serviceName }}. После оплаты покупка появится в личном сейфе и будет отправлена на email.
+                                {{ __('catalog.product.digital_code_for', ['service' => $serviceName]) }}
                             </p>
                             @if($selectedOffer)
                                 <div class="buyer-seller-line">
-                                    <span>Продавец:</span>
+                                    <span>{{ __('catalog.show.seller') }}:</span>
                                     <strong>{{ $selectedSellerName }}</strong>
                                     @if($selectedSellerLegalName !== '' && $selectedSellerLegalName !== $selectedSellerName)
-                                        <em>Магазин: {{ $selectedSellerLegalName }}</em>
+                                        <em>{{ __('catalog.product.shop') }}: {{ $selectedSellerLegalName }}</em>
                                     @endif
                                 </div>
                             @endif
@@ -911,30 +911,30 @@
                     </div>
                     <div class="buyer-product-copy product-copy">
                         <div class="meta-row">
-                            <span class="meta-pill">цифровая выдача</span>
+                            <span class="meta-pill">{{ __('product.public.digital_delivery') }}</span>
                             <span class="meta-pill soft">{{ $serviceRegionLabel }}</span>
                             @if($serviceAmountLabel !== '')
-                                <span class="meta-pill" style="background: #e7fff2; color: #000;">номинал {{ $serviceAmountLabel }}</span>
+                                <span class="meta-pill" style="background: #e7fff2; color: #000;">{{ __('catalog.index.nominal') }} {{ $serviceAmountLabel }}</span>
                             @endif
-                            <span class="meta-pill soft">{{ $selectedOffer ? 'в наличии у продавца' : 'ожидает цену' }}</span>
+                            <span class="meta-pill soft">{{ $selectedOffer ? __('catalog.product.in_seller_stock') : __('catalog.product.waiting_price') }}</span>
                         </div>
 
-                        <div class="buyer-trust-list" aria-label="Что важно знать перед покупкой">
+                        <div class="buyer-trust-list" aria-label="{{ __('catalog.show.known_before_purchase') }}">
                             <div class="buyer-trust-item">
-                                <strong>Доставка</strong>
-                                На email и в личный сейф после оплаты.
+                                <strong>{{ __('catalog.show.delivery') }}</strong>
+                                {{ __('catalog.show.delivery_text') }}
                             </div>
                             <div class="buyer-trust-item">
-                                <strong>Регион</strong>
+                                <strong>{{ __('catalog.index.region') }}</strong>
                                 {{ $serviceRegionLabel }}.
                             </div>
                             <div class="buyer-trust-item">
-                                <strong>Поддержка</strong>
-                                Поможем по заказу из кабинета.
+                                <strong>{{ __('product.public.support') }}</strong>
+                                {{ __('catalog.product.support_text') }}
                             </div>
                             @if($selectedOffer)
                                 <div class="buyer-trust-item">
-                                    <strong>Продавец</strong>
+                                    <strong>{{ __('catalog.show.seller') }}</strong>
                                     {{ $selectedSellerName }}.
                                 </div>
                             @endif
@@ -943,15 +943,15 @@
                 </article>
 
                 <section class="description-panel">
-                    <h2>Описание</h2>
+                    <h2>{{ __('product.public.description') }}</h2>
                     <div class="description">
-                        {!! nl2br(e(trim(strip_tags((string) $facts['description'])) ?: 'Цифровой товар Meanly с выдачей через защищенный checkout и redeem-ссылку.')) !!}
+                        {!! nl2br(e(trim(strip_tags((string) $facts['description'])) ?: __('product.public.default_description'))) !!}
                         
                         @if($serviceAmountLabel !== '')
                             <div style="margin-top: 18px; border: 2px solid var(--line); border-radius: 8px; padding: 16px; background: #e7fff2;">
                                 <strong style="display: block; font-size: 16px; margin-bottom: 6px;">{{ $serviceName }} · {{ $serviceAmountLabel }}</strong>
                                 <p style="margin: 0; font-size: 15px; color: var(--muted); line-height: 1.55;">
-                                    Перед оплатой проверьте регион активации: <strong>{{ $serviceRegionLabel }}</strong>.
+                                    {!! __('catalog.product.check_region', ['region' => '<strong>'.e($serviceRegionLabel).'</strong>']) !!}
                                 </p>
                             </div>
                         @endif
@@ -963,14 +963,14 @@
             <aside class="checkout-panel" data-checkout-panel>
                 @if($selectedOffer)
                     <div data-checkout-flow>
-                        <div class="seller">К оплате</div>
+                        <div class="seller">{{ __('catalog.show.to_pay') }}</div>
                         <div class="price">{{ $paymentPriceLabel }}</div>
-                        <div class="checkout-note" style="background: #fdf5ff; border-color: #a855f7;">Код появится в личном сейфе. Email нужен только для подарочной или гостевой доставки. Регион активации: {{ $serviceRegionLabel }}.</div>
+                        <div class="checkout-note" style="background: #fdf5ff; border-color: #a855f7;">{{ __('catalog.product.checkout_note', ['region' => $serviceRegionLabel]) }}</div>
                         
                         <form method="POST" action="{{ route('meanly.storefront.checkout') }}" data-gift-checkout>
                             @csrf
                             <input type="hidden" name="product_id" value="{{ $selectedOffer['product_id'] }}">
-                            <label for="quantity">Количество</label>
+                            <label for="quantity">{{ __('catalog.product.quantity') }}</label>
                             <input id="quantity" name="quantity" type="number" min="1" max="5" value="{{ old('quantity', 1) }}">
 
                             @if($checkoutUser)
@@ -985,31 +985,31 @@
                                     @checked($giftCheckoutSelected)
                                 >
                                 <label class="gift-toggle" for="is_gift">
-                                    <span>Отправить на другой email</span>
+                                    <span>{{ __('catalog.product.send_other_email') }}</span>
                                 </label>
                                 <div class="gift-fields">
-                                    <label for="email">Email получателя</label>
-                                    <input id="email" name="email" type="email" value="{{ old('email') }}" placeholder="укажите другой email для доставки" data-gift-email @if($giftCheckoutSelected) required @endif>
-                                    <label for="name">Имя получателя</label>
-                                    <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="укажите имя получателя">
+                                    <label for="email">{{ __('product.public.gift_email') }}</label>
+                                    <input id="email" name="email" type="email" value="{{ old('email') }}" placeholder="{{ __('product.public.gift_email_placeholder') }}" data-gift-email @if($giftCheckoutSelected) required @endif>
+                                    <label for="name">{{ __('product.public.recipient_name') }}</label>
+                                    <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="{{ __('product.public.recipient_name_placeholder') }}">
                                 </div>
                             @else
-                                <label for="email">Email для доставки кода</label>
-                                <input id="email" name="email" type="email" required value="{{ old('email') }}" placeholder="укажите адрес доставки кода">
-                                <label for="name">Имя получателя</label>
-                                <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="укажите имя">
-                                <p class="recipient-help">Войдите через SL1E wallet, чтобы получать коды в личный сейф без email.</p>
+                                <label for="email">{{ __('product.public.delivery_email') }}</label>
+                                <input id="email" name="email" type="email" required value="{{ old('email') }}" placeholder="{{ __('product.public.delivery_email_placeholder') }}">
+                                <label for="name">{{ __('product.public.recipient_name') }}</label>
+                                <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="{{ __('product.public.name_placeholder') }}">
+                                <p class="recipient-help">{{ __('product.public.wallet_email_help') }}</p>
                             @endif
 
-                            <div class="payment-methods" aria-label="Способы оплаты">
+                            <div class="payment-methods" aria-label="{{ __('product.public.payment_methods') }}">
                                 <div class="payment-method-card is-disabled" aria-disabled="true">
                                     <strong>
-                                        СБП
-                                        <span class="payment-badge">Скоро</span>
+                                        {{ __('product.public.sbp') }}
+                                        <span class="payment-badge">{{ __('product.public.soon') }}</span>
                                     </strong>
-                                    <p>Оплата через Систему быстрых платежей появится здесь: QR/deep link банка, подтверждение платежа и выдача кода только после verified capture.</p>
+                                    <p>{{ __('product.public.sbp_note') }}</p>
                                     <button class="btn btn-secondary" type="button" disabled>
-                                        Оплата СБП скоро будет
+                                        {{ __('product.public.sbp_soon') }}
                                     </button>
                                 </div>
                             </div>
@@ -1017,12 +1017,12 @@
                             @if($checkoutUser)
                                 <div class="buyer-wallet-secondary">
                                     <div class="checkout-note" style="background: #ecfdf5; border-color: #10b981; margin-top: 12px;">
-                                        Баланс и операции перенесены в SL1 Wallet. Meanly показывает чек, статус оплаты и выдачу кода.
+                                        {{ __('product.public.wallet_balance_note') }}
                                     </div>
                                 </div>
                             @else
                                 <a class="btn btn-primary" href="{{ route('login') }}" style="width: 100%; margin-top: 18px;">
-                                    Войти для покупки
+                                    {{ __('catalog.show.login_to_buy') }}
                                 </a>
                             @endif
                         </form>
@@ -1034,29 +1034,29 @@
 
                     <template data-inline-order-safe-template>
                         <div class="inline-safe-panel" data-inline-order-safe-panel>
-                            <span style="display: none;">Открыть код</span>
-                            <div class="seller">Выдача заказа</div>
-                            <div class="price" data-inline-safe-order style="display: none;">Заказ оплачен</div>
+                            <span style="display: none;">{{ __('product.public.open_code') }}</span>
+                            <div class="seller">{{ __('product.public.fulfillment') }}</div>
+                            <div class="price" data-inline-safe-order style="display: none;">{{ __('product.public.order_paid') }}</div>
                             <div class="checkout-note" data-inline-safe-message style="display: none;">
-                                Оплата подтверждена. Готовим карту выдачи.
+                                {{ __('product.public.payment_confirmed_prepare') }}
                             </div>
                             
                             <div class="storefront-scratch-wrapper" data-storefront-scratch-wrapper style="margin-top: 16px;"></div>
 
                             <div class="inline-safe-actions" data-inline-safe-actions-row style="margin-top: 16px; display: grid; gap: 10px;">
-                                <button class="btn btn-secondary" type="button" data-inline-safe-refresh>Обновить статус</button>
-                                <a class="inline-safe-link" href="#" data-inline-safe-link style="text-align: center; text-decoration: underline; text-underline-offset: 4px; padding-top: 10px; display: block;">Открыть заказ в личном сейфе</a>
+                                <button class="btn btn-secondary" type="button" data-inline-safe-refresh>{{ __('product.public.refresh_status') }}</button>
+                                <a class="inline-safe-link" href="#" data-inline-safe-link style="text-align: center; text-decoration: underline; text-underline-offset: 4px; padding-top: 10px; display: block;">{{ __('product.public.open_safe') }}</a>
                             </div>
                             <p class="recipient-help" data-inline-safe-hint aria-live="polite" style="display: none;">
-                                Выдача обновится автоматически, когда код будет готов.
+                                {{ __('product.public.fulfillment_auto') }}
                             </p>
                         </div>
                     </template>
                 @else
-                    <div class="seller" style="margin-bottom: 8px;">Пока нет цены продавца</div>
-                    <div class="price" style="font-size: 28px; line-height: 1.1; margin-bottom: 16px; color: var(--muted); letter-spacing: -0.04em;">Ожидает цену</div>
-                    <div class="checkout-note" style="background: #fff7d6;">Сейчас нет активного предложения для покупки. Мы покажем цену на витрине, когда продавец подключит этот товар.</div>
-                    <button class="btn" style="width: 100%; margin-top: 8px;" disabled>Нет в продаже</button>
+                    <div class="seller" style="margin-bottom: 8px;">{{ __('catalog.product.no_seller_price_title') }}</div>
+                    <div class="price" style="font-size: 28px; line-height: 1.1; margin-bottom: 16px; color: var(--muted); letter-spacing: -0.04em;">{{ __('catalog.show.waiting_price') }}</div>
+                    <div class="checkout-note" style="background: #fff7d6;">{{ __('catalog.product.no_active_offer_note') }}</div>
+                    <button class="btn" style="width: 100%; margin-top: 8px;" disabled>{{ __('catalog.show.not_for_sale') }}</button>
                 @endif
             </aside>
         </section>
@@ -1133,26 +1133,26 @@
 
             panel.className = 'inline-safe-panel';
             title.className = 'seller';
-            title.textContent = 'Выдача заказа';
+            title.textContent = @json(__('product.public.fulfillment'));
             order.className = 'price';
-            order.textContent = result?.order_id ? `Заказ ${result.order_id}` : 'Заказ оплачен';
+            order.textContent = result?.order_id ? `Order ${result.order_id}` : @json(__('product.public.order_paid'));
             note.className = 'checkout-note';
             note.style.background = '#fff7d6';
             note.style.borderColor = '#f59e0b';
-            note.textContent = reason || 'Встроенная выдача недоступна. Заказ оплачен, откройте отдельную защищенную страницу заказа.';
+            note.textContent = reason || @json(__('catalog.product.inline_unavailable'));
             actions.className = 'inline-safe-actions';
             standaloneLink.className = 'btn btn-primary';
             standaloneLink.href = standaloneSafeUrl;
-            standaloneLink.textContent = 'Открыть выдачу отдельно';
+            standaloneLink.textContent = @json(__('catalog.product.open_separate'));
             hint.className = 'recipient-help';
-            hint.textContent = 'Мы не перенаправляем в личный кабинет автоматически. Страница выдачи откроется только по отдельной ссылке.';
+            hint.textContent = @json(__('catalog.product.no_auto_redirect'));
             actions.appendChild(standaloneLink);
 
             if (result?.cabinet_safe_url) {
                 const cabinetLink = document.createElement('a');
                 cabinetLink.className = 'inline-safe-link';
                 cabinetLink.href = result.cabinet_safe_url;
-                cabinetLink.textContent = 'Открыть заказ в личном сейфе';
+                cabinetLink.textContent = @json(__('product.public.open_safe'));
                 actions.appendChild(cabinetLink);
             }
 
@@ -1186,7 +1186,7 @@
             revealedCode.className = 'revealed-inline-code';
 
             const codeElement = document.createElement('code');
-            codeElement.textContent = 'КОД ГОТОВИТСЯ...';
+            codeElement.textContent = @json(__('catalog.product.code_preparing'));
             codeElement.style.userSelect = 'none';
 
             revealedCode.appendChild(codeElement);
@@ -1217,7 +1217,7 @@
                 ctx.scale(dpr, dpr);
             }
 
-            const paintCanvas = (text = 'ВЫДАЧА ЗАКАЗА // СОТРИТЕ КАРТУ') => {
+            const paintCanvas = (text = @json(__('catalog.product.canvas'))) => {
                 if (isScratched || !canvas) return;
                 const w = rect.width;
                 const h = rect.height;
@@ -1277,7 +1277,7 @@
             };
 
             if (!isScratched) {
-                paintCanvas('ВЫДАЧА ЗАКАЗА // СОТРИТЕ КАРТУ');
+                paintCanvas(@json(__('catalog.product.canvas')));
             }
 
             let codeItem = null;
@@ -1311,14 +1311,14 @@
 
                 const copyBtn = document.createElement('button');
                 copyBtn.type = 'button';
-                copyBtn.textContent = 'Скопировать';
+                copyBtn.textContent = @json(__('storefront.safe.copy'));
                 copyBtn.addEventListener('click', async () => {
                     try {
                         await navigator.clipboard.writeText(codeItem.code || '');
-                        copyBtn.textContent = 'Скопировано';
-                        window.setTimeout(() => copyBtn.textContent = 'Скопировать', 1800);
+                        copyBtn.textContent = @json(__('storefront.safe.copied'));
+                        window.setTimeout(() => copyBtn.textContent = @json(__('storefront.safe.copy')), 1800);
                     } catch (error) {
-                        copyBtn.textContent = 'Ошибка';
+                        copyBtn.textContent = @json(__('storefront.safe.error'));
                     }
                 });
 
@@ -1328,7 +1328,7 @@
                     const redeemLink = document.createElement('a');
                     redeemLink.href = codeItem.redeem_url;
                     redeemLink.target = '_blank';
-                    redeemLink.textContent = 'Активировать';
+                    redeemLink.textContent = @json(__('storefront.safe.activate'));
                     actionsRow.appendChild(redeemLink);
                 }
                 
@@ -1390,12 +1390,12 @@
                         revealCode(false);
                     }
                 } else {
-                    throw new Error('Код недоступен');
+                    throw new Error(@json(__('storefront.safe.code_unavailable')));
                 }
             })
             .catch(err => {
-                codeElement.textContent = err.message || 'Ошибка загрузки';
-                if (!isScratched) paintCanvas('ОШИБКА ДЕШИФРОВАНИЯ');
+                codeElement.textContent = err.message || @json(__('storefront.safe.load_error'));
+                if (!isScratched) paintCanvas(@json(__('storefront.safe.decrypt_error')));
             });
 
             if (!isScratched) {
@@ -1536,12 +1536,12 @@
 
             if (result.cabinet_safe_url) {
                 safeLink.href = result.cabinet_safe_url;
-                safeLink.textContent = 'Открыть заказ в личном сейфе';
+                safeLink.textContent = @json(__('product.public.open_safe'));
             } else {
                 safeLink.hidden = true;
             }
 
-            order.textContent = result.order_id ? `Заказ ${result.order_id}` : 'Заказ оплачен';
+            order.textContent = result.order_id ? `Order ${result.order_id}` : @json(__('product.public.order_paid'));
 
             const renderStatus = (payload = {}) => {
                 const ready = payload.ready || false;
@@ -1567,13 +1567,13 @@
                     }
                 } else if (failed) {
                     window.clearTimeout(state.pollTimer);
-                    message.textContent = payload.message || 'Выдача требует проверки. Поддержка проверит заказ или оформит возврат.';
+                    message.textContent = payload.message || @json(__('catalog.product.review_required'));
                     message.style.background = '#fef2f2';
                     message.style.borderColor = '#f87171';
-                    if (hint) hint.textContent = 'Обратитесь в поддержку для ручной выдачи или возврата.';
+                    if (hint) hint.textContent = @json(__('catalog.product.contact_support'));
                 } else {
-                    message.textContent = payload.message || 'Платеж подтвержден. Готовим выдачу заказа.';
-                    if (hint) hint.textContent = 'Выдача обновится автоматически, когда код будет готов.';
+                    message.textContent = payload.message || @json(__('catalog.product.payment_confirmed'));
+                    if (hint) hint.textContent = '{{ __('product.public.fulfillment_auto') }}';
                 }
             };
 
@@ -1581,7 +1581,7 @@
                 window.clearTimeout(state.pollTimer);
 
                 if (state.pollCount >= state.maxPolls) {
-                    if (hint) hint.textContent = 'Статус можно обновить вручную или открыть заказ в личном сейфе по ссылке.';
+                    if (hint) hint.textContent = @json(__('catalog.product.status_manual'));
                     return;
                 }
 
@@ -1598,7 +1598,7 @@
                     const payload = await response.json();
 
                     if (!response.ok) {
-                        throw new Error(payload.message || 'Не удалось обновить выдачу.');
+                        throw new Error(payload.message || @json(__('catalog.product.refresh_failed')));
                     }
 
                     renderStatus(payload);
@@ -1607,7 +1607,7 @@
                         schedulePoll();
                     }
                 } catch (error) {
-                    if (hint) hint.textContent = error.message || 'Не удалось обновить статус. Попробуйте еще раз.';
+                    if (hint) hint.textContent = error.message || @json(__('catalog.product.status_failed'));
                     schedulePoll();
                 }
             };
@@ -1615,7 +1615,7 @@
             refreshButton.addEventListener('click', () => {
                 window.clearTimeout(state.pollTimer);
                 state.pollCount = 0;
-                if (hint) hint.textContent = 'Обновляем статус выдачи...';
+                if (hint) hint.textContent = @json(__('catalog.product.refreshing_status'));
                 fetchStatus();
             });
 
@@ -1623,7 +1623,7 @@
                 status: result.safe_status,
                 paid: true,
                 ready: false,
-                message: 'Платеж подтвержден. Готовим выдачу заказа.',
+                message: @json(__('catalog.product.payment_confirmed')),
                 order_id: result.order_id,
             });
             fetchStatus();

@@ -17,21 +17,7 @@ class PublicLocalizationGuardrailTest extends TestCase
      */
     public function test_public_blade_surfaces_do_not_add_hardcoded_cyrillic_ui_copy(): void
     {
-        $legacyBaseline = [
-            'resources/views/catalog/product.blade.php' => 86,
-            'resources/views/catalog/show.blade.php' => 69,
-            'resources/views/landing.blade.php' => 1365,
-            'resources/views/network/category.blade.php' => 11,
-            'resources/views/network/index.blade.php' => 5,
-            'resources/views/network/show.blade.php' => 21,
-            'resources/views/products/show.blade.php' => 42,
-            'resources/views/storefront/ai-chat.blade.php' => 25,
-            'resources/views/storefront/checkout-success.blade.php' => 7,
-            'resources/views/storefront/index.blade.php' => 60,
-            'resources/views/storefront/order-safe.blade.php' => 33,
-            'resources/views/storefront/order-support-ticket.blade.php' => 16,
-            'resources/views/storefront/show.blade.php' => 87,
-        ];
+        $legacyBaseline = [];
 
         $violations = [];
 

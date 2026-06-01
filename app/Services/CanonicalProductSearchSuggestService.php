@@ -274,14 +274,14 @@ class CanonicalProductSearchSuggestService
     private function matchLabel(array $breakdown): string
     {
         if ($breakdown['brand'] > 0 && $breakdown['region'] > 0) {
-            return 'Бренд + регион';
+            return __('runtime.suggest.brand_region');
         }
 
         if ($breakdown['alias'] > 0) {
-            return 'Совпадение по алиасу';
+            return __('runtime.suggest.alias_match');
         }
 
-        return 'Совпадение по токенам';
+        return __('runtime.suggest.token_match');
     }
 
     /**

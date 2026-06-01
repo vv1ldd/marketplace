@@ -37,7 +37,7 @@ class CodeController extends Controller
 
         if (! $uuid) {
             \Log::warning('REDEEM_SESS: checkEmail FAILED. No UUID in session, request, or intent.');
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.reenter')]);
         }
 
         $email = $data['email'];
@@ -122,7 +122,7 @@ class CodeController extends Controller
         $email = $intent ? $intent['email'] : session('client_email');
 
         if (! $email) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Сессия истекла']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.session_expired')]);
         }
 
         $verificationCode = rand(100000, 999999);
@@ -136,13 +136,13 @@ class CodeController extends Controller
 
         Mail::to($email)->send(new VerificationCodeMail($verificationCode));
 
-        return back()->with('success', 'Код подтверждения повторно отправлен на '.$email);
+        return back()->with('success', __('redeem.code.resend_success', ['email' => $email]));
     }
 
     public function getEmailView(Request $request): View|Factory|RedirectResponse
     {
         if (app()->environment('production') && ! $request->hasValidSignature()) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.reenter')]);
         }
 
         $intentToken = $request->query('intent');
@@ -166,7 +166,7 @@ class CodeController extends Controller
         
         if (! $uuid) {
             \Log::warning('REDEEM_SESS: getEmailView FAILED. No UUID.');
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.reenter')]);
         }
 
         if (! session()->has('order_item_info')) {
@@ -187,7 +187,7 @@ class CodeController extends Controller
         if ($hasValidSignature && $request->filled('uuid')) {
             $order_item = OrderItems::where('uuid', $request->string('uuid'))->first();
             if (! $order_item || ! $order_item->is_activated) {
-                abort(403, 'Ссылка недействительна или истекла.');
+                abort(403, __('redeem.code.invalid_link'));
             }
             session()->put('order_item_info', [
                 'uuid' => $order_item->uuid,
@@ -280,14 +280,14 @@ class CodeController extends Controller
         
         if (! $uuid) {
             \Log::warning('REDEEM_SESS: sendForm FAILED. No UUID in session, request, or intent.');
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.reenter')]);
         }
 
         \Log::info('REDEEM_SESS: sendForm PROCEEDING. UUID=' . $uuid . ' | Intent=' . ($intentToken ?? 'NONE'));
 
         $order_item = OrderItems::with(['game', 'order.shop'])->where('uuid', $uuid)->first();
         if (! $order_item) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.reenter')]);
         }
 
         $showPlaystationRedeemAccountForm = $order_item->showPlaystationRedeemAccountForm();
@@ -333,7 +333,7 @@ class CodeController extends Controller
             && (string) $data['verification_code'] === $localBypassCode;
 
         if (! $localBypass && (int) $data['verification_code'] !== (int) $sessionCode) {
-            return back()->withErrors(['verification_code' => 'Неверный код подтверждения']);
+            return back()->withErrors(['verification_code' => __('redeem.code.invalid_verification')]);
         }
 
         if ($intentToken) {
@@ -344,21 +344,21 @@ class CodeController extends Controller
         $data['uuid'] = $uuid;
 
         if ($order_item->is_activated) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Код уже активирован']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.already_activated')]);
         }
 
         if (! $order_item->is_redeemed) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Необходимо заново ввести код']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.reenter')]);
         }
 
         if ($order_item->activate_till < now()) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Код уже истек']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.expired')]);
         }
 
         $order = Order::where('id', $order_item->order_id)->first();
 
         if (! $order) {
-            return redirect()->route('redeem.code')->withErrors(['code' => 'Заказ не найден']);
+            return redirect()->route('redeem.code')->withErrors(['code' => __('redeem.code.order_not_found')]);
         }
 
         $option_0 = data_get($data, 'option.0');
@@ -555,7 +555,7 @@ class CodeController extends Controller
 
         if (! preg_match('/^[A-Z0-9-]+$/', $code)) {
             throw ValidationException::withMessages([
-                'code' => 'Допустимы только латинские буквы, цифры и дефисы.',
+                'code' => __('redeem.code.allowed_chars'),
             ]);
         }
 
@@ -568,7 +568,7 @@ class CodeController extends Controller
         $order_item = OrderItems::findByKeyWith($code, ['order.shop']);
 
         if (! $order_item) {
-            return back()->withErrors(['code' => 'Введен неверный или несуществующий код']);
+            return back()->withErrors(['code' => __('redeem.code.invalid_or_missing')]);
         }
 
         if ($order_item->is_activated) {
@@ -584,7 +584,7 @@ class CodeController extends Controller
 
             $redirect = redirect()
                 ->route('redeem.code', request()->query())
-                ->withErrors(['code' => 'Код уже успешно активирован. Мы свяжемся с Вами.']);
+                ->withErrors(['code' => __('redeem.code.already_success')]);
 
             if ($support !== null) {
                 $redirect->with('redeem_support', $support);
@@ -596,11 +596,11 @@ class CodeController extends Controller
         $order = Order::where('id', $order_item->order_id)->first();
 
         if (! $order) {
-            return back()->withErrors(['code' => 'Заказ не был найден']);
+            return back()->withErrors(['code' => __('redeem.code.order_missing')]);
         }
 
         if ($order_item->activate_till < now()) {
-            return back()->withErrors(['code' => 'Код уже истек']);
+            return back()->withErrors(['code' => __('redeem.code.expired')]);
         }
 
         $order_item->update(['is_redeemed' => true]);

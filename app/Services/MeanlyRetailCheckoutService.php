@@ -69,7 +69,7 @@ class MeanlyRetailCheckoutService
             $requiresProviderExchange = $this->fulfillment->isProviderBacked($product);
             if ($fulfillmentMode === StorefrontFulfillmentService::FULFILLMENT_PREORDER) {
                 throw ValidationException::withMessages([
-                    'fulfillment_mode' => 'Предзаказ доступен только для закупки продавца.',
+                    'fulfillment_mode' => __('runtime.checkout.preorder_buy_only'),
                 ]);
             }
 
@@ -216,7 +216,7 @@ class MeanlyRetailCheckoutService
                 $vouchers = [];
             } else {
                 throw ValidationException::withMessages([
-                    'availability' => 'Нет в наличии у продавца. Скоро в продаже после пополнения стока.',
+                    'availability' => __('runtime.checkout.no_seller_stock'),
                 ]);
             }
 
@@ -330,7 +330,7 @@ class MeanlyRetailCheckoutService
             if (! $inventory) {
                 if (! $allowGenerate) {
                     throw ValidationException::withMessages([
-                        'availability' => 'Нет свободного seller entitlement для безопасной выдачи.',
+                        'availability' => __('runtime.checkout.no_entitlement'),
                     ]);
                 }
 

@@ -3,14 +3,14 @@
     $giftCheckoutSelected = filter_var(old('is_gift', false), FILTER_VALIDATE_BOOLEAN);
     $initialCheckoutAvailability = $checkoutAvailability ?? [
         'status' => 'idle',
-        'reason' => 'Проверим наличие у продавца перед оплатой.',
+        'reason' => __('product.public.availability_check_title'),
     ];
     $initialCheckoutAvailable = ($initialCheckoutAvailability['status'] ?? null) === 'available';
     $simpleL1Identity = session('simple_l1_identity');
     $simpleL1Address = is_array($simpleL1Identity) ? ($simpleL1Identity['l1_address'] ?? null) : null;
 @endphp
 <!DOCTYPE html>
-<html lang="ru" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
+<html lang="{{ app()->getLocale() }}" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
 <head>
     @include('partials.theme-sync')
     <meta charset="UTF-8">
@@ -927,7 +927,7 @@
     @include('storefront.partials.header')
 
     <main class="shell">
-        <a class="back-link" href="{{ route('meanly.storefront.index') }}">← Назад в маркетплейс</a>
+        <a class="back-link" href="{{ route('meanly.storefront.index') }}">← {{ __('products.show.back_storefront') }}</a>
 
         <section class="product-layout">
             <div class="product-main-column">
@@ -937,7 +937,7 @@
                     $brandName = $product->brand?->name ?: $product->vendor ?: 'Platform';
                 @endphp
                 <article class="product-panel">
-                    <div class="buyer-product-hero" aria-label="Карточка товара">
+                    <div class="buyer-product-hero" aria-label="{{ __('product.public.card_label') }}">
                         <div class="buyer-product-image">
                             <img src="{{ $product->getRedeemDisplayImageSrc() }}" alt="{{ $product->name }}">
                         </div>
@@ -945,13 +945,13 @@
                             <div class="eyebrow">{{ $product->category ?? 'Digital goods' }}</div>
                             <h1>{{ $product->name }}</h1>
                             <p>
-                                Цифровой код {{ $brandName }}. После оплаты он придет на email и появится в личном сейфе.
+                                {{ __('product.public.digital_code_brand', ['brand' => $brandName]) }}
                             </p>
                         </div>
                     </div>
                     <div class="buyer-product-copy product-copy">
                         <div class="meta-row">
-                            <span class="meta-pill">цифровая выдача</span>
+                            <span class="meta-pill">{{ __('product.public.digital_delivery') }}</span>
                             @isset($productFacts)
                                 <span class="meta-pill soft">{{ $productFacts['canonical_category_label'] ?? $product->category }}</span>
                             @endisset
@@ -959,36 +959,36 @@
                                 <span class="meta-pill soft">{{ $product->market_category_name }}</span>
                             @endif
                             @if($nominalValue > 0)
-                                <span class="meta-pill" style="background: #e7fff2; color: #000;">номинал {{ $nominalValue }} {{ $currency }}</span>
+                                <span class="meta-pill" style="background: #e7fff2; color: #000;">{{ __('catalog.index.nominal') }} {{ $nominalValue }} {{ $currency }}</span>
                             @endif
                         </div>
-                        <div class="buyer-trust-list" aria-label="Что важно знать перед покупкой">
+                        <div class="buyer-trust-list" aria-label="{{ __('catalog.show.known_before_purchase') }}">
                             <div class="buyer-trust-item">
-                                <strong>Доставка</strong>
-                                Email и личный сейф после оплаты.
+                                <strong>{{ __('catalog.show.delivery') }}</strong>
+                                {{ __('catalog.show.delivery_text') }}
                             </div>
                             <div class="buyer-trust-item">
-                                <strong>Проверка</strong>
-                                Наличие проверяется перед оплатой.
+                                <strong>{{ __('product.public.availability_check') }}</strong>
+                                {{ __('product.public.availability_check_title') }}
                             </div>
                             <div class="buyer-trust-item">
-                                <strong>Поддержка</strong>
-                                Чат по заказу доступен в кабинете.
+                                <strong>{{ __('product.public.support') }}</strong>
+                                {{ __('catalog.product.support_text') }}
                             </div>
                         </div>
                     </div>
                 </article>
 
                 <section class="description-panel">
-                    <h2>Описание</h2>
+                    <h2>{{ __('product.public.description') }}</h2>
                     <div class="description">
-                        {!! nl2br(e(trim(strip_tags((string) $product->description)) ?: 'Цифровой товар Meanly с выдачей через защищенный checkout и redeem-ссылку.')) !!}
+                        {!! nl2br(e(trim(strip_tags((string) $product->description)) ?: __('product.public.default_description'))) !!}
                         
                         @if($nominalValue > 0)
                             <div style="margin-top: 18px; border: 2px solid var(--line); border-radius: 8px; padding: 16px; background: #e7fff2;">
                                 <strong style="display: block; font-size: 16px; margin-bottom: 6px;">{{ $brandName }} · {{ $nominalValue }} {{ $currency }}</strong>
                                 <p style="margin: 0; font-size: 15px; color: var(--muted); line-height: 1.55;">
-                                    Проверьте, что сервис и регион подходят вашему аккаунту перед оплатой.
+                                    {{ __('product.public.check_region') }}
                                 </p>
                             </div>
                         @endif
@@ -997,23 +997,23 @@
             </div>
 
             <aside class="checkout-panel" data-checkout-panel>
-                <div class="seller">К оплате</div>
+                <div class="seller">{{ __('catalog.show.to_pay') }}</div>
                 <div class="price">{{ $productDisplayPriceLabel }}</div>
                 <div class="checkout-note" style="background: #fdf5ff; border-color: #a855f7;">
-                    Код придет на email и появится в личном сейфе после оплаты.
+                    {{ __('product.public.checkout_email_safe') }}
                 </div>
                 <div class="simple-l1-panel" data-simple-l1-panel>
                     <span>Simple L1 identity</span>
                     @if($simpleL1Address)
-                        <strong>Кошелек подключен</strong>
+                        <strong>{{ __('product.public.wallet_connected') }}</strong>
                         <code>{{ $simpleL1Address }}</code>
                     @else
-                        <strong>Подключите SL1 passkey wallet</strong>
-                        <p class="recipient-help" style="margin-bottom: 0;">Подтвердите passkey на api.wildflow.test и вернитесь на Meanly с переносимым sl1 адресом.</p>
+                        <strong>{{ __('product.public.connect_wallet') }}</strong>
+                        <p class="recipient-help" style="margin-bottom: 0;">{{ __('product.public.wallet_help') }}</p>
                     @endif
                     <a class="btn {{ $simpleL1Address ? 'btn-secondary' : 'btn-primary' }}"
                        href="{{ route('meanly.simple_l1.connect', ['return_to' => request()->getRequestUri()]) }}">
-                        {{ $simpleL1Address ? 'Переподключить SL1 wallet' : 'Connect Simple L1 wallet' }}
+                        {{ $simpleL1Address ? __('product.public.reconnect_wallet') : 'Connect Simple L1 wallet' }}
                     </a>
                 </div>
                 <form method="POST" action="{{ route('meanly.storefront.checkout') }}" data-gift-checkout>
@@ -1021,16 +1021,16 @@
                     <input type="hidden" name="product_id" value="{{ $product->id }}">
                     <input type="hidden" name="quantity" value="1">
                     <div class="availability-panel" data-availability-panel data-state="{{ $initialCheckoutAvailable ? 'available' : 'unavailable' }}" style="display: none !important;">
-                        <strong data-availability-title>{{ $initialCheckoutAvailable ? 'Товар в наличии' : 'Скоро в продаже' }}</strong>
-                        <span data-availability-message>{{ $initialCheckoutAvailability['reason'] ?? ($initialCheckoutAvailable ? 'Продавец подготовил код для выдачи после оплаты.' : 'Нет в наличии у продавца.') }}</span>
+                        <strong data-availability-title>{{ $initialCheckoutAvailable ? __('product.public.in_stock') : __('catalog.index.soon_for_sale') }}</strong>
+                        <span data-availability-message>{{ $initialCheckoutAvailability['reason'] ?? ($initialCheckoutAvailable ? __('product.public.seller_code_ready') : __('product.public.out_of_stock')) }}</span>
                     </div>
                     <button class="btn" style="width: 100%; margin-top: 8px; display: none !important;" type="button" data-check-availability>
-                        Проверить наличие
+                        {{ __('product.public.check_availability') }}
                     </button>
 
                     @if($checkoutUser)
                         <div class="checkout-recipient-summary">
-                            Код появится в личном сейфе
+                            {{ __('product.public.code_safe_after') }}
                             <strong>{{ $checkoutUser->sovereignIdentityAddress() }}</strong>
                         </div>
                         <input type="hidden" name="is_gift" value="0">
@@ -1044,31 +1044,31 @@
                             @checked($giftCheckoutSelected)
                         >
                         <label class="gift-toggle" for="is_gift">
-                            <span>Покупаю в подарок / отправить на другой email</span>
+                            <span>{{ __('product.public.gift_toggle') }}</span>
                         </label>
                         <div class="gift-fields">
-                            <label for="email">Email получателя подарка</label>
-                            <input id="email" name="email" type="email" value="{{ old('email') }}" placeholder="укажите адрес доставки подарка" data-gift-email @if($giftCheckoutSelected) required @endif>
-                            <label for="name">Имя получателя</label>
-                            <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="укажите имя получателя">
+                            <label for="email">{{ __('product.public.gift_email') }}</label>
+                            <input id="email" name="email" type="email" value="{{ old('email') }}" placeholder="{{ __('product.public.gift_email_placeholder') }}" data-gift-email @if($giftCheckoutSelected) required @endif>
+                            <label for="name">{{ __('product.public.recipient_name') }}</label>
+                            <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="{{ __('product.public.recipient_name_placeholder') }}">
                         </div>
                     @else
-                        <label for="email">Email для доставки кода</label>
-                        <input id="email" name="email" type="email" required value="{{ old('email') }}" placeholder="укажите адрес доставки кода">
-                        <label for="name">Имя получателя</label>
-                        <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="укажите имя">
-                        <p class="recipient-help">Войдите через SL1E wallet, чтобы получать коды в личный сейф без email.</p>
+                        <label for="email">{{ __('product.public.delivery_email') }}</label>
+                        <input id="email" name="email" type="email" required value="{{ old('email') }}" placeholder="{{ __('product.public.delivery_email_placeholder') }}">
+                        <label for="name">{{ __('product.public.recipient_name') }}</label>
+                        <input id="name" name="name" type="text" value="{{ old('name') }}" placeholder="{{ __('product.public.name_placeholder') }}">
+                        <p class="recipient-help">{{ __('product.public.wallet_email_help') }}</p>
                     @endif
 
-                    <div class="payment-methods" aria-label="Способы оплаты">
+                    <div class="payment-methods" aria-label="{{ __('product.public.payment_methods') }}">
                         <div class="payment-method-card is-disabled" aria-disabled="true">
                             <strong>
-                                СБП
-                                <span class="payment-badge">Скоро</span>
+                                {{ __('product.public.sbp') }}
+                                <span class="payment-badge">{{ __('product.public.soon') }}</span>
                             </strong>
-                            <p>Оплата через Систему быстрых платежей появится здесь: QR/deep link банка, подтверждение платежа и выдача кода только после verified capture.</p>
+                            <p>{{ __('product.public.sbp_note') }}</p>
                             <button class="btn btn-secondary" type="button" disabled>
-                                Оплата СБП скоро будет
+                                {{ __('product.public.sbp_soon') }}
                             </button>
                         </div>
                     </div>
@@ -1076,12 +1076,12 @@
                     @if($checkoutUser)
                         <div class="buyer-wallet-secondary">
                             <div class="checkout-note" style="background: #ecfdf5; border-color: #10b981; margin-top: 12px;">
-                                Баланс и операции живут в SL1 Wallet. Meanly хранит только чек, статус оплаты и выдачу кода в сейфе.
+                                {{ __('product.public.wallet_balance_note') }}
                             </div>
                         </div>
                     @endif
 
-                    <button class="btn btn-primary" type="submit" data-submit-checkout @disabled(! $initialCheckoutAvailable)>Купить сейчас</button>
+                    <button class="btn btn-primary" type="submit" data-submit-checkout @disabled(! $initialCheckoutAvailable)>{{ __('catalog.show.buy_now') }}</button>
                 </form>
                 @if($errors->any())
                     <p class="error">{{ $errors->first() }}</p>
@@ -1089,21 +1089,21 @@
 
                 <template data-inline-order-safe-template>
                     <div class="inline-safe-panel" data-inline-order-safe-panel>
-                        <span style="display: none;">Открыть код</span>
-                        <div class="seller">Выдача заказа</div>
-                        <div class="price" data-inline-safe-order style="display: none;">Заказ оплачен</div>
+                        <span style="display: none;">{{ __('product.public.open_code') }}</span>
+                        <div class="seller">{{ __('product.public.fulfillment') }}</div>
+                        <div class="price" data-inline-safe-order style="display: none;">{{ __('product.public.order_paid') }}</div>
                         <div class="checkout-note" data-inline-safe-message style="display: none;">
-                            Оплата подтверждена. Готовим карту выдачи.
+                            {{ __('product.public.payment_confirmed_prepare') }}
                         </div>
                         
                         <div class="storefront-scratch-wrapper" data-storefront-scratch-wrapper style="margin-top: 16px;"></div>
 
                         <div class="inline-safe-actions" data-inline-safe-actions-row style="margin-top: 16px; display: grid; gap: 10px;">
-                            <button class="btn btn-secondary" type="button" data-inline-safe-refresh>Обновить статус</button>
-                            <a class="inline-safe-link" href="#" data-inline-safe-link style="text-align: center; text-decoration: underline; text-underline-offset: 4px; padding-top: 10px; display: block;">Открыть в личном сейфе</a>
+                            <button class="btn btn-secondary" type="button" data-inline-safe-refresh>{{ __('product.public.refresh_status') }}</button>
+                            <a class="inline-safe-link" href="#" data-inline-safe-link style="text-align: center; text-decoration: underline; text-underline-offset: 4px; padding-top: 10px; display: block;">{{ __('product.public.open_safe') }}</a>
                         </div>
                         <p class="recipient-help" data-inline-safe-hint aria-live="polite" style="display: none;">
-                            Выдача обновится автоматически, когда код будет готов.
+                            {{ __('product.public.fulfillment_auto') }}
                         </p>
                     </div>
                 </template>
@@ -1182,26 +1182,26 @@
 
             panel.className = 'inline-safe-panel';
             title.className = 'seller';
-            title.textContent = 'Выдача заказа';
+            title.textContent = @json(__('product.public.fulfillment'));
             order.className = 'price';
-            order.textContent = result?.order_id ? `Заказ ${result.order_id}` : 'Заказ оплачен';
+            order.textContent = result?.order_id ? `Order ${result.order_id}` : @json(__('product.public.order_paid'));
             note.className = 'checkout-note';
             note.style.background = '#fff7d6';
             note.style.borderColor = '#f59e0b';
-            note.textContent = reason || 'Встроенная выдача недоступна. Заказ оплачен, откройте отдельную защищенную страницу заказа.';
+            note.textContent = reason || @json(__('catalog.product.inline_unavailable'));
             actions.className = 'inline-safe-actions';
             standaloneLink.className = 'btn btn-primary';
             standaloneLink.href = standaloneSafeUrl;
-            standaloneLink.textContent = 'Открыть выдачу отдельно';
+            standaloneLink.textContent = @json(__('catalog.product.open_separate'));
             hint.className = 'recipient-help';
-            hint.textContent = 'Мы не перенаправляем в личный кабинет автоматически. Страница выдачи откроется только по отдельной ссылке.';
+            hint.textContent = @json(__('catalog.product.no_auto_redirect'));
             actions.appendChild(standaloneLink);
 
             if (result?.cabinet_safe_url) {
                 const cabinetLink = document.createElement('a');
                 cabinetLink.className = 'inline-safe-link';
                 cabinetLink.href = result.cabinet_safe_url;
-                cabinetLink.textContent = 'Открыть заказ в личном сейфе';
+                cabinetLink.textContent = @json(__('product.public.open_safe'));
                 actions.appendChild(cabinetLink);
             }
 
@@ -1235,7 +1235,7 @@
             revealedCode.className = 'revealed-inline-code';
 
             const codeElement = document.createElement('code');
-            codeElement.textContent = 'КОД ГОТОВИТСЯ...';
+            codeElement.textContent = @json(__('catalog.product.code_preparing'));
             codeElement.style.userSelect = 'none';
 
             revealedCode.appendChild(codeElement);
@@ -1266,7 +1266,7 @@
                 ctx.scale(dpr, dpr);
             }
 
-            const paintCanvas = (text = 'ВЫДАЧА ЗАКАЗА // СОТРИТЕ КАРТУ') => {
+            const paintCanvas = (text = @json(__('catalog.product.canvas'))) => {
                 if (isScratched || !canvas) return;
                 const w = rect.width;
                 const h = rect.height;
@@ -1326,7 +1326,7 @@
             };
 
             if (!isScratched) {
-                paintCanvas('ВЫДАЧА ЗАКАЗА // СОТРИТЕ КАРТУ');
+                paintCanvas(@json(__('catalog.product.canvas')));
             }
 
             let codeItem = null;
@@ -1360,14 +1360,14 @@
 
                 const copyBtn = document.createElement('button');
                 copyBtn.type = 'button';
-                copyBtn.textContent = 'Скопировать';
+                copyBtn.textContent = @json(__('storefront.safe.copy'));
                 copyBtn.addEventListener('click', async () => {
                     try {
                         await navigator.clipboard.writeText(codeItem.code || '');
-                        copyBtn.textContent = 'Скопировано';
-                        window.setTimeout(() => copyBtn.textContent = 'Скопировать', 1800);
+                        copyBtn.textContent = @json(__('storefront.safe.copied'));
+                        window.setTimeout(() => copyBtn.textContent = @json(__('storefront.safe.copy')), 1800);
                     } catch (error) {
-                        copyBtn.textContent = 'Ошибка';
+                        copyBtn.textContent = @json(__('storefront.safe.error'));
                     }
                 });
 
@@ -1377,7 +1377,7 @@
                     const redeemLink = document.createElement('a');
                     redeemLink.href = codeItem.redeem_url;
                     redeemLink.target = '_blank';
-                    redeemLink.textContent = 'Активировать';
+                    redeemLink.textContent = @json(__('storefront.safe.activate'));
                     actionsRow.appendChild(redeemLink);
                 }
                 
@@ -1439,12 +1439,12 @@
                         revealCode(false);
                     }
                 } else {
-                    throw new Error('Код недоступен');
+                    throw new Error(@json(__('storefront.safe.code_unavailable')));
                 }
             })
             .catch(err => {
-                codeElement.textContent = err.message || 'Ошибка загрузки';
-                if (!isScratched) paintCanvas('ОШИБКА ДЕШИФРОВАНИЯ');
+                codeElement.textContent = err.message || @json(__('storefront.safe.load_error'));
+                if (!isScratched) paintCanvas(@json(__('storefront.safe.decrypt_error')));
             });
 
             if (!isScratched) {
@@ -1585,12 +1585,12 @@
 
             if (result.cabinet_safe_url) {
                 safeLink.href = result.cabinet_safe_url;
-                safeLink.textContent = 'Открыть заказ в личном сейфе';
+                safeLink.textContent = @json(__('product.public.open_safe'));
             } else {
                 safeLink.hidden = true;
             }
 
-            order.textContent = result.order_id ? `Заказ ${result.order_id}` : 'Заказ оплачен';
+            order.textContent = result.order_id ? `Order ${result.order_id}` : @json(__('product.public.order_paid'));
 
             const renderStatus = (payload = {}) => {
                 const ready = payload.ready || false;
@@ -1616,13 +1616,13 @@
                     }
                 } else if (failed) {
                     window.clearTimeout(state.pollTimer);
-                    message.textContent = payload.message || 'Выдача требует проверки. Поддержка проверит заказ или оформит возврат.';
+                    message.textContent = payload.message || @json(__('catalog.product.review_required'));
                     message.style.background = '#fef2f2';
                     message.style.borderColor = '#f87171';
-                    if (hint) hint.textContent = 'Обратитесь в поддержку для ручной выдачи или возврата.';
+                    if (hint) hint.textContent = @json(__('catalog.product.contact_support'));
                 } else {
-                    message.textContent = payload.message || 'Платеж подтвержден. Готовим выдачу заказа.';
-                    if (hint) hint.textContent = 'Выдача обновится автоматически, когда код будет готов.';
+                    message.textContent = payload.message || @json(__('catalog.product.payment_confirmed'));
+                    if (hint) hint.textContent = '{{ __('product.public.fulfillment_auto') }}';
                 }
             };
 
@@ -1630,7 +1630,7 @@
                 window.clearTimeout(state.pollTimer);
 
                 if (state.pollCount >= state.maxPolls) {
-                    if (hint) hint.textContent = 'Статус можно обновить вручную или открыть заказ в личном сейфе по ссылке.';
+                    if (hint) hint.textContent = @json(__('catalog.product.status_manual'));
                     return;
                 }
 
@@ -1647,7 +1647,7 @@
                     const payload = await response.json();
 
                     if (!response.ok) {
-                        throw new Error(payload.message || 'Не удалось обновить выдачу.');
+                        throw new Error(payload.message || @json(__('catalog.product.refresh_failed')));
                     }
 
                     renderStatus(payload);
@@ -1656,7 +1656,7 @@
                         schedulePoll();
                     }
                 } catch (error) {
-                    if (hint) hint.textContent = error.message || 'Не удалось обновить статус. Попробуйте еще раз.';
+                    if (hint) hint.textContent = error.message || @json(__('catalog.product.status_failed'));
                     schedulePoll();
                 }
             };
@@ -1664,7 +1664,7 @@
             refreshButton.addEventListener('click', () => {
                 window.clearTimeout(state.pollTimer);
                 state.pollCount = 0;
-                if (hint) hint.textContent = 'Обновляем статус выдачи...';
+                if (hint) hint.textContent = @json(__('catalog.product.refreshing_status'));
                 fetchStatus();
             });
 
@@ -1672,7 +1672,7 @@
                 status: result.safe_status,
                 paid: true,
                 ready: false,
-                message: 'Платеж подтвержден. Готовим выдачу заказа.',
+                message: @json(__('catalog.product.payment_confirmed')),
                 order_id: result.order_id,
             });
             fetchStatus();
@@ -1714,15 +1714,15 @@
                 setPaymentEnabled(false);
                 setAvailability(
                     'idle',
-                    'Проверим наличие перед оплатой',
-                    'Проверим seller stock для защищенной выдачи после оплаты.',
+                    @json(__('product.public.availability_check_title')),
+                    @json(__('product.public.availability_check_text')),
                 );
             };
 
             const ensureAvailability = async () => {
                 const formData = new FormData(form);
                 setPaymentEnabled(false);
-                setAvailability('checking', 'Проверяем наличие...', 'Смотрим подготовленный seller stock без резерва и без provider-заказа.');
+                setAvailability('checking', @json(__('product.public.checking_stock')), @json(__('product.public.checking_stock_note')));
 
                 const response = await fetch("{{ route('meanly.storefront.checkout.availability') }}", {
                     method: 'POST',
@@ -1734,21 +1734,21 @@
                 });
                 const payload = await response.json();
                 if (!response.ok) {
-                    throw new Error(payload.message || Object.values(payload.errors || {})?.[0]?.[0] || 'Не удалось проверить наличие.');
+                    throw new Error(payload.message || Object.values(payload.errors || {})?.[0]?.[0] || @json(__('catalog.product.status_failed')));
                 }
 
                 if (payload.status === 'available') {
                     fulfillmentModeInput.value = 'instant';
                     setPaymentEnabled(true);
-                    setAvailability('available', 'Seller stock готов', payload.reason || 'Продавец подготовил stock для secure exchange после оплаты.');
+                    setAvailability('available', @json(__('product.public.stock_ready')), payload.reason || @json(__('product.public.seller_code_ready')));
 
                     return payload;
                 }
 
                 fulfillmentModeInput.value = 'instant';
                 setPaymentEnabled(false);
-                setAvailability('unavailable', 'Скоро в продаже', payload.reason || 'Нет в наличии у продавца.');
-                throw new Error(payload.reason || 'Нет в наличии у продавца.');
+                setAvailability('unavailable', @json(__('catalog.index.soon_for_sale')), payload.reason || @json(__('product.public.out_of_stock')));
+                throw new Error(payload.reason || @json(__('product.public.out_of_stock')));
             };
 
             quantityInput?.addEventListener('change', resetAvailability);
@@ -1757,7 +1757,7 @@
                 try {
                     await ensureAvailability();
                 } catch (error) {
-                    setAvailability('error', 'Проверьте условия', error.message || 'Проверка не завершена.');
+                    setAvailability('error', @json(__('product.public.review_conditions')), error.message || @json(__('catalog.product.status_failed')));
                 } finally {
                     checkAvailabilityButton.disabled = false;
                 }
@@ -1774,7 +1774,7 @@
                     await ensureAvailability();
                     HTMLFormElement.prototype.submit.call(form);
                 } catch (error) {
-                    setAvailability('error', 'Оплата заблокирована', error.message || 'Сначала подтвердите доступный способ выдачи.');
+                    setAvailability('error', @json(__('product.public.payment_blocked')), error.message || @json(__('product.public.check_availability')));
                     setPaymentEnabled(false);
                 }
             });

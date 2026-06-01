@@ -122,16 +122,27 @@ class CanonicalStorefrontHomepageService
     /**
      * @var array<string, string>
      */
-    private const CATEGORY_SORT_OPTIONS = [
-        'relevance' => 'Рекомендуем',
-        'price_asc' => 'Цена ↑',
-        'price_desc' => 'Цена ↓',
-        'face_value_asc' => 'Номинал ↑',
-        'face_value_desc' => 'Номинал ↓',
-        'offers' => 'В наличии',
-        'brand' => 'Бренд А-Я',
-        'newest' => 'Новые',
+    private const CATEGORY_SORT_OPTION_KEYS = [
+        'relevance' => 'runtime.home.recommended',
+        'price_asc' => 'runtime.home.price_asc',
+        'price_desc' => 'runtime.home.price_desc',
+        'face_value_asc' => 'runtime.home.face_value_asc',
+        'face_value_desc' => 'runtime.home.face_value_desc',
+        'offers' => 'runtime.home.in_stock',
+        'brand' => 'runtime.home.brand_az',
+        'newest' => 'runtime.home.newest',
     ];
+
+
+    /**
+     * @return array<string, string>
+     */
+    private function categorySortOptions(): array
+    {
+        return collect(self::CATEGORY_SORT_OPTION_KEYS)
+            ->map(fn (string $key): string => __($key))
+            ->all();
+    }
 
     public function __construct(
         private readonly ProductIndexingPolicyService $indexingPolicy,
@@ -483,7 +494,7 @@ class CanonicalStorefrontHomepageService
                     'brand' => $brand,
                     'family' => null,
                 ],
-                'sort_options' => self::CATEGORY_SORT_OPTIONS,
+                'sort_options' => $this->categorySortOptions(),
             ],
         ];
     }
@@ -702,7 +713,7 @@ class CanonicalStorefrontHomepageService
             'max' => (float) $nominals->max('amount'),
             'currency' => $first['currency'],
             'count' => $nominals->count(),
-            'label' => 'от '.$first['label'],
+            'label' => __('runtime.home.from_label', ['label' => $first['label']]),
         ];
     }
 
@@ -810,7 +821,7 @@ class CanonicalStorefrontHomepageService
                 'regions' => collect(),
                 'nominals' => collect(),
                 'selected' => $filters,
-                'sort_options' => self::CATEGORY_SORT_OPTIONS,
+                'sort_options' => $this->categorySortOptions(),
             ];
         }
 
@@ -892,7 +903,7 @@ class CanonicalStorefrontHomepageService
             'regions' => $regions,
             'nominals' => $nominals,
             'selected' => $filters,
-            'sort_options' => self::CATEGORY_SORT_OPTIONS,
+            'sort_options' => $this->categorySortOptions(),
         ];
     }
 
@@ -908,7 +919,7 @@ class CanonicalStorefrontHomepageService
                 'brands' => collect(),
                 'nominals' => collect(),
                 'selected' => $filters,
-                'sort_options' => self::CATEGORY_SORT_OPTIONS,
+                'sort_options' => $this->categorySortOptions(),
             ];
         }
 
@@ -993,7 +1004,7 @@ class CanonicalStorefrontHomepageService
             'brands' => $brands->values(),
             'nominals' => $nominals->values(),
             'selected' => $filters,
-            'sort_options' => self::CATEGORY_SORT_OPTIONS,
+            'sort_options' => $this->categorySortOptions(),
         ];
     }
 
@@ -1249,8 +1260,8 @@ class CanonicalStorefrontHomepageService
             'provider_count' => (int) $group->sum('provider_candidates_count'),
             'has_selected_offer' => $group->contains(fn (CanonicalProductIdentity $identity): bool => $identity->best_offer_product_id !== null),
             'selected_offer' => null,
-            'status_label' => 'Группа вариантов',
-            'cta_label' => 'Выбрать регион и номинал',
+            'status_label' => __('runtime.home.variant_group'),
+            'cta_label' => __('runtime.home.choose_region_nominal'),
             'variant_group' => [
                 'is_grouped' => true,
                 'variant_count' => $group->count(),
@@ -1447,8 +1458,8 @@ class CanonicalStorefrontHomepageService
             'provider_count' => $providerCount,
             'has_selected_offer' => $offerCard !== null,
             'selected_offer' => $offerCard['selected_offer'] ?? null,
-            'status_label' => $offerCard !== null ? 'Есть варианты в продаже' : 'Варианты в сети поставщиков',
-            'cta_label' => 'Посмотреть варианты',
+            'status_label' => $offerCard !== null ? __('runtime.home.offers_available') : __('runtime.home.supply_variants'),
+            'cta_label' => __('runtime.home.view_variants'),
             'search_score' => (int) $group->max(fn (array $card): int => (int) ($card['search_score'] ?? 0)),
             'variant_group' => [
                 'is_grouped' => true,
@@ -1583,7 +1594,7 @@ class CanonicalStorefrontHomepageService
 
                 return $card + [
                     'search_score' => $score,
-                    'search_match_label' => $score >= 80 ? 'Точное совпадение' : 'Совпадение по содержанию',
+                    'search_match_label' => $score >= 80 ? __('runtime.home.exact_match') : __('runtime.home.content_match'),
                 ];
             })
             ->filter(fn (array $card): bool => (int) ($card['search_score'] ?? 0) > 0)
@@ -1988,7 +1999,7 @@ class CanonicalStorefrontHomepageService
             default => $sort ?? 'relevance',
         };
 
-        return array_key_exists($sort, self::CATEGORY_SORT_OPTIONS) ? $sort : 'relevance';
+        return array_key_exists($sort, self::CATEGORY_SORT_OPTION_KEYS) ? $sort : 'relevance';
     }
 
     private function nominalKey(?string $faceValue, ?string $currency): string
@@ -2071,8 +2082,8 @@ class CanonicalStorefrontHomepageService
             'has_selected_offer' => $offer !== null,
             'selected_offer' => $offer,
             'policy' => $policy,
-            'status_label' => $offer !== null ? 'Лучший оффер выбран' : 'Доступно через сеть провайдеров',
-            'cta_label' => $offer !== null ? 'Купить' : 'Открыть',
+            'status_label' => $offer !== null ? __('runtime.home.best_offer') : __('runtime.home.provider_network'),
+            'cta_label' => $offer !== null ? __('runtime.chat.buy') : __('catalog.index.open'),
             'last_seen_at' => optional($identity->last_seen_at ?: $identity->updated_at)->toAtomString(),
             'last_seen_timestamp' => optional($identity->last_seen_at ?: $identity->updated_at)->getTimestamp() ?? 0,
         ];
@@ -2309,11 +2320,11 @@ class CanonicalStorefrontHomepageService
     private function quickChips(): array
     {
         return [
-            ['label' => 'Steam Турция', 'query' => 'steam turkey'],
-            ['label' => 'PlayStation США', 'query' => 'playstation us'],
-            ['label' => 'Spotify подписка', 'query' => 'spotify subscription'],
+            ['label' => __('runtime.home.steam_turkey'), 'query' => 'steam turkey'],
+            ['label' => __('runtime.home.playstation_us'), 'query' => 'playstation us'],
+            ['label' => __('runtime.home.spotify_subscription'), 'query' => 'spotify subscription'],
             ['label' => 'Xbox gift card', 'query' => 'xbox gift card'],
-            ['label' => 'Карта 20 EUR', 'query' => '20 eur'],
+            ['label' => __('runtime.home.card_20_eur'), 'query' => '20 eur'],
         ];
     }
 

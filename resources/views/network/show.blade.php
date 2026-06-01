@@ -175,16 +175,16 @@
         
         <section class="layout">
             <article class="panel">
-                <div class="eyebrow">Для продавцов · {{ $facts['canonical_category_label'] }}</div>
+                <div class="eyebrow">{{ __('network.show.sellers') }} · {{ $facts['canonical_category_label'] }}</div>
                 <h1>{{ $facts['name'] }}</h1>
                 
                 @if($selectedOffer)
-                    <p>Этот товар уже связан с предложением продавца на витрине.</p>
+                    <p>{{ __('network.show.connected') }}</p>
                     <article class="selected-offer">
                         <span>{{ data_get($selectedOffer, 'availability') }}</span>
                         <strong>{{ data_get($selectedOffer, 'seller.name') ?? 'Meanly seller' }} · {{ data_get($selectedOffer, 'price.label', number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ')) }}</strong>
-                        <p style="margin-top: 8px;">Покупательская страница товара ведет к доступному предложению.</p>
-                        <a class="btn" style="width: 100%; text-align: center;" href="{{ $selectedOffer['url'] }}">Открыть предложение</a>
+                        <p style="margin-top: 8px;">{{ __('network.show.buyer_page_points_to_offer') }}</p>
+                        <a class="btn" style="width: 100%; text-align: center;" href="{{ $selectedOffer['url'] }}">{{ __('network.show.open_offer') }}</a>
                     </article>
                 @else
                     <p>{{ $facts['description'] }}</p>
@@ -193,31 +193,31 @@
                 <div class="facts">
                     @if(! empty($facts['canonical_product_url']))
                         <div class="fact">
-                            <span>Страница товара</span>
-                            <strong><a href="{{ $facts['canonical_product_url'] }}" style="color: var(--brand); text-decoration: underline;">Открыть покупательскую карточку</a></strong>
+                            <span>{{ __('network.show.product_page') }}</span>
+                            <strong><a href="{{ $facts['canonical_product_url'] }}" style="color: var(--brand); text-decoration: underline;">{{ __('network.show.open_buyer_card') }}</a></strong>
                         </div>
                     @endif
                     @if($selectedOffer)
                         <div class="fact">
-                            <span>Статус</span>
-                            <strong>Есть {{ $facts['seller_offers']['count'] }} предложение(я) продавцов.</strong>
+                            <span>{{ __('network.show.status') }}</span>
+                            <strong>{{ __('network.show.seller_offer_count', ['count' => $facts['seller_offers']['count']]) }}</strong>
                         </div>
                     @else
                         <div class="fact">
-                            <span>Статус</span>
-                            <strong>Можно подключить к магазину, но прямой checkout еще не открыт.</strong>
+                            <span>{{ __('network.show.status') }}</span>
+                            <strong>{{ __('network.show.connectable_status') }}</strong>
                         </div>
                     @endif
                 </div>
                 
                 @if($selectedOffer && $alternatives->isNotEmpty())
                     <div class="offers">
-                        <h2>Другие предложения</h2>
+                        <h2>{{ __('network.show.other_offers') }}</h2>
                         @foreach($alternatives as $offer)
                             <article class="offer">
                                 <span>{{ $offer['availability'] }}</span>
                                 <strong style="font-size: 16px; font-weight: 850;">{{ $offer['seller']['name'] ?? 'Meanly seller' }} · {{ number_format((float) $offer['price']['amount'], 2, '.', ' ') }} ₽</strong>
-                                <a class="btn btn-secondary" style="margin-top: 10px;" href="{{ $offer['url'] }}">Открыть предложение</a>
+                                <a class="btn btn-secondary" style="margin-top: 10px;" href="{{ $offer['url'] }}">{{ __('network.show.open_offer') }}</a>
                             </article>
                         @endforeach
                     </div>
@@ -225,18 +225,18 @@
             </article>
             
             <aside class="panel">
-                <div class="mini"><span>Бренд</span><strong>{{ $facts['brand'] ?? 'Digital' }}</strong></div>
-                <div class="mini"><span>Категория</span><strong>{{ $facts['canonical_category_label'] }}</strong></div>
-                <div class="mini"><span>Регион</span><strong>{{ $facts['region'] ?? 'global' }}</strong></div>
-                <div class="mini"><span>Номинал</span><strong>{{ $facts['face_value'] ?? 'variable' }} {{ $facts['face_value_currency'] }}</strong></div>
-                <div class="mini"><span>Ориентир закупки</span><strong>{{ number_format((float) $facts['estimated_provider_price']['amount'], 2, '.', ' ') }} {{ $facts['estimated_provider_price']['currency'] }}</strong></div>
-                <div class="mini"><span>Выдача</span><strong>{{ $facts['fulfillment']['delivery'] }}</strong></div>
+                <div class="mini"><span>{{ __('network.show.brand') }}</span><strong>{{ $facts['brand'] ?? 'Digital' }}</strong></div>
+                <div class="mini"><span>{{ __('network.show.category') }}</span><strong>{{ $facts['canonical_category_label'] }}</strong></div>
+                <div class="mini"><span>{{ __('network.show.region') }}</span><strong>{{ $facts['region'] ?? 'global' }}</strong></div>
+                <div class="mini"><span>{{ __('network.show.nominal') }}</span><strong>{{ $facts['face_value'] ?? 'variable' }} {{ $facts['face_value_currency'] }}</strong></div>
+                <div class="mini"><span>{{ __('network.show.estimated_purchase') }}</span><strong>{{ number_format((float) $facts['estimated_provider_price']['amount'], 2, '.', ' ') }} {{ $facts['estimated_provider_price']['currency'] }}</strong></div>
+                <div class="mini"><span>{{ __('network.show.fulfillment') }}</span><strong>{{ $facts['fulfillment']['delivery'] }}</strong></div>
                 
                 @if($selectedOffer)
-                    <div class="mini"><span>Продавец</span><strong>{{ data_get($selectedOffer, 'seller.name') ?? 'Meanly seller' }}</strong></div>
-                    <a class="btn" style="width: 100%; text-align: center;" href="{{ $selectedOffer['url'] }}">Открыть предложение</a>
+                    <div class="mini"><span>{{ __('network.show.seller') }}</span><strong>{{ data_get($selectedOffer, 'seller.name') ?? 'Meanly seller' }}</strong></div>
+                    <a class="btn" style="width: 100%; text-align: center;" href="{{ $selectedOffer['url'] }}">{{ __('network.show.open_offer') }}</a>
                 @endif
-                <a class="btn btn-secondary" style="width: 100%; text-align: center;" href="{{ route('business.register') }}">Подключить как продавец</a>
+                <a class="btn btn-secondary" style="width: 100%; text-align: center;" href="{{ route('business.register') }}">{{ __('network.show.connect_as_seller') }}</a>
             </aside>
         </section>
     </main>

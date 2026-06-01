@@ -116,13 +116,13 @@ class MeanlyStorefrontController extends Controller
 
         if ($this->isRubtWalletPayment($data['payment_method'] ?? null)) {
             throw ValidationException::withMessages([
-                'payment_method' => 'Локальная оплата RUBT отключена. Баланс и операции перенесены в SL1 Wallet.',
+                'payment_method' => __('runtime.payment.rubt_disabled'),
             ]);
         }
 
         if ($this->isSbpPaymentStub($data['payment_method'] ?? null)) {
             throw ValidationException::withMessages([
-                'payment_method' => 'Оплата через СБП скоро будет доступна. Мы не создаем оплаченный заказ без подтверждения банка.',
+                'payment_method' => __('runtime.payment.sbp_soon_bank'),
             ]);
         }
 
@@ -253,14 +253,14 @@ class MeanlyStorefrontController extends Controller
     public function walletOptions(Request $request): JsonResponse
     {
         return response()->json([
-            'message' => 'Локальная оплата RUBT отключена. Баланс и операции находятся в SL1 Wallet.',
+            'message' => __('runtime.payment.rubt_wallet'),
         ], 410);
     }
 
     public function walletConfirm(Request $request): JsonResponse
     {
         return response()->json([
-            'message' => 'Локальная оплата RUBT отключена. Подтверждение покупок будет идти через банк и SL1 Wallet.',
+            'message' => __('runtime.payment.rubt_bank'),
         ], 410);
     }
 
@@ -296,8 +296,8 @@ class MeanlyStorefrontController extends Controller
         if ($codes === []) {
             return response()->json([
                 'status' => 'preparing',
-                'label' => 'Готовим код',
-                'message' => 'Код закреплен за заказом, но еще не готов к выдаче.',
+                'label' => __('runtime.safe.preparing_code'),
+                'message' => __('runtime.safe.code_attached_not_ready'),
                 'codes' => [],
             ], 202);
         }
@@ -337,8 +337,8 @@ class MeanlyStorefrontController extends Controller
 
         return response()->json([
             'status' => $safe['status'],
-            'label' => 'Выдача открыта',
-            'message' => 'Код активации готов. Сотрите карту и сохраните код в надежном месте.',
+            'label' => __('runtime.safe.opened'),
+            'message' => __('runtime.safe.code_ready'),
             'paid' => true,
             'ready' => true,
             'failed' => false,
@@ -405,7 +405,7 @@ class MeanlyStorefrontController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Скретч-карта стерта, статус заказа переведен в финальную доставку.',
+            'message' => __('runtime.safe.scratched'),
             'status' => 'COMPLETED',
             'scratched_at' => data_get($info, 'order_safe.scratched_at'),
             'scratch_proof' => $scratchProof,
@@ -509,7 +509,7 @@ class MeanlyStorefrontController extends Controller
 
         return redirect()
             ->to(URL::signedRoute('meanly.storefront.orders.safe.support-ticket', ['order' => $order->uuid]))
-            ->with('status', 'Сообщение отправлено в поддержку.');
+            ->with('status', __('runtime.support.message_sent'));
     }
 
     /**
@@ -525,7 +525,7 @@ class MeanlyStorefrontController extends Controller
                 return [
                     'id' => $message->id,
                     'role' => $message->is_admin_reply ? 'assistant' : 'user',
-                    'author' => $message->is_admin_reply ? 'Поддержка Meanly' : 'Клиент',
+                    'author' => $message->is_admin_reply ? __('runtime.support.meanly') : __('runtime.support.client'),
                     'message' => (string) $message->message,
                     'created_at' => $message->created_at?->format('d.m.Y H:i'),
                 ];
@@ -547,7 +547,7 @@ class MeanlyStorefrontController extends Controller
 
         if ($requiresRecipientEmail && $submittedEmail === '') {
             throw ValidationException::withMessages([
-                'email' => 'Укажите email для доставки кода.',
+                'email' => __('runtime.validation.email_delivery'),
             ]);
         }
 
@@ -752,8 +752,8 @@ class MeanlyStorefrontController extends Controller
 
             return [
                 'status' => $safeSource === 'provider' ? 'provider_redeem_failed' : 'failed',
-                'label' => 'Нужна проверка',
-                'message' => 'Платеж зафиксирован, но выдача кода не завершилась. Тикет поддержки открыт: площадка проверит заказ или оформит возврат.',
+                'label' => __('runtime.safe.review_needed_label'),
+                'message' => __('runtime.safe.review_needed_message'),
                 'paid' => $paid,
                 'ready' => false,
                 'failed' => true,
@@ -773,8 +773,8 @@ class MeanlyStorefrontController extends Controller
 
             return [
                 'status' => $status,
-                'label' => 'Сейф готов',
-                'message' => 'Платеж подтвержден, код закреплен за заказом и готов к выдаче.',
+                'label' => __('runtime.safe.ready_label'),
+                'message' => __('runtime.safe.ready_message'),
                 'paid' => true,
                 'ready' => true,
                 'failed' => false,
@@ -788,12 +788,12 @@ class MeanlyStorefrontController extends Controller
         if ($paid) {
             return [
                 'status' => $isPreorder ? 'preorder_pending' : ($safeSource === 'provider' ? 'provider_redeem_pending' : 'preparing'),
-                'label' => $isPreorder ? 'Предзаказ принят' : 'Готовим код',
+                'label' => $isPreorder ? __('runtime.safe.preorder_label') : __('runtime.safe.preparing_code'),
                 'message' => $isPreorder
-                    ? 'Платеж подтвержден. Поставщик принял предзаказ, и сейф обновится, когда код будет готов.'
+                    ? __('runtime.safe.preorder_message')
                     : ($safeSource === 'provider'
-                    ? 'Платеж подтвержден. Запрашиваем код у поставщика и обновим сейф, когда выдача завершится.'
-                    : 'Платеж подтвержден. Сейф ожидает завершения выдачи кода.'),
+                    ? __('runtime.safe.requesting_code_message')
+                    : __('runtime.safe.waiting_code_message')),
                 'paid' => true,
                 'ready' => false,
                 'failed' => false,
@@ -806,8 +806,8 @@ class MeanlyStorefrontController extends Controller
 
         return [
             'status' => 'payment_pending',
-            'label' => 'Ожидаем подтверждение',
-            'message' => 'Проверяем подтверждение оплаты и готовим сейф заказа.',
+            'label' => __('runtime.safe.awaiting_confirmation_label'),
+            'message' => __('runtime.safe.awaiting_confirmation_message'),
             'paid' => false,
             'ready' => false,
             'failed' => false,

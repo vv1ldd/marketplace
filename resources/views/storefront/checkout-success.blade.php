@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Заказ Meanly оформлен</title>
+    <title>{{ __('storefront.checkout_success.title') }}</title>
     <style>
         body { margin: 0; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #080b12; color: #f8fafc; }
         .wrap { width: min(820px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0; }
@@ -19,22 +19,22 @@
 <body class="meanly-buyer-page">
     <main class="wrap">
         <section class="card">
-            <h1>Заказ оформлен</h1>
-            <p class="muted">Заказ {{ $order->order_id }} на сумму {{ number_format($totalRub, 2, '.', ' ') }} ₽ создан в {{ $shop->name }}. Выдача закреплена за заказом; код открывается только через защищенный сейф.</p>
+            <h1>{{ __('storefront.checkout_success.heading') }}</h1>
+            <p class="muted">{{ __('storefront.checkout_success.summary', ['order' => $order->order_id, 'amount' => number_format($totalRub, 2, '.', ' ').' ₽', 'shop' => $shop->name]) }}</p>
 
             @forelse($vouchers as $voucher)
                 <div class="voucher">
                     <code>{{ $voucher['code'] }}</code>
-                    <a href="{{ $voucher['redeem_url'] }}">Открыть redeem</a>
+                    <a href="{{ $voucher['redeem_url'] }}">{{ __('storefront.checkout_success.open_redeem') }}</a>
                 </div>
             @empty
-                <p class="muted">Продавец зарезервировал entitlement stock. Реальный код появится в сейфе после secure exchange с поставщиком.</p>
+                <p class="muted">{{ __('storefront.checkout_success.stock_reserved') }}</p>
             @endforelse
 
             <p class="muted">
-                <a href="{{ $safeUrl }}">Открыть сейф заказа</a>
+                <a href="{{ $safeUrl }}">{{ __('storefront.checkout_success.open_safe') }}</a>
                 ·
-                <a href="{{ route('meanly.storefront.index') }}">Вернуться в Meanly Store</a>
+                <a href="{{ route('meanly.storefront.index') }}">{{ __('storefront.checkout_success.back') }}</a>
             </p>
         </section>
     </main>

@@ -196,15 +196,15 @@
     @include('storefront.partials.header')
 
     <main class="shell">
-        <a class="back-link" href="{{ route('meanly.network.index') }}">← Предварительный список</a>
+        <a class="back-link" href="{{ route('meanly.network.index') }}">← {{ __('network.category.back') }}</a>
         
         <section class="hero">
-            <div class="eyebrow">{{ $category }} · для продавцов</div>
+            <div class="eyebrow">{{ $category }} · {{ __('network.category.sellers_suffix') }}</div>
             <h1>{{ $meta['label_ru'] ?? $category }}</h1>
-            <p class="lead">{{ $meta['description_ru'] ?? 'Каталог товаров, которые продавец может подключить в магазин Meanly.' }}</p>
+            <p class="lead">{{ $meta['description_ru'] ?? __('network.category.default_description') }}</p>
             <div class="tags">
-                <span class="tag">{{ $products->total() }} товаров</span>
-                <span class="tag">не покупательский checkout</span>
+                <span class="tag">{{ __('network.index.products_count', ['count' => $products->total()]) }}</span>
+                <span class="tag">{{ __('network.category.not_buyer_checkout') }}</span>
             </div>
         </section>
         
@@ -212,22 +212,22 @@
             @foreach($products as $product)
                 @php($facts = $network->facts($product))
                 <article class="card">
-                    <div class="eyebrow">Можно подключить</div>
+                    <div class="eyebrow">{{ __('network.category.connectable') }}</div>
                     <h2>{{ $product->name }}</h2>
                     <div class="muted">{{ $facts['brand'] }} · {{ $facts['region'] ?? 'global' }}</div>
                     <div class="muted">{{ $facts['canonical_category_label'] }}</div>
                     @if($facts['seller_offers']['count'] > 0)
-                        <div class="muted">Уже есть предложения продавцов: {{ $facts['seller_offers']['count'] }}</div>
-                        <div class="price">от {{ data_get($facts, 'seller_offers.best_offer.price.label', number_format((float) data_get($facts, 'seller_offers.best_offer.price.amount', 0), 2, '.', ' ')) }}</div>
+                        <div class="muted">{{ __('network.category.seller_offers_count', ['count' => $facts['seller_offers']['count']]) }}</div>
+                        <div class="price">{{ __('network.category.from') }} {{ data_get($facts, 'seller_offers.best_offer.price.label', number_format((float) data_get($facts, 'seller_offers.best_offer.price.amount', 0), 2, '.', ' ')) }}</div>
                     @else
-                        <div class="muted">Пока нет предложения продавца на витрине</div>
+                        <div class="muted">{{ __('network.category.no_seller_offer') }}</div>
                         <div class="price">{{ number_format((float) $facts['estimated_provider_price']['amount'], 2, '.', ' ') }} {{ $facts['estimated_provider_price']['currency'] }}</div>
                     @endif
                     
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: auto;">
-                        <a class="btn" href="{{ route('meanly.network.products.show', $network->publicSlug($product)) }}">Открыть</a>
+                        <a class="btn" href="{{ route('meanly.network.products.show', $network->publicSlug($product)) }}">{{ __('network.index.open') }}</a>
                         @if(! empty($facts['canonical_product_url']))
-                            <a class="btn btn-secondary" style="width: 100%; text-align: center;" href="{{ $facts['canonical_product_url'] }}">Страница товара</a>
+                            <a class="btn btn-secondary" style="width: 100%; text-align: center;" href="{{ $facts['canonical_product_url'] }}">{{ __('network.category.product_page') }}</a>
                         @endif
                     </div>
                 </article>

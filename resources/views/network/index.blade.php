@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
+<html lang="{{ app()->getLocale() }}" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
 <head>
     @include('partials.theme-sync')
     <meta charset="utf-8">
@@ -156,9 +156,9 @@
 
     <main class="shell">
         <section class="hero">
-            <div class="eyebrow">Для продавцов</div>
-            <h1>Предварительный список товаров для подключения.</h1>
-            <p class="lead">Эта страница не является покупательской витриной. Она помогает бизнесу понять, какие цифровые товары можно подключить к магазину Meanly.</p>
+            <div class="eyebrow">{{ __('network.index.sellers') }}</div>
+            <h1>{{ __('network.index.title') }}</h1>
+            <p class="lead">{{ __('network.index.lead') }}</p>
         </section>
         
         <section class="grid">
@@ -168,9 +168,9 @@
                     <h2>{{ $category['label_ru'] }}</h2>
                     <p>{{ $category['description_ru'] ?? $category['label_en'] }}</p>
                     <div class="tags">
-                        <span class="tag">{{ $category['candidate_count'] }} товаров</span>
+                        <span class="tag">{{ __('network.index.products_count', ['count' => $category['candidate_count']]) }}</span>
                     </div>
-                    <a class="btn" href="{{ route('meanly.network.categories.show', $category['slug']) }}">Открыть</a>
+                    <a class="btn" href="{{ route('meanly.network.categories.show', $category['slug']) }}">{{ __('network.index.open') }}</a>
                 </article>
             @endforeach
         </section>

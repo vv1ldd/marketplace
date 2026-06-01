@@ -8,8 +8,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Meanly AI - подбор цифровых товаров</title>
-    <meta name="description" content="Meanly AI помогает подобрать цифровые карты, подписки и игровые коды из каталога Meanly.">
+    <title>{{ __('storefront.ai.page_title') }}</title>
+    <meta name="description" content="{{ __('storefront.ai.meta_description') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
@@ -484,40 +484,40 @@
     <section class="ai-chat-app" data-ai-app aria-label="Meanly AI chat">
         <div class="ai-home" data-ai-home>
             <span class="ai-badge">Meanly AI</span>
-            <h1>AI - подбор цифровых товаров</h1>
+            <h1>{{ __('storefront.ai.heading') }}</h1>
             <p class="lead">
-                Спросите в свободной форме: бренд, регион, номинал или подписку.
+                {{ __('storefront.ai.lead') }}
             </p>
             <form class="ai-form" data-ai-form>
-                <input data-ai-input type="text" placeholder="Спросите про PlayStation, Steam, Spotify..." autocomplete="off" autofocus>
-                <button data-ai-submit type="submit">Отправить</button>
+                <input data-ai-input type="text" placeholder="{{ __('storefront.ai.placeholder_short') }}" autocomplete="off" autofocus>
+                <button data-ai-submit type="submit">{{ __('storefront.ai.send') }}</button>
             </form>
-            <div class="quick-list" aria-label="Быстрые запросы">
-                <button type="button" data-prompt="Подбери PlayStation карту для США">PlayStation США</button>
-                <button type="button" data-prompt="Мне нужна Steam карта для Турции">Steam Турция</button>
-                <button type="button" data-prompt="Покажи подписки Spotify">Spotify подписка</button>
-                <button type="button" data-prompt="Какие Xbox gift cards есть?">Xbox gift card</button>
+            <div class="quick-list" aria-label="{{ __('storefront.ai.quick_label') }}">
+                <button type="button" data-prompt="{{ __('storefront.ai.prompt_playstation') }}">{{ __('storefront.ai.prompt_playstation_label') }}</button>
+                <button type="button" data-prompt="{{ __('storefront.ai.prompt_steam') }}">{{ __('storefront.ai.prompt_steam_label') }}</button>
+                <button type="button" data-prompt="{{ __('storefront.ai.prompt_spotify') }}">{{ __('storefront.ai.prompt_spotify_label') }}</button>
+                <button type="button" data-prompt="{{ __('storefront.ai.prompt_xbox') }}">Xbox gift card</button>
             </div>
         </div>
 
         <header class="ai-chat-topbar">
             <div>
                 <strong>Meanly AI</strong>
-                <span>Каталожный помощник по цифровым товарам</span>
+                <span>{{ __('storefront.ai.catalog_helper') }}</span>
             </div>
-            <div class="ai-status" data-ai-status>Готов</div>
+            <div class="ai-status" data-ai-status>{{ __('storefront.ai.ready') }}</div>
         </header>
 
         <div class="ai-messages" data-ai-messages>
             <div class="ai-message assistant">
-                Привет! Напишите, что хотите купить: бренд, страну, номинал или подписку. Я подберу варианты из каталога Meanly.
+                {{ __('storefront.ai.greeting') }}
             </div>
         </div>
 
         <footer class="ai-composer">
             <form class="ai-form" data-ai-form data-ai-composer>
-                <input data-ai-input type="text" placeholder="Например: PlayStation 50 USD для США" autocomplete="off" autofocus>
-                <button data-ai-submit type="submit">Отправить</button>
+                <input data-ai-input type="text" placeholder="{{ __('storefront.ai.placeholder_example') }}" autocomplete="off" autofocus>
+                <button data-ai-submit type="submit">{{ __('storefront.ai.send') }}</button>
             </form>
         </footer>
     </section>
@@ -580,10 +580,10 @@
                 card.className = 'ai-product-card';
                 card.href = product.url || '#';
                 const groupMeta = product.is_grouped
-                    ? `<span>${escapeHtml(product.variant_count || 'несколько')} вариантов</span>`
+                    ? `<span>${escapeHtml(product.variant_count || @json(__('storefront.ai.multiple')))} ${@json(__('storefront.ai.variants'))}</span>`
                     : '';
                 card.innerHTML = `
-                    <strong>${escapeHtml(product.name || 'Товар Meanly')}</strong>
+                    <strong>${escapeHtml(product.name || @json(__('storefront.ai.product_fallback')))}</strong>
                     <div class="ai-product-meta">
                         <span>${escapeHtml(product.brand || 'Meanly')}</span>
                         <span>${escapeHtml(product.region || 'global')}</span>
@@ -591,8 +591,8 @@
                         ${groupMeta}
                     </div>
                     <div class="ai-product-bottom">
-                        <span class="ai-product-price">${escapeHtml(product.price || 'Скоро в продаже')}</span>
-                        <span class="ai-product-cta">${escapeHtml(product.cta || 'Открыть товар')}</span>
+                        <span class="ai-product-price">${escapeHtml(product.price || @json(__('storefront.ai.coming_soon')))}</span>
+                        <span class="ai-product-cta">${escapeHtml(product.cta || @json(__('storefront.ai.open_product')))}</span>
                     </div>
                 `;
                 grid.appendChild(card);
@@ -624,7 +624,7 @@
                         <span>${escapeHtml(item.developer || 'Apple App Store')} · ${escapeHtml(item.country || '')} · ${escapeHtml(item.genre || '')}</span>
                     </div>
                     <div class="ai-external-price">${escapeHtml(item.install_price_label || item.price || 'Price unknown')}</div>
-                    <span class="ai-external-note">${escapeHtml(item.monetization_note || 'Подписки и покупки внутри приложения могут оплачиваться отдельно.')}</span>
+                    <span class="ai-external-note">${escapeHtml(item.monetization_note || @json(__('storefront.ai.external_note')))}</span>
                 `;
                 grid.appendChild(card);
             });
@@ -638,7 +638,7 @@
             submitButtons.forEach((button) => {
                 button.disabled = value;
             });
-            status.textContent = value ? 'Думаю' : 'Готов';
+            status.textContent = value ? @json(__('storefront.ai.thinking')) : @json(__('storefront.ai.ready'));
         };
 
         const sendMessage = async (message) => {
@@ -657,7 +657,7 @@
 
             const typing = document.createElement('div');
             typing.className = 'ai-typing';
-            typing.textContent = 'Meanly AI подбирает варианты...';
+            typing.textContent = @json(__('storefront.ai.typing'));
             messages.appendChild(typing);
             scrollBottom();
 
@@ -678,7 +678,7 @@
                 typing.remove();
 
                 if (!response.ok || !payload.success) {
-                    appendMessage('error', payload.error || 'Не удалось получить ответ Meanly AI.');
+                    appendMessage('error', payload.error || @json(__('storefront.ai.error_response')));
                     return;
                 }
 
@@ -693,7 +693,7 @@
                 }
             } catch (error) {
                 typing.remove();
-                appendMessage('error', 'Связь с Meanly AI прервалась. Попробуйте ещё раз.');
+                appendMessage('error', @json(__('storefront.ai.error_network')));
             } finally {
                 setWaiting(false);
                 composerInput?.focus();

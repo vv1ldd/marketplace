@@ -645,16 +645,16 @@
             $group = $group ?? null;
         @endphp
         <a class="back-link" href="{{ $group ? route('meanly.catalog.categories.show', $category) : route('meanly.catalog.index') }}">
-            ← {{ $group ? ($group['category_label'] ?? 'Категория') : 'Все категории' }}
+            ← {{ $group ? ($group['category_label'] ?? __('catalog.show.category_fallback')) : __('catalog.index.all_categories') }}
         </a>
         
         @unless($group)
             <section class="hero">
-                <div class="eyebrow">Категория</div>
+                <div class="eyebrow">{{ __('catalog.index.category') }}</div>
                 <h1>{{ $meta['label_ru'] ?? $category }}</h1>
-                <p class="lead">{{ $meta['description_ru'] ?? 'Цифровые товары Meanly с понятными карточками, предложениями продавцов и электронной выдачей.' }}</p>
+                <p class="lead">{{ $meta['description_ru'] ?? __('catalog.show.category_description') }}</p>
                 <div class="meta">
-                    <span class="tag">{{ $products->total() }} товаров</span>
+                    <span class="tag">{{ trans_choice('catalog.index.products_count', $products->total(), ['count' => $products->total()]) }}</span>
                 </div>
             </section>
         @endunless
@@ -665,7 +665,7 @@
             $regionFacets = collect($facetData['regions'] ?? []);
             $nominalFacets = collect($facetData['nominals'] ?? []);
             $selectedFacets = (array) ($facetData['selected'] ?? []);
-            $sortOptions = (array) ($facetData['sort_options'] ?? ['relevance' => 'Сначала лучшие']);
+            $sortOptions = (array) ($facetData['sort_options'] ?? ['relevance' => __('catalog.index.sort_best')]);
             $selectedBrand = (string) ($selectedFacets['brand'] ?? '');
             $selectedRegion = (string) ($selectedFacets['region'] ?? '');
             $selectedNominalKey = (string) ($selectedFacets['nominal_key'] ?? '');
@@ -698,14 +698,14 @@
             $selectedGroupCurrency = strtoupper((string) data_get($selectedGroupOffer, 'price.currency', 'RUB'));
             $selectedGroupPriceLabel = data_get($selectedGroupOffer, 'price.label') ?: (is_numeric($selectedGroupPrice)
                 ? number_format((float) $selectedGroupPrice, 2, '.', ' ').($selectedGroupCurrency === 'RUB' ? ' ₽' : ' '.$selectedGroupCurrency)
-                : 'Ожидает цену');
+                : __('catalog.show.waiting_price'));
             $selectedGroupPriceRange = $group ? (array) ($group['price_range'] ?? []) : [];
             $groupRangePriceLabel = (string) ($selectedGroupPriceRange['label'] ?? '');
             $groupVariants = $group ? collect($group['variants'] ?? [])->values() : collect();
             $selectedGroupRegion = data_get($selectedGroupProduct, 'region') ?: $selectedRegion;
             $selectedGroupRegionLabel = $selectedGroupRegion && strtolower((string) $selectedGroupRegion) !== 'global'
                 ? strtoupper((string) $selectedGroupRegion)
-                : 'Глобальный регион';
+                : __('catalog.show.global_region');
             $selectedGroupNominal = data_get($selectedGroupProduct, 'face_value');
             $selectedGroupNominalCurrency = strtoupper((string) data_get($selectedGroupProduct, 'face_value_currency'));
             $selectedGroupNominalLabel = is_numeric($selectedGroupNominal)
@@ -716,7 +716,7 @@
         @endphp
 
         @if($group)
-            <section class="group-product-panel" aria-label="Выбор варианта товара">
+            <section class="group-product-panel" aria-label="{{ __('catalog.show.select_variant_label') }}">
                 <div class="group-product-head">
                     <div class="group-product-copy">
                         <div class="group-product-visual">
@@ -725,34 +725,34 @@
                                 <div class="eyebrow">{{ $group['kind_label'] }} · {{ $group['category_label'] }}</div>
                                 <h2>{{ $group['title'] }}</h2>
                                 <p>
-                                    Выберите регион и номинал. Цена и оплата обновятся под конкретный вариант.
+                                    {{ __('catalog.show.group_help') }}
                                 </p>
                             </div>
                         </div>
                         <div class="meta">
-                            <span class="tag">{{ (int) $group['variant_count'] }} вариантов</span>
-                            <span class="tag">{{ (int) $group['region_count'] }} регионов</span>
-                            <span class="tag">{{ (int) $group['nominal_count'] }} номиналов</span>
+                            <span class="tag">{{ trans_choice('catalog.index.variants', (int) $group['variant_count'], ['count' => (int) $group['variant_count']]) }}</span>
+                            <span class="tag">{{ trans_choice('catalog.index.regions_count', (int) $group['region_count'], ['count' => (int) $group['region_count']]) }}</span>
+                            <span class="tag">{{ trans_choice('catalog.index.nominals', (int) $group['nominal_count'], ['count' => (int) $group['nominal_count']]) }}</span>
                         </div>
-                        <div class="group-trust-list" aria-label="Что важно знать перед покупкой">
+                        <div class="group-trust-list" aria-label="{{ __('catalog.show.known_before_purchase') }}">
                             <div class="group-trust-item">
-                                <strong>Доставка</strong>
-                                На email и в личный сейф после оплаты.
+                                <strong>{{ __('catalog.show.delivery') }}</strong>
+                                {{ __('catalog.show.delivery_text') }}
                             </div>
                             <div class="group-trust-item">
-                                <strong>Регион</strong>
-                                Выберите страну активации.
+                                <strong>{{ __('catalog.index.region') }}</strong>
+                                {{ __('catalog.show.region_text') }}
                             </div>
                             <div class="group-trust-item">
-                                <strong>Оплата</strong>
-                                Баланс и подтверждение Passkey.
+                                <strong>{{ __('catalog.show.payment') }}</strong>
+                                {{ __('catalog.show.payment_text') }}
                             </div>
                         </div>
                     </div>
 
                     <div class="group-selector-grid">
                         <div class="selector-card">
-                            <strong>Выберите вариант</strong>
+                            <strong>{{ __('catalog.show.choose_variant') }}</strong>
                             <form class="group-choice-form" method="GET" action="{{ $baseUrl }}" data-group-choice-form>
                                 @foreach(request()->except(['page', 'region', 'nominal', 'face_value', 'currency']) as $queryName => $queryValue)
                                     @if(is_scalar($queryValue))
@@ -761,9 +761,9 @@
                                 @endforeach
 
                                 <label class="filter-field">
-                                    <span>Страна / регион</span>
+                                    <span>{{ __('catalog.show.country_region') }}</span>
                                     <select name="region" data-region-select data-auto-submit>
-                                        <option value="">Выберите страну</option>
+                                        <option value="">{{ __('catalog.show.choose_country') }}</option>
                                         @foreach($regionFacets as $regionFacet)
                                             <option value="{{ $regionFacet['value'] }}" @selected($selectedRegion === $regionFacet['name'])>
                                                 {{ $regionFacet['label'] ?? strtoupper($regionFacet['name']) }}@if($regionFacet['count'] !== null) ({{ $regionFacet['count'] }})@endif
@@ -773,9 +773,9 @@
                                 </label>
 
                                 <label class="filter-field">
-                                    <span>Номинал@if($selectedRegion !== '') · {{ $selectedGroupRegionLabel }}@endif</span>
+                                    <span>{{ __('catalog.index.nominal') }}@if($selectedRegion !== '') · {{ $selectedGroupRegionLabel }}@endif</span>
                                     <select name="nominal" data-nominal-select data-auto-submit>
-                                        <option value="">{{ $selectedRegion !== '' ? 'Выберите номинал для региона' : 'Сначала выберите страну' }}</option>
+                                        <option value="">{{ $selectedRegion !== '' ? __('catalog.show.choose_nominal_region') : __('catalog.show.choose_country_first') }}</option>
                                         @foreach($nominalFacets as $nominalFacet)
                                             <option value="{{ $nominalFacet['value'] }}" @selected($selectedNominalKey === $nominalFacet['key'])>
                                                 {{ $nominalFacet['label'] }}@if($nominalFacet['count'] !== null) ({{ $nominalFacet['count'] }})@endif
@@ -788,26 +788,26 @@
                         </div>
 
                         <div class="group-checkout-card">
-                            <div class="seller" data-checkout-kicker>{{ ($group['selection_ready'] ?? false) && $selectedGroupOffer ? 'К оплате' : ($groupRangePriceLabel !== '' ? 'Цена' : 'Выберите параметры') }}</div>
+                            <div class="seller" data-checkout-kicker>{{ ($group['selection_ready'] ?? false) && $selectedGroupOffer ? __('catalog.show.to_pay') : ($groupRangePriceLabel !== '' ? __('catalog.index.price') : __('catalog.show.choose_parameters')) }}</div>
                             <div class="price" data-checkout-price style="{{ $groupRangePriceLabel === '' && ! $selectedGroupOffer ? 'color: var(--muted); font-size: 30px;' : '' }}">
                                 @if(($group['selection_ready'] ?? false) && $selectedGroupOffer)
                                     {{ $selectedGroupPriceLabel }}
                                 @else
-                                    {{ $groupRangePriceLabel !== '' ? $groupRangePriceLabel : 'Цена появится здесь' }}
+                                    {{ $groupRangePriceLabel !== '' ? $groupRangePriceLabel : __('catalog.show.price_here') }}
                                 @endif
                             </div>
                             <div class="group-checkout-note" data-checkout-note style="background: {{ ($group['selection_ready'] ?? false) && $selectedGroupOffer ? '#fdf5ff' : '#fff7d6' }};">
                                 @if(($group['selection_ready'] ?? false) && $selectedGroupOffer)
-                                    Код придет в личный сейф. Регион: <strong>{{ $selectedGroupRegionLabel }}</strong>@if($selectedGroupNominalLabel !== '') · Номинал: <strong>{{ $selectedGroupNominalLabel }}</strong>@endif.
+                                    {!! __('catalog.show.checkout_ready', ['region' => '<strong>'.e($selectedGroupRegionLabel).'</strong>', 'nominal' => '<strong>'.e($selectedGroupNominalLabel).'</strong>']) !!}
                                 @elseif($selectedRegion !== '')
-                                    Выберите номинал: цена и оплата обновятся под выбранный регион.
+                                    {{ __('catalog.show.choose_nominal_note') }}
                                 @else
-                                    Выберите страну и номинал: цена изменится под конкретную комбинацию.
+                                    {{ __('catalog.show.choose_country_note') }}
                                 @endif
                             </div>
                             <div class="muted" data-checkout-details style="margin-top: 10px; display: {{ ($group['selection_ready'] ?? false) ? 'block' : 'none' }};">
                                 SKU: <span data-checkout-sku>{{ data_get($selectedGroupOffer, 'sku', data_get($selectedGroupProduct, 'slug')) }}</span><br>
-                                Продавец: <span data-checkout-seller>{{ data_get($selectedGroupOffer, 'seller.name', 'Meanly seller') }}</span>
+                                {{ __('catalog.show.seller') }}: <span data-checkout-seller>{{ data_get($selectedGroupOffer, 'seller.name', 'Meanly seller') }}</span>
                             </div>
                             <form method="POST" action="{{ route('meanly.storefront.checkout') }}" data-gift-checkout style="display: {{ ($group['selection_ready'] ?? false) && $selectedGroupOffer ? 'grid' : 'none' }};">
                                 @csrf
@@ -816,16 +816,16 @@
                                 <input type="hidden" name="is_gift" value="0">
                                 @auth
                                     <div class="group-wallet-note">
-                                        Баланс и операции живут в SL1 Wallet. На Meanly остается чек, статус оплаты и личный сейф.
+                                        {{ __('catalog.show.wallet_note') }}
                                     </div>
                                     <button class="btn" type="submit">
-                                        Купить сейчас
+                                        {{ __('catalog.show.buy_now') }}
                                     </button>
                                 @else
-                                    <a class="btn" href="{{ route('login') }}">Войти для покупки</a>
+                                    <a class="btn" href="{{ route('login') }}">{{ __('catalog.show.login_to_buy') }}</a>
                                 @endauth
                             </form>
-                            <button class="btn" type="button" disabled data-unavailable-button style="width: 100%; margin-top: 12px; display: {{ ($group['selection_ready'] ?? false) && ! $selectedGroupOffer ? 'inline-flex' : 'none' }};">Нет в продаже</button>
+                            <button class="btn" type="button" disabled data-unavailable-button style="width: 100%; margin-top: 12px; display: {{ ($group['selection_ready'] ?? false) && ! $selectedGroupOffer ? 'inline-flex' : 'none' }};">{{ __('catalog.show.not_for_sale') }}</button>
                             @if(isset($errors) && $errors->any())
                                 <div class="muted" style="margin-top: 8px; color: #b91c1c;">{{ $errors->first() }}</div>
                             @endif
@@ -836,7 +836,7 @@
         @endif
 
         @unless($group)
-        <section class="filter-panel" aria-label="Фильтры каталога">
+        <section class="filter-panel" aria-label="{{ __('catalog.index.filters_label') }}">
             <form class="filter-form" method="GET" action="{{ $formAction }}">
                 @foreach(request()->except(['page', 'brand', 'family', 'region', 'nominal', 'face_value', 'currency', 'sort']) as $queryName => $queryValue)
                     @if(is_scalar($queryValue))
@@ -846,9 +846,9 @@
 
                 @unless($group)
                     <label class="filter-field">
-                        <span>Бренд</span>
+                        <span>{{ __('catalog.index.brand') }}</span>
                         <select name="brand">
-                            <option value="">Все бренды</option>
+                            <option value="">{{ __('catalog.index.all_brands') }}</option>
                             @foreach($brandFacets as $brandFacet)
                                 <option value="{{ $brandFacet['value'] }}" @selected($selectedBrand === $brandFacet['name'])>
                                     {{ $brandFacet['name'] }}@if($brandFacet['count'] !== null) ({{ $brandFacet['count'] }})@endif
@@ -860,9 +860,9 @@
 
                 @if($group)
                     <label class="filter-field">
-                        <span>Регион</span>
+                        <span>{{ __('catalog.index.region') }}</span>
                         <select name="region">
-                            <option value="">Все регионы</option>
+                            <option value="">{{ __('catalog.index.all_regions') }}</option>
                             @foreach($regionFacets as $regionFacet)
                                 <option value="{{ $regionFacet['value'] }}" @selected($selectedRegion === $regionFacet['name'])>
                                     {{ $regionFacet['label'] ?? strtoupper($regionFacet['name']) }}@if($regionFacet['count'] !== null) ({{ $regionFacet['count'] }})@endif
@@ -873,9 +873,9 @@
                 @endif
 
                 <label class="filter-field">
-                    <span>Номинал</span>
+                    <span>{{ __('catalog.index.nominal') }}</span>
                     <select name="nominal">
-                        <option value="">Любой номинал</option>
+                        <option value="">{{ __('catalog.index.any_nominal') }}</option>
                         @foreach($nominalFacets as $nominalFacet)
                             <option value="{{ $nominalFacet['value'] }}" @selected($selectedNominalKey === $nominalFacet['key'])>
                                 {{ $nominalFacet['label'] }}@if($nominalFacet['count'] !== null) ({{ $nominalFacet['count'] }})@endif
@@ -885,7 +885,7 @@
                 </label>
 
                 <label class="filter-field">
-                    <span>Сортировка</span>
+                    <span>{{ __('catalog.index.sort') }}</span>
                     <select name="sort">
                         @foreach($sortOptions as $sortValue => $sortLabel)
                             <option value="{{ $sortValue }}" @selected($selectedSort === $sortValue)>{{ $sortLabel }}</option>
@@ -893,9 +893,9 @@
                     </select>
                 </label>
 
-                <button class="btn filter-submit" type="submit">Показать</button>
+                <button class="btn filter-submit" type="submit">{{ __('catalog.index.show') }}</button>
                 @if($hasActiveFilters)
-                    <a class="btn filter-clear" href="{{ $clearUrl }}">Сбросить</a>
+                    <a class="btn filter-clear" href="{{ $clearUrl }}">{{ __('catalog.index.reset') }}</a>
                 @endif
             </form>
         </section>
@@ -905,9 +905,9 @@
         @elseif($products->isEmpty())
             <div class="empty">
                 @if($hasActiveFilters)
-                    По выбранным фильтрам ничего не найдено. Попробуйте другой бренд или номинал.
+                    {{ __('catalog.show.empty_filtered') }}
                 @else
-                    В этой категории пока нет публичных товаров.
+                    {{ __('catalog.show.empty_category') }}
                 @endif
             </div>
         @else
@@ -918,41 +918,41 @@
                         $faceValue = data_get($product, 'face_value');
                         $faceCurrency = strtoupper(trim((string) data_get($product, 'face_value_currency', '')));
                         $region = trim((string) data_get($product, 'region', 'global'));
-                        $regionLabel = $region !== '' && strtolower($region) !== 'global' ? strtoupper($region) : 'Все регионы';
+                        $regionLabel = $region !== '' && strtolower($region) !== 'global' ? strtoupper($region) : __('catalog.index.all_regions');
                         $variantGroup = (array) data_get($product, 'variant_group', []);
                         $isGrouped = (bool) ($variantGroup['is_grouped'] ?? false);
                         $variantSummary = collect([
-                            $isGrouped ? (($variantGroup['variant_count'] ?? 0).' вариантов') : null,
-                            $isGrouped && ($variantGroup['region_count'] ?? 0) > 0 ? (($variantGroup['region_count'] ?? 0).' регионов') : null,
-                            $isGrouped && ($variantGroup['nominal_count'] ?? 0) > 0 ? (($variantGroup['nominal_count'] ?? 0).' номиналов') : null,
+                            $isGrouped ? (($variantGroup['variant_count'] ?? 0).' '.__('catalog.index.variants')) : null,
+                            $isGrouped && ($variantGroup['region_count'] ?? 0) > 0 ? (($variantGroup['region_count'] ?? 0).' '.__('catalog.index.regions')) : null,
+                            $isGrouped && ($variantGroup['nominal_count'] ?? 0) > 0 ? (($variantGroup['nominal_count'] ?? 0).' '.__('catalog.index.nominals')) : null,
                         ])->filter()->implode(' · ');
                     @endphp
                     <article class="card">
                         <div class="card-body">
                             <a class="product-title" href="{{ $product['url'] }}">{{ $product['name'] }}</a>
                             <div class="muted">{{ data_get($product, 'brand') ?: ($meta['label_ru'] ?? 'Digital goods') }}</div>
-                            <div class="muted">{{ data_get($product, 'category_label', $meta['label_ru'] ?? 'Digital goods') }} · {{ $isGrouped ? 'несколько регионов' : $regionLabel }}</div>
+                            <div class="muted">{{ data_get($product, 'category_label', $meta['label_ru'] ?? 'Digital goods') }} · {{ $isGrouped ? __('catalog.index.multiple_regions') : $regionLabel }}</div>
                             @if($isGrouped)
                                 <div style="margin: 6px 0 8px;">
                                     <span class="tag" style="background: #efe6ff; box-shadow: 2px 2px 0 var(--line); font-size: 11px; padding: 4px 8px; border: 2px solid var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">{{ $variantSummary }}</span>
                                 </div>
                                 @if(!empty($variantGroup['regions']))
-                                    <div class="muted">Регионы: {{ collect($variantGroup['regions'])->take(4)->implode(', ') }}@if(($variantGroup['region_count'] ?? 0) > 4) и другие@endif</div>
+                                    <div class="muted">{{ __('catalog.index.regions') }}: {{ collect($variantGroup['regions'])->take(4)->implode(', ') }}@if(($variantGroup['region_count'] ?? 0) > 4) {{ __('catalog.index.and_others') }}@endif</div>
                                 @endif
                             @endif
                             @if(is_numeric($faceValue) && (float) $faceValue > 0)
                                 <div style="margin: 6px 0 8px;">
-                                    <span class="tag" style="background: #e7fff2; box-shadow: 2px 2px 0 var(--line); font-size: 11px; padding: 4px 8px; border: 2px solid var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">Номинал: {{ rtrim(rtrim(number_format((float) $faceValue, 2, '.', ' '), '0'), '.') }} {{ $faceCurrency }}</span>
+                                    <span class="tag" style="background: #e7fff2; box-shadow: 2px 2px 0 var(--line); font-size: 11px; padding: 4px 8px; border: 2px solid var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">{{ __('catalog.index.nominal') }}: {{ rtrim(rtrim(number_format((float) $faceValue, 2, '.', ' '), '0'), '.') }} {{ $faceCurrency }}</span>
                                 </div>
                             @endif
                             @if($selectedOffer)
                                 <div class="price">{{ data_get($selectedOffer, 'price.label', number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ')) }}</div>
-                                <div class="muted">Продавец: {{ data_get($selectedOffer, 'seller.name', 'Meanly seller') }}</div>
+                                <div class="muted">{{ __('catalog.show.seller') }}: {{ data_get($selectedOffer, 'seller.name', 'Meanly seller') }}</div>
                             @else
-                                <div class="price" style="font-size: 20px;">Скоро в продаже</div>
-                                <div class="muted">Доступно через сеть поставщиков: {{ (int) data_get($product, 'provider_count', 0) }}</div>
+                                <div class="price" style="font-size: 20px;">{{ __('catalog.index.soon_for_sale') }}</div>
+                                <div class="muted">{{ __('catalog.index.available_through_providers', ['count' => (int) data_get($product, 'provider_count', 0)]) }}</div>
                             @endif
-                            <a class="btn" href="{{ $product['url'] }}">{{ data_get($product, 'cta_label', 'Открыть') }}</a>
+                            <a class="btn" href="{{ $product['url'] }}">{{ data_get($product, 'cta_label', __('catalog.index.open')) }}</a>
                         </div>
                     </article>
                 @endforeach
@@ -1008,7 +1008,7 @@
                         return '';
                     }
 
-                    return `от ${formatMoney(rubPrices[0], 'RUB')}`;
+                    return `${@json(__('network.category.from'))} ${formatMoney(rubPrices[0], 'RUB')}`;
                 };
                 const regionVariants = () => variants.filter((variant) => variant.region === regionSelect.value);
                 const selectedVariant = () => regionVariants().find((variant) => variant.nominal_value === nominalSelect.value);
@@ -1031,7 +1031,7 @@
 
                     const placeholder = document.createElement('option');
                     placeholder.value = '';
-                    placeholder.textContent = regionSelect.value ? 'Выберите номинал для региона' : 'Сначала выберите страну';
+                    placeholder.textContent = regionSelect.value ? @json(__('catalog.show.choose_nominal_region')) : @json(__('catalog.show.choose_country_first'));
                     nominalSelect.appendChild(placeholder);
 
                     const seen = new Set();
@@ -1072,12 +1072,12 @@
 
                     if (exact && exact.offer && exact.offer.product_id) {
                         const amount = Number(exact.price?.amount || 0);
-                        if (kicker) kicker.textContent = 'К оплате';
-                        if (price) price.textContent = amount > 0 ? formatMoney(amount, exact.price?.currency || 'RUB') : 'Ожидает цену';
+                        if (kicker) kicker.textContent = @json(__('catalog.show.to_pay'));
+                        if (price) price.textContent = amount > 0 ? formatMoney(amount, exact.price?.currency || 'RUB') : @json(__('catalog.show.waiting_price'));
                         setPriceMuted(amount <= 0);
                         if (note) {
                             note.style.background = '#fdf5ff';
-                            note.innerHTML = `Код придет в личный сейф. Регион: <strong>${exact.region_label}</strong> · Номинал: <strong>${exact.nominal_label}</strong>.`;
+                            note.innerHTML = @json(__('catalog.show.checkout_ready')).replace(':region', `<strong>${exact.region_label}</strong>`).replace(':nominal', `<strong>${exact.nominal_label}</strong>`);
                         }
                         if (sku) sku.textContent = exact.offer.sku || exact.slug;
                         if (seller) seller.textContent = exact.seller?.name || 'Meanly seller';
@@ -1086,12 +1086,12 @@
                         setDisplay(checkoutForm, 'grid');
                         setDisplay(unavailableButton, 'none');
                     } else if (regionSelect.value && nominalSelect.value && exact) {
-                        if (kicker) kicker.textContent = 'Пока нет цены';
-                        if (price) price.textContent = 'Нет в продаже';
+                        if (kicker) kicker.textContent = @json(__('catalog.show.no_price_yet'));
+                        if (price) price.textContent = @json(__('catalog.show.not_for_sale'));
                         setPriceMuted(true);
                         if (note) {
                             note.style.background = '#fff7d6';
-                            note.innerHTML = `Выбран вариант ${exact.region_label} · ${exact.nominal_label}, но продавец еще не подключил checkout.`;
+                            note.innerHTML = @json(__('catalog.show.selected_variant_no_checkout')).replace(':region', exact.region_label).replace(':nominal', exact.nominal_label);
                         }
                         if (sku) sku.textContent = exact.slug;
                         if (seller) seller.textContent = 'Meanly seller';
@@ -1100,14 +1100,14 @@
                         setDisplay(checkoutForm, 'none');
                         setDisplay(unavailableButton, 'inline-flex');
                     } else {
-                        if (kicker) kicker.textContent = activeRange ? 'Цена' : 'Выберите параметры';
-                        if (price) price.textContent = activeRange || 'Цена появится здесь';
+                        if (kicker) kicker.textContent = activeRange ? @json(__('catalog.index.price')) : @json(__('catalog.show.choose_parameters'));
+                        if (price) price.textContent = activeRange || @json(__('catalog.show.price_here'));
                         setPriceMuted(!activeRange);
                         if (note) {
                             note.style.background = '#fff7d6';
                             note.innerHTML = regionSelect.value
-                                ? 'Выберите номинал: цена и оплата обновятся под выбранный регион.'
-                                : 'Выберите страну и номинал: цена изменится под конкретную комбинацию.';
+                                ? '{{ __('catalog.show.choose_nominal_note') }}'
+                                : '{{ __('catalog.show.choose_country_note') }}';
                         }
                         if (productId) productId.value = '';
                         setDisplay(details, 'none');

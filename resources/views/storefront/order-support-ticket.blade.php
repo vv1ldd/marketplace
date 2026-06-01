@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Поддержка по заказу {{ $order->order_id }} | Meanly</title>
+    <title>{{ __('storefront.support.title', ['order' => $order->order_id]) }}</title>
     <style>
         :root {
             --bg: #eef2ff;
@@ -229,38 +229,37 @@
 </head>
 <body class="meanly-buyer-page">
     <main class="shell">
-        <a class="top-link" href="{{ $safeUrl }}">← Вернуться в сейф заказа</a>
+        <a class="top-link" href="{{ $safeUrl }}">← {{ __('storefront.support.back_safe') }}</a>
         <section class="hero">
-            <span class="badge">Тикет #{{ $ticket->id }} · {{ $ticket->status }}</span>
-            <h1>Поддержка уже подключена к заказу.</h1>
+            <span class="badge">{{ __('storefront.support.ticket_badge', ['id' => $ticket->id, 'status' => $ticket->status]) }}</span>
+            <h1>{{ __('storefront.support.heading') }}</h1>
             <p class="lead">
-                Заказ {{ $order->order_id }} требует проверки выдачи кода. Мы открыли тот же чат, который используется на витрине:
-                клиент пишет здесь, а оператор отвечает из Support Hub/B2B панели в эту же переписку.
+                {{ __('storefront.support.lead', ['order' => $order->order_id]) }}
             </p>
         </section>
     </main>
 
     <div id="aiChatOverlay" class="ai-chat-overlay"></div>
 
-    <button id="aiChatTrigger" class="ai-chat-trigger" type="button" aria-label="Чат с поддержкой">
+    <button id="aiChatTrigger" class="ai-chat-trigger" type="button" aria-label="{{ __('storefront.support.chat_label') }}">
         <span>💬</span>
-        <span>Чат с поддержкой</span>
+        <span>{{ __('storefront.support.chat_label') }}</span>
     </button>
 
     <div id="aiChatDrawer" class="ai-chat-drawer">
         <div class="ai-chat-header">
             <div>
-                <h3>Поддержка Meanly</h3>
-                <span>Заказ {{ $order->order_id }} · тикет #{{ $ticket->id }}</span>
+                <h3>{{ __('storefront.support.heading_short') }}</h3>
+                <span>{{ __('storefront.support.order_ticket', ['order' => $order->order_id, 'ticket' => $ticket->id]) }}</span>
             </div>
-            <button id="aiChatClose" class="ai-chat-close" title="Закрыть">&times;</button>
+            <button id="aiChatClose" class="ai-chat-close" title="{{ __('storefront.support.close') }}">&times;</button>
         </div>
         <div id="aiChatMessages" class="ai-chat-messages"></div>
         <div class="ai-chat-footer">
             <form id="aiChatForm">
                 <div class="ai-chat-input-wrapper">
-                    <input type="text" id="aiChatInput" placeholder="Напишите поддержке..." autocomplete="off">
-                    <button type="submit" aria-label="Отправить">➤</button>
+                    <input type="text" id="aiChatInput" placeholder="{{ __('storefront.support.placeholder') }}" autocomplete="off">
+                    <button type="submit" aria-label="{{ __('storefront.support.send') }}">➤</button>
                 </div>
             </form>
         </div>
@@ -328,7 +327,7 @@
             try {
                 const response = await fetch(messagesUrl, { headers: { 'Accept': 'application/json' } });
                 const data = await response.json();
-                if (!response.ok || !data.success) throw new Error(data.error || 'Не удалось обновить чат');
+                if (!response.ok || !data.success) throw new Error(data.error || @json(__('storefront.support.update_failed')));
                 data.messages.forEach(appendBubble);
             } catch (error) {
                 // Keep polling quiet after first render; the next tick can recover.
@@ -351,10 +350,10 @@
                     body: JSON.stringify({ message: text }),
                 });
                 const data = await response.json();
-                if (!response.ok || !data.success) throw new Error(data.error || 'Не удалось отправить сообщение');
+                if (!response.ok || !data.success) throw new Error(data.error || @json(__('storefront.support.send_failed')));
                 data.messages.forEach(appendBubble);
             } catch (error) {
-                appendError(error.message || 'Ошибка сети при отправке сообщения.');
+                appendError(error.message || @json(__('storefront.support.network_error')));
             } finally {
                 isSending = false;
             }

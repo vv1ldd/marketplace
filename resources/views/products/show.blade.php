@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- 🛡️ DYNAMIC SEO META TAGS -->
-    <title>{{ $product->meta_title ?? $product->name }} — Купить в Meanly</title>
-    <meta name="description" content="{{ $product->meta_description ?? 'Купить лицензионный цифровой товар по лучшей цене с мгновенной автоматической доставкой в личный сейф.' }}">
+    <title>{{ $product->meta_title ?? $product->name }} — {{ __('products.show.buy_title_suffix') }}</title>
+    <meta name="description" content="{{ $product->meta_description ?? __('products.show.meta_description') }}">
     @if(!empty($product->meta_keywords))
         <meta name="keywords" content="{{ $product->meta_keywords }}">
     @endif
@@ -22,7 +22,7 @@
     <!-- OpenGraph (Facebook / Telegram Link Previews) -->
     <meta property="og:type" content="product">
     <meta property="og:title" content="{{ $product->meta_title ?? $product->name }} — Meanly">
-    <meta property="og:description" content="{{ $product->meta_description ?? 'Мгновенная доставка, безопасный клиринг и оплата в рублях.' }}">
+    <meta property="og:description" content="{{ $product->meta_description ?? __('products.show.og_description') }}">
     <meta property="og:image" content="{{ $product->getRedeemDisplayImageSrc() }}">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:site_name" content="Meanly Systems">
@@ -827,11 +827,11 @@
 <main class="product-container">
     <!-- Breadcrumbs -->
     <div class="breadcrumbs">
-        <a href="/"><i class="ph-bold ph-house-line"></i> Главная</a>
+        <a href="/"><i class="ph-bold ph-house-line"></i> {{ __('products.show.home') }}</a>
         <i class="ph-bold ph-caret-right"></i>
-        <span>Каталог</span>
+        <span>{{ __('products.show.catalog') }}</span>
         <i class="ph-bold ph-caret-right"></i>
-        <span>{{ $product->category ?? 'Цифровые товары' }}</span>
+        <span>{{ $product->category ?? __('products.show.digital_goods') }}</span>
     </div>
 
     <!-- Product Grid -->
@@ -844,7 +844,7 @@
         <!-- Right: Information & Action -->
         <div class="info-pane">
             <div>
-                <span class="product-category-tag">{{ $product->category ?? 'Цифровой ваучер' }}</span>
+                <span class="product-category-tag">{{ $product->category ?? __('products.show.digital_voucher') }}</span>
                 <h1 style="margin-top: 0.5rem;">{{ $product->name }}</h1>
             </div>
 
@@ -853,8 +853,8 @@
                 @if($product->vendor)
                     <span class="meta-tag"><i class="ph-bold ph-tag"></i> {{ $product->vendor }}</span>
                 @endif
-                <span class="meta-tag"><i class="ph-bold ph-globe"></i> Региональный ключ</span>
-                <span class="meta-tag"><i class="ph-bold ph-fingerprint"></i> Passkey-защита</span>
+                <span class="meta-tag"><i class="ph-bold ph-globe"></i> {{ __('products.show.regional_key') }}</span>
+                <span class="meta-tag"><i class="ph-bold ph-fingerprint"></i> {{ __('products.show.passkey_protection') }}</span>
             </div>
 
             <!-- Price and checkout box -->
@@ -863,7 +863,7 @@
                     <!-- 🎚️ Open Denomination Range Slider -->
                     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="price-label" style="font-weight: 700;">Сумма пополнения ({{ $product->purchase_currency ?? 'TRY' }})</span>
+                            <span class="price-label" style="font-weight: 700;">{{ __('products.show.topup_amount') }} ({{ $product->purchase_currency ?? 'TRY' }})</span>
                             <div id="nominalInputContainer" style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.02); border: 1px solid var(--brand-border); padding: 0.4rem 0.8rem; border-radius: 8px;">
                                 <input type="number" id="nominalInput" min="{{ $minVal }}" max="{{ $maxVal }}" value="{{ $minVal }}" style="background: transparent; border: none; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; width: 80px; text-align: right; outline: none;" oninput="updateNominal(this.value)">
                                 <span style="font-size: 13px; color: var(--brand-subtext); font-weight: 700;">{{ $product->purchase_currency ?? 'TRY' }}</span>
@@ -881,7 +881,7 @@
 
                         <div class="price-details" style="border-top: 1px solid var(--brand-border); padding-top: 1.5rem;">
                             <div>
-                                <span class="price-label">Итоговая стоимость</span>
+                                <span class="price-label">{{ __('products.show.final_price') }}</span>
                                 <div class="price-large" id="calculatedPriceRub" style="margin-top: 0.25rem;">{{ number_format($minVal * $displayRate, 2, '.', ' ') }} {{ $displayCurrencySuffix }}</div>
                             </div>
                         </div>
@@ -890,12 +890,12 @@
                     <!-- 🏷️ Standard Fixed Price Box -->
                     <div class="price-details">
                         <div>
-                            <span class="price-label">Цена</span>
+                            <span class="price-label">{{ __('products.show.price') }}</span>
                             <div class="price-large" style="margin-top: 0.25rem;">{{ $productDisplayPriceLabel }}</div>
                         </div>
                         @if($product->purchase_price > 0)
                             <div style="text-align: right;">
-                                <span class="price-label">Номинал</span>
+                                <span class="price-label">{{ __('products.show.nominal') }}</span>
                                 <div class="price-nominal" style="margin-top: 0.5rem;">{{ (float) $product->purchase_price }} {{ $product->purchase_currency }}</div>
                             </div>
                         @endif
@@ -903,15 +903,15 @@
                 @endif
 
                 <button class="btn-checkout" onclick="openCheckout('{{ $product->name }}')">
-                    <i class="ph-bold ph-shopping-cart-simple"></i> Купить в розницу
+                    <i class="ph-bold ph-shopping-cart-simple"></i> {{ __('products.show.buy_retail') }}
                 </button>
 
                 <!-- Benefits -->
                 <div class="benefits-grid">
-                    <div class="benefit-item"><i class="ph-fill ph-check-circle"></i> Мгновенная доставка</div>
-                    <div class="benefit-item"><i class="ph-fill ph-check-circle"></i> 100% валидный код</div>
-                    <div class="benefit-item"><i class="ph-fill ph-check-circle"></i> Безопасный клиринг</div>
-                    <div class="benefit-item"><i class="ph-fill ph-check-circle"></i> Без паспорта и документов</div>
+                    <div class="benefit-item"><i class="ph-fill ph-check-circle"></i> {{ __('products.show.benefit_instant') }}</div>
+                    <div class="benefit-item"><i class="ph-fill ph-check-circle"></i> {{ __('products.show.benefit_valid') }}</div>
+                    <div class="benefit-item"><i class="ph-fill ph-check-circle"></i> {{ __('products.show.benefit_clearing') }}</div>
+                    <div class="benefit-item"><i class="ph-fill ph-check-circle"></i> {{ __('products.show.benefit_no_docs') }}</div>
                 </div>
             </div>
         </div>
@@ -921,47 +921,44 @@
     <div class="details-section">
         <!-- Description -->
         <div class="description-pane">
-            <h2>Описание товара</h2>
+            <h2>{{ __('products.show.description_title') }}</h2>
             @if($product->description)
                 <p>{!! nl2br(e($product->description)) !!}</p>
             @else
-                <p>Этот лицензионный код предназначен для быстрой активации на соответствующей платформе. После оплаты ваучер будет автоматически доставлен в ваш личный сейф в течение нескольких секунд.</p>
+                <p>{{ __('products.show.default_description') }}</p>
             @endif
             
-            <h2 style="margin-top: 3rem;">Инструкция по активации</h2>
-            <p>1. Авторизуйтесь на целевой платформе активации.<br>
-            2. Перейдите в раздел активации подарочных кодов / redeem.<br>
-            3. Вставьте купленный ключ из вашего личного сейфа Meanly.<br>
-            4. Баланс будет мгновенно зачислен на ваш кошелек!</p>
+            <h2 style="margin-top: 3rem;">{{ __('products.show.activation_title') }}</h2>
+            <p>{!! __('products.show.activation_steps') !!}</p>
         </div>
 
         <!-- Specifications -->
         <div class="specs-pane">
-            <h2>Характеристики</h2>
+            <h2>{{ __('products.show.specs') }}</h2>
             <table class="specs-table">
                 @if($product->sku)
                     <tr>
-                        <td class="specs-label">Артикул (SKU)</td>
+                        <td class="specs-label">{{ __('products.show.sku') }}</td>
                         <td class="specs-val" style="font-family: 'JetBrains Mono', monospace;">{{ $product->sku }}</td>
                     </tr>
                 @endif
                 @if($product->vendor)
                     <tr>
-                        <td class="specs-label">Производитель</td>
+                        <td class="specs-label">{{ __('products.show.vendor') }}</td>
                         <td class="specs-val">{{ $product->vendor }}</td>
                     </tr>
                 @endif
                 <tr>
-                    <td class="specs-label">Формат товара</td>
-                    <td class="specs-val">Цифровой ключ (Ваучер)</td>
+                    <td class="specs-label">{{ __('products.show.format_label') }}</td>
+                    <td class="specs-val">{{ __('products.show.format_value') }}</td>
                 </tr>
                 <tr>
-                    <td class="specs-label">Способ доставки</td>
-                    <td class="specs-val" style="color: #107c10;">Мгновенно на Email / Сейф</td>
+                    <td class="specs-label">{{ __('products.show.delivery_label') }}</td>
+                    <td class="specs-val" style="color: #107c10;">{{ __('products.show.delivery_value') }}</td>
                 </tr>
                 <tr>
-                    <td class="specs-label">Лимит активации</td>
-                    <td class="specs-val">1 устройство / аккаунт</td>
+                    <td class="specs-label">{{ __('products.show.activation_limit_label') }}</td>
+                    <td class="specs-val">{{ __('products.show.activation_limit_value') }}</td>
                 </tr>
             </table>
         </div>
@@ -975,22 +972,22 @@
         <div class="checkout-icon">
             <i class="ph-bold ph-fingerprint"></i>
         </div>
-        <h3 class="checkout-title">Войдите для покупки</h3>
-        <p class="checkout-desc" id="checkoutDesc">Чтобы совершить покупку, войдите в личный аккаунт. С Passkey это занимает пару секунд.</p>
+        <h3 class="checkout-title">{{ __('products.show.sign_in_title') }}</h3>
+        <p class="checkout-desc" id="checkoutDesc">{{ __('products.show.sign_in_desc') }}</p>
         
         <a href="/login" class="btn-nav-cta" style="display: flex; align-items: center; justify-content: center; gap: 0.6rem; font-size: 14px; padding: 0.8rem 2rem; width: 100%;">
-            Войти и оплатить ➔
+            {{ __('products.show.login_pay') }} ➔
         </a>
     </div>
 </div>
 
 <footer>
     <div class="footer-container">
-        <div>&copy; {{ date('Y') }} Meanly Systems. Цифровые покупки в личном сейфе.</div>
+        <div>&copy; {{ date('Y') }} Meanly Systems. {{ __('products.show.footer_note') }}</div>
         <div class="footer-links">
-            <a href="/">Назад на витрину</a>
-            <a href="#">Условия использования</a>
-            <a href="#">Конфиденциальность</a>
+            <a href="/">{{ __('products.show.back_storefront') }}</a>
+            <a href="#">{{ __('products.show.terms') }}</a>
+            <a href="#">{{ __('products.show.privacy') }}</a>
         </div>
     </div>
 </footer>
@@ -1033,7 +1030,7 @@
                 const selectedAmount = document.getElementById('nominalInput').value;
                 displayProductName = `${productName} (${selectedAmount} {{ $product->purchase_currency ?? 'TRY' }})`;
             @endif
-            document.getElementById('checkoutDesc').innerText = `Для мгновенного оформления заказа на "${displayProductName}" авторизуйтесь в суверенном личном кабинете через Passkey.`;
+            document.getElementById('checkoutDesc').innerText = @json(__('products.show.checkout_desc_product')).replace(':product', displayProductName);
             document.getElementById('checkoutModal').classList.add('active');
         @endauth
     }

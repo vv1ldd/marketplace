@@ -180,7 +180,7 @@ class SearchIntentLoggingTest extends TestCase
             ->assertOk()
             ->assertJsonPath('results.0.brand', 'Xbox')
             ->assertJsonPath('results.0.name', 'Xbox Xbox Gift Card 50 USD US')
-            ->assertJsonPath('results.0.match_label', 'Бренд + регион');
+            ->assertJsonPath('results.0.match_label', __('runtime.suggest.brand_region'));
     }
 
     public function test_storefront_suggest_supports_cyrillic_brand_aliases(): void
@@ -208,7 +208,7 @@ class SearchIntentLoggingTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'results')
             ->assertJsonPath('results.0.brand', 'PlayStation')
-            ->assertJsonPath('results.0.match_label', 'Совпадение по алиасу');
+            ->assertJsonPath('results.0.match_label', __('runtime.suggest.alias_match'));
     }
 
     public function test_checkout_attribution_telemetry(): void

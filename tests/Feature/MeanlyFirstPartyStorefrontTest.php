@@ -852,7 +852,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $this->assertStringNotContainsString('Код придет на ваш email', $html);
         $this->assertStringNotContainsString('render-buyer@example.test', $html);
-        $this->assertStringContainsString('Отправить на другой email', $html);
+        $this->assertStringContainsString(__('catalog.product.send_other_email'), $html);
         $this->assertMatchesRegularExpression('/<input[^>]*id="email"[^>]*data-gift-email[^>]*>/', $html);
         preg_match('/<input[^>]*id="email"[^>]*data-gift-email[^>]*>/', $html, $emailInput);
         $this->assertStringNotContainsString('required', $emailInput[0]);
@@ -860,11 +860,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertStringContainsString('data-inline-order-safe-template', $html);
         $this->assertStringContainsString('renderInlineOrderSafe', $html);
         $this->assertStringContainsString('renderStandaloneSafeFallback', $html);
-        $this->assertStringContainsString('СБП', $html);
-        $this->assertStringContainsString('Оплата СБП скоро будет', $html);
+        $this->assertStringContainsString(__('product.public.sbp'), $html);
+        $this->assertStringContainsString(__('product.public.sbp_soon'), $html);
         $this->assertStringContainsString('openSafe({ automatic: true });', $html);
         $this->assertStringContainsString('safeLink.href = result.cabinet_safe_url;', $html);
-        $this->assertStringContainsString('Открыть код', $html);
+        $this->assertStringContainsString(__('product.public.open_code'), $html);
         $this->assertStringNotContainsString('const fallbackUrl', $html);
         $this->assertStringNotContainsString('window.location.assign(fallbackUrl)', $html);
         $this->assertStringNotContainsString('window.location.assign(standaloneSafeUrl)', $html);
@@ -886,9 +886,9 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertStringContainsString('data-inline-order-safe-template', $html);
         $this->assertStringContainsString('renderInlineOrderSafe', $html);
         $this->assertStringContainsString('renderStandaloneSafeFallback', $html);
-        $this->assertStringContainsString('Оплата СБП скоро будет', $html);
+        $this->assertStringContainsString(__('product.public.sbp_soon'), $html);
         $this->assertStringContainsString('safeLink.href = result.cabinet_safe_url;', $html);
-        $this->assertStringContainsString('Открыть код', $html);
+        $this->assertStringContainsString(__('product.public.open_code'), $html);
         $this->assertStringNotContainsString('window.location.assign(result.cabinet_safe_url || result.redirect_url || result.safe_url)', $html);
         $this->assertStringNotContainsString('window.location.assign(standaloneSafeUrl)', $html);
     }
@@ -913,9 +913,9 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ],
         ])->get(route('meanly.storefront.products.show', $product->slug))
             ->assertOk()
-            ->assertSee('Кошелек подключен')
+            ->assertSee(__('product.public.wallet_connected'))
             ->assertSee($l1Address)
-            ->assertSee('Переподключить SL1 wallet');
+            ->assertSee(__('product.public.reconnect_wallet'));
     }
 
     public function test_simple_l1_connect_passes_marketplace_theme_context_to_pass(): void
@@ -1334,7 +1334,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             'product_id' => $product->id,
             'quantity' => 1,
         ])->assertStatus(410)
-            ->assertJsonPath('message', 'Локальная оплата RUBT отключена. Баланс и операции находятся в SL1 Wallet.');
+            ->assertJsonPath('message', __('runtime.payment.rubt_wallet'));
     }
 
     public function test_wallet_checkout_confirm_is_retired_and_does_not_consume_stock(): void
@@ -1347,7 +1347,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             'tx_hash' => str_repeat('a', 64),
             'assertion' => [],
         ])->assertStatus(410)
-            ->assertJsonPath('message', 'Локальная оплата RUBT отключена. Подтверждение покупок будет идти через банк и SL1 Wallet.');
+            ->assertJsonPath('message', __('runtime.payment.rubt_bank'));
 
         $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
         $this->assertDatabaseMissing('wallet_ledger_entries', [
@@ -1412,7 +1412,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         ]);
 
         $response->assertStatus(410)
-            ->assertJsonPath('message', 'Локальная оплата RUBT отключена. Подтверждение покупок будет идти через банк и SL1 Wallet.');
+            ->assertJsonPath('message', __('runtime.payment.rubt_bank'));
 
         $this->assertSame(0, Order::where('sales_channel', 'meanly_storefront')->count());
         $this->assertFalse(ProductInventory::where('voucher', 'MEAN-EMAIL-TEST01-ZZ')->firstOrFail()->is_used);
@@ -1434,8 +1434,8 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $this->get($safeUrl)
             ->assertOk()
-            ->assertSee('Сейф заказа', false)
-            ->assertSee('Сейф готов', false)
+            ->assertSee(__('storefront.safe.heading'), false)
+            ->assertSee(__('storefront.safe.ready'), false)
             ->assertDontSee('MEAN-EMAIL-TEST01-ZZ', false);
     }
 
@@ -1462,7 +1462,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->get(route('cabinet.dashboard', [], false))
             ->assertOk()
             ->assertSee('Сейф закрыт', false)
-            ->assertSee('Открыть сейф через SL1E', false)
+            ->assertSee('Открыть сейф', false)
             ->assertDontSee('Создать SL1E Passkey', false);
     }
 
@@ -1818,7 +1818,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->get(route('meanly.storefront.products.show', $fixture['product']->slug))
             ->assertOk()
             ->assertSee('Swissôtel 25 USD US', false)
-            ->assertSee('Скоро в продаже', false)
+            ->assertSee(__('catalog.index.soon_for_sale'), false)
             ->assertSee('Поставщик поддерживает предзаказ, но моментальная выдача сейчас недоступна.', false)
             ->assertSee('data-submit-checkout disabled', false);
     }

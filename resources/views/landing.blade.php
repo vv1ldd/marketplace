@@ -4,7 +4,7 @@
     @include('partials.theme-sync')
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meanly — цифровые товары и подарочные карты</title>
+    <title>{{ __('landing.meta_title') }}</title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1138,7 +1138,7 @@
 
 <!-- 🌹 Easter Egg Widget: Rose under Glass Dome (The Little Prince) -->
 <div class="little-prince-dome" id="littlePrinceDome">
-    <div class="dome-tooltip">«Ты навсегда в ответе за тех, кого приручил. Твоя Роза.» 🌹</div>
+    <div class="dome-tooltip">{{ __('landing.dome_tooltip') }} 🌹</div>
     <svg viewBox="0 0 100 140" class="dome-svg">
         <ellipse cx="50" cy="120" rx="35" ry="10" fill="#4a2c11" stroke="#2c1a0a" stroke-width="1.5"/>
         <ellipse cx="50" cy="118" rx="32" ry="8" fill="#6d421e"/>
@@ -1170,23 +1170,23 @@
     <div class="hero-badge">
         <i class="ph-fill ph-shield-checkered"></i> Sovereign Cryptographic Network
     </div>
-    <h1>Магазин Цифровых Активов нового поколения</h1>
-    <p class="subtitle">Покупайте лицензионные карты пополнения баланса, игровые ключи и подписки напрямую по честным региональным ценам.</p>
+    <h1>{{ __('landing.hero_title') }}</h1>
+    <p class="subtitle">{{ __('landing.hero_subtitle') }}</p>
     
     <div class="hero-actions">
-        <a href="#retail" class="btn-nav-cta" style="font-size: 15px; padding: 0.8rem 2rem;">Перейти к витрине ↓</a>
+        <a href="#retail" class="btn-nav-cta" style="font-size: 15px; padding: 0.8rem 2rem;">{{ __('landing.go_storefront') }} ↓</a>
     </div>
 </section>
  
 <section class="store-section" id="retail">
     <div class="store-header">
         <div class="store-title">
-            <h2>Витрина товаров</h2>
-            <p>Выберите платформу и желаемый регион активации</p>
+            <h2>{{ __('landing.products_showcase') }}</h2>
+            <p>{{ __('landing.choose_platform') }}</p>
         </div>
 
         <div class="filter-group">
-            <button class="filter-btn active" onclick="filterPlatform('all')">Все</button>
+            <button class="filter-btn active" onclick="filterPlatform('all')">{{ __('landing.all') }}</button>
             @php
                 $userBrands = [];
                 if (Auth::check()) {
@@ -1223,7 +1223,7 @@
 
     <!-- 🔍 Real-time Search Input -->
     <div style="margin-bottom: 3rem; width: 100%; position: relative;">
-        <input type="text" id="storeSearch" placeholder="Поиск среди 12 000+ товаров по названию, SKU или платформе..." oninput="debounceSearch(this.value)" style="width: 100%; height: 52px; background: var(--theme-surface-muted, rgba(255,255,255,0.02)); border: 1px solid var(--brand-border); border-radius: 12px; padding: 0 1.5rem 0 3.5rem; color: var(--brand-text); font-size: 15px; outline: none; transition: all 0.2s; font-family: 'Outfit', sans-serif;">
+        <input type="text" id="storeSearch" placeholder="{{ __('landing.search_placeholder') }}" oninput="debounceSearch(this.value)" style="width: 100%; height: 52px; background: var(--theme-surface-muted, rgba(255,255,255,0.02)); border: 1px solid var(--brand-border); border-radius: 12px; padding: 0 1.5rem 0 3.5rem; color: var(--brand-text); font-size: 15px; outline: none; transition: all 0.2s; font-family: 'Outfit', sans-serif;">
         <i class="ph-bold ph-magnifying-glass" style="position: absolute; left: 1.3rem; top: 1.1rem; color: var(--brand-subtext); font-size: 20px;"></i>
     </div>
 
@@ -1235,26 +1235,26 @@
     <!-- Paginator: Load More -->
     <div style="text-align: center; margin-top: 4rem;">
         <button id="loadMoreBtn" onclick="loadNextPage()" class="btn-nav-cta" style="font-size: 14px; padding: 0.8rem 2.5rem; display: none; align-items: center; gap: 0.5rem; border: none; cursor: pointer; margin: 0 auto;">
-            <i class="ph-bold ph-arrow-down"></i> Загрузить еще
+            <i class="ph-bold ph-arrow-down"></i> {{ __('landing.load_more') }}
         </button>
     </div>
 </section>
 
 <section id="features" style="background: rgba(255,255,255,0.01); border-top: 1px solid var(--brand-border); border-bottom: 1px solid var(--brand-border); padding: 6rem 1.5rem;">
     <div style="max-width: 1200px; margin: 0 auto;">
-        <h2 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 4rem; letter-spacing: -0.03em; text-align: center;">Надежная покупка и быстрая выдача</h2>
+        <h2 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 4rem; letter-spacing: -0.03em; text-align: center;">{{ __('landing.trust_title') }}</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 4rem;">
             <div>
-                <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 1rem; color: var(--brand-text); text-transform: uppercase; letter-spacing: 0.05em;"><i class="ph-bold ph-cube" style="color: var(--brand-primary); margin-right: 0.5rem;"></i> История заказа</h3>
-                <p style="font-size: 14px; color: var(--brand-subtext); line-height: 1.6;">Каждая покупка и выдача кода сохраняется в понятной истории. Если понадобится помощь, поддержка быстро найдет нужный заказ.</p>
+                <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 1rem; color: var(--brand-text); text-transform: uppercase; letter-spacing: 0.05em;"><i class="ph-bold ph-cube" style="color: var(--brand-primary); margin-right: 0.5rem;"></i> {{ __('landing.order_history') }}</h3>
+                <p style="font-size: 14px; color: var(--brand-subtext); line-height: 1.6;">{{ __('landing.order_history_text') }}</p>
             </div>
             <div>
-                <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 1rem; color: var(--brand-text); text-transform: uppercase; letter-spacing: 0.05em;"><i class="ph-bold ph-lightning" style="color: var(--brand-primary); margin-right: 0.5rem;"></i> Мгновенная доставка</h3>
-                <p style="font-size: 14px; color: var(--brand-subtext); line-height: 1.6;">После оплаты цифровой ваучер мгновенно доставляется в ваш личный сейф. Никакого ожидания и ручных проверок.</p>
+                <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 1rem; color: var(--brand-text); text-transform: uppercase; letter-spacing: 0.05em;"><i class="ph-bold ph-lightning" style="color: var(--brand-primary); margin-right: 0.5rem;"></i> {{ __('landing.instant_delivery') }}</h3>
+                <p style="font-size: 14px; color: var(--brand-subtext); line-height: 1.6;">{{ __('landing.instant_delivery_text') }}</p>
             </div>
             <div>
-                <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 1rem; color: var(--brand-text); text-transform: uppercase; letter-spacing: 0.05em;"><i class="ph-bold ph-fingerprint" style="color: var(--brand-primary); margin-right: 0.5rem;"></i> Беспарольная аутентификация</h3>
-                <p style="font-size: 14px; color: var(--brand-subtext); line-height: 1.6;">Забудьте про взломы аккаунтов. Вход в личный кабинет защищен технологией Passkey (Touch ID / Face ID) на аппаратном уровне вашего устройства.</p>
+                <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 1rem; color: var(--brand-text); text-transform: uppercase; letter-spacing: 0.05em;"><i class="ph-bold ph-fingerprint" style="color: var(--brand-primary); margin-right: 0.5rem;"></i> {{ __('landing.passwordless_auth') }}</h3>
+                <p style="font-size: 14px; color: var(--brand-subtext); line-height: 1.6;">{{ __('landing.passwordless_auth_text') }}</p>
             </div>
         </div>
     </div>
@@ -1262,11 +1262,11 @@
  
 <footer>
     <div class="footer-container">
-        <div>&copy; {{ date('Y') }} Meanly Systems. Цифровые покупки в личном сейфе.</div>
+        <div>&copy; {{ date('Y') }} Meanly Systems. {{ __('landing.footer_note') }}</div>
         <div class="footer-links">
-            <a href="#">Условия использования</a>
-            <a href="#">Конфиденциальность</a>
-            <a href="#">Документация API</a>
+            <a href="#">{{ __('landing.terms') }}</a>
+            <a href="#">{{ __('landing.privacy') }}</a>
+            <a href="#">{{ __('landing.api_docs') }}</a>
         </div>
     </div>
 </footer>
@@ -1278,11 +1278,11 @@
         <div class="checkout-icon">
             <i class="ph-bold ph-fingerprint"></i>
         </div>
-        <h3 class="checkout-title">Войдите для покупки</h3>
-        <p class="checkout-desc" id="checkoutDesc">Чтобы совершить покупку, войдите в личный аккаунт. С Passkey это занимает пару секунд.</p>
+        <h3 class="checkout-title">{{ __('landing.checkout_title') }}</h3>
+        <p class="checkout-desc" id="checkoutDesc">{{ __('landing.checkout_desc') }}</p>
         
         <a href="/login" class="btn-nav-cta" style="display: flex; align-items: center; justify-content: center; gap: 0.6rem; font-size: 14px; padding: 0.8rem 2rem;">
-            Войти и оплатить ➔
+            {{ __('landing.login_and_pay') }} ➔
         </a>
     </div>
 </div>
@@ -1310,7 +1310,7 @@
         const buttons = document.querySelectorAll('.filter-btn');
         buttons.forEach(btn => {
             const btnText = btn.textContent.toLowerCase();
-            if (btnText === platform || (platform === 'all' && btnText === 'все')) {
+            if (btnText === platform || (platform === 'all' && btnText === @json(mb_strtolower(__('landing.all'))))) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
@@ -1374,7 +1374,7 @@
         const loadMoreBtn = document.getElementById('loadMoreBtn');
         
         if (clearGrid) {
-            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: var(--brand-subtext);"><i class="ph-bold ph-spinner-gap" style="font-size: 2rem; animation: spin 1s linear infinite; display: inline-block;"></i><p style="margin-top: 1rem; font-size: 14px;">Поиск товаров...</p></div>';
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: var(--brand-subtext);"><i class="ph-bold ph-spinner-gap" style="font-size: 2rem; animation: spin 1s linear infinite; display: inline-block;"></i><p style="margin-top: 1rem; font-size: 14px;">${@json(__('landing.searching_products'))}</p></div>';
             if (loadMoreBtn) loadMoreBtn.style.display = 'none';
         }
         
@@ -1387,7 +1387,7 @@
             }
             
             if (data.products.length === 0 && clearGrid) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: var(--brand-subtext);"><i class="ph-bold ph-ghost" style="font-size: 2rem; display: inline-block;"></i><p style="margin-top: 1rem; font-size: 14px;">Товары не найдены</p></div>';
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: var(--brand-subtext);"><i class="ph-bold ph-ghost" style="font-size: 2rem; display: inline-block;"></i><p style="margin-top: 1rem; font-size: 14px;">${@json(__('landing.products_not_found'))}</p></div>';
                 loading = false;
                 return;
             }
@@ -1395,7 +1395,7 @@
             data.products.forEach(product => {
                 const meta = getPlatformMeta(product.vendor, product.name);
                 
-                const formattedPrice = product.display_price?.label ?? 'Цена уточняется';
+                const formattedPrice = product.display_price?.label ?? @json(__('landing.price_pending'));
                 
                 const card = document.createElement('a');
                 card.href = `/products/${product.slug}`;
@@ -1412,16 +1412,16 @@
                         <h3 class="product-title">${product.name}</h3>
                         <div class="product-meta">
                             <span class="region-tag">${product.vendor ?? 'Digital'}</span>
-                            <span class="region-tag">${product.category ?? 'Ключ'}</span>
+                            <span class="region-tag">${product.category ?? @json(__('landing.key'))}</span>
                         </div>
                     </div>
                     <div>
                         <div class="price-section">
-                            <span class="price-label">Цена</span>
+                            <span class="price-label">${@json(__('landing.price'))}</span>
                             <span class="price-value">${formattedPrice}</span>
                         </div>
                         <button class="btn-buy" style="pointer-events: none;">
-                            <i class="ph-bold ph-shopping-cart-simple"></i> Подробнее
+                            <i class="ph-bold ph-shopping-cart-simple"></i> ${@json(__('landing.details'))}
                         </button>
                     </div>
                 `;
@@ -1436,7 +1436,7 @@
         } catch (err) {
             console.error('Error loading products:', err);
             if (clearGrid) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: var(--brand-primary);"><i class="ph-bold ph-warning" style="font-size: 2rem; display: inline-block;"></i><p style="margin-top: 1rem; font-size: 14px;">Ошибка загрузки витрины</p></div>';
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: var(--brand-primary);"><i class="ph-bold ph-warning" style="font-size: 2rem; display: inline-block;"></i><p style="margin-top: 1rem; font-size: 14px;">${@json(__('landing.load_error'))}</p></div>';
             }
         } finally {
             loading = false;
@@ -1458,7 +1458,7 @@
         @auth
             window.location.href = '/vault';
         @else
-            document.getElementById('checkoutDesc').innerText = `Для мгновенного оформления заказа на "${productName}" авторизуйтесь в суверенном личном кабинете через Passkey.`;
+            document.getElementById('checkoutDesc').innerText = @json(__('landing.checkout_desc_product')).replace(':product', productName);
             document.getElementById('checkoutModal').classList.add('active');
         @endauth
     }
@@ -1568,13 +1568,13 @@
         document.body.setAttribute('data-holiday', holiday);
         
         if (holiday === 'sons-birthday') {
-            console.log("%c🦁 [Sovereign Heir Engine] 19 MAY: Happy Birthday to the Champion! С Днём Рождения, Сына! Расти сильным, смелым и свободным! 👑🏆⚡", "color: #ffd700; font-weight: bold; font-size: 14px;");
+            console.log("%c🦁 [Sovereign Heir Engine] 19 MAY: Happy Birthday to the Champion! Happy birthday, son! Grow strong, brave, and free! 👑🏆⚡", "color: #ffd700; font-weight: bold; font-size: 14px;");
         } else if (holiday === 'little-prince') {
-            console.log("%c🌹 [Little Prince Engine] 17 OCTOBER: \"Ты навсегда в ответе за тех, кого приручил.\" Твоя единственная Роза. 💫🌠", "color: #e11d48; font-weight: bold; font-size: 14px;");
+            console.log("%c🌹 [Little Prince Engine] 17 OCTOBER: \"You become responsible forever for what you have tamed.\" Your only Rose. 💫🌠", "color: #e11d48; font-weight: bold; font-size: 14px;");
         } else if (holiday === 'orchid-day') {
-            console.log("%c🌸 [Orchid Engine] 12 MAY: В воздухе парит изысканность... С Днём Орхидей! 🌺💫", "color: #d946ef; font-weight: bold; font-size: 14px;");
+            console.log("%c🌸 [Orchid Engine] 12 MAY: Elegance is in the air... Happy Orchid Day! 🌺💫", "color: #d946ef; font-weight: bold; font-size: 14px;");
         } else if (holiday === 'doctor-day') {
-            console.log("%c🩺 [Doctor Engine] 21 APRIL: Слышим каждое биение сердца... С Днём Врача! 💚⚕️", "color: #0d9488; font-weight: bold; font-size: 14px;");
+            console.log("%c🩺 [Doctor Engine] 21 APRIL: We hear every heartbeat... Happy Doctor Day! 💚⚕️", "color: #0d9488; font-weight: bold; font-size: 14px;");
         } else if (holiday === 'babel-library') {
             console.log("%c📚 [Library of Babel] 24 AUGUST: \"La Biblioteca es ilimitada y periódica...\" / \"The Library is limitless and periodic...\" 🌌🚪", "color: #b45309; font-weight: bold; font-size: 14px;");
         } else {
@@ -1703,7 +1703,7 @@
                     const scale = this.size * 1.35;
 
                     if (particleType === 0) {
-                        // 1. Swiss Flag (Швейцарский флаг)
+                        // 1. Swiss Flag (Swiss flag)
                         ctx.fillStyle = '#da291c';
                         ctx.fillRect(-scale, -scale, scale * 2, scale * 2);
                         ctx.fillStyle = '#ffffff';
@@ -1712,7 +1712,7 @@
                         ctx.fillRect(-barW / 2, -barH / 2, barW, barH);
                         ctx.fillRect(-barH / 2, -barW / 2, barH, barW);
                     } else if (particleType === 1) {
-                        // 2. Argentine Flag (Аргентинский флаг с прорисованным Солнцем!)
+                        // 2. Argentine Flag (Argentine flag with detailed Sun)
                         const w = scale * 1.8;
                         const h = scale * 1.2;
                         ctx.fillStyle = '#74acdf';
@@ -1740,7 +1740,7 @@
                             ctx.stroke();
                         }
                     } else if (particleType === 2) {
-                        // 3. Standalone Sol de Mayo (Солнце Аргентины)
+                        // 3. Standalone Sol de Mayo (Sun of Argentina)
                         const rSun = scale * 0.45;
                         ctx.fillStyle = '#f6b40e';
                         ctx.beginPath();
@@ -1758,7 +1758,7 @@
                             ctx.stroke();
                         }
                     } else if (particleType === 3) {
-                        // 4. Cute Vector Hippo (Бегемотик)
+                        // 4. Cute Vector Hippo (Cute hippo)
                         // Head
                         ctx.fillStyle = '#a5b4fc'; // Cute indigo/lilac color
                         ctx.beginPath();
@@ -1951,7 +1951,7 @@
                         ctx.fillRect(-w / 2, -h / 2, w, h);
                         ctx.fillRect(-h / 2, -w / 2, h, w);
                     } else {
-                        // 3. EKG Pulse Line Segment (Зеленая линия ЭКГ)
+                        // 3. EKG Pulse Line Segment (Green EKG line)
                         ctx.strokeStyle = '#2dd4bf'; // Glowing turquoise
                         ctx.lineWidth = scale * 0.18;
                         ctx.lineCap = 'round';
@@ -1984,7 +1984,7 @@
                         ctx.closePath();
                         ctx.stroke();
                     } else if (particleType === 1) {
-                        // 2. Mystical Open Book (Книга Вавилонской Библиотеки)
+                        // 2. Mystical Open Book (Book of the Library of Babel)
                         ctx.fillStyle = '#fef3c7'; // Old parchment pages
                         ctx.strokeStyle = '#78350f'; // Leather brown spine/cover
                         ctx.lineWidth = scale * 0.08;
@@ -2015,14 +2015,14 @@
                         ctx.lineTo(0, scale * 0.4);
                         ctx.stroke();
                     } else if (particleType === 2) {
-                        // 3. Floating Random Character / Letter of Babel (Случайный символ бесконечного алфавита)
+                        // 3. Floating Random Character / Letter of Babel (Random symbol of the infinite alphabet)
                         const char = this.babelChar || 'a';
                         ctx.fillStyle = '#f59e0b'; // Glowing gold
                         ctx.font = `italic bold ${Math.max(12, scale * 0.85)}px serif`;
                         ctx.textAlign = 'center';
                         ctx.fillText(char, 0, scale * 0.3);
                     } else {
-                        // 4. Rolled Parchment Scroll (Свиток)
+                        // 4. Rolled Parchment Scroll (Scroll)
                         ctx.fillStyle = '#fef3c7'; // Parchment roll
                         ctx.strokeStyle = '#d97706';
                         ctx.lineWidth = scale * 0.06;
