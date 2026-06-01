@@ -331,6 +331,13 @@ class CanonicalProductPageService
             ->unique()
             ->values();
 
+        if ($identity->best_offer_product_id !== null) {
+            $sourceIds = $sourceIds
+                ->push((int) $identity->best_offer_product_id)
+                ->unique()
+                ->values();
+        }
+
         if ($sourceIds->isEmpty()) {
             return collect();
         }

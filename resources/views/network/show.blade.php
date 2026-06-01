@@ -182,7 +182,7 @@
                     <p>Этот товар уже связан с предложением продавца на витрине.</p>
                     <article class="selected-offer">
                         <span>{{ data_get($selectedOffer, 'availability') }}</span>
-                        <strong>{{ data_get($selectedOffer, 'seller.name') ?? 'Meanly seller' }} · {{ number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ') }} ₽</strong>
+                        <strong>{{ data_get($selectedOffer, 'seller.name') ?? 'Meanly seller' }} · {{ data_get($selectedOffer, 'price.label', number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ')) }}</strong>
                         <p style="margin-top: 8px;">Покупательская страница товара ведет к доступному предложению.</p>
                         <a class="btn" style="width: 100%; text-align: center;" href="{{ $selectedOffer['url'] }}">Открыть предложение</a>
                     </article>

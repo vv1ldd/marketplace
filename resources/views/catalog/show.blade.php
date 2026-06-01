@@ -696,9 +696,9 @@
             $selectedGroupOffer = $group ? data_get($group, 'selected_offer') : null;
             $selectedGroupPrice = data_get($selectedGroupOffer, 'price.amount');
             $selectedGroupCurrency = strtoupper((string) data_get($selectedGroupOffer, 'price.currency', 'RUB'));
-            $selectedGroupPriceLabel = is_numeric($selectedGroupPrice)
+            $selectedGroupPriceLabel = data_get($selectedGroupOffer, 'price.label') ?: (is_numeric($selectedGroupPrice)
                 ? number_format((float) $selectedGroupPrice, 2, '.', ' ').($selectedGroupCurrency === 'RUB' ? ' ₽' : ' '.$selectedGroupCurrency)
-                : 'Ожидает цену';
+                : 'Ожидает цену');
             $selectedGroupPriceRange = $group ? (array) ($group['price_range'] ?? []) : [];
             $groupRangePriceLabel = (string) ($selectedGroupPriceRange['label'] ?? '');
             $groupVariants = $group ? collect($group['variants'] ?? [])->values() : collect();
@@ -946,7 +946,7 @@
                                 </div>
                             @endif
                             @if($selectedOffer)
-                                <div class="price">{{ number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ') }} ₽</div>
+                                <div class="price">{{ data_get($selectedOffer, 'price.label', number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ')) }}</div>
                                 <div class="muted">Продавец: {{ data_get($selectedOffer, 'seller.name', 'Meanly seller') }}</div>
                             @else
                                 <div class="price" style="font-size: 20px;">Скоро в продаже</div>

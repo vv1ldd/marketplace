@@ -786,8 +786,8 @@
       "offers": {
         "@type": "Offer",
         "url": "{{ url()->current() }}",
-        "priceCurrency": "RUB",
-        "price": "{{ $product->price_rub / 100 }}",
+        "priceCurrency": "{{ $productDisplayPrice['currency'] }}",
+        "price": "{{ $productDisplayPrice['amount'] }}",
         "itemCondition": "https://schema.org/NewCondition",
         "availability": "https://schema.org/InStock"
       }
@@ -802,11 +802,17 @@
     $rate = 1.0;
     if ($isOpenDenomination) {
         if ($product->purchase_price > 0) {
-            $rate = ($product->price_rub / 100) / $product->purchase_price;
+            $rate = ((float) data_get($productDisplayPrice, 'storage_amount', 0)) / $product->purchase_price;
         } else {
             $rate = 3.2; 
         }
     }
+    $displayCurrency = strtoupper((string) data_get($productDisplayPrice, 'currency', 'RUB'));
+    $displayRate = $rate;
+    if ($isOpenDenomination && $product->purchase_price > 0 && is_numeric(data_get($productDisplayPrice, 'amount'))) {
+        $displayRate = ((float) data_get($productDisplayPrice, 'amount')) / (float) $product->purchase_price;
+    }
+    $displayCurrencySuffix = $displayCurrency === 'RUB' ? '₽' : $displayCurrency;
 @endphp
 
 <body>
@@ -875,8 +881,8 @@
 
                         <div class="price-details" style="border-top: 1px solid var(--brand-border); padding-top: 1.5rem;">
                             <div>
-                                <span class="price-label">Итоговая стоимость в рублях</span>
-                                <div class="price-large" id="calculatedPriceRub" style="margin-top: 0.25rem;">{{ number_format($minVal * $rate, 0, '.', ' ') }} ₽</div>
+                                <span class="price-label">Итоговая стоимость</span>
+                                <div class="price-large" id="calculatedPriceRub" style="margin-top: 0.25rem;">{{ number_format($minVal * $displayRate, 2, '.', ' ') }} {{ $displayCurrencySuffix }}</div>
                             </div>
                         </div>
                     </div>
@@ -884,8 +890,8 @@
                     <!-- 🏷️ Standard Fixed Price Box -->
                     <div class="price-details">
                         <div>
-                            <span class="price-label">Цена в рублях</span>
-                            <div class="price-large" style="margin-top: 0.25rem;">{{ number_format($product->price_rub / 100, 0, '.', ' ') }} ₽</div>
+                            <span class="price-label">Цена</span>
+                            <div class="price-large" style="margin-top: 0.25rem;">{{ $productDisplayPriceLabel }}</div>
                         </div>
                         @if($product->purchase_price > 0)
                             <div style="text-align: right;">
@@ -991,7 +997,9 @@
 
 <script>
     @if($isOpenDenomination)
-    const rate = {{ $rate }};
+    const rate = {{ $displayRate }};
+    const displayCurrency = @json($displayCurrency);
+    const displayCurrencySuffix = @json($displayCurrencySuffix);
     
     function updateNominal(val) {
         val = parseFloat(val);
@@ -1006,11 +1014,12 @@
         document.getElementById('nominalSlider').value = val;
         document.getElementById('nominalInput').value = val;
         
-        // Calculate RUB
-        const rubPrice = Math.round(val * rate);
+        const displayPrice = val * rate;
         
-        // Format with spaces
-        const formattedPrice = new Intl.NumberFormat('ru-RU').format(rubPrice) + ' ₽';
+        const formattedPrice = new Intl.NumberFormat('ru-RU', {
+            minimumFractionDigits: displayCurrency === 'RUB' ? 0 : 2,
+            maximumFractionDigits: displayCurrency === 'RUB' ? 0 : 2,
+        }).format(displayPrice) + ' ' + displayCurrencySuffix;
         document.getElementById('calculatedPriceRub').innerText = formattedPrice;
     }
     @endif

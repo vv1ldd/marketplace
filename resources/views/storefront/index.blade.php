@@ -1,11 +1,144 @@
+@php
+    $storefrontLocale = app()->getLocale() === 'ru' ? 'ru' : 'en';
+    $copy = [
+        'en' => [
+            'title' => 'Meanly — digital goods and gift cards',
+            'eyebrow' => 'Digital gift cards and subscriptions',
+            'hero_title' => 'Meanly helps you find digital goods fast.',
+            'hero_lead' => 'Instant gift cards, game codes, and subscriptions. Activation codes are delivered to your email right after payment.',
+            'search_label' => 'Search the catalog',
+            'search_button' => 'Search',
+            'search_note' => 'We search card content: product name, brand, category, region, face value, currency, seller, and active offer.',
+            'suggestions_label' => 'Quick search suggestions',
+            'proofs' => [
+                ['title' => 'Instant delivery', 'text' => 'receive your licensed code by email within 1 minute after payment'],
+                ['title' => '100% guarantee', 'text' => 'keys and cards are sourced from trusted authorized partners'],
+                ['title' => 'AI and human support', 'text' => 'Meanly AI and support help with product choice and activation'],
+            ],
+            'stats' => ['total' => 'catalog products', 'provider' => 'ready to connect', 'offers' => 'with offers', 'public' => 'on storefront', 'review' => 'coming soon'],
+            'groups_title' => 'Popular groups',
+            'groups_subtitle' => 'Choose a product first, then region and face value',
+            'all_catalog' => 'Full catalog',
+            'variants' => 'variants',
+            'regions' => 'regions',
+            'nominals' => 'face values',
+            'groups_empty' => 'Groups will appear after the catalog is filled.',
+            'featured_title' => 'Best offers now',
+            'featured_subtitle' => 'Products that can already be opened from a seller',
+            'all_categories' => 'All categories',
+            'topup' => 'top-up',
+            'available' => 'Available',
+            'open' => 'Open',
+            'featured_empty' => 'Seller offers will appear after products are connected to the storefront.',
+            'coming_title' => 'Coming soon',
+            'coming_partner_subtitle' => 'Products are available for seller connection, but checkout is not open yet',
+            'coming_public_subtitle' => 'Products expected to be available soon',
+            'connect_seller' => 'Connect as seller',
+            'coming_status' => 'Coming soon',
+            'connect' => 'Connect',
+            'network_partner_summary' => 'This product exists in the partner supply network. A seller can connect it to the storefront.',
+            'network_public_summary' => 'This product is temporarily out of stock. Please wait for it to become available.',
+            'network_empty' => 'No products are waiting for seller connection yet.',
+            'brands_title' => 'Popular brands',
+            'brands_subtitle' => 'Shop digital goods and top-ups by brand',
+            'products' => 'products',
+            'in_stock' => 'in stock',
+            'brands_empty' => 'Brands will appear after the catalog is filled.',
+            'categories_title' => 'Catalog categories',
+            'categories_subtitle' => 'Games, gift cards, subscriptions, and other digital goods',
+            'with_offers' => 'with offers',
+            'categories_empty' => 'Categories will appear after the catalog is filled.',
+            'ai_subtitle' => 'Local AI Assistant',
+            'ai_close' => 'Close',
+            'ai_greeting' => 'Hi! I am Meanly AI, your personal AI assistant.',
+            'ai_help' => 'I can help you choose the right top-up card, subscription, or game key. Tell me what you need or pick one of the quick options below.',
+            'ai_input' => 'Ask Meanly AI...',
+            'ai_send' => 'Send',
+            'suggest_soon' => 'Soon',
+            'suggest_min' => 'Enter at least 2 characters.',
+            'suggest_loading' => 'Searching...',
+            'suggest_found_prefix' => 'Suggestions:',
+            'suggest_found_suffix' => 'Press Enter for full search.',
+            'suggest_empty' => 'Nothing found.',
+            'suggest_error' => 'Could not refresh results.',
+            'ai_unexpected_error' => 'Sorry, an unexpected AI request error occurred.',
+            'ai_network_error' => 'Network error. Make sure the local web server and Ollama are running correctly.',
+            'chips' => ['steam' => 'Show Steam Turkey', 'spotify' => 'Spotify subscription'],
+        ],
+        'ru' => [
+            'title' => 'Meanly — цифровые товары и подарочные карты',
+            'eyebrow' => 'Digital gift cards and subscriptions',
+            'hero_title' => 'Meanly помогает быстро найти цифровой товар.',
+            'hero_lead' => 'Мгновенная покупка подарочных карт, игровых кодов и подписок. Моментальная доставка активационных кодов на вашу электронную почту сразу после оплаты.',
+            'search_label' => 'Поиск по каталогу',
+            'search_button' => 'Найти',
+            'search_note' => 'Ищем по совпадениям и содержанию карточки: название, бренд, категория, регион, номинал, валюта, продавец и активный оффер.',
+            'suggestions_label' => 'Быстрые подсказки поиска',
+            'proofs' => [
+                ['title' => 'Мгновенная доставка', 'text' => 'получите ваш лицензионный код на email в течение 1 минуты после оплаты'],
+                ['title' => '100% Гарантия', 'text' => 'все ключи и карты закупаются напрямую у надежных авторизованных партнеров'],
+                ['title' => 'Заботливый ИИ и саппорт', 'text' => 'Meanly AI и служба поддержки помогут с подбором и активацией'],
+            ],
+            'stats' => ['total' => 'товаров в каталоге', 'provider' => 'доступно для подключения', 'offers' => 'с предложениями', 'public' => 'на витрине', 'review' => 'скоро появятся'],
+            'groups_title' => 'Популярные группы',
+            'groups_subtitle' => 'Сначала выберите продукт, затем регион и номинал',
+            'all_catalog' => 'Весь каталог',
+            'variants' => 'вариантов',
+            'regions' => 'регионов',
+            'nominals' => 'номиналов',
+            'groups_empty' => 'Группы появятся после наполнения каталога.',
+            'featured_title' => 'Лучшие офферы сейчас',
+            'featured_subtitle' => 'Товары, которые уже можно открыть у продавца',
+            'all_categories' => 'Все категории',
+            'topup' => 'пополнение',
+            'available' => 'Доступно',
+            'open' => 'Открыть',
+            'featured_empty' => 'Предложения продавцов появятся после подключения товаров к витрине.',
+            'coming_title' => 'Скоро в продаже',
+            'coming_partner_subtitle' => 'Товары уже доступны для подключения продавцом, но покупка еще не открыта',
+            'coming_public_subtitle' => 'Товары, которые появятся в наличии в ближайшее время',
+            'connect_seller' => 'Подключить как продавец',
+            'coming_status' => 'Скоро доступно',
+            'connect' => 'Подключить',
+            'network_partner_summary' => 'Товар есть в партнерской сети поставки. Продавец может подключить его к витрине.',
+            'network_public_summary' => 'Товар временно отсутствует на складе. Ожидайте поступления в продажу.',
+            'network_empty' => 'Пока нет товаров, ожидающих подключения продавцом.',
+            'brands_title' => 'Популярные бренды',
+            'brands_subtitle' => 'Покупайте цифровые товары и пополнения по брендам',
+            'products' => 'товаров',
+            'in_stock' => 'в наличии',
+            'brands_empty' => 'Бренды появятся после наполнения каталога.',
+            'categories_title' => 'Категории каталога',
+            'categories_subtitle' => 'Игры, подарочные карты, подписки и другие цифровые товары',
+            'with_offers' => 'с предложениями',
+            'categories_empty' => 'Категории появятся после наполнения каталога.',
+            'ai_subtitle' => 'Локальный ИИ-Ассистент',
+            'ai_close' => 'Закрыть',
+            'ai_greeting' => 'Привет! Я Meanly AI, твой персональный ИИ-помощник.',
+            'ai_help' => 'Помогу выбрать идеальную карту пополнения, подписку или игровой ключ! Напиши, что именно ты ищешь или выбери один из быстрых вариантов ниже.',
+            'ai_input' => 'Спросите Meanly AI...',
+            'ai_send' => 'Отправить',
+            'suggest_soon' => 'Скоро',
+            'suggest_min' => 'Введите минимум 2 символа.',
+            'suggest_loading' => 'Подбираем...',
+            'suggest_found_prefix' => 'Подсказок:',
+            'suggest_found_suffix' => 'Enter для полного поиска.',
+            'suggest_empty' => 'Ничего не найдено.',
+            'suggest_error' => 'Не удалось обновить результаты.',
+            'ai_unexpected_error' => 'Извините, возникла непредвиденная ошибка при запросе к ИИ.',
+            'ai_network_error' => 'Ошибка сети. Убедитесь, что локальный веб-сервер и Ollama запущены корректно.',
+            'chips' => ['steam' => 'Покажи Steam Турция', 'spotify' => 'Подписка Spotify'],
+        ],
+    ][$storefrontLocale];
+@endphp
 <!DOCTYPE html>
-<html lang="ru" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
 <head>
     @include('partials.theme-sync')
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meanly - маркетплейс цифровых активов</title>
-    <meta name="description" content="Meanly marketplace: цифровые подарочные карты, игровые ключи и подписки с быстрым checkout и выдачей кодов.">
+    <title>{{ $copy['title'] }}</title>
+    <meta name="description" content="{{ $storefrontLocale === 'ru' ? 'Meanly marketplace: цифровые подарочные карты, игровые ключи и подписки с быстрым checkout и выдачей кодов.' : 'Meanly marketplace: digital gift cards, game keys, and subscriptions with fast checkout and code delivery.' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="canonical" href="{{ route('home') }}">
     <link rel="alternate" type="text/plain" href="{{ route('llms.txt') }}">
@@ -827,22 +960,22 @@
 
     <main class="shell">
         <section class="hero">
-            <div class="eyebrow">Digital gift cards and subscriptions</div>
-            <h1>Meanly помогает быстро найти цифровой товар.</h1>
-            <p class="lead">Мгновенная покупка подарочных карт, игровых кодов и подписок. Моментальная доставка активационных кодов на вашу электронную почту сразу после оплаты.</p>
+            <div class="eyebrow">{{ $copy['eyebrow'] }}</div>
+            <h1>{{ $copy['hero_title'] }}</h1>
+            <p class="lead">{{ $copy['hero_lead'] }}</p>
             <div class="hero-search-panel">
                 <div class="intent-card">
-                    <label for="intent">Поиск по каталогу</label>
+                    <label for="intent">{{ $copy['search_label'] }}</label>
                     <form method="GET" action="{{ route('meanly.storefront.index') }}">
                         <div class="intent-row">
                             <input id="intent" name="q" type="search" value="{{ $query }}" placeholder="Steam Turkey, PSN 20 EUR, Spotify US..." autocomplete="off" data-live-search-input data-live-search-url="{{ route('meanly.storefront.suggest') }}">
-                            <button class="btn btn-primary" type="submit">Найти</button>
+                            <button class="btn btn-primary" type="submit">{{ $copy['search_button'] }}</button>
                         </div>
                         <p class="hero-search-note">
-                            Ищем по совпадениям и содержанию карточки: название, бренд, категория, регион, номинал, валюта, продавец и активный оффер.
+                            {{ $copy['search_note'] }}
                             <span data-live-search-status aria-live="polite"></span>
                         </p>
-                        <div class="suggest-panel" data-live-suggestions aria-label="Быстрые подсказки поиска"></div>
+                        <div class="suggest-panel" data-live-suggestions aria-label="{{ $copy['suggestions_label'] }}"></div>
                         <div class="chips">
                             @foreach(data_get($homepage, 'quick_chips', []) as $chip)
                                 <a class="chip" href="{{ route('meanly.storefront.index', ['q' => $chip['query']]) }}#storefront">{{ $chip['label'] }}</a>
@@ -858,42 +991,44 @@
         </div>
 
         <section class="proofs" id="infrastructure">
-            <div class="proof"><strong>🚀 Мгновенная доставка</strong><span>получите ваш лицензионный код на email в течение 1 минуты после оплаты</span></div>
-            <div class="proof"><strong>🛡️ 100% Гарантия</strong><span>все ключи и карты закупаются напрямую у надежных авторизованных партнеров</span></div>
-            <div class="proof"><strong>💬 Заботливый ИИ и саппорт</strong><span>Meanly AI и служба поддержки помогут с подбором и активацией</span></div>
+            <div class="proof"><strong>🚀 {{ $copy['proofs'][0]['title'] }}</strong><span>{{ $copy['proofs'][0]['text'] }}</span></div>
+            <div class="proof"><strong>🛡️ {{ $copy['proofs'][1]['title'] }}</strong><span>{{ $copy['proofs'][1]['text'] }}</span></div>
+            <div class="proof"><strong>💬 {{ $copy['proofs'][2]['title'] }}</strong><span>{{ $copy['proofs'][2]['text'] }}</span></div>
         </section>
 
         @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
         <section class="stats-grid" aria-label="Marketplace catalog stats">
-            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.total_canonical_products', 0), 0, '.', ' ') }}</strong><span>товаров в каталоге</span></div>
-            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.provider_backed_products', 0), 0, '.', ' ') }}</strong><span>доступно для подключения</span></div>
-            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.seller_offer_products', 0), 0, '.', ' ') }}</strong><span>с предложениями</span></div>
-            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.public_storefront_products', 0), 0, '.', ' ') }}</strong><span>на витрине</span></div>
-            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.review_excluded_products', 0), 0, '.', ' ') }}</strong><span>скоро появятся</span></div>
+            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.total_canonical_products', 0), 0, '.', ' ') }}</strong><span>{{ $copy['stats']['total'] }}</span></div>
+            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.provider_backed_products', 0), 0, '.', ' ') }}</strong><span>{{ $copy['stats']['provider'] }}</span></div>
+            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.seller_offer_products', 0), 0, '.', ' ') }}</strong><span>{{ $copy['stats']['offers'] }}</span></div>
+            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.public_storefront_products', 0), 0, '.', ' ') }}</strong><span>{{ $copy['stats']['public'] }}</span></div>
+            <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.review_excluded_products', 0), 0, '.', ' ') }}</strong><span>{{ $copy['stats']['review'] }}</span></div>
         </section>
         @endif
 
         <section class="shelf">
             <div class="shelf-title">
                 <div>
-                    <h2>Популярные группы</h2>
-                    <span>Сначала выберите продукт, затем регион и номинал</span>
+                    <h2>{{ $copy['groups_title'] }}</h2>
+                    <span>{{ $copy['groups_subtitle'] }}</span>
                 </div>
-                <a class="text-link" href="{{ route('meanly.catalog.index') }}">Весь каталог</a>
+                <a class="text-link" href="{{ route('meanly.catalog.index') }}">{{ $copy['all_catalog'] }}</a>
             </div>
             <div class="category-grid">
                 @forelse(data_get($homepage, 'product_groups', []) as $groupCard)
-                    @php($variantGroup = (array) data_get($groupCard, 'variant_group', []))
+                    @php
+                        $variantGroup = (array) data_get($groupCard, 'variant_group', []);
+                    @endphp
                     <a class="category-card" href="{{ $groupCard['url'] }}">
                         <strong>{{ $groupCard['name'] }}</strong>
                         <span>
-                            {{ (int) ($variantGroup['variant_count'] ?? 1) }} вариантов
-                            @if(($variantGroup['region_count'] ?? 0) > 0) · {{ (int) $variantGroup['region_count'] }} регионов @endif
-                            @if(($variantGroup['nominal_count'] ?? 0) > 0) · {{ (int) $variantGroup['nominal_count'] }} номиналов @endif
+                            {{ (int) ($variantGroup['variant_count'] ?? 1) }} {{ $copy['variants'] }}
+                            @if(($variantGroup['region_count'] ?? 0) > 0) · {{ (int) $variantGroup['region_count'] }} {{ $copy['regions'] }} @endif
+                            @if(($variantGroup['nominal_count'] ?? 0) > 0) · {{ (int) $variantGroup['nominal_count'] }} {{ $copy['nominals'] }} @endif
                         </span>
                     </a>
                 @empty
-                    <div class="empty">Группы появятся после наполнения каталога.</div>
+                    <div class="empty">{{ $copy['groups_empty'] }}</div>
                 @endforelse
             </div>
         </section>
@@ -901,10 +1036,10 @@
         <section class="shelf">
             <div class="shelf-title">
                 <div>
-                    <h2>Лучшие офферы сейчас</h2>
-                    <span>Товары, которые уже можно открыть у продавца</span>
+                    <h2>{{ $copy['featured_title'] }}</h2>
+                    <span>{{ $copy['featured_subtitle'] }}</span>
                 </div>
-                <a class="text-link" href="{{ route('meanly.catalog.index') }}">Все категории</a>
+                <a class="text-link" href="{{ route('meanly.catalog.index') }}">{{ $copy['all_categories'] }}</a>
             </div>
             <div class="rail">
                 @forelse(data_get($homepage, 'featured_products', []) as $product)
@@ -914,22 +1049,22 @@
                             <div class="meta">{{ $product['category_label'] }}</div>
                             @if(!empty($product['face_value']) && (float)$product['face_value'] > 0)
                                 <div style="margin-top: 6px; margin-bottom: 6px;">
-                                    <span class="tag" style="background: #e7fff2; border: 1.5px solid var(--line); font-size: 10px; padding: 3px 6px; box-shadow: 1.5px 1.5px 0 var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">💰 пополнение: {{ $product['face_value'] }} {{ $product['face_value_currency'] }}</span>
+                                    <span class="tag" style="background: #e7fff2; border: 1.5px solid var(--line); font-size: 10px; padding: 3px 6px; box-shadow: 1.5px 1.5px 0 var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">💰 {{ $copy['topup'] }}: {{ $product['face_value'] }} {{ $product['face_value_currency'] }}</span>
                                 </div>
                             @endif
-                            <span class="status-pill">Доступно</span>
+                            <span class="status-pill">{{ $copy['available'] }}</span>
                             @if(data_get($product, 'selected_offer'))
                                 <div class="offer-summary">
-                                    {{ data_get($product, 'selected_offer.seller.name') }} · {{ number_format((float) data_get($product, 'selected_offer.price.amount'), 2, '.', ' ') }} ₽ · {{ data_get($product, 'selected_offer.availability') }}
+                                    {{ data_get($product, 'selected_offer.seller.name') }} · {{ data_get($product, 'selected_offer.price.label', number_format((float) data_get($product, 'selected_offer.price.amount'), 2, '.', ' ')) }} · {{ data_get($product, 'selected_offer.availability') }}
                                 </div>
                             @endif
                         </div>
                         <div class="card-actions">
-                            <a class="btn btn-primary" href="{{ $product['url'] }}">Открыть</a>
+                            <a class="btn btn-primary" href="{{ $product['url'] }}">{{ $copy['open'] }}</a>
                         </div>
                     </article>
                 @empty
-                    <div class="empty">Предложения продавцов появятся после подключения товаров к витрине.</div>
+                    <div class="empty">{{ $copy['featured_empty'] }}</div>
                 @endforelse
             </div>
         </section>
@@ -937,15 +1072,15 @@
         <section class="shelf">
             <div class="shelf-title">
                 <div>
-                    <h2>Скоро в продаже</h2>
+                    <h2>{{ $copy['coming_title'] }}</h2>
                     @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
-                        <span>Товары уже доступны для подключения продавцом, но покупка еще не открыта</span>
+                        <span>{{ $copy['coming_partner_subtitle'] }}</span>
                     @else
-                        <span>Товары, которые появятся в наличии в ближайшее время</span>
+                        <span>{{ $copy['coming_public_subtitle'] }}</span>
                     @endif
                 </div>
                 @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
-                    <a class="text-link" href="{{ route('business.register') }}">Подключить как продавец</a>
+                    <a class="text-link" href="{{ route('business.register') }}">{{ $copy['connect_seller'] }}</a>
                 @endif
             </div>
             <div class="rail">
@@ -956,25 +1091,25 @@
                             <div class="meta">{{ $product['category_label'] }}</div>
                             @if(!empty($product['face_value']) && (float)$product['face_value'] > 0)
                                 <div style="margin-top: 6px; margin-bottom: 6px;">
-                                    <span class="tag" style="background: #e7fff2; border: 1.5px solid var(--line); font-size: 10px; padding: 3px 6px; box-shadow: 1.5px 1.5px 0 var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">💰 пополнение: {{ $product['face_value'] }} {{ $product['face_value_currency'] }}</span>
+                                    <span class="tag" style="background: #e7fff2; border: 1.5px solid var(--line); font-size: 10px; padding: 3px 6px; box-shadow: 1.5px 1.5px 0 var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">💰 {{ $copy['topup'] }}: {{ $product['face_value'] }} {{ $product['face_value_currency'] }}</span>
                                 </div>
                             @endif
-                            <span class="status-pill network">Скоро доступно</span>
+                            <span class="status-pill network">{{ $copy['coming_status'] }}</span>
                             @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
-                                <div class="offer-summary">Товар есть в партнерской сети поставки. Продавец может подключить его к витрине.</div>
+                                <div class="offer-summary">{{ $copy['network_partner_summary'] }}</div>
                             @else
-                                <div class="offer-summary">Товар временно отсутствует на складе. Ожидайте поступления в продажу.</div>
+                                <div class="offer-summary">{{ $copy['network_public_summary'] }}</div>
                             @endif
                         </div>
                         <div class="card-actions">
-                            <a class="btn btn-primary" href="{{ $product['url'] }}">Открыть</a>
+                            <a class="btn btn-primary" href="{{ $product['url'] }}">{{ $copy['open'] }}</a>
                             @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
-                                <a class="text-link" href="{{ route('business.register') }}">Подключить</a>
+                                <a class="text-link" href="{{ route('business.register') }}">{{ $copy['connect'] }}</a>
                             @endif
                         </div>
                     </article>
                 @empty
-                    <div class="empty">Пока нет товаров, ожидающих подключения продавцом.</div>
+                    <div class="empty">{{ $copy['network_empty'] }}</div>
                 @endforelse
             </div>
         </section>
@@ -982,18 +1117,18 @@
         <section class="shelf">
             <div class="shelf-title">
                 <div>
-                    <h2>Популярные бренды</h2>
-                    <span>Покупайте цифровые товары и пополнения по брендам</span>
+                    <h2>{{ $copy['brands_title'] }}</h2>
+                    <span>{{ $copy['brands_subtitle'] }}</span>
                 </div>
             </div>
             <div class="brands-grid">
                 @forelse(data_get($homepage, 'brands', []) as $brand)
                     <a class="brand-card" href="{{ $brand['url'] }}#storefront">
                         <strong>{{ $brand['name'] }}</strong>
-                        <span>{{ $brand['count'] }} товаров @if($brand['seller_offer_count'] > 0) · <span class="badge-active">{{ $brand['seller_offer_count'] }} в наличии</span>@endif</span>
+                        <span>{{ $brand['count'] }} {{ $copy['products'] }} @if($brand['seller_offer_count'] > 0) · <span class="badge-active">{{ $brand['seller_offer_count'] }} {{ $copy['in_stock'] }}</span>@endif</span>
                     </a>
                 @empty
-                    <div class="empty">Бренды появятся после наполнения каталога.</div>
+                    <div class="empty">{{ $copy['brands_empty'] }}</div>
                 @endforelse
             </div>
         </section>
@@ -1001,18 +1136,18 @@
         <section class="shelf">
             <div class="shelf-title">
                 <div>
-                    <h2>Категории каталога</h2>
-                    <span>Игры, подарочные карты, подписки и другие цифровые товары</span>
+                    <h2>{{ $copy['categories_title'] }}</h2>
+                    <span>{{ $copy['categories_subtitle'] }}</span>
                 </div>
             </div>
             <div class="category-grid">
                 @forelse(data_get($homepage, 'categories', []) as $category)
                     <a class="category-card" href="{{ $category['url'] }}">
                         <strong>{{ $category['name'] }}</strong>
-                        <span>{{ $category['count'] }} товаров · {{ $category['seller_offer_count'] }} с предложениями</span>
+                        <span>{{ $category['count'] }} {{ $copy['products'] }} · {{ $category['seller_offer_count'] }} {{ $copy['with_offers'] }}</span>
                     </a>
                 @empty
-                    <div class="empty">Категории появятся после наполнения каталога.</div>
+                    <div class="empty">{{ $copy['categories_empty'] }}</div>
                 @endforelse
             </div>
         </section>
@@ -1030,29 +1165,29 @@
                 <span style="font-size: 1.4rem;">🪄</span>
                 <div>
                     <h3 style="margin: 0; line-height: 1;">Meanly AI</h3>
-                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; opacity: 0.85; letter-spacing: 0.05em;">Локальный ИИ-Ассистент</span>
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; opacity: 0.85; letter-spacing: 0.05em;">{{ $copy['ai_subtitle'] }}</span>
                 </div>
             </div>
-            <button id="aiChatClose" class="ai-chat-close" title="Закрыть">&times;</button>
+            <button id="aiChatClose" class="ai-chat-close" title="{{ $copy['ai_close'] }}">&times;</button>
         </div>
         <div id="aiChatMessages" class="ai-chat-messages">
             <div class="ai-chat-bubble assistant">
-                Привет! Я Meanly AI, твой персональный ИИ-помощник. 🎮
+                {{ $copy['ai_greeting'] }} 🎮
                 <br><br>
-                Помогу выбрать идеальную карту пополнения, подписку или игровой ключ! Напиши, что именно ты ищешь или выбери один из быстрых вариантов ниже.
+                {{ $copy['ai_help'] }}
             </div>
         </div>
         <div class="ai-chat-footer">
             <div class="ai-chat-chips">
-                <button type="button" class="ai-chat-chip" onclick="sendChipQuery('Покажи Steam Турция')">🎮 Steam TR</button>
+                <button type="button" class="ai-chat-chip" onclick="sendChipQuery('{{ $copy['chips']['steam'] }}')">🎮 Steam TR</button>
                 <button type="button" class="ai-chat-chip" onclick="sendChipQuery('PlayStation Network USA')">💳 PSN US</button>
-                <button type="button" class="ai-chat-chip" onclick="sendChipQuery('Подписка Spotify')">🎵 Spotify</button>
+                <button type="button" class="ai-chat-chip" onclick="sendChipQuery('{{ $copy['chips']['spotify'] }}')">🎵 Spotify</button>
                 <button type="button" class="ai-chat-chip" onclick="sendChipQuery('Xbox gift card')">💚 Xbox</button>
             </div>
             <form id="aiChatForm" onsubmit="handleChatSubmit(event)">
                 <div class="ai-chat-input-wrapper">
-                    <input type="text" id="aiChatInput" placeholder="Спросите Meanly AI..." autocomplete="off">
-                    <button type="submit" aria-label="Отправить">
+                    <input type="text" id="aiChatInput" placeholder="{{ $copy['ai_input'] }}" autocomplete="off">
+                    <button type="submit" aria-label="{{ $copy['ai_send'] }}">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(45deg);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </button>
                 </div>
@@ -1061,11 +1196,27 @@
     </div>
 
     <!-- Dynamic AI Chat Controller Script -->
+    @php
+        $storefrontJsCopy = json_encode([
+            'suggestSoon' => $copy['suggest_soon'],
+            'suggestMin' => $copy['suggest_min'],
+            'suggestLoading' => $copy['suggest_loading'],
+            'suggestFoundPrefix' => $copy['suggest_found_prefix'],
+            'suggestFoundSuffix' => $copy['suggest_found_suffix'],
+            'suggestEmpty' => $copy['suggest_empty'],
+            'suggestError' => $copy['suggest_error'],
+            'aiUnexpectedError' => $copy['ai_unexpected_error'],
+            'aiNetworkError' => $copy['ai_network_error'],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    @endphp
     <script>
+        window.meanlyStorefrontCopy = {!! $storefrontJsCopy !!};
+
         (() => {
             const input = document.querySelector('[data-live-search-input]');
             const suggestions = document.querySelector('[data-live-suggestions]');
             const status = document.querySelector('[data-live-search-status]');
+            const copy = window.meanlyStorefrontCopy || {};
 
             if (!input || !suggestions) return;
 
@@ -1098,7 +1249,7 @@
 
                 suggestions.innerHTML = items.map((item) => {
                     const meta = [item.category, item.match_label].filter(Boolean).join(' · ');
-                    const price = item.price?.formatted || (item.availability === 'soon' ? 'Скоро' : '');
+                    const price = item.price?.formatted || (item.availability === 'soon' ? (copy.suggestSoon || 'Soon') : '');
 
                     return `<a class="suggest-item" href="${escape(item.url)}">
                         <span>
@@ -1127,12 +1278,12 @@
 
                 if (query.length < 2) {
                     closeSuggestions();
-                    setStatus('Введите минимум 2 символа.');
+                    setStatus(copy.suggestMin || 'Enter at least 2 characters.');
                     return;
                 }
 
                 controller = new AbortController();
-                setStatus('Подбираем...');
+                setStatus(copy.suggestLoading || 'Searching...');
 
                 try {
                     const url = new URL(endpoint, window.location.origin);
@@ -1148,11 +1299,13 @@
                     const payload = await response.json();
                     const items = Array.isArray(payload.results) ? payload.results : [];
                     renderSuggestions(items);
-                    setStatus(items.length ? `Подсказок: ${items.length}. Enter для полного поиска.` : 'Ничего не найдено.');
+                    setStatus(items.length
+                        ? `${copy.suggestFoundPrefix || 'Suggestions:'} ${items.length}. ${copy.suggestFoundSuffix || 'Press Enter for full search.'}`
+                        : (copy.suggestEmpty || 'Nothing found.'));
                 } catch (error) {
                     if (error.name !== 'AbortError') {
                         closeSuggestions();
-                        setStatus('Не удалось обновить результаты.');
+                        setStatus(copy.suggestError || 'Could not refresh results.');
                     }
                 }
             };
@@ -1306,13 +1459,13 @@
                         chatHistory = chatHistory.slice(-10);
                     }
                 } else {
-                    appendBubble('error', data.error || 'Извините, возникла непредвиденная ошибка при запросе к ИИ.');
+                    appendBubble('error', data.error || (window.meanlyStorefrontCopy?.aiUnexpectedError || 'Sorry, an unexpected AI request error occurred.'));
                 }
 
             } catch (error) {
                 removeTypingIndicator();
                 isWaitingForAi = false;
-                appendBubble('error', 'Ошибка сети. Убедитесь, что локальный веб-сервер и Ollama запущены корректно.');
+                appendBubble('error', window.meanlyStorefrontCopy?.aiNetworkError || 'Network error. Make sure the local web server and Ollama are running correctly.');
             }
         }
 

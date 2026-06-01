@@ -73,6 +73,7 @@ class CanonicalProductPageController extends Controller
             ->pluck('price.amount')
             ->filter(fn ($value) => is_numeric($value))
             ->map(fn ($value) => (float) $value);
+        $priceCurrency = (string) data_get($offers->first(), 'price.currency', pricing()->displayCurrency);
 
         return [
             '@context' => 'https://schema.org',
@@ -92,7 +93,7 @@ class CanonicalProductPageController extends Controller
                     'offerCount' => $offers->count(),
                     'lowPrice' => $prices->min(),
                     'highPrice' => $prices->max(),
-                    'priceCurrency' => 'RUB',
+                    'priceCurrency' => $priceCurrency,
                     'offers' => $offers
                         ->take(10)
                         ->map(fn (array $offer) => [

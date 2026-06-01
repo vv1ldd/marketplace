@@ -998,7 +998,7 @@
 
             <aside class="checkout-panel" data-checkout-panel>
                 <div class="seller">К оплате</div>
-                <div class="price">{{ number_format(((float) $product->price_rub) / 100, 2, '.', ' ') }} ₽</div>
+                <div class="price">{{ $productDisplayPriceLabel }}</div>
                 <div class="checkout-note" style="background: #fdf5ff; border-color: #a855f7;">
                     Код придет на email и появится в личном сейфе после оплаты.
                 </div>

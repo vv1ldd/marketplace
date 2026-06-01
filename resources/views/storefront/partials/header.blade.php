@@ -13,6 +13,29 @@
     $logoutUrl = \Illuminate\Support\Facades\Route::has('logout') ? route('logout') : url('/logout');
     $opsUrl = url('/ops');
     $partnerUrl = url('/partner');
+    $headerLocale = app()->getLocale() === 'ru' ? 'ru' : 'en';
+    $headerCopy = [
+        'en' => [
+            'nav_label' => 'Meanly public navigation',
+            'menu' => 'Open menu',
+            'ai_mark' => 'AI',
+            'ai_helper' => 'AI assistant',
+            'b2b_console' => 'B2B Console',
+            'vault' => 'Vault',
+            'logout' => 'Logout',
+            'login' => 'Login',
+        ],
+        'ru' => [
+            'nav_label' => 'Публичная навигация Meanly',
+            'menu' => 'Открыть меню',
+            'ai_mark' => 'ИИ',
+            'ai_helper' => 'ИИ помощник',
+            'b2b_console' => 'B2B Консоль',
+            'vault' => 'Сейф',
+            'logout' => 'Выйти',
+            'login' => 'Войти',
+        ],
+    ][$headerLocale];
 @endphp
 
 @once
@@ -476,7 +499,7 @@
 
 @include('partials.simple-l1-inline-handoff')
 
-<nav class="meanly-standard-header" aria-label="Публичная навигация Meanly">
+<nav class="meanly-standard-header" aria-label="{{ $headerCopy['nav_label'] }}">
     <div class="nav-container">
         <a class="logo" href="{{ $homeUrl }}"><span class="logo-mark"></span> MEANLY</a>
 
@@ -490,14 +513,14 @@
             <span></span>
             <span></span>
             <span></span>
-            <span class="sr-only">Открыть меню</span>
+            <span class="sr-only">{{ $headerCopy['menu'] }}</span>
         </button>
 
         <div class="nav-links" id="meanlyMobileMenu">
             <div class="ai-helper-nav">
                 <a class="ai-faq-link" href="{{ $howItWorksUrl }}">
-                    <span class="ai-helper-mark" aria-hidden="true">ИИ</span>
-                    <span class="sr-only">ИИ помощник</span>
+                    <span class="ai-helper-mark" aria-hidden="true">{{ $headerCopy['ai_mark'] }}</span>
+                    <span class="sr-only">{{ $headerCopy['ai_helper'] }}</span>
                 </a>
             </div>
         </div>
@@ -510,25 +533,25 @@
                     </a>
                 @elseif(auth()->user()?->hasRole('b2b_partner'))
                     <a href="{{ $partnerUrl }}" @class(['btn-nav-cta', 'active' => request()->is('partner*')])>
-                        B2B Консоль
+                        {{ $headerCopy['b2b_console'] }}
                     </a>
                 @endif
-                <a href="{{ $cabinetUrl }}" aria-label="Сейф" title="Сейф" @class(['nav-icon-button', 'nav-icon-primary', 'active' => request()->is('vault*') || request()->is('cabinet*')])>
+                <a href="{{ $cabinetUrl }}" aria-label="{{ $headerCopy['vault'] }}" title="{{ $headerCopy['vault'] }}" @class(['nav-icon-button', 'nav-icon-primary', 'active' => request()->is('vault*') || request()->is('cabinet*')])>
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <rect x="4" y="5" width="16" height="14" rx="2.5"></rect>
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M12 9v6M9 12h6"></path>
                         <path d="M7.5 19v2M16.5 19v2"></path>
                     </svg>
-                    <span class="sr-only">Сейф</span>
+                    <span class="sr-only">{{ $headerCopy['vault'] }}</span>
                 </a>
                 <form id="storefrontHeaderLogoutForm" method="POST" action="{{ $logoutUrl }}" style="display:none;">@csrf</form>
                 <button type="button" onclick="document.getElementById('storefrontHeaderLogoutForm').submit()" class="btn-nav-login">
-                    Выйти
+                    {{ $headerCopy['logout'] }}
                 </button>
             @else
                 <a href="{{ $loginUrl }}" @class(['btn-nav-cta', 'active' => request()->is('login')])>
-                    Войти
+                    {{ $headerCopy['login'] }}
                 </a>
             @endauth
         </div>

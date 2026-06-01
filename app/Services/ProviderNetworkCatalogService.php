@@ -287,13 +287,14 @@ class ProviderNetworkCatalogService
         }
 
         $prices = $offers->pluck('price.amount')->filter(fn ($value) => is_numeric($value))->map(fn ($value) => (float) $value);
+        $priceCurrency = (string) data_get($offers->first(), 'price.currency', pricing()->displayCurrency);
 
         return [
             '@type' => 'AggregateOffer',
             'offerCount' => $offers->count(),
             'lowPrice' => $prices->min(),
             'highPrice' => $prices->max(),
-            'priceCurrency' => 'RUB',
+            'priceCurrency' => $priceCurrency,
             'offers' => $offers
                 ->filter(fn (array $offer) => (bool) data_get($offer, 'indexing.indexable'))
                 ->take(10)

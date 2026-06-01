@@ -14,6 +14,7 @@ use App\Services\CanonicalProductSearchSuggestService;
 use App\Services\MeanlyRetailCheckoutService;
 use App\Services\IntentLedgerService;
 use App\Services\OrderSupportTicketService;
+use App\Services\PricingProjectionService;
 use App\Services\SimpleL1ProtocolClient;
 use App\Services\StorefrontFulfillmentService;
 use Illuminate\Support\Facades\Cache;
@@ -59,7 +60,7 @@ class MeanlyStorefrontController extends Controller
         return response()->json($suggest->suggestions($request));
     }
 
-    public function show(Request $request, string $slug, MeanlyFirstPartyStorefrontService $storefront, MarketplaceDiscoveryService $discovery, LlmProductFactsService $llmFacts, StorefrontFulfillmentService $fulfillment)
+    public function show(Request $request, string $slug, MeanlyFirstPartyStorefrontService $storefront, MarketplaceDiscoveryService $discovery, LlmProductFactsService $llmFacts, StorefrontFulfillmentService $fulfillment, PricingProjectionService $pricingProjection)
     {
         $shop = $storefront->shop();
         $product = $storefront->marketplaceProductsQuery()
@@ -68,6 +69,8 @@ class MeanlyStorefrontController extends Controller
         $discovery->rememberRecentlyViewed($request, $product);
         $productFacts = $llmFacts->productFacts($product);
         $productJsonLd = $llmFacts->productJsonLd($product);
+        $productDisplayPrice = $pricingProjection->publicPriceForProduct($product);
+        $productDisplayPriceLabel = $pricingProjection->format($productDisplayPrice);
         $checkoutAvailability = $fulfillment->checkoutAvailability($product, 1);
 
         // Funnel Telemetry: increment views count if search session active
@@ -79,7 +82,7 @@ class MeanlyStorefrontController extends Controller
             // Ignore telemetry exceptions
         }
 
-        return view('storefront.show', compact('shop', 'product', 'productFacts', 'productJsonLd', 'checkoutAvailability'));
+        return view('storefront.show', compact('shop', 'product', 'productFacts', 'productJsonLd', 'productDisplayPrice', 'productDisplayPriceLabel', 'checkoutAvailability'));
     }
 
 

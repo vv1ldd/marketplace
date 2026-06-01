@@ -16,6 +16,7 @@ class SellerOfferRankingService
     public function __construct(
         private readonly MeanlyFirstPartyStorefrontService $storefront,
         private readonly VaultTransitService $vault,
+        private readonly PricingProjectionService $pricingProjection,
     ) {}
 
     /**
@@ -158,10 +159,7 @@ class SellerOfferRankingService
                 'name' => $product->shop?->name,
                 'legal_entity' => $product->shop?->legalEntity?->short_name ?: $product->shop?->legalEntity?->name,
             ],
-            'price' => [
-                'amount' => $priceRub,
-                'currency' => 'RUB',
-            ],
+            'price' => $this->pricingProjection->publicPriceForProduct($product),
             'availability' => $stockCount > 0 ? 'in_stock' : (($product->shop?->auto_purchase_enabled || $product->auto_replenish_enabled) ? 'auto_purchase' : 'available_to_order'),
             'ranking' => [
                 'score' => $score,

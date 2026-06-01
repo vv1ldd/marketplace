@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\ResolveMarketContext::class,
+            \App\Http\Middleware\ResolvePricingContext::class,
             \App\Http\Middleware\SetLocale::class,
             \App\Http\Middleware\SetTheme::class,
             \App\Http\Middleware\EnsureUserHasPasskey::class,

@@ -73,13 +73,11 @@ class LocaleResolver
 
         return [
             'query' => $request->query('locale') ?: $request->query('lang'),
+            'market' => $marketContext?->matchedDomain ? $marketContext->locale : null,
             'session' => $request->session()->get('locale'),
             'profile' => $user instanceof User ? $this->profileLocale($user) : null,
             'legal_entity_region' => $this->localeForCountry($legalEntity?->country_code),
             'profile_region' => $this->localeForCountry($this->profileCountry($user)),
-            'market' => $marketContext?->matchedDomain && $marketContext->market !== config('markets.default', 'global')
-                ? $marketContext->locale
-                : null,
             'browser' => $this->browserLocale($request),
             'app' => config('app.locale'),
         ];

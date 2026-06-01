@@ -138,6 +138,7 @@ class CanonicalStorefrontHomepageService
         private readonly CanonicalProductIdentityCurationService $curation,
         private readonly CanonicalCategoryResolver $categoryResolver,
         private readonly MeanlyFirstPartyStorefrontService $storefront,
+        private readonly PricingProjectionService $pricingProjection,
     ) {}
 
     /**
@@ -673,11 +674,14 @@ class CanonicalStorefrontHomepageService
                 }
 
                 $rubAmount = round((float) $faceValue * $rate, 2);
+                $displayPrice = $this->pricingProjection->publicPriceForStorageAmount($rubAmount);
 
                 return [
-                    'amount' => $rubAmount,
-                    'currency' => $currency,
-                    'label' => number_format($rubAmount, 2, '.', ' ').' ₽',
+                    'amount' => $displayPrice['amount'],
+                    'currency' => $displayPrice['currency'],
+                    'label' => $displayPrice['label'],
+                    'storage_amount' => $rubAmount,
+                    'storage_currency' => 'RUB',
                 ];
             })
             ->filter()
@@ -696,7 +700,7 @@ class CanonicalStorefrontHomepageService
         return [
             'min' => $first['amount'],
             'max' => (float) $nominals->max('amount'),
-            'currency' => 'RUB',
+            'currency' => $first['currency'],
             'count' => $nominals->count(),
             'label' => 'от '.$first['label'],
         ];
@@ -2083,7 +2087,7 @@ class CanonicalStorefrontHomepageService
             return null;
         }
 
-        $priceRub = round(((float) ($product->price_rub ?? 0)) / 100, 2);
+        $price = $this->pricingProjection->publicPriceForProduct($product);
         $availability = $product->shop?->auto_purchase_enabled || $product->auto_replenish_enabled
             ? 'auto_purchase'
             : 'available_to_order';
@@ -2097,10 +2101,7 @@ class CanonicalStorefrontHomepageService
                 'name' => $product->shop?->name ?? 'Meanly seller',
                 'legal_entity' => $product->shop?->legalEntity?->short_name ?: $product->shop?->legalEntity?->name,
             ],
-            'price' => [
-                'amount' => $priceRub,
-                'currency' => 'RUB',
-            ],
+            'price' => $price,
             'availability' => $availability,
         ];
     }

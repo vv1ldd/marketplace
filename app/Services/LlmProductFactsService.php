@@ -13,6 +13,7 @@ class LlmProductFactsService
     public function __construct(
         private readonly CanonicalCategoryResolver $categoryResolver,
         private readonly CanonicalProductIdentityService $identity,
+        private readonly PricingProjectionService $pricingProjection,
     ) {}
 
     /**
@@ -48,10 +49,7 @@ class LlmProductFactsService
             'face_value_currency' => $currency,
             'region' => $region,
             'canonical_identity' => $canonicalIdentity,
-            'price' => [
-                'amount' => round(((float) ($product->price_rub ?? 0)) / 100, 2),
-                'currency' => 'RUB',
-            ],
+            'price' => $this->pricingProjection->publicPriceForProduct($product),
             'delivery' => 'instant_digital',
             'activation' => $this->activation($product, $wfCatalog),
             'sellable' => (bool) $product->is_active,
@@ -95,7 +93,7 @@ class LlmProductFactsService
             'offers' => [
                 '@type' => 'Offer',
                 'url' => $facts['url'],
-                'priceCurrency' => 'RUB',
+                'priceCurrency' => $facts['price']['currency'],
                 'price' => $facts['price']['amount'],
                 'availability' => $facts['sellable'] ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
                 'seller' => [

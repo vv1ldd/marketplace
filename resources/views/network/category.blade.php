@@ -218,7 +218,7 @@
                     <div class="muted">{{ $facts['canonical_category_label'] }}</div>
                     @if($facts['seller_offers']['count'] > 0)
                         <div class="muted">Уже есть предложения продавцов: {{ $facts['seller_offers']['count'] }}</div>
-                        <div class="price">от {{ number_format((float) data_get($facts, 'seller_offers.best_offer.price.amount', 0), 2, '.', ' ') }} ₽</div>
+                        <div class="price">от {{ data_get($facts, 'seller_offers.best_offer.price.label', number_format((float) data_get($facts, 'seller_offers.best_offer.price.amount', 0), 2, '.', ' ')) }}</div>
                     @else
                         <div class="muted">Пока нет предложения продавца на витрине</div>
                         <div class="price">{{ number_format((float) $facts['estimated_provider_price']['amount'], 2, '.', ' ') }} {{ $facts['estimated_provider_price']['currency'] }}</div>

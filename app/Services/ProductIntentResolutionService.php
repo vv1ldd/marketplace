@@ -200,7 +200,7 @@ class ProductIntentResolutionService
             '@type' => 'Offer',
             '@id' => $resolution['machine_readable_at'].'#selected-offer',
             'url' => $offer['url'],
-            'priceCurrency' => data_get($offer, 'price.currency', 'RUB'),
+            'priceCurrency' => data_get($offer, 'price.currency', pricing()->displayCurrency),
             'price' => data_get($offer, 'price.amount'),
             'availability' => match ($offer['availability'] ?? null) {
                 'in_stock' => 'https://schema.org/InStock',

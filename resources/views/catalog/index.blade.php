@@ -457,7 +457,7 @@
                                 </div>
                             @endif
                             @if($selectedOffer)
-                                <div class="price">{{ number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ') }} ₽</div>
+                                <div class="price">{{ data_get($selectedOffer, 'price.label', number_format((float) data_get($selectedOffer, 'price.amount'), 2, '.', ' ')) }}</div>
                                 <div class="muted">Продавец: {{ data_get($selectedOffer, 'seller.name', 'Meanly seller') }}</div>
                             @else
                                 <div class="price" style="font-size: 20px;">Скоро в продаже</div>

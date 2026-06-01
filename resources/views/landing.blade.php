@@ -1395,9 +1395,7 @@
             data.products.forEach(product => {
                 const meta = getPlatformMeta(product.vendor, product.name);
                 
-                // Format price: divide by 100
-                const rubPrice = Math.round(product.price_rub / 100);
-                const formattedPrice = new Intl.NumberFormat('ru-RU').format(rubPrice) + ' ₽';
+                const formattedPrice = product.display_price?.label ?? 'Цена уточняется';
                 
                 const card = document.createElement('a');
                 card.href = `/products/${product.slug}`;
@@ -1419,7 +1417,7 @@
                     </div>
                     <div>
                         <div class="price-section">
-                            <span class="price-label">Цена в рублях</span>
+                            <span class="price-label">Цена</span>
                             <span class="price-value">${formattedPrice}</span>
                         </div>
                         <button class="btn-buy" style="pointer-events: none;">

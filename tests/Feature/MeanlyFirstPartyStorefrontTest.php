@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\LegalEntity;
 use App\Models\Order\Order;
+use App\Models\CanonicalProductIdentity;
 use App\Models\Order\OrderItems;
 use App\Models\Product;
 use App\Models\ProductInventory;
@@ -15,6 +16,7 @@ use App\Models\SovereignLedger;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\WildflowCatalog;
+use App\Services\FinanceService;
 use App\Services\MeanlyCatalogReconciliationService;
 use App\Services\MeanlyFirstPartyStorefrontService;
 use App\Services\PartnerOperatorIntelligenceService;
@@ -409,6 +411,227 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             'shop_id' => $shop->id,
             'event_type' => 'catalog_sync',
         ]);
+    }
+
+    public function test_public_storefront_offer_uses_pricing_projection_from_market_context(): void
+    {
+        config(['markets.markets.global.display_currency' => 'USD']);
+
+        $this->mock(FinanceService::class, function ($mock) {
+            $mock->shouldReceive('convert')
+                ->with(1200.0, 'RUB', 'USD')
+                ->andReturn(12.0);
+        });
+
+        $storefront = app(MeanlyFirstPartyStorefrontService::class);
+        $shop = $storefront->shop();
+
+        $product = Product::create([
+            'shop_id' => $shop->id,
+            'sku' => 'MEANLY-USD-PROJECTION',
+            'name' => 'USD Projection Gift Card',
+            'slug' => 'usd-projection-gift-card',
+            'price_rub' => 120000,
+            'type' => 'giftcard',
+            'category' => 'Gift Cards',
+            'is_active' => true,
+        ]);
+
+        ProductSalesChannel::create([
+            'product_id' => $product->id,
+            'shop_id' => $shop->id,
+            'channel' => 'meanly_storefront',
+            'is_enabled' => true,
+        ]);
+
+        CanonicalProductIdentity::create([
+            'fingerprint' => hash('sha256', 'meanly-usd-projection'),
+            'identity_slug' => 'meanly-usd-projection',
+            'canonical_category' => 'gift_cards',
+            'brand' => 'Meanly',
+            'product_family' => 'USD Projection Gift Card',
+            'face_value' => 12,
+            'face_value_currency' => 'USD',
+            'region' => 'US',
+            'platform' => 'global',
+            'confidence' => 'high',
+            'signals' => [],
+            'provider_candidates_count' => 0,
+            'seller_offers_count' => 1,
+            'best_offer_product_id' => $product->id,
+            'last_seen_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Host', 'meanly.one')->get(route('meanly.storefront.index'));
+
+        $response->assertOk()
+            ->assertSee('12.00 USD')
+            ->assertDontSee('1 200.00 ₽');
+    }
+
+    public function test_public_product_json_ld_uses_pricing_projection_currency(): void
+    {
+        config(['markets.markets.global.display_currency' => 'USD']);
+
+        $this->mock(FinanceService::class, function ($mock) {
+            $mock->shouldReceive('convert')
+                ->with(1200.0, 'RUB', 'USD')
+                ->andReturn(12.0);
+        });
+
+        $storefront = app(MeanlyFirstPartyStorefrontService::class);
+        $shop = $storefront->shop();
+
+        $product = Product::create([
+            'shop_id' => $shop->id,
+            'sku' => 'MEANLY-JSONLD-PROJECTION',
+            'name' => 'JSON-LD Projection Gift Card',
+            'slug' => 'jsonld-projection-gift-card',
+            'price_rub' => 120000,
+            'type' => 'giftcard',
+            'category' => 'Gift Cards',
+            'is_active' => true,
+        ]);
+
+        ProductSalesChannel::create([
+            'product_id' => $product->id,
+            'shop_id' => $shop->id,
+            'channel' => 'meanly_storefront',
+            'is_enabled' => true,
+        ]);
+
+        $response = $this->withHeader('Host', 'meanly.one')->get(route('meanly.storefront.products.show', $product->slug));
+
+        $response->assertOk()
+            ->assertSee('"priceCurrency":"USD"', false)
+            ->assertSee('"price":12', false)
+            ->assertSee('12.00 USD');
+    }
+
+    public function test_legacy_public_product_page_uses_pricing_projection_consistently(): void
+    {
+        config(['markets.markets.global.display_currency' => 'USD']);
+
+        $this->mock(FinanceService::class, function ($mock) {
+            $mock->shouldReceive('convert')
+                ->with(1200.0, 'RUB', 'USD')
+                ->andReturn(12.0);
+        });
+
+        $storefront = app(MeanlyFirstPartyStorefrontService::class);
+        $shop = $storefront->shop();
+
+        $product = Product::create([
+            'shop_id' => $shop->id,
+            'sku' => 'MEANLY-LEGACY-PAGE-PROJECTION',
+            'name' => 'Legacy Page Projection Gift Card',
+            'slug' => 'legacy-page-projection-gift-card',
+            'price_rub' => 120000,
+            'type' => 'giftcard',
+            'category' => 'Gift Cards',
+            'is_active' => true,
+        ]);
+
+        $response = $this->withHeader('Host', 'meanly.one')->get(route('products.show', $product->slug));
+
+        $response->assertOk()
+            ->assertSee('"priceCurrency": "USD"', false)
+            ->assertSee('"price": "12"', false)
+            ->assertSee('12.00 USD')
+            ->assertDontSee('Цена в рублях')
+            ->assertDontSee('1 200 ₽');
+    }
+
+    public function test_public_product_search_api_returns_projected_display_price_without_storage_price(): void
+    {
+        config(['markets.markets.global.display_currency' => 'USD']);
+
+        $this->mock(FinanceService::class, function ($mock) {
+            $mock->shouldReceive('convert')
+                ->with(1200.0, 'RUB', 'USD')
+                ->andReturn(12.0);
+        });
+
+        $storefront = app(MeanlyFirstPartyStorefrontService::class);
+        $shop = $storefront->shop();
+
+        Product::create([
+            'shop_id' => $shop->id,
+            'sku' => 'MEANLY-SEARCH-PROJECTION',
+            'name' => 'Search Projection Gift Card',
+            'slug' => 'search-projection-gift-card',
+            'price_rub' => 120000,
+            'type' => 'giftcard',
+            'category' => 'Gift Cards',
+            'is_active' => true,
+        ]);
+
+        $response = $this->withHeader('Host', 'meanly.one')->getJson(route('products.search', ['query' => 'Search Projection']));
+
+        $response->assertOk()
+            ->assertJsonPath('products.0.display_price.amount', 12)
+            ->assertJsonPath('products.0.display_price.currency', 'USD')
+            ->assertJsonPath('products.0.display_price.label', '12.00 USD');
+
+        $this->assertArrayNotHasKey('price_rub', $response->json('products.0'));
+    }
+
+    public function test_canonical_product_page_uses_projected_offer_price_in_html_and_json_ld(): void
+    {
+        config(['markets.markets.global.display_currency' => 'USD']);
+
+        $this->mock(FinanceService::class, function ($mock) {
+            $mock->shouldReceive('convert')
+                ->with(1200.0, 'RUB', 'USD')
+                ->andReturn(12.0);
+        });
+
+        $storefront = app(MeanlyFirstPartyStorefrontService::class);
+        $shop = $storefront->shop();
+
+        $product = Product::create([
+            'shop_id' => $shop->id,
+            'sku' => 'MEANLY-CANONICAL-PROJECTION',
+            'name' => 'Canonical Projection Gift Card',
+            'slug' => 'canonical-projection-gift-card',
+            'price_rub' => 120000,
+            'type' => 'giftcard',
+            'category' => 'Gift Cards',
+            'is_active' => true,
+        ]);
+
+        ProductSalesChannel::create([
+            'product_id' => $product->id,
+            'shop_id' => $shop->id,
+            'channel' => 'meanly_storefront',
+            'is_enabled' => true,
+        ]);
+
+        CanonicalProductIdentity::create([
+            'fingerprint' => hash('sha256', 'meanly-canonical-projection'),
+            'identity_slug' => 'meanly-canonical-projection',
+            'canonical_category' => 'gift_cards',
+            'brand' => 'Meanly',
+            'product_family' => 'Canonical Projection Gift Card',
+            'face_value' => 12,
+            'face_value_currency' => 'USD',
+            'region' => 'US',
+            'platform' => 'global',
+            'confidence' => 'high',
+            'signals' => [],
+            'provider_candidates_count' => 0,
+            'seller_offers_count' => 1,
+            'best_offer_product_id' => $product->id,
+            'last_seen_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Host', 'meanly.one')->get(route('meanly.canonical-products.show', 'meanly-canonical-projection'));
+
+        $response->assertOk()
+            ->assertSee('"priceCurrency":"USD"', false)
+            ->assertSee('"lowPrice":12', false)
+            ->assertSee('12 USD')
+            ->assertDontSee('1 200.00 ₽');
     }
 
     public function test_public_marketplace_storefront_checkout_fulfills_and_includes_enabled_sellers(): void

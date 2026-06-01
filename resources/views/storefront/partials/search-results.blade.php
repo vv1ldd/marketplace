@@ -47,7 +47,7 @@
                                     <div class="offer-summary">Регионы: {{ collect($variantGroup['regions'])->take(4)->implode(', ') }}@if(($variantGroup['region_count'] ?? 0) > 4) и другие@endif</div>
                                 @endif
                                 @if(data_get($product, 'selected_offer'))
-                                    <div class="price">{{ number_format((float) data_get($product, 'selected_offer.price.amount'), 2, '.', ' ') }} ₽</div>
+                                    <div class="price">{{ data_get($product, 'selected_offer.price.label', number_format((float) data_get($product, 'selected_offer.price.amount'), 2, '.', ' ')) }}</div>
                                     <div class="offer-summary">Продавец: {{ data_get($product, 'selected_offer.seller.name') }} · {{ data_get($product, 'selected_offer.availability') }}</div>
                                 @else
                                     <div class="offer-summary">Покупка откроется, когда продавец подключит товар к витрине.</div>

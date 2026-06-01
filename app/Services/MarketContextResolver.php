@@ -24,6 +24,8 @@ class MarketContextResolver
             host: $host,
             locale: (string) ($config['locale'] ?? config('app.locale', 'en')),
             currency: (string) ($config['currency'] ?? 'USD'),
+            catalogScope: (string) ($config['catalog_scope'] ?? $matchedKey),
+            pricingScope: (string) ($config['pricing_scope'] ?? $matchedKey),
             demandRegion: filled($config['demand_region'] ?? null) ? Str::upper((string) $config['demand_region']) : null,
             preferredProductRegions: array_values(array_map(
                 static fn (string $region): string => Str::upper(trim($region)),
