@@ -2651,15 +2651,17 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/vv1ldd/MDK-Kernel.git",
-                "reference": "b7dd8dde5a27eb21b2abb6878a6d0ed8e030b40a"
+                "reference": "3d28c2246e65fd3ff12d35f0b78d82aa27c7264a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vv1ldd/MDK-Kernel/zipball/b7dd8dde5a27eb21b2abb6878a6d0ed8e030b40a",
-                "reference": "b7dd8dde5a27eb21b2abb6878a6d0ed8e030b40a",
+                "url": "https://api.github.com/repos/vv1ldd/MDK-Kernel/zipball/3d28c2246e65fd3ff12d35f0b78d82aa27c7264a",
+                "reference": "3d28c2246e65fd3ff12d35f0b78d82aa27c7264a",
                 "shasum": ""
             },
             "require": {
+                "ext-bcmath": "*",
+                "ext-pdo": "*",
                 "php": ">=8.2"
             },
             "require-dev": {
@@ -2672,15 +2674,20 @@
                     "Meanly\\Mdk\\Kernel\\": "src/"
                 }
             },
+            "autoload-dev": {
+                "psr-4": {
+                    "Meanly\\Mdk\\Kernel\\Tests\\": "tests/"
+                }
+            },
             "license": [
                 "proprietary"
             ],
             "description": "Deterministic Ledger Virtual Machine (DLVM) - Pure financial execution engine",
             "support": {
-                "source": "https://github.com/vv1ldd/MDK-Kernel/tree/main",
+                "source": "https://github.com/vv1ldd/MDK-Kernel.git",
                 "issues": "https://github.com/vv1ldd/MDK-Kernel/issues"
             },
-            "time": "2026-04-12T13:28:28+00:00"
+            "time": "2026-06-01T10:10:28+00:00"
         },
         {
             "name": "monolog/monolog",
