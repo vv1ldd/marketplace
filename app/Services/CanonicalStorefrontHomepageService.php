@@ -1036,10 +1036,11 @@ class CanonicalStorefrontHomepageService
                 $category = (string) $row->canonical_category;
                 $meta = (array) config("catalog_taxonomy.categories.{$category}", []);
                 $count = (int) $row->getAttribute('product_count');
+                $label = $this->localizedCategoryLabel($meta, $category);
 
                 return [
                     'slug' => $category,
-                    'name' => $meta['label_ru'] ?? $this->categoryResolver->label($category),
+                    'name' => $label,
                     'label_ru' => $meta['label_ru'] ?? $this->categoryResolver->label($category),
                     'label_en' => $meta['label_en'] ?? $category,
                     'description_ru' => $meta['description_ru'] ?? null,
@@ -1552,11 +1553,29 @@ class CanonicalStorefrontHomepageService
             return $resolver();
         }
 
+        $market = app()->bound(\App\Support\MarketContext::class)
+            ? app(\App\Support\MarketContext::class)->market
+            : 'global';
+        $locale = app()->getLocale();
+
         return Cache::remember(
-            "storefront:homepage:{$key}",
+            "storefront:homepage:{$market}:{$locale}:{$key}",
             self::HOMEPAGE_CACHE_SECONDS,
             $resolver,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function localizedCategoryLabel(array $meta, string $category, ?string $fallback = null): string
+    {
+        $locale = app()->getLocale();
+        $label = $locale === 'ru'
+            ? ($meta['label_ru'] ?? $fallback)
+            : ($meta['label_en'] ?? $fallback);
+
+        return (string) ($label ?: $this->categoryResolver->label($category));
     }
 
     /**
@@ -2153,10 +2172,11 @@ class CanonicalStorefrontHomepageService
             ->map(function (Collection $group, string $category): array {
                 $meta = (array) config("catalog_taxonomy.categories.{$category}", []);
                 $count = $group->count();
+                $label = $this->localizedCategoryLabel($meta, $category, $group->first()['category_label'] ?? null);
 
                 return [
                     'slug' => $category,
-                    'name' => $group->first()['category_label'] ?? ($meta['label_ru'] ?? $category),
+                    'name' => $label,
                     'label_ru' => $meta['label_ru'] ?? $group->first()['category_label'] ?? $category,
                     'label_en' => $meta['label_en'] ?? $category,
                     'description_ru' => $meta['description_ru'] ?? null,

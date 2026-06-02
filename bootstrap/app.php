@@ -33,6 +33,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'partner.intent'  => \App\Http\Middleware\RecordPartnerActionIntent::class,
             // Seller terminal authentication: X-Terminal-Id + X-Terminal-Pin headers
             'seller.terminal' => \App\Http\Middleware\AuthenticateSellerTerminal::class,
+            'meanly.api.auth' => \App\Http\Middleware\AuthenticateMeanlyApiAccess::class,
+            'meanly.financial.signature' => \App\Http\Middleware\VerifyMeanlyFinancialSignature::class,
+            'wildflow.api.auth' => \App\Http\Middleware\AuthenticateWildflowKernelAccess::class,
+            'wildflow.kernel.auth' => \App\Http\Middleware\AuthenticateWildflowKernelAccess::class,
+            'wildflow.financial.signature' => \App\Http\Middleware\VerifyWildflowFinancialSignature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

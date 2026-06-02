@@ -71,6 +71,13 @@
     $checkoutUser = auth()->user();
     $checkoutUserEmail = trim((string) ($checkoutUser?->email ?? ''));
     $giftCheckoutSelected = filter_var(old('is_gift', false), FILTER_VALIDATE_BOOLEAN);
+    $pageLocale = str_replace('_', '-', (string) ($facts['locale'] ?? app()->getLocale() ?? config('app.locale', 'en')));
+    $canonicalUrl = (string) ($facts['canonical_url'] ?? $facts['url']);
+    $alternateUrls = collect($facts['alternate_urls'] ?? [])
+        ->filter(fn ($alternate) => is_array($alternate) && ! empty($alternate['url']) && ! empty($alternate['hreflang']))
+        ->unique(fn ($alternate) => ($alternate['hreflang'] ?? '').'|'.($alternate['url'] ?? ''))
+        ->values();
+    $xDefaultUrl = data_get($alternateUrls->firstWhere('market', 'global'), 'url', $canonicalUrl);
 
     $displayImage = null;
     if ($selectedOffer && !empty($selectedOffer['product_id'])) {
@@ -106,7 +113,7 @@
     }
 @endphp
 <!DOCTYPE html>
-<html lang="ru" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
+<html lang="{{ $pageLocale }}" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
 <head>
     @include('partials.theme-sync')
     <meta charset="utf-8">
@@ -114,7 +121,11 @@
     <title>{{ $facts['name'] }} - Meanly</title>
     <meta name="description" content="{{ $facts['description'] }}">
     <meta name="robots" content="{{ data_get($facts, 'indexing_policy.robots', 'noindex,follow') }}">
-    <link rel="canonical" href="{{ $facts['url'] }}">
+    <link rel="canonical" href="{{ $canonicalUrl }}">
+    @foreach ($alternateUrls as $alternate)
+        <link rel="alternate" hreflang="{{ $alternate['hreflang'] }}" href="{{ $alternate['url'] }}">
+    @endforeach
+    <link rel="alternate" hreflang="x-default" href="{{ $xDefaultUrl }}">
     <link rel="alternate" type="application/json" href="{{ $facts['machine_readable_at'] }}">
     <link rel="alternate" type="application/json" href="{{ $intentResolution['machine_readable_at'] }}">
     <script type="application/ld+json">{!! json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>

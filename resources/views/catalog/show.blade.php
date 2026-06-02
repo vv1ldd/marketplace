@@ -1,11 +1,20 @@
+@php
+    $pageLocale = app()->getLocale();
+    $categoryLabelKey = $pageLocale === 'ru' ? 'label_ru' : 'label_en';
+    $categoryDescriptionKey = $pageLocale === 'ru' ? 'description_ru' : 'description_en';
+    $categoryLabel = $meta[$categoryLabelKey] ?? $meta['label_en'] ?? $meta['label_ru'] ?? $category;
+    $categoryDescription = $pageLocale === 'ru'
+        ? ($meta['description_ru'] ?? __('catalog.show.category_description'))
+        : ($meta['description_en'] ?? __('catalog.show.category_description'));
+@endphp
 <!DOCTYPE html>
-<html lang="ru" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
+<html lang="{{ $pageLocale }}" data-theme="{{ $currentTheme ?? request()->cookie('theme', config('app.theme_fallback', 'consortium')) }}">
 <head>
     @include('partials.theme-sync')
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $meta['label_ru'] ?? $category }} - Meanly Catalog</title>
-    <meta name="description" content="{{ $meta['description_ru'] ?? ($meta['label_en'] ?? $category) }}">
+    <title>{{ $categoryLabel }} - Meanly Catalog</title>
+    <meta name="description" content="{{ $categoryDescription }}">
     <link rel="canonical" href="{{ route('meanly.catalog.categories.show', $category) }}">
     <link rel="alternate" type="text/plain" href="{{ route('llms.txt') }}">
     <link rel="alternate" type="application/json" href="{{ route('llms.categories.show', $category) }}">
@@ -651,8 +660,8 @@
         @unless($group)
             <section class="hero">
                 <div class="eyebrow">{{ __('catalog.index.category') }}</div>
-                <h1>{{ $meta['label_ru'] ?? $category }}</h1>
-                <p class="lead">{{ $meta['description_ru'] ?? __('catalog.show.category_description') }}</p>
+                <h1>{{ $categoryLabel }}</h1>
+                <p class="lead">{{ $categoryDescription }}</p>
                 <div class="meta">
                     <span class="tag">{{ trans_choice('catalog.index.products_count', $products->total(), ['count' => $products->total()]) }}</span>
                 </div>
@@ -911,7 +920,7 @@
                 @endif
             </div>
         @else
-            <section class="grid" aria-label="{{ $meta['label_ru'] ?? $category }}">
+            <section class="grid" aria-label="{{ $categoryLabel }}">
                 @foreach($products as $product)
                     @php
                         $selectedOffer = data_get($product, 'selected_offer');
@@ -930,8 +939,8 @@
                     <article class="card">
                         <div class="card-body">
                             <a class="product-title" href="{{ $product['url'] }}">{{ $product['name'] }}</a>
-                            <div class="muted">{{ data_get($product, 'brand') ?: ($meta['label_ru'] ?? 'Digital goods') }}</div>
-                            <div class="muted">{{ data_get($product, 'category_label', $meta['label_ru'] ?? 'Digital goods') }} · {{ $isGrouped ? __('catalog.index.multiple_regions') : $regionLabel }}</div>
+                            <div class="muted">{{ data_get($product, 'brand') ?: $categoryLabel }}</div>
+                            <div class="muted">{{ data_get($product, 'category_label', $categoryLabel) }} · {{ $isGrouped ? __('catalog.index.multiple_regions') : $regionLabel }}</div>
                             @if($isGrouped)
                                 <div style="margin: 6px 0 8px;">
                                     <span class="tag" style="background: #efe6ff; box-shadow: 2px 2px 0 var(--line); font-size: 11px; padding: 4px 8px; border: 2px solid var(--line); display: inline-block; font-family: 'JetBrains Mono', monospace; font-weight: 900; text-transform: uppercase;">{{ $variantSummary }}</span>

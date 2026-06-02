@@ -411,7 +411,7 @@
     "product.public.checkout_email_safe": "Код придет на email и появится в личном сейфе после оплаты.",
     "product.public.wallet_connected": "Кошелек подключен",
     "product.public.connect_wallet": "Подключите SL1 passkey wallet",
-    "product.public.wallet_help": "Подтвердите passkey на api.wildflow.test и вернитесь на Meanly с переносимым sl1 адресом.",
+    "product.public.wallet_help": "Подтвердите passkey в Simple L1 и вернитесь на Meanly с переносимым sl1 адресом.",
     "product.public.reconnect_wallet": "Переподключить SL1 wallet",
     "product.public.in_stock": "Товар в наличии",
     "product.public.seller_code_ready": "Продавец подготовил код для выдачи после оплаты.",

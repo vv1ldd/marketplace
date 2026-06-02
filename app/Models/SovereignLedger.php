@@ -32,9 +32,9 @@ class SovereignLedger extends Model
     ];
 
     protected $casts = [
-        'payload' => 'array',
-        'input_data' => 'array',
-        'output_state' => 'array',
+        'payload' => \App\Casts\VaultEncryptedJson::class,
+        'input_data' => \App\Casts\VaultEncryptedJson::class,
+        'output_state' => \App\Casts\VaultEncryptedJson::class,
         'created_at' => 'datetime',
     ];
 

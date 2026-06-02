@@ -327,62 +327,6 @@
             vertical-align: middle;
             margin-left: 4px;
         }
-        .console-switch-btn {
-            margin-left: auto;
-            border: 1px solid var(--border-card);
-            background: var(--bg-input);
-            color: var(--text-main);
-            border-radius: 10px;
-            padding: 7px 9px;
-            cursor: pointer;
-            font-family: var(--font-tech);
-            font-size: 0.68rem;
-            font-weight: 900;
-        }
-        .console-switch-menu {
-            display: none;
-            position: absolute;
-            top: calc(100% + 8px);
-            left: 0;
-            right: 0;
-            z-index: 50;
-            background: var(--bg-card);
-            border: 1px solid var(--border-card);
-            border-radius: 14px;
-            box-shadow: var(--shadow-neo);
-            padding: 8px;
-        }
-        .console-switch-menu.open {
-            display: block;
-        }
-        .console-switch-plane {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            color: var(--text-main);
-            text-decoration: none;
-            padding: 10px;
-            border-radius: 10px;
-            font-size: 0.78rem;
-            font-weight: 850;
-        }
-        .console-switch-plane:hover {
-            background: rgba(var(--primary-rgb), 0.1);
-            color: var(--primary);
-        }
-        .console-switch-plane.locked {
-            opacity: .55;
-            cursor: not-allowed;
-        }
-        .console-switch-plane.locked:hover {
-            background: transparent;
-            color: var(--text-main);
-        }
-        .console-switch-menu span {
-            color: var(--text-muted);
-            font-size: 0.66rem;
-            font-weight: 700;
-        }
         .sidebar-menu {
             flex: 1;
             padding: 1.5rem 0;
@@ -464,6 +408,8 @@
         .main-content {
             margin-left: 280px;
             flex: 1;
+            width: calc(100% - 280px);
+            max-width: calc(100vw - 280px);
             padding: 2.5rem;
             min-height: 100vh;
             box-sizing: border-box;
@@ -539,9 +485,68 @@
         }
         .col-12 { grid-column: span 12; }
         .col-8 { grid-column: span 8; }
+        .col-7 { grid-column: span 7; }
         .col-6 { grid-column: span 6; }
+        .col-5 { grid-column: span 5; }
         .col-4 { grid-column: span 4; }
         .col-3 { grid-column: span 3; }
+
+        .audit-ai-layout {
+            align-items: stretch;
+        }
+        .audit-ai-chat-card {
+            display: flex;
+            flex-direction: column;
+            min-height: 560px;
+        }
+        .audit-ai-heading {
+            font-weight: 850;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .audit-ai-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            display: inline-block;
+            box-shadow: 0 0 14px rgba(16, 185, 129, 0.45);
+        }
+        .audit-ai-chat {
+            flex: 1;
+            min-height: 0;
+        }
+        .audit-ai-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+        .audit-ai-tools {
+            display: grid;
+            grid-template-rows: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+        .audit-tool-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-height: 0;
+        }
+        .audit-result-box {
+            flex: 1;
+            min-height: 130px;
+            overflow: auto;
+            border-radius: 12px;
+            padding: 1rem;
+            font-family: var(--font-tech);
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
 
         .metric-title {
             font-size: 0.72rem;
@@ -601,6 +606,81 @@
         }
         .neo-table tr:hover td {
             background: rgba(255,255,255,0.01);
+        }
+        #partners-table {
+            table-layout: fixed;
+        }
+        #partners-table th,
+        #partners-table td {
+            padding: 0.85rem 0.9rem;
+        }
+        #partners-table th:nth-child(1) { width: 24%; }
+        #partners-table th:nth-child(2) { width: 13%; }
+        #partners-table th:nth-child(3) { width: 21%; }
+        #partners-table th:nth-child(4) { width: 13%; }
+        #partners-table th:nth-child(5) { width: 17%; }
+        #partners-table th:nth-child(6) { width: 12%; }
+        .ops-cell-muted {
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            line-height: 1.35;
+        }
+        .ops-mono-truncate {
+            display: block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: var(--font-tech);
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+        .ops-badge-stack {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 220px;
+            }
+            .sidebar-logo,
+            .sidebar-footer {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .sidebar-section-title,
+            .menu-item {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .main-content {
+                margin-left: 220px;
+                width: calc(100% - 220px);
+                max-width: calc(100vw - 220px);
+                padding: 1.25rem;
+            }
+            .neo-table th,
+            .neo-table td {
+                padding: 0.75rem 0.7rem;
+            }
+            .audit-ai-layout > .audit-ai-chat-card,
+            .audit-ai-layout > .audit-ai-tools {
+                grid-column: span 12;
+            }
+            .audit-ai-tools {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-rows: none;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .audit-ai-tools {
+                grid-template-columns: 1fr;
+            }
+            .audit-ai-actions {
+                flex-direction: column;
+            }
         }
 
         /* Form Elements */
@@ -787,28 +867,12 @@
     <div class="container">
         <!-- Sidebar Navigation -->
         <div class="sidebar">
-            <div class="sidebar-logo console-selector-wrapper" style="position: relative; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+            <div class="sidebar-logo" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
                 <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%;">
                     <span class="logo-dot"></span>
                     <span class="logo-text-consortium" style="font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: var(--primary-glow); color: var(--primary); border: 1px solid var(--border-neon); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Ops</span></span>
                     <span class="logo-text-partner" style="display: none; font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: rgba(245, 158, 11, 0.1); color: var(--primary); border: 1px solid var(--border-neon); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Ops</span></span>
                     <span class="logo-text-retro" style="display: none; font-family: var(--font-tech), monospace;">Meanly <span class="logo-sub" style="background: #000; color: #fff; border: 2px solid #000; padding: 2px 6px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">Ops</span></span>
-                    <button class="console-switch-btn" type="button" onclick="toggleConsoleSwitcher(event)">Switch</button>
-                </div>
-                <div class="console-switch-menu" id="console-switch-menu">
-                    @foreach($accessPlanes as $plane)
-                        @if($plane->available)
-                            <a href="{{ $plane->url }}" class="console-switch-plane">
-                                {{ $plane->label }}
-                                <span>{{ $plane->authority }}</span>
-                            </a>
-                        @else
-                            <div class="console-switch-plane locked" title="{{ $plane->reason }}">
-                                {{ $plane->label }}
-                                <span>locked · {{ $plane->reason }}</span>
-                            </div>
-                        @endif
-                    @endforeach
                 </div>
             </div>
 
@@ -824,6 +888,14 @@
                 <a href="javascript:void(0)" onclick="switchTab('partners')" class="menu-item" id="menu-partners">
                     <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                     Организации
+                </a>
+                <a href="javascript:void(0)" onclick="switchTab('finance-liquidity')" class="menu-item" id="menu-finance-liquidity">
+                    <svg viewBox="0 0 24 24"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    Финансы и ликвидность
+                </a>
+                <a href="javascript:void(0)" onclick="switchTab('channels')" class="menu-item" id="menu-channels">
+                    <svg viewBox="0 0 24 24"><path d="M4 9h16"></path><path d="M4 15h16"></path><path d="M10 3 8 21"></path><path d="m16 3-2 18"></path></svg>
+                    Каналы
                 </a>
                 <a href="javascript:void(0)" onclick="switchTab('shops')" class="menu-item" id="menu-shops">
                     <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
@@ -841,13 +913,21 @@
                     <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                     Все товары
                 </a>
+                <a href="javascript:void(0)" onclick="switchTab('inventory')" class="menu-item" id="menu-inventory">
+                    <svg viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="M3.3 7 12 12l8.7-5"></path><path d="M12 22V12"></path></svg>
+                    Склады и ваучеры
+                </a>
+                <a href="javascript:void(0)" onclick="switchTab('providers')" class="menu-item" id="menu-providers">
+                    <svg viewBox="0 0 24 24"><path d="M12 2v20"></path><path d="M2 12h20"></path><path d="M4.93 4.93l14.14 14.14"></path><path d="M19.07 4.93L4.93 19.07"></path></svg>
+                    Провайдеры
+                </a>
                 <a href="javascript:void(0)" onclick="switchTab('decision-console')" class="menu-item" id="menu-decision-console">
                     <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
                     Decision Console
                 </a>
-                <a href="javascript:void(0)" onclick="switchTab('tribunal')" class="menu-item" id="menu-tribunal">
-                    <svg viewBox="0 0 24 24"><path d="M12 3l9 4-9 4-9-4 9-4z"></path><path d="M3 17l9 4 9-4"></path><path d="M3 12l9 4 9-4"></path></svg>
-                    Ledger Tribunal
+                <a href="javascript:void(0)" onclick="switchTab('search-integrations')" class="menu-item" id="menu-search-integrations">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path><path d="M11 7v8"></path><path d="M7 11h8"></path></svg>
+                    Search Integrations
                 </a>
                 
                 <div class="sidebar-section-title">Система</div>
@@ -857,7 +937,7 @@
                 </a>
                 <a href="javascript:void(0)" onclick="switchTab('ai-audit')" class="menu-item" id="menu-ai-audit">
                     <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
-                    Суверенный аудит
+                    Аудит и ИИ
                 </a>
 
                 <div class="sidebar-section-title">витрина</div>
@@ -1007,13 +1087,11 @@
                         <thead>
                             <tr>
                                 <th>Организация</th>
-                                <th>ИНН / КПП</th>
                                 <th>Статус</th>
-                                <th>Магазинов</th>
-                                <th>Свободный баланс</th>
-                                <th>Заморожено</th>
+                                <th>Meanly API</th>
+                                <th>Точки продаж</th>
+                                <th>Settlement</th>
                                 <th>Действия</th>
-                                <th>Дата регистрации</th>
                             </tr>
                         </thead>
                         <tbody id="partners-table-body">
@@ -1025,6 +1103,129 @@
                 <!-- Dynamic Pagination -->
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1.5rem;" id="partners-pagination">
                     <!-- Dynamic buttons -->
+                </div>
+            </div>
+
+            <!-- Tab: Finance & Liquidity -->
+            <div class="tab-pane" id="tab-finance-liquidity">
+                <div class="card-neo" style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap;">
+                    <div>
+                        <div class="metric-title" style="color: var(--primary);">Finance & Liquidity</div>
+                        <h2 style="font-size:1.7rem;font-weight:950;margin:8px 0;letter-spacing:-.04em;">Финансы и ликвидность</h2>
+                        <p style="color:var(--text-muted);margin:0;max-width:840px;line-height:1.6;">Единая панель partner balances, reserves, pending balance requests, settlement events, currency readiness, rails and corridors “откуда → куда”.</p>
+                    </div>
+                    <button type="button" class="btn-neo btn-primary-neo" onclick="loadFinanceLiquidity()">Обновить финансы</button>
+                </div>
+
+                <div class="grid-12" style="margin-bottom: 2rem;" id="treasury-summary-cards">
+                    <div class="col-12 card-neo" style="color:var(--text-muted);">Финансы загрузятся при открытии вкладки.</div>
+                </div>
+
+                <div class="grid-12">
+                    <div class="col-6 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Balance Requests</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Партнер</th><th>Тип</th><th>Сумма</th><th>Статус</th><th>Дата</th></tr></thead>
+                                <tbody id="treasury-requests-body"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-6 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Settlement Events</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Событие</th><th>Партнер</th><th>Сумма</th><th>Дата</th></tr></thead>
+                                <tbody id="treasury-events-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin:2rem 0 1rem;">Liquidity readiness</div>
+                <div class="grid-12" style="margin-bottom: 2rem;" id="liquidity-summary-cards">
+                    <div class="col-12 card-neo" style="color:var(--text-muted);">Liquidity metrics загрузятся при открытии вкладки.</div>
+                </div>
+                <div class="grid-12" style="margin-bottom: 2rem;">
+                    <div class="col-7 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Currency Readiness</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Currency</th><th>Route</th><th>Rate</th><th>Readiness</th><th>Capacity</th></tr></thead>
+                                <tbody id="liquidity-currency-body"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-5 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Liquidity Methods</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Method</th><th>Type</th><th>Currencies</th><th>Status</th></tr></thead>
+                                <tbody id="liquidity-methods-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid-12" style="margin-bottom: 2rem;">
+                    <div class="col-6 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Currency Corridors</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Node</th><th>Currency</th><th>Direction</th><th>Capacity</th></tr></thead>
+                                <tbody id="liquidity-corridors-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-6 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Intent Corridors</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Intent</th><th>Corridor</th><th>Score</th><th>Friction</th></tr></thead>
+                                <tbody id="liquidity-intent-corridors-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin:0 0 1rem;">Partner Balance Liquidity</div>
+                <div class="neo-table-container">
+                    <table class="neo-table">
+                        <thead>
+                            <tr><th>Партнер</th><th>Валюта</th><th>Available</th><th>Reserved</th><th>API Holds</th><th>Native</th><th>Shops</th><th>Статус</th></tr>
+                        </thead>
+                        <tbody id="liquidity-table-body"><tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Ликвидность загрузится при открытии вкладки.</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: Channels -->
+            <div class="tab-pane" id="tab-channels">
+                <div class="card-neo" style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap;">
+                    <div>
+                        <div class="metric-title" style="color: var(--primary);">Channels</div>
+                        <h2 style="font-size:1.7rem;font-weight:950;margin:8px 0;letter-spacing:-.04em;">Каналы продаж</h2>
+                        <p style="color:var(--text-muted);margin:0;max-width:760px;line-height:1.6;">Потерянная панель каналов: Meanly Storefront, Yandex Market, offline/CMS/messenger adapters and channel health.</p>
+                    </div>
+                    <button type="button" class="btn-neo btn-primary-neo" onclick="loadChannels()">Обновить каналы</button>
+                </div>
+                <div class="grid-12">
+                    <div class="col-5 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Channel Matrix</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Канал</th><th>Group</th><th>Links</th><th>Errors</th></tr></thead>
+                                <tbody id="channels-table-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-7 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Shop Channel Health</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Магазин</th><th>Партнер</th><th>Meanly</th><th>Yandex</th><th>IDs</th></tr></thead>
+                                <tbody id="channel-shops-body"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1094,6 +1295,34 @@
                 </div>
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1.5rem;" id="orders-pagination"></div>
+
+                <div class="card-neo" style="margin-top: 2rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
+                        <div>
+                            <div class="metric-title" style="color: var(--primary);">Unified Operations Feed</div>
+                            <h3 style="font-size:1.15rem;font-weight:900;margin:.3rem 0 0;">Meanly API + Ledger + Fulfillment history</h3>
+                        </div>
+                        <button type="button" class="btn-neo" onclick="loadOperationHistory()">Refresh feed</button>
+                    </div>
+                    <div class="neo-table-container">
+                        <table class="neo-table" id="operations-table">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Reference</th>
+                                    <th>Partner / Provider</th>
+                                    <th>SKU</th>
+                                    <th>Amount</th>
+                                    <th>Status / Failure</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody id="operations-table-body">
+                                <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Feed загрузится вместе с заказами.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Tab 5: Catalog -->
@@ -1126,6 +1355,104 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1.5rem;" id="catalog-pagination"></div>
             </div>
 
+            <!-- Tab: Inventory -->
+            <div class="tab-pane" id="tab-inventory">
+                <div class="card-neo" style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap;">
+                    <div>
+                        <div class="metric-title" style="color: var(--primary);">Inventory Control</div>
+                        <h2 style="font-size:1.7rem;font-weight:950;margin:8px 0;letter-spacing:-.04em;">Склады, остатки и ваучеры</h2>
+                        <p style="color:var(--text-muted);margin:0;max-width:760px;line-height:1.6;">Глобальная версия partner warehouse/voucher registry: master warehouses, low stock rows, voucher pool status and stock sync evidence.</p>
+                    </div>
+                    <button type="button" class="btn-neo btn-primary-neo" onclick="loadInventory()">Обновить inventory</button>
+                </div>
+                <div class="grid-12" style="margin-bottom:2rem;" id="inventory-summary-cards">
+                    <div class="col-12 card-neo" style="color:var(--text-muted);">Inventory metrics загрузятся при открытии вкладки.</div>
+                </div>
+                <div class="grid-12" style="margin-bottom:2rem;">
+                    <div class="col-5 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Warehouses</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Warehouse</th><th>Shop</th><th>Rows</th><th>Status</th></tr></thead>
+                                <tbody id="inventory-warehouses-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-7 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Stock Rows</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Product</th><th>Warehouse</th><th>Partner</th><th>Count</th></tr></thead>
+                                <tbody id="inventory-stock-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-neo">
+                    <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Voucher Registry</div>
+                    <div class="neo-table-container">
+                        <table class="neo-table">
+                            <thead><tr><th>Voucher</th><th>SKU</th><th>Shop</th><th>Reserve</th><th>Status</th></tr></thead>
+                            <tbody id="inventory-vouchers-body"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Providers -->
+            <div class="tab-pane" id="tab-providers">
+                <div class="card-neo" style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:280px;">
+                        <div class="metric-title" style="color: var(--primary);">Provider Plane</div>
+                        <h2 style="font-size: 1.7rem; font-weight: 950; margin: 8px 0; letter-spacing: -0.04em;">Провайдеры товаров</h2>
+                        <p style="color: var(--text-muted); margin: 0; max-width: 760px; line-height: 1.6;">
+                            Технический пульт upstream: прямой EZPin/Fazer, синк каталогов, provider credentials и health. Деньги живут только на уровне партнера в Organizations.
+                        </p>
+                    </div>
+                    <button type="button" class="btn-neo btn-primary-neo" onclick="loadProviders()">Обновить статус</button>
+                </div>
+
+                <div class="grid-12" style="margin-bottom: 2rem;">
+                    <div class="col-8 card-neo">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:1rem;">
+                            <div style="font-weight:850; text-transform:uppercase; letter-spacing:.5px;">Upstream Providers</div>
+                            <input type="text" id="providers-search-input" class="input-neo" placeholder="Поиск провайдера..." style="max-width:260px;" oninput="loadProviders()">
+                        </div>
+                        <div class="neo-table-container">
+                            <table class="neo-table" id="providers-table">
+                                <thead>
+                                    <tr>
+                                        <th>Провайдер</th>
+                                        <th>Каталог</th>
+                                        <th>Credentials</th>
+                                        <th>Terminal</th>
+                                        <th>Синк</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="providers-table-body">
+                                    <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Откройте вкладку для загрузки провайдеров.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="col-4 card-neo" style="display:flex; flex-direction:column; gap:1rem;">
+                        <div>
+                            <div style="font-weight:850; text-transform:uppercase; letter-spacing:.5px; margin-bottom:.5rem;">Meanly API Support Plane</div>
+                            <p style="color:var(--text-muted); font-size:.78rem; line-height:1.55; margin:0;">
+                                Provider tab показывает upstream и документацию. Партнерский баланс и пополнения управляются из Organizations как единый settlement account.
+                            </p>
+                        </div>
+                        <div id="provider-kernel-support" style="min-height:120px; background:rgba(0,0,0,.18); border:1px solid var(--border-card); border-radius:12px; padding:1rem; color:var(--text-muted); font-family:var(--font-tech); font-size:.72rem; line-height:1.55;">
+                            Meanly API docs/devices support plane загрузится вместе с провайдерами.
+                        </div>
+                    </div>
+                </div>
+
+                <div id="providers-operation-output" class="card-neo" style="display:none; font-family:var(--font-tech); font-size:.72rem; color:var(--text-muted); white-space:pre-wrap; max-height:260px; overflow:auto;"></div>
+            </div>
+
             <!-- Tab: Decision Console -->
             <div class="tab-pane" id="tab-decision-console">
                 <div class="card-neo" style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; gap: 18px; flex-wrap:wrap;">
@@ -1137,11 +1464,58 @@
                         </p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="btn-neo btn-primary-neo" onclick="loadGrowth()">Refresh growth graph</button>
                         @foreach (['proposed', 'approved', 'rejected', 'applied'] as $decisionStatus)
                             <span class="badge-neo" style="background:rgba(255,255,255,0.03); color:var(--text-main); border:1px solid var(--border-card);">
                                 {{ strtoupper($decisionStatus) }} · {{ (int) ($decisionStatusCounts[$decisionStatus] ?? 0) }}
                             </span>
                         @endforeach
+                    </div>
+                </div>
+
+                <div class="grid-12" style="margin-bottom: 2rem;" id="growth-summary-cards">
+                    <div class="col-12 card-neo" style="color:var(--text-muted);">Growth graph загрузится при открытии вкладки.</div>
+                </div>
+
+                <div class="grid-12" style="margin-bottom: 2rem;">
+                    <div class="col-6 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Demand Gaps</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Query</th><th>Demand</th><th>Lost GMV</th><th>Diagnosis</th></tr></thead>
+                                <tbody id="growth-demand-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-6 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Opportunity Cases</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Case</th><th>Owner</th><th>Score</th><th>Status</th></tr></thead>
+                                <tbody id="growth-cases-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-12" style="margin-bottom: 2rem;">
+                    <div class="col-6 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Search Demand Recommendations</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Recommendation</th><th>Insight</th><th>Impact</th><th>Status</th></tr></thead>
+                                <tbody id="growth-recommendations-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-6 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Operational Alerts</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Alert</th><th>Surface</th><th>Count</th><th>Status</th></tr></thead>
+                                <tbody id="growth-alerts-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -1206,38 +1580,115 @@
                 </div>
             </div>
 
-            <!-- Tab: Ledger Tribunal -->
-            <div class="tab-pane" id="tab-tribunal">
-                <div class="grid-12">
-                    <div class="col-7 card-neo" style="display:flex; flex-direction:column; gap:1rem;">
-                        <div>
-                            <div class="metric-title" style="color: var(--primary);">Sovereign Ledger Tribunal</div>
-                            <h2 style="font-size:1.7rem; font-weight:950; margin:.45rem 0; letter-spacing:-.04em;">Ledger Integrity Validator</h2>
-                            <p style="color:var(--text-muted); margin:0; line-height:1.6;">
-                                Validates the cryptographic ledger chain and reports broken fingerprint links. This is audit evidence, not a mutation path.
-                            </p>
-                        </div>
-                        <button class="btn-neo btn-primary-neo" type="button" onclick="validateTribunalChain()" style="align-self:flex-start;">Validate Chain</button>
-                        <div id="tribunal-chain-result" style="background:rgba(0,0,0,.25); border:1px solid var(--border-card); border-radius:12px; padding:1rem; min-height:260px; overflow:auto; font-family:var(--font-tech); font-size:.75rem; color:var(--text-muted);">
-                            Awaiting validation run...
-                        </div>
+            <!-- Tab: Search Integrations -->
+            <div class="tab-pane" id="tab-search-integrations">
+                <div class="card-neo" style="margin-bottom: 2rem; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap;">
+                    <div>
+                        <div class="metric-title" style="color: var(--primary);">External Search Signals</div>
+                        <h2 style="font-size:1.7rem;font-weight:950;margin:8px 0;letter-spacing:-.04em;">Search Integrations</h2>
+                        <p style="color:var(--text-muted);margin:0;max-width:780px;line-height:1.6;">ZeroLayer sources, external query demand, SERP telemetry and recommendation orchestration in one Ops surface.</p>
                     </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" class="btn-neo btn-primary-neo" onclick="loadSearchIntegrations()">Refresh</button>
+                        <button type="button" class="btn-neo" onclick="runSearchSignalAction('/ops/dashboard/search-signals/promote-zero-layer', {limit: 250}, this)">Promote ZeroLayer</button>
+                        <button type="button" class="btn-neo" onclick="runSearchSignalAction('/ops/dashboard/search-signals/analyze', {limit: 25, days: 90, source: 'all'}, this)">Analyze</button>
+                        <button type="button" class="btn-neo" onclick="runSearchSignalAction('/ops/dashboard/search-signals/recommend', {limit: 25, days: 90, source: 'all', min_score: 1}, this)">Recommend</button>
+                    </div>
+                </div>
 
-                    <div class="col-5 card-neo" style="display:flex; flex-direction:column; height:520px;">
-                        <div style="font-weight:850; font-size:.95rem; margin-bottom:1rem; text-transform:uppercase; letter-spacing:.5px; display:flex; align-items:center; gap:8px;">
-                            <span style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span>
-                            Audit Oracle
-                        </div>
-                        <div id="tribunal-oracle-chat" class="chat-container" style="flex:1;">
-                            <div class="chat-message ai">
-                                Sovereign Audit Oracle is ready. Ask about ledger integrity, transaction anomalies, or hash-chain evidence.
-                            </div>
-                        </div>
-                        <div style="display:flex; gap:10px; margin-top:1rem;">
-                            <input type="text" id="tribunal-oracle-input" class="input-neo" placeholder="Ask the audit oracle..." style="flex:1;" onkeypress="if(event.key==='Enter') sendTribunalOracleMessage()">
-                            <button class="btn-neo btn-primary-neo" type="button" onclick="sendTribunalOracleMessage()">Send</button>
+                <div class="grid-12" style="margin-bottom:2rem;" id="search-summary-cards">
+                    <div class="col-12 card-neo" style="color:var(--text-muted);">Search integrations загрузятся при открытии вкладки.</div>
+                </div>
+
+                <div class="grid-12" style="margin-bottom:2rem;">
+                    <div class="col-7 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">ZeroLayer Integrations</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Integration</th><th>Source</th><th>Credentials</th><th>Signals</th><th>Action</th></tr></thead>
+                                <tbody id="search-integrations-body"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
                         </div>
                     </div>
+                    <div class="col-5 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Connect Source</div>
+                        <div style="display:grid;gap:10px;">
+                            <input id="zero-layer-connect-name" class="input-neo" placeholder="Integration name, e.g. Meanly GA4">
+                            <select id="zero-layer-connect-source" class="input-neo" onchange="updateZeroLayerConnectorHint()">
+                                <option value="google_analytics">Google Analytics 4</option>
+                                <option value="google_search_console">Google Search Console</option>
+                                <option value="google_ads">Google Ads</option>
+                                <option value="yandex_webmaster">Yandex Webmaster</option>
+                                <option value="indexnow">IndexNow</option>
+                                <option value="bing_web_search">Bing Web Search</option>
+                                <option value="yahoo_search">Yahoo Search</option>
+                                <option value="duckduckgo_search">DuckDuckGo Search</option>
+                                <option value="yandex_direct">Yandex Direct</option>
+                                <option value="meta_ads">Meta Ads</option>
+                                <option value="tiktok_ads">TikTok Ads</option>
+                            </select>
+                            <textarea id="zero-layer-connect-credentials" class="input-neo" style="min-height:94px;font-family:var(--font-tech);font-size:.72rem;" placeholder='{"access_token":"..."}'></textarea>
+                            <textarea id="zero-layer-connect-settings" class="input-neo" style="min-height:94px;font-family:var(--font-tech);font-size:.72rem;" placeholder='{"property_id":"123456789"}'></textarea>
+                            <div id="zero-layer-connect-hint" style="font-size:.72rem;color:var(--text-muted);line-height:1.5;"></div>
+                            <button type="button" class="btn-neo btn-primary-neo" onclick="saveZeroLayerIntegration(this)">Save Integration</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-12" style="margin-bottom:2rem;">
+                    <div class="col-5 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">Source Totals</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Pipeline</th><th>Source</th><th>Signals</th><th>Clicks</th></tr></thead>
+                                <tbody id="search-source-totals-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-7 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">ZeroLayer Signals</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Query</th><th>Source</th><th>Position</th><th>Demand</th></tr></thead>
+                                <tbody id="search-zero-layer-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-12" style="margin-bottom:2rem;">
+                    <div class="col-12 card-neo">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;">External Demand Signals</div>
+                        <div class="neo-table-container">
+                            <table class="neo-table">
+                                <thead><tr><th>Query</th><th>Source</th><th>Geo</th><th>Demand</th></tr></thead>
+                                <tbody id="search-external-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-neo">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
+                        <div style="font-weight:850;text-transform:uppercase;letter-spacing:.5px;">Pull Search Signals</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                            <select id="search-pull-provider" class="input-neo" style="width:220px;">
+                                <option value="google_search_console">Google Search Console</option>
+                                <option value="yandex_webmaster">Yandex Webmaster</option>
+                                <option value="google_suggest">Google Suggest</option>
+                                <option value="yandex_suggest">Yandex Suggest</option>
+                            </select>
+                            <input id="search-pull-query" class="input-neo" style="width:220px;" placeholder="seed query for suggest">
+                            <button type="button" class="btn-neo" onclick="pullSearchSignals(this)">Pull</button>
+                        </div>
+                    </div>
+                    <div class="neo-table-container">
+                        <table class="neo-table">
+                            <thead><tr><th>Recommendation</th><th>Insight</th><th>Impact</th><th>Status</th></tr></thead>
+                            <tbody id="search-recommendations-body"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Нет данных.</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div id="search-action-output" style="display:none;margin-top:1rem;background:rgba(0,0,0,.2);border:1px solid var(--border-card);border-radius:12px;padding:1rem;font-family:var(--font-tech);font-size:.72rem;color:var(--text-muted);white-space:pre-wrap;max-height:220px;overflow:auto;"></div>
                 </div>
             </div>
 
@@ -1269,46 +1720,59 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1.5rem;" id="support-pagination"></div>
             </div>
 
-            <!-- Tab 7: AI Audit -->
+            <!-- Tab 7: Audit & AI -->
             <div class="tab-pane" id="tab-ai-audit">
-                <div class="grid-12">
-                    <!-- Left: Interactive Cyber Chat -->
-                    <div class="col-8 card-neo" style="display: flex; flex-direction: column; height: 500px; justify-content: space-between;">
-                        <div style="font-weight: 850; font-size: 0.95rem; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
-                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
-                            Ops Director AI Core (Llama 3)
+                <div class="grid-12 audit-ai-layout">
+                    <!-- Left: Interactive Ops AI Chat -->
+                    <div class="col-7 card-neo audit-ai-chat-card">
+                        <div class="audit-ai-heading">
+                            <span class="audit-ai-status-dot"></span>
+                            Ops AI Assistant
                         </div>
                         
-                        <div class="chat-container" id="ops-ai-chat-box">
+                        <div class="chat-container audit-ai-chat" id="ops-ai-chat-box">
                             <div class="chat-message ai">
-                                Приветствую, Глобальный Администратор платформы Meanly. Я — Sovereign AI Operations Director. Я подключен к глобальному реестру событий и готов помочь проанализировать клиринг партнеров, состояние складов и системную безопасность. Напишите ваш запрос.
+                                Я подключен к операционным данным Meanly: партнерам, заказам, складам, провайдерам и ledger-событиям. Спросите про риски, аномалии, клиринг или состояние системы.
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="ops-ai-chat-input" placeholder="Введите ваш операционный запрос (например, 'Проверь баланс партнеров')..." class="input-neo" style="flex:1;" onkeypress="if(event.key==='Enter') sendOpsAiMessage()">
+                        <div class="audit-ai-actions">
+                            <input type="text" id="ops-ai-chat-input" placeholder="Например: проверь риски по партнерам и складам..." class="input-neo" style="flex:1;" onkeypress="if(event.key==='Enter') sendOpsAiMessage()">
                             <button onclick="sendOpsAiMessage()" class="btn-neo btn-primary-neo">Отправить ➔</button>
                         </div>
                     </div>
 
-                    <!-- Right: Ledger Audit Generator -->
-                    <div class="col-4 card-neo" style="display:flex; flex-direction:column; justify-content:space-between; height: 500px;">
-                        <div>
-                            <div style="font-weight: 850; font-size: 0.95rem; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                                Sovereign Ledger Audit
+                    <!-- Right: Unified Audit Tools -->
+                    <div class="col-5 audit-ai-tools">
+                        <div class="card-neo audit-tool-card">
+                            <div>
+                                <div class="metric-title" style="color: var(--primary);">Ledger Integrity</div>
+                                <h3 style="font-size:1.05rem; font-weight:950; margin:.35rem 0;">Chain Validator</h3>
+                                <p style="font-size:.8rem; color:var(--text-muted); margin:0; line-height:1.5;">
+                                    Проверяет криптографическую цепочку ledger и broken fingerprint links. Это audit evidence, не mutation path.
+                                </p>
                             </div>
-                            <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem;">
-                                ИИ проведет полный криптографический аудит всех записей Sovereign Ledger, сверит торговые обороты, балансы и выявит аномалии поставок.
-                            </p>
-                            
-                            <div id="ops-audit-result-box" style="font-size: 0.8rem; background: rgba(0,0,0,0.3); border: 1px dashed var(--border-neon); padding: 1rem; border-radius: 12px; height: 260px; overflow-y: auto; font-family: var(--font-tech); line-height: 1.6;">
-                                <span style="color:var(--text-muted);">ИИ-аудит еще не запущен. Нажмите кнопку ниже для старта глобальной проверки реестра.</span>
+                            <button class="btn-neo btn-primary-neo" type="button" onclick="validateTribunalChain()" style="align-self:flex-start;">Validate chain</button>
+                            <div id="tribunal-chain-result" class="audit-result-box" style="background:rgba(0,0,0,.25); border:1px solid var(--border-card); color:var(--text-muted);">
+                                Awaiting validation run...
                             </div>
                         </div>
 
-                        <button onclick="runGlobalOpsAudit()" class="btn-neo btn-primary-neo" id="ops-audit-btn" style="width: 100%;">
-                            Запустить глобальный аудит ⚡
-                        </button>
+                        <div class="card-neo audit-tool-card">
+                            <div>
+                                <div class="metric-title" style="color: var(--primary);">Operational Audit</div>
+                                <h3 style="font-size:1.05rem; font-weight:950; margin:.35rem 0;">Global Ledger Audit</h3>
+                                <p style="font-size:.8rem; color:var(--text-muted); margin:0; line-height:1.5;">
+                                    ИИ сверяет ledger events, обороты, балансы и операционные аномалии поставок.
+                                </p>
+                            </div>
+                            <div id="ops-audit-result-box" class="audit-result-box" style="background: rgba(0,0,0,0.3); border: 1px dashed var(--border-neon);">
+                                <span style="color:var(--text-muted);">Глобальный аудит еще не запущен.</span>
+                            </div>
+                            <button onclick="runGlobalOpsAudit()" class="btn-neo btn-primary-neo" id="ops-audit-btn" style="width: 100%;">
+                                Запустить глобальный аудит
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1448,6 +1912,12 @@
 
         // SPA Tab Switching
         function switchTab(tabId) {
+            if (tabId === 'tribunal') {
+                tabId = 'ai-audit';
+            }
+            if (tabId === 'treasury' || tabId === 'liquidity') {
+                tabId = 'finance-liquidity';
+            }
             localStorage.setItem("ops_active_tab", tabId);
             
             // Toggle active menu items
@@ -1464,21 +1934,31 @@
             const titleMap = {
                 'dashboard': 'Инфопанель',
                 'partners': 'Организации (Партнеры)',
+                'finance-liquidity': 'Финансы и ликвидность',
+                'channels': 'Каналы продаж',
                 'shops': 'Магазины партнеров',
                 'orders': 'Все заказы',
                 'catalog': 'Все товары',
+                'inventory': 'Склады и ваучеры',
+                'providers': 'Провайдеры товаров',
                 'decision-console': 'Decision Console',
-                'tribunal': 'Ledger Tribunal',
+                'search-integrations': 'Search Integrations',
                 'support': 'Поддержка и тикеты',
-                'ai-audit': 'Глобальный аудит и ИИ-ассистент'
+                'ai-audit': 'Аудит и ИИ'
             };
             document.getElementById("page-title-text").innerText = titleMap[tabId] || 'Центр Операций';
 
             // Lazy Load Tab Data
             if (tabId === 'partners') loadPartners();
+            if (tabId === 'finance-liquidity') loadFinanceLiquidity();
+            if (tabId === 'channels') loadChannels();
             if (tabId === 'shops') loadShops();
             if (tabId === 'orders') loadOrders();
             if (tabId === 'catalog') loadCatalog();
+            if (tabId === 'inventory') loadInventory();
+            if (tabId === 'providers') loadProviders();
+            if (tabId === 'decision-console') loadGrowth();
+            if (tabId === 'search-integrations') loadSearchIntegrations();
             if (tabId === 'support') loadTickets();
         }
 
@@ -1491,6 +1971,526 @@
         }
         function openProfileModal() {
             openModal("profile-modal");
+        }
+
+        // --- Finance / Liquidity / Channels loaders ---
+        async function loadFinanceLiquidity() {
+            await Promise.all([loadTreasury(), loadLiquidity()]);
+        }
+
+        async function loadTreasury() {
+            const cards = document.getElementById('treasury-summary-cards');
+            const requestsBody = document.getElementById('treasury-requests-body');
+            const eventsBody = document.getElementById('treasury-events-body');
+            cards.innerHTML = `<div class="col-12 card-neo" style="color:var(--text-muted);">Загрузка treasury...</div>`;
+
+            try {
+                const res = await fetch('/ops/dashboard/treasury/data');
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Treasury load failed');
+                const s = json.summary || {};
+
+                cards.innerHTML = `
+                    <div class="col-3 card-neo"><div class="metric-title">Available</div><div class="metric-value">${Number(s.available_balance || 0).toLocaleString()} ₽</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">Partner balances</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Reserved</div><div class="metric-value">${Number(s.reserved_balance || 0).toLocaleString()} ₽</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">Holds and settlements</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Pending Requests</div><div class="metric-value">${Number(s.pending_requests || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">${Number(s.pending_amount || 0).toLocaleString()} total requested</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Native Reserved</div><div class="metric-value">${Number(s.native_reserved || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">SL1/native liquidity</div></div>
+                `;
+
+                requestsBody.innerHTML = (json.requests || []).length
+                    ? json.requests.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.partner)}</div></td>
+                            <td>${escapeHtml(item.type)}</td>
+                            <td><span style="font-family:var(--font-tech);">${Number(item.amount || 0).toLocaleString()} ${escapeHtml(item.currency || '')}</span></td>
+                            <td>${opsStatusBadge(item.status)}</td>
+                            <td><span style="color:var(--text-muted);">${escapeHtml(item.created_at)}</span></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Balance requests отсутствуют.</td></tr>`;
+
+                eventsBody.innerHTML = (json.settlement_events || []).length
+                    ? json.settlement_events.map((item) => `
+                        <tr>
+                            <td><span style="font-family:var(--font-tech);font-size:.72rem;">${escapeHtml(item.event_type)}</span></td>
+                            <td>${escapeHtml(item.partner)}</td>
+                            <td>${Number(item.amount || 0).toLocaleString()} ${escapeHtml(item.currency || '')}</td>
+                            <td><span style="color:var(--text-muted);">${escapeHtml(item.created_at)}</span></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Settlement events отсутствуют.</td></tr>`;
+            } catch (error) {
+                cards.innerHTML = `<div class="col-12 card-neo" style="color:#f43f5e;">Ошибка загрузки Treasury.</div>`;
+            }
+        }
+
+        async function loadLiquidity() {
+            const tbody = document.getElementById('liquidity-table-body');
+            const cards = document.getElementById('liquidity-summary-cards');
+            const currencyBody = document.getElementById('liquidity-currency-body');
+            const methodsBody = document.getElementById('liquidity-methods-body');
+            const corridorsBody = document.getElementById('liquidity-corridors-body');
+            const intentBody = document.getElementById('liquidity-intent-corridors-body');
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Загрузка ликвидности...</td></tr>`;
+            currencyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Загрузка валют...</td></tr>`;
+            methodsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка методов...</td></tr>`;
+            corridorsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка corridors...</td></tr>`;
+            intentBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка intent graph...</td></tr>`;
+
+            try {
+                const res = await fetch('/ops/dashboard/liquidity/data');
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Liquidity load failed');
+                const s = json.summary || {};
+                cards.innerHTML = `
+                    <div class="col-3 card-neo"><div class="metric-title">Currencies</div><div class="metric-value">${Number(s.execution_ready_currencies || 0)}/${Number(s.currencies || 0)}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">execution ready</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Methods</div><div class="metric-value">${Number(s.liquidity_methods || 0)}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">active rails</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Intent Nodes</div><div class="metric-value">${Number(s.intent_nodes || 0)}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">liquidity graph</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Ready Corridors</div><div class="metric-value">${Number(s.intent_corridors_ready || 0)}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">execution paths</div></div>
+                `;
+
+                currencyBody.innerHTML = (json.currencies || []).length
+                    ? json.currencies.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.code)}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.name || '')}</div></td>
+                            <td><span style="font-family:var(--font-tech);font-size:.72rem;">${escapeHtml(item.base_asset || '—')} → ${escapeHtml(item.quote_asset || item.code || '—')}</span></td>
+                            <td><span style="font-family:var(--font-tech);">${Number(item.rate_to_rub || 0).toLocaleString()}</span></td>
+                            <td>${item.execution_ready ? successBadge(item.market_regime || 'ready') : opsStatusBadge(item.market_regime || 'not_ready')}<div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">conf ${Number(item.confidence_score || 0).toLocaleString()} · stress ${Number(item.stress_index || 0).toLocaleString()}</div></td>
+                            <td><span style="font-family:var(--font-tech);">${Number(item.max_executable_size || 0).toLocaleString()}</span><div style="font-size:.68rem;color:var(--text-muted);">slip ${Number(item.estimated_slippage || 0).toLocaleString()} · ${Number(item.settlement_time_hours || 0)}h</div></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Валютные метрики отсутствуют.</td></tr>`;
+
+                methodsBody.innerHTML = (json.methods || []).length
+                    ? json.methods.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.name || item.slug)}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.slug)}</div></td>
+                            <td>${escapeHtml(item.type || '—')}</td>
+                            <td>${Number(item.currencies_count || 0)}</td>
+                            <td>${item.is_active ? successBadge(item.is_global ? 'global' : 'active') : mutedBadge('inactive')}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Liquidity methods отсутствуют.</td></tr>`;
+
+                corridorsBody.innerHTML = (json.corridors || []).length
+                    ? json.corridors.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.provider_node || '—')}</div><div style="font-size:.68rem;color:var(--text-muted);">trust ${Number(item.trust_tier || 0)}</div></td>
+                            <td><span style="font-family:var(--font-tech);font-size:.72rem;">${escapeHtml(item.routing_asset || 'USDT')} → ${escapeHtml(item.currency_code || '—')}</span></td>
+                            <td>${escapeHtml(item.direction || '—')}<div style="font-size:.68rem;color:var(--text-muted);">fee ${Number(item.base_fee_percent || 0)}% · SLA ${Number(item.sla_minutes || 0)}m</div></td>
+                            <td>${item.is_active ? successBadge(`${Number(item.min_volume || 0).toLocaleString()}-${Number(item.max_volume || 0).toLocaleString()}`) : mutedBadge('inactive')}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Currency corridors отсутствуют.</td></tr>`;
+
+                intentBody.innerHTML = (json.intent_corridors || []).length
+                    ? json.intent_corridors.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.entity_label || item.intent_key || '—')}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.intent_type || '')}</div></td>
+                            <td><span style="font-family:var(--font-tech);font-size:.72rem;">${escapeHtml(item.corridor_key || '—')}</span><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.route_type || item.source || '')}</div></td>
+                            <td>${item.execution_ready ? successBadge(Number(item.route_score || 0).toLocaleString()) : mutedBadge(Number(item.route_score || 0).toLocaleString())}</td>
+                            <td><span style="${Number(item.friction_score || 0) > 50 ? 'color:#f43f5e;' : 'color:var(--text-muted);'}">${Number(item.friction_score || 0).toLocaleString()}</span></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Intent corridors отсутствуют.</td></tr>`;
+
+                tbody.innerHTML = (json.data || []).length
+                    ? json.data.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.partner)}</div><div style="font-size:.68rem;color:var(--text-muted);">#${item.id}</div></td>
+                            <td>${escapeHtml(item.currency)}</td>
+                            <td><span style="font-family:var(--font-tech);color:var(--green);">${Number(item.available_balance || 0).toLocaleString()}</span></td>
+                            <td><span style="font-family:var(--font-tech);">${Number(item.reserved_balance || 0).toLocaleString()}</span></td>
+                            <td><span style="font-family:var(--font-tech);">${Number(item.api_active_reservations || 0).toLocaleString()}</span></td>
+                            <td>${Number(item.native_available || 0).toLocaleString()} / ${Number(item.native_reserved || 0).toLocaleString()}</td>
+                            <td>${Number(item.shops_count || 0).toLocaleString()}</td>
+                            <td>${opsStatusBadge(item.status)}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Ликвидность не найдена.</td></tr>`;
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#f43f5e;">Ошибка загрузки ликвидности.</td></tr>`;
+                currencyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f43f5e;">Ошибка загрузки валют.</td></tr>`;
+                methodsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки методов.</td></tr>`;
+                corridorsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки corridors.</td></tr>`;
+                intentBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки intent graph.</td></tr>`;
+            }
+        }
+
+        async function loadGrowth() {
+            const cards = document.getElementById('growth-summary-cards');
+            const demandBody = document.getElementById('growth-demand-body');
+            const casesBody = document.getElementById('growth-cases-body');
+            const recommendationsBody = document.getElementById('growth-recommendations-body');
+            const alertsBody = document.getElementById('growth-alerts-body');
+            demandBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка demand gaps...</td></tr>`;
+            casesBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка opportunity cases...</td></tr>`;
+            recommendationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка recommendations...</td></tr>`;
+            alertsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка alerts...</td></tr>`;
+
+            try {
+                const res = await fetch('/ops/dashboard/growth/data');
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Growth load failed');
+                const s = json.summary || {};
+                cards.innerHTML = `
+                    <div class="col-3 card-neo"><div class="metric-title">Demand Gaps</div><div class="metric-value">${Number(s.demand_gaps || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">search/currency/category gaps</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Lost GMV</div><div class="metric-value">${Number(s.lost_gmv || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">estimated opportunity</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Open Cases</div><div class="metric-value">${Number(s.open_cases || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">overdue ${Number(s.overdue_cases || 0).toLocaleString()}</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Open Alerts</div><div class="metric-value">${Number(s.open_alerts || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">proposals ${Number(s.proposed_recommendations || 0).toLocaleString()}</div></div>
+                `;
+
+                demandBody.innerHTML = (json.demand_gaps || []).length
+                    ? json.demand_gaps.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.query || '—')}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.brand || '')} ${escapeHtml(item.region || '')}</div></td>
+                            <td>${Number(item.search_volume || 0).toLocaleString()}<div style="font-size:.68rem;color:var(--text-muted);">zero ${Number(item.zero_results_count || 0).toLocaleString()} · avg ${Number(item.average_results_count || 0).toLocaleString()}</div></td>
+                            <td><span style="font-family:var(--font-tech);">${Number(item.lost_gmv || 0).toLocaleString()}</span><div style="font-size:.68rem;color:var(--text-muted);">score ${Number(item.score || 0).toLocaleString()}</div></td>
+                            <td>${opsStatusBadge(item.priority || item.diagnosis || 'observed')}<div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">${escapeHtml(item.diagnosis || '')}</div></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Demand gaps отсутствуют.</td></tr>`;
+
+                casesBody.innerHTML = (json.opportunity_cases || []).length
+                    ? json.opportunity_cases.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.query || '—')}</div><div style="font-size:.68rem;color:var(--text-muted);">#${Number(item.id || 0)}</div></td>
+                            <td>${escapeHtml(item.owner_team || 'unassigned')}<div style="font-size:.68rem;color:${item.overdue ? '#f43f5e' : 'var(--text-muted)'};">${item.sla_due_at ? new Date(item.sla_due_at).toLocaleString() : 'no SLA'}</div></td>
+                            <td>${Number(item.before_score || 0).toLocaleString()}<div style="font-size:.68rem;color:var(--text-muted);">GMV ${Number(item.before_gmv || 0).toLocaleString()}</div></td>
+                            <td>${opsStatusBadge(item.overdue ? 'overdue' : item.status)}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Opportunity cases отсутствуют.</td></tr>`;
+
+                recommendationsBody.innerHTML = (json.recommendations || []).length
+                    ? json.recommendations.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.query || '—')}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.type || '')}</div></td>
+                            <td>${escapeHtml(item.insight_type || '—')}</td>
+                            <td>${Number(item.impact_score || 0).toLocaleString()}<div style="font-size:.68rem;color:var(--text-muted);">conf ${Number(item.confidence || 0).toLocaleString()}</div></td>
+                            <td>${opsStatusBadge(item.status)}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Recommendations отсутствуют.</td></tr>`;
+
+                alertsBody.innerHTML = (json.alerts || []).length
+                    ? json.alerts.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.title || item.type || '—')}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.severity || '')}</div></td>
+                            <td>${escapeHtml(item.surface || 'global')}</td>
+                            <td>${Number(item.occurrence_count || 0).toLocaleString()}</td>
+                            <td>${opsStatusBadge(item.status)}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Operational alerts отсутствуют.</td></tr>`;
+            } catch (error) {
+                demandBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки demand gaps.</td></tr>`;
+                casesBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки cases.</td></tr>`;
+                recommendationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки recommendations.</td></tr>`;
+                alertsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки alerts.</td></tr>`;
+            }
+        }
+
+        async function loadSearchIntegrations() {
+            const cards = document.getElementById('search-summary-cards');
+            const integrationsBody = document.getElementById('search-integrations-body');
+            const totalsBody = document.getElementById('search-source-totals-body');
+            const zeroLayerBody = document.getElementById('search-zero-layer-body');
+            const externalBody = document.getElementById('search-external-body');
+            const recommendationsBody = document.getElementById('search-recommendations-body');
+            integrationsBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Загрузка integrations...</td></tr>`;
+            totalsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка totals...</td></tr>`;
+            zeroLayerBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка ZeroLayer...</td></tr>`;
+            externalBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка demand signals...</td></tr>`;
+            recommendationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка recommendations...</td></tr>`;
+
+            try {
+                const res = await fetch('/ops/dashboard/search-integrations/data');
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Search integrations load failed');
+                window.zeroLayerConnectors = json.connectors || {};
+                updateZeroLayerConnectorHint();
+                const s = json.summary || {};
+                cards.innerHTML = `
+                    <div class="col-3 card-neo"><div class="metric-title">Integrations</div><div class="metric-value">${Number(s.active_zero_layer_integrations || 0)}/${Number(s.zero_layer_integrations || 0)}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">active/total</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">ZeroLayer Signals</div><div class="metric-value">${Number(s.zero_layer_signals || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">raw search/paid/indexing</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Demand Signals</div><div class="metric-value">${Number(s.external_search_signals || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">recommendation input</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Proposals</div><div class="metric-value">${Number(s.recommendations_proposed || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">pending decisions</div></div>
+                `;
+
+                integrationsBody.innerHTML = (json.integrations || []).length
+                    ? json.integrations.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.name || '—')}</div><div class="ops-cell-muted">${escapeHtml(item.last_synced_at || 'never synced')}</div></td>
+                            <td>${escapeHtml(item.source || '—')}<div>${opsStatusBadge(item.status)}</div></td>
+                            <td><span class="ops-mono-truncate" title="${escapeHtml((item.credential_keys || []).join(', '))}">${escapeHtml((item.credential_keys || []).join(', ') || 'no credentials')}</span></td>
+                            <td>${Number(item.signals_count || 0).toLocaleString()}</td>
+                            <td><button type="button" class="btn-neo" style="padding:6px 10px;font-size:.65rem;" onclick="runSearchSignalAction('${escapeHtml(item.sync_url)}', {}, this)">Sync</button></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">ZeroLayer integrations отсутствуют.</td></tr>`;
+
+                totalsBody.innerHTML = (json.source_totals || []).length
+                    ? json.source_totals.map((item) => `
+                        <tr>
+                            <td>${escapeHtml(item.pipeline || '—')}</td>
+                            <td>${escapeHtml(item.source || '—')}</td>
+                            <td>${Number(item.total || 0).toLocaleString()}<div class="ops-cell-muted">imp ${Number(item.impressions || 0).toLocaleString()}</div></td>
+                            <td>${Number(item.clicks || 0).toLocaleString()}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Source totals отсутствуют.</td></tr>`;
+
+                zeroLayerBody.innerHTML = (json.zero_layer_signals || []).length
+                    ? json.zero_layer_signals.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.query_text || '—')}</div><div class="ops-cell-muted">${escapeHtml(item.page_url || '')}</div></td>
+                            <td>${escapeHtml(item.source || '—')}<div class="ops-cell-muted">${escapeHtml(item.signal_type || '')}</div></td>
+                            <td>${item.position ?? '—'}</td>
+                            <td>imp ${Number(item.impressions || 0).toLocaleString()}<div class="ops-cell-muted">clicks ${Number(item.clicks || 0).toLocaleString()}</div></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">ZeroLayer signals отсутствуют.</td></tr>`;
+
+                externalBody.innerHTML = (json.external_signals || []).length
+                    ? json.external_signals.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.query || '—')}</div><div class="ops-cell-muted">${escapeHtml(item.landing_url || '')}</div></td>
+                            <td>${escapeHtml(item.source || '—')}</td>
+                            <td>${escapeHtml([item.country, item.locale].filter(Boolean).join(' / ') || '—')}</td>
+                            <td>vol ${Number(item.volume || 0).toLocaleString()}<div class="ops-cell-muted">imp ${Number(item.impressions || 0).toLocaleString()} · clicks ${Number(item.clicks || 0).toLocaleString()}</div></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">External demand signals отсутствуют.</td></tr>`;
+
+                recommendationsBody.innerHTML = (json.recommendations || []).length
+                    ? json.recommendations.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.query || '—')}</div><div class="ops-cell-muted">${escapeHtml(item.type || '')}</div></td>
+                            <td>${escapeHtml(item.insight_type || '—')}</td>
+                            <td>${Number(item.impact_score || 0).toLocaleString()}<div class="ops-cell-muted">conf ${Number(item.confidence || 0).toLocaleString()}</div></td>
+                            <td>${opsStatusBadge(item.status)}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Recommendations отсутствуют.</td></tr>`;
+            } catch (error) {
+                integrationsBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f43f5e;">Ошибка загрузки integrations.</td></tr>`;
+                totalsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки totals.</td></tr>`;
+                zeroLayerBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки ZeroLayer.</td></tr>`;
+                externalBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки demand signals.</td></tr>`;
+                recommendationsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки recommendations.</td></tr>`;
+            }
+        }
+
+        async function runSearchSignalAction(url, payload = {}, button = null) {
+            const output = document.getElementById('search-action-output');
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const original = button ? button.textContent : '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Running...';
+            }
+            output.style.display = 'block';
+            output.textContent = 'Running action...';
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const json = await res.json();
+                output.textContent = JSON.stringify(json, null, 2);
+                if (!res.ok || json.success === false) throw new Error(json.error || 'Action failed');
+                await loadSearchIntegrations();
+            } catch (error) {
+                output.textContent = error.message || 'Action failed';
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = original;
+                }
+            }
+        }
+
+        async function saveZeroLayerIntegration(button) {
+            const name = document.getElementById('zero-layer-connect-name')?.value?.trim() || '';
+            const source = document.getElementById('zero-layer-connect-source')?.value || 'google_analytics';
+            const credentialsRaw = document.getElementById('zero-layer-connect-credentials')?.value || '{}';
+            const settingsRaw = document.getElementById('zero-layer-connect-settings')?.value || '{}';
+            let credentials = {};
+            let settings = {};
+
+            try {
+                credentials = credentialsRaw.trim() ? JSON.parse(credentialsRaw) : {};
+                settings = settingsRaw.trim() ? JSON.parse(settingsRaw) : {};
+            } catch (error) {
+                const output = document.getElementById('search-action-output');
+                output.style.display = 'block';
+                output.textContent = 'Invalid JSON in credentials/settings: ' + error.message;
+                return;
+            }
+
+            await runSearchSignalAction('/ops/dashboard/zero-layer/connect', {
+                name,
+                source,
+                status: 'active',
+                credentials,
+                settings,
+            }, button);
+
+            document.getElementById('zero-layer-connect-credentials').value = '';
+        }
+
+        function updateZeroLayerConnectorHint() {
+            const source = document.getElementById('zero-layer-connect-source')?.value || 'google_analytics';
+            const hint = document.getElementById('zero-layer-connect-hint');
+            if (!hint) return;
+
+            const def = (window.zeroLayerConnectors || {})[source] || {};
+            const credentials = (def.credentials || []).join(', ') || 'none';
+            const settings = (def.settings || []).join(', ') || 'none';
+            const exampleCredentials = JSON.stringify(def.example_credentials || {}, null, 2);
+            const exampleSettings = JSON.stringify(def.example_settings || {}, null, 2);
+
+            hint.innerHTML = `
+                <div><strong>${escapeHtml(def.label || source)}</strong></div>
+                <div>credentials keys: <span class="ops-mono-truncate">${escapeHtml(credentials)}</span></div>
+                <div>settings keys: <span class="ops-mono-truncate">${escapeHtml(settings)}</span></div>
+                <details style="margin-top:6px;"><summary>JSON examples</summary><pre style="white-space:pre-wrap;margin:6px 0 0;">credentials: ${escapeHtml(exampleCredentials)}\nsettings: ${escapeHtml(exampleSettings)}</pre></details>
+            `;
+        }
+
+        function pullSearchSignals(button) {
+            const provider = document.getElementById('search-pull-provider')?.value || 'google_search_console';
+            const query = document.getElementById('search-pull-query')?.value || '';
+            runSearchSignalAction('/ops/dashboard/search-signals/pull', {
+                provider,
+                query,
+                limit: 100,
+            }, button);
+        }
+
+        async function loadInventory() {
+            const cards = document.getElementById('inventory-summary-cards');
+            const warehousesBody = document.getElementById('inventory-warehouses-body');
+            const stockBody = document.getElementById('inventory-stock-body');
+            const vouchersBody = document.getElementById('inventory-vouchers-body');
+            warehousesBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка складов...</td></tr>`;
+            stockBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка остатков...</td></tr>`;
+            vouchersBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Загрузка ваучеров...</td></tr>`;
+
+            try {
+                const res = await fetch('/ops/dashboard/inventory/data');
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Inventory load failed');
+                const s = json.summary || {};
+                cards.innerHTML = `
+                    <div class="col-3 card-neo"><div class="metric-title">Warehouses</div><div class="metric-value">${Number(s.active_warehouses || 0)}/${Number(s.warehouses || 0)}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">active/total</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Stock Units</div><div class="metric-value">${Number(s.stock_units || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">warehouse count</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Low Stock</div><div class="metric-value">${Number(s.low_stock_rows || 0).toLocaleString()}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">rows below 5</div></div>
+                    <div class="col-3 card-neo"><div class="metric-title">Vouchers</div><div class="metric-value">${Number(s.available_vouchers || 0)}/${Number(s.vouchers || 0)}</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:8px;">available/total</div></div>
+                `;
+
+                warehousesBody.innerHTML = (json.warehouses || []).length
+                    ? json.warehouses.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.name || '—')}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.channel || '')}</div></td>
+                            <td>${escapeHtml(item.shop || '—')}<div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.partner || '')}</div></td>
+                            <td>${Number(item.stock_rows || 0).toLocaleString()}</td>
+                            <td>${item.is_active ? successBadge(item.is_main ? 'master' : 'active') : mutedBadge('inactive')}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Склады отсутствуют.</td></tr>`;
+
+                stockBody.innerHTML = (json.stock || []).length
+                    ? json.stock.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.product || '—')}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.sku || '')}</div></td>
+                            <td>${escapeHtml(item.warehouse || '—')}<div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.shop || '')}</div></td>
+                            <td>${escapeHtml(item.partner || '—')}</td>
+                            <td>${Number(item.count || 0) < 5 ? `<span style="color:#f43f5e;font-family:var(--font-tech);">${Number(item.count || 0)}</span>` : `<span style="font-family:var(--font-tech);">${Number(item.count || 0)}</span>`}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Остатки отсутствуют.</td></tr>`;
+
+                vouchersBody.innerHTML = (json.vouchers || []).length
+                    ? json.vouchers.map((item) => `
+                        <tr>
+                            <td><div style="font-family:var(--font-tech);font-size:.72rem;">${escapeHtml(item.transaction_ref || `#${item.id}`)}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.warehouse || '')}</div></td>
+                            <td>${escapeHtml(item.sku || '—')}</td>
+                            <td>${escapeHtml(item.shop || '—')}<div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.partner || '')}</div></td>
+                            <td>${Number(item.reserved_amount || 0).toLocaleString()} ${escapeHtml(item.reserve_currency || item.currency || '')}</td>
+                            <td>${opsStatusBadge(item.is_used ? 'used' : item.status)}</td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Ваучеры отсутствуют.</td></tr>`;
+            } catch (error) {
+                warehousesBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки складов.</td></tr>`;
+                stockBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки остатков.</td></tr>`;
+                vouchersBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f43f5e;">Ошибка загрузки ваучеров.</td></tr>`;
+            }
+        }
+
+        async function loadChannels() {
+            const channelsBody = document.getElementById('channels-table-body');
+            const shopsBody = document.getElementById('channel-shops-body');
+            channelsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Загрузка каналов...</td></tr>`;
+            shopsBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Загрузка магазинов...</td></tr>`;
+
+            try {
+                const res = await fetch('/ops/dashboard/channels/data');
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Channels load failed');
+                channelsBody.innerHTML = (json.channels || []).map((item) => `
+                    <tr>
+                        <td><div style="font-weight:750;">${escapeHtml(item.label)}</div><div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.key)}</div></td>
+                        <td>${escapeHtml(item.group)}</td>
+                        <td>${Number(item.enabled_links || 0).toLocaleString()} / ${Number(item.product_links || 0).toLocaleString()}</td>
+                        <td>${Number(item.errors || 0) > 0 ? `<span style="color:#f43f5e;">${item.errors}</span>` : '<span style="color:var(--green);">0</span>'}</td>
+                    </tr>
+                `).join('');
+
+                shopsBody.innerHTML = (json.shops || []).length
+                    ? json.shops.map((item) => `
+                        <tr>
+                            <td><div style="font-weight:750;">${escapeHtml(item.name)}</div><div style="font-size:.68rem;color:var(--text-muted);">#${item.id}</div></td>
+                            <td>${escapeHtml(item.partner)}</td>
+                            <td>${item.meanly_storefront ? successBadge('enabled') : mutedBadge('off')}</td>
+                            <td>${item.yandex_configured ? successBadge(item.yandex_verified ? 'verified' : 'configured') : mutedBadge('not configured')}</td>
+                            <td><span style="font-family:var(--font-tech);font-size:.68rem;">b:${escapeHtml(item.business_id || '—')} c:${escapeHtml(item.campaign_id || '—')} w:${escapeHtml(item.ym_warehouse_id || '—')}</span></td>
+                        </tr>
+                    `).join('')
+                    : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Магазины не найдены.</td></tr>`;
+            } catch (error) {
+                channelsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#f43f5e;">Ошибка загрузки каналов.</td></tr>`;
+                shopsBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f43f5e;">Ошибка загрузки каналов.</td></tr>`;
+            }
+        }
+
+        function successBadge(label) {
+            return `<span class="badge-neo" style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.25);">${escapeHtml(label)}</span>`;
+        }
+
+        function mutedBadge(label) {
+            return `<span class="badge-neo" style="background:rgba(255,255,255,0.02);color:var(--text-muted);border:1px solid var(--border-card);">${escapeHtml(label)}</span>`;
+        }
+
+        function opsStatusBadge(status) {
+            const normalized = String(status || '').toLowerCase();
+            if (['active', 'approved', 'settled', 'completed'].includes(normalized)) return successBadge(status || 'active');
+            if (['pending', 'pending_moderation', 'processing'].includes(normalized)) {
+                return `<span class="badge-neo" style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);">${escapeHtml(status || 'pending')}</span>`;
+            }
+            if (['failed', 'rejected', 'refunded', 'inactive'].includes(normalized)) {
+                return `<span class="badge-neo" style="background:rgba(244,63,94,0.1);color:#f43f5e;border:1px solid rgba(244,63,94,0.25);">${escapeHtml(status || 'failed')}</span>`;
+            }
+            return mutedBadge(status || '—');
         }
 
         // --- 📋 Tab 2: Partners AJAX loader ---
@@ -1514,11 +2514,55 @@
             return `<span class="badge-neo" style="background:rgba(255,255,255,0.02);color:var(--text-muted);border:1px solid var(--border-card);">${item.status_label || 'Не активна'}</span>`;
         }
 
+        function partnerApiPlane(item) {
+            const api = item.api_identity || {};
+            const tokenBadge = api.token_configured
+                ? `<span class="badge-neo" style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.25);">token</span>`
+                : `<span class="badge-neo" style="background:rgba(244,63,94,0.1);color:#f43f5e;border:1px solid rgba(244,63,94,0.25);">no token</span>`;
+            const signatureBadge = api.financial_secret_configured
+                ? `<span class="badge-neo" style="background:rgba(14,165,233,0.1);color:#38bdf8;border:1px solid rgba(14,165,233,0.25);">HMAC</span>`
+                : `<span class="badge-neo" style="background:rgba(255,255,255,0.02);color:var(--text-muted);border:1px solid var(--border-card);">no HMAC</span>`;
+            const whitelistBadge = Number(api.ip_whitelist_count || 0) > 0
+                ? `<span class="badge-neo" style="background:rgba(168,85,247,0.1);color:#c084fc;border:1px solid rgba(168,85,247,0.25);">${api.ip_whitelist_count} IP</span>`
+                : `<span class="badge-neo" style="background:rgba(255,255,255,0.02);color:var(--text-muted);border:1px solid var(--border-card);">open IP</span>`;
+            const client = escapeHtml(api.client_id || item.id);
+            const external = api.kernel_external_id ? escapeHtml(api.kernel_external_id) : '';
+
+            return `
+                <div class="ops-badge-stack" style="margin-bottom:5px;">${tokenBadge}${signatureBadge}${whitelistBadge}</div>
+                <span class="ops-mono-truncate" title="client:${client}">client:${client}</span>
+                ${external ? `<span class="ops-mono-truncate" title="meanly:${external}">meanly:${external}</span>` : ''}
+            `;
+        }
+
+        function partnerSettlementPlane(item) {
+            const settlement = item.settlement || {};
+            const currency = settlement.currency || 'RUB';
+            return `
+                <div style="display:grid;gap:3px;">
+                    <div style="font-family:var(--font-tech);font-size:0.76rem;color:var(--green);">free ${Number(item.available_balance || 0).toLocaleString()} ₽</div>
+                    <div class="ops-cell-muted">frozen ${Number(item.reserved_balance || 0).toLocaleString()} ₽</div>
+                    <div class="ops-cell-muted">holds ${Number(settlement.active_reservations_amount || 0).toLocaleString()} ${escapeHtml(currency)} · ${Number(settlement.active_reservations_count || 0)}</div>
+                </div>
+            `;
+        }
+
+        window.opsPartnerRows = {};
+
+        function partnerFinanceButtons(item) {
+            const disabled = item.action_urls ? '' : 'disabled';
+            return `
+                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                    <button type="button" class="btn-neo" ${disabled} style="padding:6px 10px;font-size:0.65rem;" onclick="runPartnerFinanceAction(${item.id}, 'top_up', this)">Top-up balance</button>
+                </div>
+            `;
+        }
+
         async function loadPartners(page = 1) {
             partnersCurrentPage = page;
             const search = document.getElementById("partners-search-input").value;
             const tbody = document.getElementById("partners-table-body");
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Загрузка организаций...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Загрузка организаций...</td></tr>`;
 
             try {
                 const statusParam = partnersStatusFilter ? `&status=${encodeURIComponent(partnersStatusFilter)}` : '';
@@ -1526,34 +2570,83 @@
                 const json = await res.json();
                 
                 tbody.innerHTML = "";
+                window.opsPartnerRows = {};
                 if (json.data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Организации не найдены.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Организации не найдены.</td></tr>`;
                     return;
                 }
 
                 json.data.forEach(item => {
+                    window.opsPartnerRows[item.id] = item;
                     tbody.innerHTML += `
                         <tr>
-                            <td><div style="font-weight:750;color:var(--text-main);">${item.name}</div></td>
-                            <td><span style="font-family:var(--font-tech);font-size:0.8rem;">${item.inn} / ${item.kpp}</span></td>
-                            <td>${partnerStatusBadge(item)}</td>
-                            <td><span class="badge-neo" style="background:rgba(255,255,255,0.02);border:1px solid var(--border-card);">${item.shops_count} шопов</span></td>
-                            <td><div style="font-family:var(--font-tech);font-weight:700;color:var(--green);">${item.available_balance.toLocaleString()} ₽</div></td>
-                            <td><div style="font-family:var(--font-tech);color:var(--text-muted);">${item.reserved_balance.toLocaleString()} ₽</div></td>
                             <td>
+                                <div style="font-weight:800;color:var(--text-main);line-height:1.2;">${escapeHtml(item.name)}</div>
+                                <div class="ops-cell-muted">ИНН ${escapeHtml(item.inn || '—')} / КПП ${escapeHtml(item.kpp || '—')}</div>
+                                <div class="ops-cell-muted">${escapeHtml(item.created_at || '')}</div>
+                            </td>
+                            <td>${partnerStatusBadge(item)}</td>
+                            <td>${partnerApiPlane(item)}</td>
+                            <td>
+                                <div class="ops-badge-stack">
+                                    <span class="badge-neo" style="background:rgba(255,255,255,0.02);border:1px solid var(--border-card);">${Number(item.shops_count || 0)} shops</span>
+                                    <span class="badge-neo" style="background:rgba(255,255,255,0.02);border:1px solid var(--border-card);">${Number(item.terminals_count || 0)} terminals</span>
+                                </div>
+                            </td>
+                            <td>${partnerSettlementPlane(item)}</td>
+                            <td>
+                                ${partnerFinanceButtons(item)}
                                 ${item.approve_url ? `<button type="button" class="btn-neo" style="padding:6px 10px;font-size:0.65rem;background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.35);color:#10b981;" onclick="approvePartner('${item.approve_url}', this)">
                                     Одобрить
                                 </button>` : ''}
-                                ${!item.approve_url ? '<span style="color:var(--text-muted);">—</span>' : ''}
                             </td>
-                            <td><span style="color:var(--text-muted);">${item.created_at}</span></td>
                         </tr>
                     `;
                 });
 
                 renderPagination("partners-pagination", json.current_page, json.last_page, loadPartners);
             } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#f43f5e;">Ошибка загрузки данных.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#f43f5e;">Ошибка загрузки данных.</td></tr>`;
+            }
+        }
+
+        async function runPartnerFinanceAction(partnerId, action, button) {
+            const item = window.opsPartnerRows?.[partnerId];
+            const url = item?.action_urls?.[action];
+            if (!url) return;
+
+            const label = 'top-up partner balance';
+            const amount = window.prompt(`Amount for ${item.name} ${label}:`);
+            if (!amount) return;
+            const reference = window.prompt('Reference key for idempotency:', `OPS-${action.toUpperCase()}-${partnerId}-${Date.now()}`);
+            if (!reference) return;
+
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            button.disabled = true;
+            const previousLabel = button.textContent;
+            button.textContent = '...';
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                    },
+                    body: JSON.stringify({ amount, reference }),
+                });
+
+                const json = await res.json();
+                if (!res.ok || !json.success) {
+                    throw new Error(json.error || 'Finance action failed');
+                }
+                loadPartners(partnersCurrentPage);
+            } catch (error) {
+                alert(error.message || 'Finance action failed');
+                button.disabled = false;
+                button.textContent = previousLabel;
             }
         }
 
@@ -1652,6 +2745,7 @@
             const search = document.getElementById("orders-search-input").value;
             const tbody = document.getElementById("orders-table-body");
             tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Загрузка заказов...</td></tr>`;
+            loadOperationHistory(search);
 
             try {
                 const res = await fetch(`/ops/dashboard/orders/data?page=${page}&status=${ordersActiveStatus}&search=${encodeURIComponent(search)}`);
@@ -1697,6 +2791,54 @@
                 renderPagination("orders-pagination", json.current_page, json.last_page, loadOrders);
             } catch (e) {
                 tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#f43f5e;">Ошибка загрузки заказов.</td></tr>`;
+            }
+        }
+
+        async function loadOperationHistory(searchOverride = null) {
+            const search = searchOverride ?? document.getElementById("orders-search-input")?.value ?? '';
+            const tbody = document.getElementById("operations-table-body");
+            if (!tbody) return;
+
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Загрузка operation feed...</td></tr>`;
+
+            try {
+                const res = await fetch(`/ops/dashboard/operations/data?search=${encodeURIComponent(search)}`);
+                const json = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(json.error || 'Operations feed failed');
+                }
+
+                if (!json.data || json.data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Операции не найдены.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = json.data.map((item) => {
+                    const failed = item.failure_reason || ['failed', 'error', 'cancelled'].includes(String(item.status || '').toLowerCase());
+                    return `
+                        <tr>
+                            <td>
+                                <span class="badge-neo" style="background:rgba(255,255,255,0.02);border:1px solid var(--border-card);">${escapeHtml(item.source)}</span>
+                                <div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">${escapeHtml(item.type)}</div>
+                            </td>
+                            <td><span style="font-family:var(--font-tech);font-size:.75rem;">${escapeHtml(item.reference)}</span></td>
+                            <td>
+                                <div style="font-weight:700;">${escapeHtml(item.partner)}</div>
+                                <div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.provider)}</div>
+                            </td>
+                            <td><span style="font-family:var(--font-tech);font-size:.75rem;">${escapeHtml(item.sku)}</span></td>
+                            <td><div style="font-family:var(--font-tech);font-weight:750;color:var(--primary);">${Number(item.amount || 0).toLocaleString()} ${escapeHtml(item.currency || '')}</div></td>
+                            <td>
+                                <span class="badge-neo" style="${failed ? 'background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.25);' : 'background:rgba(16,185,129,.08);color:#10b981;border:1px solid rgba(16,185,129,.2);'}">${escapeHtml(item.status || 'recorded')}</span>
+                                ${item.failure_reason ? `<div style="font-size:.68rem;color:#f43f5e;margin-top:5px;">${escapeHtml(item.failure_reason)}</div>` : ''}
+                            </td>
+                            <td><span style="color:var(--text-muted);">${escapeHtml(item.created_at)}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#f43f5e;">Ошибка загрузки operation feed.</td></tr>`;
             }
         }
 
@@ -1753,6 +2895,143 @@
                 renderPagination("catalog-pagination", json.current_page, json.last_page, loadCatalog);
             } catch (e) {
                 tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#f43f5e;">Ошибка загрузки каталога.</td></tr>`;
+            }
+        }
+
+        // --- Provider Plane Ops ---
+        async function loadProviders() {
+            const search = document.getElementById("providers-search-input")?.value || '';
+            const tbody = document.getElementById("providers-table-body");
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Загрузка провайдеров...</td></tr>`;
+
+            try {
+                const res = await fetch(`/ops/dashboard/providers/data?search=${encodeURIComponent(search)}`);
+                const json = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(json.error || 'Provider data failed');
+                }
+
+                if (!json.data || json.data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Провайдеры не найдены.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = json.data.map((item) => providerRowHtml(item, json.kernel)).join('');
+                renderProviderKernelSupport(json.kernel);
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#f43f5e;">Ошибка загрузки провайдеров.</td></tr>`;
+            }
+        }
+
+        function renderProviderKernelSupport(kernel) {
+            const container = document.getElementById('provider-kernel-support');
+            if (!container) return;
+
+            const docs = kernel?.support_planes?.docs || {};
+            const devices = kernel?.support_planes?.devices || {};
+            container.innerHTML = `
+                <div style="font-weight:850;color:var(--text-main);margin-bottom:6px;">Meanly API Docs / Devices Support</div>
+                <div>mode: ${escapeHtml(kernel?.mode || 'http')} · host: ${escapeHtml(kernel?.compatibility_host || 'api.meanly.one')}</div>
+                <div style="margin-top:8px;">terminals: ${Number(devices.terminals_active || 0).toLocaleString()} active / ${Number(devices.terminals_total || 0).toLocaleString()} total</div>
+                <div style="margin-top:8px;display:grid;gap:3px;">
+                    ${Object.entries(docs).map(([label, path]) => `<div>${escapeHtml(label)}: <span style="color:var(--primary);">${escapeHtml(path)}</span></div>`).join('')}
+                </div>
+            `;
+        }
+
+        function providerHealthHtml(item) {
+            const health = item.health || {};
+            const badges = [
+                ['catalog', health.catalog_ready],
+                ['creds', health.credentials_ready],
+                ['terminal', health.terminal_ready],
+            ].map(([label, ok]) => `<span class="badge-neo" style="${ok ? 'background:rgba(16,185,129,.08);color:#10b981;' : 'background:rgba(244,63,94,.08);color:#f43f5e;'}border:1px solid var(--border-card);">${label} ${ok ? 'ok' : 'missing'}</span>`).join(' ');
+
+            return `
+                <div style="display:flex;flex-wrap:wrap;gap:4px;max-width:220px;">${badges}</div>
+                ${health.last_error ? `<div style="font-size:.68rem;color:#f43f5e;margin-top:5px;">${escapeHtml(health.last_error)}</div>` : ''}
+            `;
+        }
+
+        function providerRowHtml(item, kernel) {
+            const activeStyle = item.is_active
+                ? 'background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.25);'
+                : 'background:rgba(244,63,94,0.1);color:#f43f5e;border:1px solid rgba(244,63,94,0.25);';
+            const credentialKeys = Object.entries(item.credentials || {})
+                .map(([key, ok]) => `<span class="badge-neo" style="${ok ? 'background:rgba(16,185,129,.08);color:#10b981;' : 'background:rgba(255,255,255,.02);color:var(--text-muted);'}border:1px solid var(--border-card);">${escapeHtml(key)} ${ok ? 'ok' : 'missing'}</span>`)
+                .join(' ');
+            const terminal = item.terminal || {};
+            const upstreamDisabled = item.health?.supports_upstream_pull ? '' : 'disabled';
+
+            return `
+                <tr>
+                    <td>
+                        <div style="font-weight:850;color:var(--text-main);">${escapeHtml(item.name)}</div>
+                        <div style="font-family:var(--font-tech);font-size:.7rem;color:var(--text-muted);">${escapeHtml(item.type)} · Meanly API ${escapeHtml(kernel?.mode || 'http')}</div>
+                        <span class="badge-neo" style="${activeStyle}">${item.is_active ? 'active' : 'inactive'}</span>
+                    </td>
+                    <td>
+                        <div style="font-family:var(--font-tech);font-weight:800;color:var(--primary);">${Number(item.active_provider_products_count || 0).toLocaleString()} active</div>
+                        <div style="font-size:.68rem;color:var(--text-muted);">${Number(item.provider_products_count || 0).toLocaleString()} total · source ${escapeHtml(item.catalog_source)}</div>
+                    </td>
+                    <td><div style="display:flex;flex-wrap:wrap;gap:4px;max-width:280px;">${credentialKeys}</div></td>
+                    <td>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                            <span class="badge-neo" style="${terminal.id_configured ? 'background:rgba(16,185,129,.08);color:#10b981;' : 'background:rgba(255,255,255,.02);color:var(--text-muted);'}border:1px solid var(--border-card);">id ${terminal.id_configured ? 'ok' : 'missing'}</span>
+                            <span class="badge-neo" style="${terminal.pin_configured ? 'background:rgba(16,185,129,.08);color:#10b981;' : 'background:rgba(255,255,255,.02);color:var(--text-muted);'}border:1px solid var(--border-card);">pin ${terminal.pin_configured ? 'ok' : 'missing'}</span>
+                        </div>
+                        <div style="font-family:var(--font-tech);font-size:.68rem;color:var(--text-muted);margin-top:4px;">${escapeHtml(terminal.id_masked || 'not configured')}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:750;">${escapeHtml(item.sync_status || 'idle')}</div>
+                        <div style="font-size:.68rem;color:var(--text-muted);">${escapeHtml(item.last_sync_at || '—')}</div>
+                        <div style="margin-top:5px;">${providerHealthHtml(item)}</div>
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button type="button" class="btn-neo" style="padding:6px 10px;font-size:.65rem;" onclick="runProviderSync('${item.sync_url}', 'embedded', this)">Embedded sync</button>
+                            <button type="button" class="btn-neo btn-primary-neo" ${upstreamDisabled} style="padding:6px 10px;font-size:.65rem;" onclick="runProviderSync('${item.sync_url}', 'pull-upstream', this)">Pull upstream</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        async function runProviderSync(url, mode, button) {
+            if (mode === 'pull-upstream' && !confirm('Pull upstream может сходить в реальный EZPin и обновить provider_products. Продолжить?')) {
+                return;
+            }
+
+            const output = document.getElementById('providers-operation-output');
+            output.style.display = 'block';
+            output.textContent = `Running provider sync: ${mode}...`;
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Running...';
+            }
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify({ mode }),
+                });
+                const json = await res.json();
+                output.textContent = json.output || json.message || JSON.stringify(json, null, 2);
+                await loadProviders();
+            } catch (e) {
+                output.textContent = `Provider sync failed: ${e.message || e}`;
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = mode === 'pull-upstream' ? 'Pull EZPin' : 'Embedded sync';
+                }
             }
         }
 
@@ -1990,19 +3269,6 @@
             })[char]);
         }
 
-        function toggleConsoleSwitcher(event) {
-            event.stopPropagation();
-            document.getElementById('console-switch-menu')?.classList.toggle('open');
-        }
-
-        document.addEventListener('click', (event) => {
-            const menu = document.getElementById('console-switch-menu');
-            if (!menu || event.target.closest('.console-selector-wrapper')) {
-                return;
-            }
-            menu.classList.remove('open');
-        });
-
         async function validateTribunalChain() {
             const result = document.getElementById('tribunal-chain-result');
             result.innerHTML = '<span class="loading-spinner"></span> Validating sovereign ledger chain...';
@@ -2024,34 +3290,6 @@
             } catch (error) {
                 result.innerHTML = `<span style="color:#f43f5e;">Validator failed: ${escapeHtml(error.message)}</span>`;
             }
-        }
-
-        async function sendTribunalOracleMessage() {
-            const input = document.getElementById('tribunal-oracle-input');
-            const chat = document.getElementById('tribunal-oracle-chat');
-            const message = input.value.trim();
-            if (!message) return;
-
-            chat.insertAdjacentHTML('beforeend', `<div class="chat-message user">${escapeHtml(message)}</div>`);
-            input.value = '';
-
-            try {
-                const response = await fetch('{{ route('ops.dashboard.tribunal.chat') }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ message })
-                });
-                const json = await response.json();
-                chat.insertAdjacentHTML('beforeend', `<div class="chat-message ai">${escapeHtml(json.response || json.error || 'Oracle returned no response.')}</div>`);
-            } catch (error) {
-                chat.insertAdjacentHTML('beforeend', `<div class="chat-message ai" style="border-color:#f43f5e;color:#fecdd3;">${escapeHtml(error.message)}</div>`);
-            }
-
-            chat.scrollTop = chat.scrollHeight;
         }
 
         // Global Chart JS Setup

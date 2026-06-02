@@ -2801,7 +2801,7 @@
             @endif
         </div>
 
-        @if($user->hasRole('super_admin'))
+        @if(false && $user->hasRole('super_admin'))
         <div class="workspace-right" style="display: flex; flex-direction: column; gap: 1rem;">
             <!-- Operations Runtime Panel -->
             <div class="sec-card" id="constitutional-panel" style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 20px; padding: 2rem; position: relative; overflow: hidden; text-align: left;">

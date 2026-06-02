@@ -758,10 +758,6 @@ class PartnerDashboardController extends Controller
 
     private function activePartnerTab(): ?string
     {
-        if (request()->routeIs('partner.operator')) {
-            return 'operator';
-        }
-
         if (request()->routeIs('partner.dashboard.provider_catalog')) {
             return 'storefront';
         }
@@ -770,7 +766,7 @@ class PartnerDashboardController extends Controller
         $allowedTabs = [
             'dashboard', 'orders', 'catalog', 'storefront', 'shops', 'support',
             'warehouses', 'activations', 'vouchers', 'documents', 'finance',
-            'team', 'operator', 'ai-audit',
+            'team',
         ];
 
         return in_array($tab, $allowedTabs, true) ? $tab : null;
@@ -1670,9 +1666,9 @@ class PartnerDashboardController extends Controller
                 'shop' => [
                     'id' => $shop->id,
                     'name' => $shop->name,
-                    'business_id' => $shop->business_id,
-                    'campaign_id' => $shop->campaign_id,
-                    'ym_warehouse_id' => $shop->ym_warehouse_id,
+                    'business_id' => $shop->business_id !== null ? (int) $shop->business_id : null,
+                    'campaign_id' => $shop->campaign_id !== null ? (int) $shop->campaign_id : null,
+                    'ym_warehouse_id' => $shop->ym_warehouse_id !== null ? (int) $shop->ym_warehouse_id : null,
                     'notification_url' => url('/api/ym/'.$shop->notification_token.'/notification'),
                     'is_configured' => $shop->isYandexMarketActive(),
                     'legal_verified' => $shop->isYandexMarketVerified(),
@@ -1795,9 +1791,9 @@ class PartnerDashboardController extends Controller
                 'shop' => [
                     'id' => $shop->id,
                     'name' => $shop->name,
-                    'business_id' => $shop->business_id,
-                    'campaign_id' => $shop->campaign_id,
-                    'ym_warehouse_id' => $shop->ym_warehouse_id,
+                    'business_id' => $shop->business_id !== null ? (int) $shop->business_id : null,
+                    'campaign_id' => $shop->campaign_id !== null ? (int) $shop->campaign_id : null,
+                    'ym_warehouse_id' => $shop->ym_warehouse_id !== null ? (int) $shop->ym_warehouse_id : null,
                     'notification_url' => url('/api/ym/'.$shop->notification_token.'/notification'),
                     'is_configured' => $shop->isYandexMarketActive(),
                     'legal_verified' => $shop->isYandexMarketVerified(),

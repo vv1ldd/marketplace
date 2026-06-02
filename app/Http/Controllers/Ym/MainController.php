@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Ym;
 
+use App\Exceptions\DuplicateMutationException;
 use App\Http\Controllers\Controller;
 use App\Http\Services\BinanceService;
 use App\Http\Services\YmService;
@@ -19,6 +20,8 @@ use App\Services\DescriptionGenerator;
 use App\Services\ImageGenerator;
 use App\Services\CanonicalCategoryResolver;
 use App\Services\MeanlyService;
+use App\Services\Mutation\MutationDedupGuard;
+use App\Services\Mutation\MutationIdentityResolver;
 use App\Services\Provider\ProviderHub;
 use App\Services\WildflowService;
 use Carbon\Carbon;
@@ -1087,6 +1090,54 @@ class MainController extends Controller
                     ],
                 ], 400);
             }
+
+            $eventId = implode(':', array_filter([
+                'ym',
+                (string) ($data['notificationType'] ?? 'unknown'),
+                (string) ($data['campaignId'] ?? $request->input('campaignId') ?? 'unknown'),
+                (string) ($data['orderId'] ?? $request->input('orderId') ?? 'none'),
+                (string) ($data['status'] ?? 'none'),
+                (string) ($data['substatus'] ?? 'none'),
+            ]));
+            $identity = app(MutationIdentityResolver::class)->fromWebhook(
+                request: $request,
+                provider: 'yandex',
+                eventId: $eventId,
+                action: 'provider.yandex.notification',
+                entityType: 'provider_event',
+                entityId: $data['orderId'] ?? $eventId,
+                context: [
+                    'notification_type' => $data['notificationType'],
+                    'campaign_id' => $data['campaignId'] ?? $request->input('campaignId'),
+                    'status' => $data['status'] ?? null,
+                    'substatus' => $data['substatus'] ?? null,
+                ],
+                mutationPath: 'provider.yandex.payment_callback',
+            );
+
+            try {
+                app(MutationDedupGuard::class)->check(
+                    identity: $identity,
+                    mutationPath: 'provider.yandex.payment_callback',
+                    mode: (string) config('mutation.webhook_guard_mode', 'shadow'),
+                    guardKey: 'webhook:yandex:'.$eventId,
+                    metadata: ['source' => 'Ym\\MainController::notification'],
+                );
+            } catch (DuplicateMutationException $e) {
+                $log->warning('Duplicate YM notification rejected by mutation guard', [
+                    'mutation_id' => $e->mutationId,
+                    'event_id' => $eventId,
+                ]);
+
+                return response()->json([
+                    'name' => 'marketplace.1gros.ru',
+                    'time' => now('UTC')->toIso8601String(),
+                    'version' => '0.0.1',
+                    'duplicate' => true,
+                ]);
+            }
+
+            $data['_mutation_context'] = $identity;
 
             // Log notification to DB
             YmNotification::create([

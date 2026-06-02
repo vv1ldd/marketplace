@@ -18,7 +18,7 @@ class WildflowService
 
         $baseUrl = $providerModel->credentials['base_url']
             ?? config('services.wildflow.base_url')
-            ?? 'http://api.wildflow.test/api/v1/';
+            ?? rtrim((string) config('app.url', 'https://meanly.one'), '/').'/api/v1/';
         $this->base_url = rtrim($baseUrl, '/') . '/';
 
         // Highly dynamic token resolution: Override > DB Provider credentials > Config fallback
@@ -68,6 +68,17 @@ class WildflowService
 
     public function getExchangeRates(string $provider = 'ezpin'): array
     {
+        if ($this->usesLocalKernel()) {
+            return \App\Models\Currency::query()
+                ->get()
+                ->map(fn (\App\Models\Currency $currency): array => [
+                    'code' => $currency->code,
+                    'rate_to_rub' => (float) ($currency->manual_rate ?: $currency->rate_to_rub ?: 1),
+                ])
+                ->values()
+                ->all();
+        }
+
         $response = $this->client->get("providers/{$provider}/exchange-rates");
  
         if ($response->failed()) {
@@ -97,6 +108,16 @@ class WildflowService
         ?string $sellerName = null
     )
     {
+        if ($this->usesLocalKernel()) {
+            return [
+                'referenceCode' => $order_item_id,
+                'order_id' => $order_item_id,
+                'status' => 1,
+                'status_text' => 'accept',
+                'is_completed' => false,
+            ];
+        }
+
         $payload = array_filter([
             'service_sku'   => $service_sku,
             'price'         => $price,
@@ -105,7 +126,7 @@ class WildflowService
             'referenceCode' => $order_item_id,
             'destination'   => $destination,
             'terminal_id'   => $terminalId,
-            // Seller attribution — passed through to Wildflow Kernel Ledger
+            // Seller attribution is passed through to the Meanly API ledger.
             'seller_id'     => $sellerId,
             'seller_name'   => $sellerName,
         ], fn ($value) => $value !== null);
@@ -139,6 +160,27 @@ class WildflowService
         ?string $terminalId = null
     ): array
     {
+        if ($this->usesLocalKernel()) {
+            $skuBidx = app(\App\Services\VaultTransitService::class)->computeBlindIndex($service_sku);
+            $providerType = $provider === 'ezpin' ? 'wildflow' : ($provider === 'ezpin-sandbox' ? 'wildflow-sandbox' : $provider);
+            $product = \App\Models\ProviderProduct::query()
+                ->whereHas('provider', fn ($query) => $query->where('type', $providerType))
+                ->where(function ($query) use ($skuBidx): void {
+                    $query->where('sku_bidx', $skuBidx)->orWhere('market_sku_bidx', $skuBidx);
+                })
+                ->first();
+            $available = (bool) ($product?->is_active ?? false);
+
+            return [
+                'available' => $available,
+                'availability' => [
+                    'availability' => $available,
+                    'available' => $available,
+                    'detail' => $available ? 'Available from Meanly local kernel.' : 'Product is inactive or missing.',
+                ],
+            ];
+        }
+
         $params = array_filter([
             'quantity' => $quantity,
             'price' => $price,
@@ -185,6 +227,24 @@ class WildflowService
      */
     public function getCards(string $referenceCode, string $provider = 'ezpin')
     {
+        if ($this->usesLocalKernel()) {
+            $item = \App\Models\Order\OrderItems::query()
+                ->where('provider_order_id', $referenceCode)
+                ->orWhere('uuid', $referenceCode)
+                ->latest('id')
+                ->first();
+
+            if (! $item || ! filled($item->original_code)) {
+                return [];
+            }
+
+            return [[
+                'pinCode' => $item->original_code,
+                'pin_code' => $item->original_code,
+                'code' => $item->original_code,
+            ]];
+        }
+
         // Hits the smart proxy endpoint that can resolve both UUIDs and Local IDs!
         $response = $this->client->get("providers/{$provider}/orders/{$referenceCode}/normalized-cards");
  
@@ -201,6 +261,27 @@ class WildflowService
      */
     public function grantCredit(float $amount, string $reference, ?string $terminalId = null): array
     {
+        if ($this->usesLocalKernel()) {
+            $legalEntity = $this->resolveLocalLegalEntity($terminalId);
+            $reservation = \App\Models\WildflowCreditReservation::query()->updateOrCreate(
+                [
+                    'legal_entity_id' => $legalEntity?->id,
+                    'reference' => $reference,
+                ],
+                [
+                    'amount' => $amount,
+                    'status' => 'active',
+                    'expires_at' => now()->addHours(2),
+                ]
+            );
+
+            return [
+                'success' => true,
+                'reservation_id' => 'MEANLY-HOLD-'.$reservation->id,
+                'idempotent' => ! $reservation->wasRecentlyCreated,
+            ];
+        }
+
         $payload = array_filter([
             'amount' => (float)$amount,
             'reference' => $reference,
@@ -218,6 +299,41 @@ class WildflowService
  
     public function syncPartner(\App\Models\LegalEntity $entity, array $providerCredentials = []): array
     {
+        if ($this->usesLocalKernel()) {
+            $settings = $entity->agreement_metadata ?? [];
+            $settings['kernel_external_id'] = (string) $entity->id;
+            if ($l1Address = ($settings['l1_address'] ?? ($entity->user?->meta['l1_address'] ?? null))) {
+                $settings['l1_address'] = $l1Address;
+            }
+
+            \App\Models\LegalEntity::withoutEvents(function () use ($entity, $settings, $providerCredentials): void {
+                $apiToken = $entity->meanlyApiToken() ?: bin2hex(random_bytes(16));
+                $financialSecret = $entity->meanlyFinancialSecret() ?: bin2hex(random_bytes(16));
+                $attributes = [
+                    'agreement_metadata' => $settings,
+                    'vendor_credentials' => $providerCredentials,
+                    'wildflow_api_token' => $entity->wildflow_api_token ?: $apiToken,
+                    'wildflow_financial_secret' => $entity->wildflow_financial_secret ?: $financialSecret,
+                ];
+
+                if (\Illuminate\Support\Facades\Schema::hasColumn('legal_entities', 'meanly_api_token')) {
+                    $attributes['meanly_api_token'] = $apiToken;
+                }
+
+                if (\Illuminate\Support\Facades\Schema::hasColumn('legal_entities', 'meanly_financial_secret')) {
+                    $attributes['meanly_financial_secret'] = $financialSecret;
+                }
+
+                $entity->forceFill($attributes)->save();
+            });
+
+            return [
+                'success' => true,
+                'partner_id' => $entity->id,
+                'external_id' => (string) $entity->id,
+            ];
+        }
+
         $l1Address = $entity->agreement_metadata['l1_address']
             ?? ($entity->user?->meta['l1_address'] ?? null);
 
@@ -244,6 +360,22 @@ class WildflowService
 
     public function getPartner(string $terminalId): array
     {
+        if ($this->usesLocalKernel()) {
+            $entity = $this->resolveLocalLegalEntity($terminalId);
+            if (! $entity) {
+                return [];
+            }
+
+            return [
+                'id' => $entity->id,
+                'external_id' => (string) $entity->id,
+                'name' => $entity->name,
+                'balance' => (float) $entity->available_balance,
+                'currency' => $entity->currency ?? 'RUB',
+                'active' => (bool) $entity->is_active,
+            ];
+        }
+
         $response = $this->client->get("partners/{$terminalId}");
 
         if ($response->failed()) {
@@ -255,6 +387,22 @@ class WildflowService
 
     public function topUp(string $terminalId, float $amount, string $reference = ''): array
     {
+        if ($this->usesLocalKernel()) {
+            $entity = $this->resolveLocalLegalEntity($terminalId);
+            if (! $entity) {
+                throw new \RuntimeException("Partner [{$terminalId}] not found.");
+            }
+
+            $entity->increment('available_balance', $amount);
+
+            return [
+                'success' => true,
+                'partner_id' => $entity->id,
+                'balance' => (float) $entity->fresh()->available_balance,
+                'reference' => $reference,
+            ];
+        }
+
         $payload = [
             'terminal_id' => $terminalId,
             'amount'      => $amount,
@@ -273,6 +421,20 @@ class WildflowService
 
     public function listPartners(): array
     {
+        if ($this->usesLocalKernel()) {
+            return \App\Models\LegalEntity::query()
+                ->where('is_active', true)
+                ->get()
+                ->map(fn (\App\Models\LegalEntity $entity): array => [
+                    'id' => $entity->id,
+                    'external_id' => (string) $entity->id,
+                    'name' => $entity->name,
+                    'balance' => (float) $entity->available_balance,
+                    'currency' => $entity->currency ?? 'RUB',
+                ])
+                ->all();
+        }
+
         $response = $this->client->get("partners");
 
         if ($response->failed()) {
@@ -284,6 +446,17 @@ class WildflowService
 
     public function deletePartner(string $terminalId): array
     {
+        if ($this->usesLocalKernel()) {
+            $entity = $this->resolveLocalLegalEntity($terminalId);
+            if (! $entity) {
+                return ['success' => false, 'message' => 'Partner not found'];
+            }
+
+            $entity->update(['is_active' => false]);
+
+            return ['success' => true];
+        }
+
         $response = $this->client->delete("partners/{$terminalId}");
 
         if ($response->failed()) {
@@ -291,5 +464,30 @@ class WildflowService
         }
 
         return $response->json() ?? [];
+    }
+
+    private function usesLocalKernel(): bool
+    {
+        return (string) config('services.wildflow.kernel_mode', 'http') === 'local';
+    }
+
+    private function resolveLocalLegalEntity(?string $terminalId): ?\App\Models\LegalEntity
+    {
+        if (! filled($terminalId)) {
+            return null;
+        }
+
+        if (ctype_digit((string) $terminalId)) {
+            $entity = \App\Models\LegalEntity::query()->find((int) $terminalId);
+            if ($entity) {
+                return $entity;
+            }
+        }
+
+        return \App\Models\SellerTerminal::query()
+            ->with('legalEntity')
+            ->where('terminal_id', $terminalId)
+            ->first()
+            ?->legalEntity;
     }
 }

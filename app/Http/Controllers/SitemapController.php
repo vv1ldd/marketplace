@@ -295,6 +295,13 @@ class SitemapController extends Controller
             ->unique('loc')
             ->map(function (array $entry) {
                 $xml = "    <url>\n        <loc>{$this->escape((string) $entry['loc'])}</loc>";
+                foreach ((array) ($entry['alternates'] ?? []) as $alternate) {
+                    $href = (string) data_get($alternate, 'url', '');
+                    $hreflang = (string) data_get($alternate, 'hreflang', '');
+                    if ($href !== '' && $hreflang !== '') {
+                        $xml .= "\n        <xhtml:link rel=\"alternate\" hreflang=\"{$this->escape($hreflang)}\" href=\"{$this->escape($href)}\" />";
+                    }
+                }
                 foreach (['lastmod', 'changefreq', 'priority'] as $field) {
                     if (! empty($entry[$field])) {
                         $xml .= "\n        <{$field}>{$this->escape((string) $entry[$field])}</{$field}>";
@@ -306,7 +313,7 @@ class SitemapController extends Controller
             ->implode("\n");
 
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            ."<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+            ."<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">\n"
             .$items."\n"
             ."</urlset>\n";
     }

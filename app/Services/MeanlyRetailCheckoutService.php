@@ -7,6 +7,9 @@ use App\Models\Order\OrderItems;
 use App\Models\Product;
 use App\Models\ProductInventory;
 use App\Models\Warehouse;
+use App\Services\Mutation\MutationContext;
+use App\Services\Mutation\MutationDedupGuard;
+use App\Services\Mutation\MutationIdentityResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -310,6 +313,45 @@ class MeanlyRetailCheckoutService
         bool $finalBuyerCodes = true,
     ): array
     {
+        if (! MutationContext::isActive()) {
+            $identity = app(MutationIdentityResolver::class)->resolve(
+                actor: 'service:checkout',
+                action: 'inventory.reserve',
+                entityType: 'order_item',
+                entityId: $orderItem->id,
+                idempotencyKey: $reservationReference,
+                context: [
+                    'order_id' => $order->id,
+                    'product_id' => $product->id,
+                    'sku' => (string) $product->sku,
+                    'quantity' => $quantity,
+                    'final_buyer_codes' => $finalBuyerCodes,
+                ],
+                mutationPath: 'inventory.reserve',
+            );
+
+            $decision = app(MutationDedupGuard::class)->check(
+                identity: $identity,
+                mutationPath: 'inventory.reserve',
+                mode: (string) config('mutation.default_mode', 'shadow'),
+                guardKey: 'reservation:'.$reservationReference,
+                metadata: ['source' => 'MeanlyRetailCheckoutService::reserveVouchers'],
+            );
+
+            $result = MutationContext::bind($identity, fn (): array => $this->reserveVouchers(
+                product: $product,
+                order: $order,
+                orderItem: $orderItem,
+                quantity: $quantity,
+                reservationReference: $reservationReference,
+                allowGenerate: $allowGenerate,
+                finalBuyerCodes: $finalBuyerCodes,
+            ));
+            app(MutationDedupGuard::class)->complete($decision['guard_key']);
+
+            return $result;
+        }
+
         $shop = $order->shop;
         $skuBidx = app(VaultTransitService::class)->computeBlindIndex((string) $product->sku);
         $warehouseId = Warehouse::query()->where('shop_id', $shop->id)->where('is_main', true)->value('id')

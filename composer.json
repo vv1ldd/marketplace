@@ -40,7 +40,8 @@
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
             "AppYandexSdk\\": "app/YandexSdk/lib/",
-            "Meanly\\SimpleL1\\": "/Users/w1ld/Documents/GitHub/new/simple-l1/laravel-package/src/"
+            "EzPin\\": "packages/ezpin-sdk/src/",
+            "FazerSdk\\": "packages/fazer-sdk/src/"
         },
         "files": [
             "app/helpers.php"

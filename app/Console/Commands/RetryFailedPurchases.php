@@ -2,7 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Exceptions\DuplicateMutationException;
 use App\Models\Order\OrderItems;
+use App\Services\Mutation\MutationContext;
+use App\Services\Mutation\MutationDedupGuard;
+use App\Services\Mutation\MutationIdentityResolver;
 use App\Services\OrderService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -50,10 +54,36 @@ class RetryFailedPurchases extends Command
             $this->info("Retrying Item ID: {$item->id} (SKU: {$item->sku}, Attempt: " . ($item->purchase_retry_count + 1) . ")");
             
             try {
-                // Increment retry count before attempt to avoid stuck items if it crashes
-                $item->increment('purchase_retry_count');
+                $identity = app(MutationIdentityResolver::class)->resolve(
+                    actor: 'cli:retry-failed-purchases',
+                    action: 'payment.retry',
+                    entityType: 'order_item',
+                    entityId: $item->id,
+                    idempotencyKey: 'retry:order_item:'.$item->id,
+                    context: [
+                        'order_id' => $item->order_id,
+                        'sku' => (string) $item->sku,
+                        'attempt' => (int) $item->purchase_retry_count + 1,
+                    ],
+                    mutationPath: 'payment.retry_job',
+                );
 
-                $result = $orderService->retryAutozakup($item);
+                $decision = app(MutationDedupGuard::class)->check(
+                    identity: $identity,
+                    mutationPath: 'payment.retry_job',
+                    mode: (string) config('mutation.retry_guard_mode', 'shadow'),
+                    guardKey: 'retry:order_item:'.$item->id,
+                    metadata: ['command' => $this->getName()],
+                );
+
+                $result = MutationContext::bind($identity, function () use ($item, $orderService): array {
+                    // Increment retry count before attempt to avoid stuck items if it crashes
+                    $item->increment('purchase_retry_count');
+
+                    return $orderService->retryAutozakup($item);
+                });
+
+                app(MutationDedupGuard::class)->complete($decision['guard_key']);
 
                 if ($result['success']) {
                     $this->info("✅ Successfully purchased: {$item->sku}");
@@ -91,6 +121,12 @@ class RetryFailedPurchases extends Command
                     $item->order?->update(['is_problem' => true]);
                 }
             } catch (\Exception $e) {
+                if ($e instanceof DuplicateMutationException) {
+                    $this->warn("Duplicate retry rejected for item {$item->id}: {$e->mutationId}");
+
+                    continue;
+                }
+
                 $this->error("💥 Exception during retry: " . $e->getMessage());
                 Log::error("Automated Retry Exception: Item ID {$item->id} - " . $e->getMessage());
             }

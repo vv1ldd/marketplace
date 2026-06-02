@@ -9,12 +9,18 @@ use App\Models\WildflowSkuAlias;
 use App\Services\BrandActivationUrlResolver;
 use App\Services\CanonicalCategoryResolver;
 use App\Services\MappingService;
+use App\Services\Provider\EzPinCatalogPuller;
+use App\Services\Provider\ProviderCatalogAggregator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 class SyncCatalogsCommand extends Command
 {
-    protected $signature = 'app:sync-catalogs {provider? : ID or type of provider to sync} {--force : Force sync even if catalog hasn\'t changed}';
+    protected $signature = 'app:sync-catalogs
+        {provider? : ID or type of provider to sync}
+        {--force : Force sync even if catalog hasn\'t changed}
+        {--embedded : Use meanly.one embedded provider catalog projection instead of the external Wildflow API}
+        {--pull-upstream : Pull fresh provider catalog from the upstream SDK before syncing the embedded projection}';
 
     protected $description = 'Sync catalogs from external providers (Wildflow, etc.)';
 
@@ -50,7 +56,7 @@ class SyncCatalogsCommand extends Command
         foreach ($providers as $provider) {
             $this->info("--- Syncing Provider: [{$provider->name}] (type: {$provider->type}) ---");
             
-            if ($provider->type === 'wildflow' || $provider->type === 'fazer') {
+            if (in_array($provider->type, ['wildflow', 'wildflow-sandbox', 'ezpin', 'ezpin-sandbox', 'fazer'], true)) {
                 $this->syncWildflow($provider);
             } else {
                 $this->warn("Provider type [{$provider->type}] not yet supported for automated sync.");
@@ -73,8 +79,23 @@ class SyncCatalogsCommand extends Command
         $this->brandNameUpperById = [];
         $this->currencyCache = \App\Models\Currency::pluck('id', 'code')->toArray();
 
-        $wildflowService = new \App\Services\WildflowService(overrideToken: null, providerModel: $provider);
-        $client = $wildflowService->getClient();
+        if ($this->shouldPullEzPinUpstream($provider)) {
+            $this->info('Pulling fresh EZPin catalog directly from upstream SDK...');
+            $stats = app(EzPinCatalogPuller::class)->pullIntoProvider($provider);
+            $this->info(sprintf(
+                'EZPin upstream pull complete: %d persisted (%d catalog, %d retailer), %d deactivated.',
+                $stats['total'],
+                $stats['catalog'],
+                $stats['retailer'],
+                $stats['deactivated'],
+            ));
+        }
+
+        $client = null;
+        if (! $this->useEmbeddedCatalog($provider)) {
+            $wildflowService = new \App\Services\WildflowService(overrideToken: null, providerModel: $provider);
+            $client = $wildflowService->getClient();
+        }
 
         $financeService = app(\App\Services\FinanceService::class);
 
@@ -116,19 +137,47 @@ class SyncCatalogsCommand extends Command
         }
     }
 
+    private function useEmbeddedCatalog($provider): bool
+    {
+        if ($this->shouldPullEzPinUpstream($provider)) {
+            return true;
+        }
+
+        if ((bool) $this->option('embedded')) {
+            return true;
+        }
+
+        return (string) data_get($provider->settings, 'catalog_source') === 'embedded';
+    }
+
+    private function shouldPullEzPinUpstream($provider): bool
+    {
+        if (! (bool) $this->option('pull-upstream')) {
+            return false;
+        }
+
+        return in_array($provider->type, ['wildflow', 'wildflow-sandbox', 'ezpin', 'ezpin-sandbox'], true);
+    }
+
     private function parseCatalog($client, string $type, $provider, $financeService): bool
     {
         // 🌊 THE GRAND CONFLUENCE: Pull everything in ONE standardized request!
-        $providerSlug = $provider->type === 'wildflow' ? 'ezpin' : $provider->type;
-        $endpoint = "providers/{$providerSlug}/unified-catalog";
-
-        $response = $client->get($endpoint, ['include_inactive' => 1]);
-        $items = $response->json('items') ?? [];
+        if ($this->useEmbeddedCatalog($provider)) {
+            $payload = app(ProviderCatalogAggregator::class)->unifiedCatalog($provider, true);
+            $items = $payload['items'] ?? [];
+            $responseBody = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } else {
+            $providerSlug = $provider->type === 'wildflow' ? 'ezpin' : $provider->type;
+            $endpoint = "providers/{$providerSlug}/unified-catalog";
+            $response = $client->get($endpoint, ['include_inactive' => 1]);
+            $items = $response->json('items') ?? [];
+            $responseBody = $response->body();
+        }
         
         $this->info("Unified Catalog returned ".count($items).' total normalized items.');
 
         if (count($items) === 0) {
-            $this->error("API Response for {$type}: ".$response->body());
+            $this->error("Catalog response for {$type}: ".$responseBody);
             return false;
         }
 
@@ -220,7 +269,9 @@ class SyncCatalogsCommand extends Command
 
         // Soft-deactivate only after a valid upstream payload has been parsed.
         $this->info("Pre-reset: Soft-deactivating current products...");
-        \App\Models\ProviderProduct::where('provider_id', $provider->id)->update(['is_active' => false]);
+        if (! $this->useEmbeddedCatalog($provider)) {
+            \App\Models\ProviderProduct::where('provider_id', $provider->id)->update(['is_active' => false]);
+        }
         \App\Models\WildflowCatalog::where('provider_id', $provider->id)->update(['is_active' => false]);
         \App\Models\Product::where('provider_id', $provider->id)->update(['is_active' => false]);
 
@@ -693,7 +744,7 @@ class SyncCatalogsCommand extends Command
                     $oldBidx = $vault->computeBlindIndex($old);
 
                     Product::query()
-                        ->whereHas('shops', fn ($q) => $q->whereIn('shops.id', $shopIds))
+                        ->whereHas('shop', fn ($q) => $q->whereIn('shops.id', $shopIds))
                         ->where(function ($q) use ($old, $oldBidx) {
                             $q->where('wildflow_catalog_sku_bidx', $oldBidx)->orWhere('sku', $old);
                         })

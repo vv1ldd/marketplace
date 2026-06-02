@@ -28,6 +28,16 @@ class ProviderHub extends Manager
         return new WildflowDriver();
     }
 
+    public function createEzpinDriver(): WildflowDriver
+    {
+        return new WildflowDriver();
+    }
+
+    public function createEzpinSandboxDriver(): WildflowDriver
+    {
+        return new WildflowDriver();
+    }
+
     /**
      * Get a driver instance for a specific provider model.
      */

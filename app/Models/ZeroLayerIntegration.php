@@ -10,8 +10,8 @@ class ZeroLayerIntegration extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'credentials' => 'array',
-        'settings' => 'array',
+        'credentials' => \App\Casts\VaultEncryptedJson::class,
+        'settings' => \App\Casts\VaultEncryptedJson::class,
         'last_synced_at' => 'datetime',
     ];
 

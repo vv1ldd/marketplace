@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\SovereignLedger;
 use App\Models\Shop;
+use App\Services\Continuity\TransitionOutboxService;
+use App\Services\Mutation\LedgerDedupGuard;
+use App\Services\Mutation\MutationContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Meanly\Mdk\Kernel\Core\EngineConfig;
@@ -37,6 +40,18 @@ class LedgerService
             
             // 0. Sanitize payload
             $payload = $this->sanitizePayload($payload);
+            $mutationContext = MutationContext::all();
+            if (filled($mutationContext['mutation_id'] ?? null)) {
+                app(LedgerDedupGuard::class)->check(
+                    mutationId: (string) $mutationContext['mutation_id'],
+                    eventType: $eventType,
+                    metadata: [
+                        'entity_type' => $entity ? get_class($entity) : null,
+                        'entity_id' => $entity?->getKey(),
+                        'ledger_scope' => $legalEntityId ? 'legal_entity:'.$legalEntityId : ($shop ? 'shop:'.$shop->id : 'marketplace:global'),
+                    ],
+                );
+            }
 
             // 1. Get previous state
             $query = SovereignLedger::query();
@@ -70,7 +85,8 @@ class LedgerService
             // 2. Build the Document of Intent (Deterministic Packet)
             $enrichedPayload = array_merge($payload, [
                 'kernel_fp' => $this->kernelFingerprint()->getHash(),
-                'roles' => $roles ?? []
+                'roles' => $roles ?? [],
+                'mutation_context' => $mutationContext ?: null,
             ]);
 
             $data = [
@@ -89,7 +105,7 @@ class LedgerService
             $entryFingerprint = hash('sha256', $canonicalJson);
 
             // 3. Store with Kernel Proof
-            return SovereignLedger::create([
+            $ledger = SovereignLedger::create([
                 'shop_id' => $shop?->id,
                 'legal_entity_id' => $legalEntityId,
                 'event_type' => $eventType,
@@ -103,6 +119,10 @@ class LedgerService
                 'previous_fingerprint' => $previousFingerprint,
                 'created_at' => $createdAt,
             ]);
+
+            app(TransitionOutboxService::class)->recordFromLedger($ledger);
+
+            return $ledger;
         });
     }
 
@@ -171,17 +191,7 @@ class LedgerService
             }
 
             // Verify current hash using MDK Canonical Encoder
-            $data = [
-                'prev' => $entry->previous_fingerprint,
-                'type' => $entry->event_type,
-                'entity_id' => (string) $entry->entity_id,
-                'entity_type' => $entry->entity_type,
-                'payload' => $entry->payload,
-                'ts' => $entry->created_at->toDateTimeString(),
-                'source' => $entry->trigger_source,
-                'in' => $entry->input_data,
-                'out' => $entry->output_state,
-            ];
+            $data = $this->canonicalLedgerData($entry);
 
             $calculated = hash('sha256', $encoder->encode($data));
 
@@ -222,17 +232,7 @@ class LedgerService
                 $errors[] = "Chain broken at ID {$entry->id}: Previous hash mismatch.";
             }
 
-            $data = [
-                'prev' => $entry->previous_fingerprint,
-                'type' => $entry->event_type,
-                'entity_id' => (string) $entry->entity_id,
-                'entity_type' => $entry->entity_type,
-                'payload' => $entry->payload,
-                'ts' => $entry->created_at->toDateTimeString(),
-                'source' => $entry->trigger_source,
-                'in' => $entry->input_data,
-                'out' => $entry->output_state,
-            ];
+            $data = $this->canonicalLedgerData($entry);
 
             $calculated = hash('sha256', $encoder->encode($data));
 
@@ -260,5 +260,28 @@ class LedgerService
                 strictIdentity: true,
             ),
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function canonicalLedgerData(SovereignLedger $entry): array
+    {
+        return [
+            'prev' => $entry->previous_fingerprint,
+            'type' => $entry->event_type,
+            'entity_id' => (string) $entry->entity_id,
+            'entity_type' => $entry->entity_type,
+            'payload' => $entry->payload,
+            'ts' => $entry->created_at->toDateTimeString(),
+            'source' => $entry->trigger_source,
+            'in' => $this->emptyArrayAsNull($entry->input_data),
+            'out' => $this->emptyArrayAsNull($entry->output_state),
+        ];
+    }
+
+    private function emptyArrayAsNull(mixed $value): mixed
+    {
+        return $value === [] ? null : $value;
     }
 }

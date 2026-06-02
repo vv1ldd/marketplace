@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\WalletAccount;
 use App\Models\WalletLedgerEntry;
+use App\Services\Mutation\MutationContext;
+use App\Services\Mutation\MutationIdentityResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -53,6 +55,33 @@ class BuyerWalletService
 
         if (trim($idempotencyKey) === '') {
             throw new InvalidArgumentException('Wallet credit requires an idempotency key.');
+        }
+
+        if (! MutationContext::isActive()) {
+            $identity = app(MutationIdentityResolver::class)->resolve(
+                actor: 'service:wallet',
+                action: 'wallet.credit',
+                entityType: 'wallet',
+                entityId: $user->id,
+                idempotencyKey: $idempotencyKey,
+                context: [
+                    'asset' => $asset,
+                    'amount_minor' => $amountMinor,
+                    'entry_type' => $entryType,
+                ],
+                mutationPath: $entryType === 'MINT' ? 'wallet.mint.cli' : 'wallet.credit',
+            );
+
+            return MutationContext::bind($identity, fn (): WalletLedgerEntry => $this->credit(
+                user: $user,
+                asset: $asset,
+                amountMinor: $amountMinor,
+                entryType: $entryType,
+                idempotencyKey: $idempotencyKey,
+                payload: $payload,
+                txHash: $txHash,
+                nonce: $nonce,
+            ));
         }
 
         $existing = WalletLedgerEntry::query()
@@ -222,6 +251,33 @@ class BuyerWalletService
             throw new InvalidArgumentException('Wallet debit requires an idempotency key.');
         }
 
+        if (! MutationContext::isActive()) {
+            $identity = app(MutationIdentityResolver::class)->resolve(
+                actor: 'service:wallet',
+                action: 'wallet.debit',
+                entityType: 'wallet',
+                entityId: $user->id,
+                idempotencyKey: $idempotencyKey,
+                context: [
+                    'asset' => $asset,
+                    'amount_minor' => $amountMinor,
+                    'entry_type' => $entryType,
+                ],
+                mutationPath: 'wallet.debit',
+            );
+
+            return MutationContext::bind($identity, fn (): WalletLedgerEntry => $this->debit(
+                user: $user,
+                asset: $asset,
+                amountMinor: $amountMinor,
+                entryType: $entryType,
+                idempotencyKey: $idempotencyKey,
+                payload: $payload,
+                txHash: $txHash,
+                nonce: $nonce,
+            ));
+        }
+
         $existing = WalletLedgerEntry::query()
             ->where('idempotency_key', $idempotencyKey)
             ->first();
@@ -327,6 +383,31 @@ class BuyerWalletService
 
         if (trim($idempotencyKey) === '') {
             throw new InvalidArgumentException('Wallet reserve requires an idempotency key.');
+        }
+
+        if (! MutationContext::isActive()) {
+            $identity = app(MutationIdentityResolver::class)->resolve(
+                actor: 'service:wallet',
+                action: 'wallet.reserve',
+                entityType: 'wallet',
+                entityId: $user->id,
+                idempotencyKey: $idempotencyKey,
+                context: [
+                    'asset' => $asset,
+                    'amount_minor' => $amountMinor,
+                    'entry_type' => $entryType,
+                ],
+                mutationPath: 'wallet.debit',
+            );
+
+            return MutationContext::bind($identity, fn (): WalletLedgerEntry => $this->reserve(
+                user: $user,
+                asset: $asset,
+                amountMinor: $amountMinor,
+                entryType: $entryType,
+                idempotencyKey: $idempotencyKey,
+                payload: $payload,
+            ));
         }
 
         $existing = WalletLedgerEntry::query()

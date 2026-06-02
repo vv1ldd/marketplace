@@ -6,6 +6,9 @@ use App\Mail\SendActivationCode;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\WildflowCatalog;
+use App\Services\Mutation\MutationContext;
+use App\Services\Mutation\MutationDedupGuard;
+use App\Services\Mutation\MutationIdentityResolver;
 use App\Services\Provider\ProviderHub;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -18,6 +21,34 @@ class OrderService
      */
     public function retryAutozakup(OrderItems $item): array
     {
+        if (! MutationContext::isActive()) {
+            $identity = app(MutationIdentityResolver::class)->resolve(
+                actor: 'service:order',
+                action: 'payment.retry',
+                entityType: 'order_item',
+                entityId: $item->id,
+                idempotencyKey: 'retry:order_item:'.$item->id,
+                context: [
+                    'order_id' => $item->order_id,
+                    'sku' => (string) $item->sku,
+                ],
+                mutationPath: 'payment.retry_job',
+            );
+
+            $decision = app(MutationDedupGuard::class)->check(
+                identity: $identity,
+                mutationPath: 'payment.retry_job',
+                mode: (string) config('mutation.retry_guard_mode', 'shadow'),
+                guardKey: 'retry:order_item:'.$item->id,
+                metadata: ['source' => 'OrderService::retryAutozakup'],
+            );
+
+            $result = MutationContext::bind($identity, fn (): array => $this->retryAutozakup($item));
+            app(MutationDedupGuard::class)->complete($decision['guard_key']);
+
+            return $result;
+        }
+
         if ($item->is_activated !== true) {
             return [
                 'success' => false,
@@ -106,6 +137,7 @@ class OrderService
             'seller_id' => $shop ? (string)$shop->id : null,
             'seller_name' => $shop?->name,
             'terminal_id' => $shop ? (string)$shop->legal_entity_id : null,
+            'mutation_id' => MutationContext::mutationId(),
         ];
 
         // If the item has a specific 'amount' or 'denomination' in its info, we use it

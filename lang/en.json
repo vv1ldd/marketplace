@@ -411,7 +411,7 @@
     "product.public.checkout_email_safe": "The code will arrive by email and appear in your personal safe after payment.",
     "product.public.wallet_connected": "Wallet connected",
     "product.public.connect_wallet": "Connect SL1 passkey wallet",
-    "product.public.wallet_help": "Confirm passkey on api.wildflow.test and return to Meanly with a portable sl1 address.",
+    "product.public.wallet_help": "Confirm passkey in Simple L1 and return to Meanly with a portable sl1 address.",
     "product.public.reconnect_wallet": "Reconnect SL1 wallet",
     "product.public.in_stock": "Product in stock",
     "product.public.seller_code_ready": "Seller prepared a code for fulfillment after payment.",

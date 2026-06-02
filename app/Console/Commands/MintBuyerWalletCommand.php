@@ -2,9 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Exceptions\DuplicateMutationException;
 use App\Models\User;
 use App\Models\WalletLedgerEntry;
 use App\Services\BuyerWalletService;
+use App\Services\Mutation\MutationContext;
+use App\Services\Mutation\MutationDedupGuard;
+use App\Services\Mutation\MutationIdentityResolver;
 use App\Services\VaultTransitService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -17,7 +21,10 @@ class MintBuyerWalletCommand extends Command
                             {amount : RUBT amount in RUB units, e.g. 10000}
                             {--asset=RUBT : Wallet asset to mint}
                             {--reason=Dev buyer wallet mint : Audit reason}
-                            {--idempotency-key= : Unique key that prevents duplicate minting}';
+                            {--idempotency-key= : Unique key that prevents duplicate minting}
+                            {--operator= : Operator identity for audited wallet mutation}
+                            {--mutation-id= : Precomputed mutation id for replay-safe execution}
+                            {--confirm-production : Explicitly allow production wallet mint}';
 
     protected $description = 'Mint test funds into a buyer wallet with an audited idempotent ledger entry.';
 
@@ -58,12 +65,57 @@ class MintBuyerWalletCommand extends Command
             ->where('idempotency_key', $idempotencyKey)
             ->exists();
 
-        $entry = $wallets->mintRUBT(
-            user: $user,
-            amountMinor: $amountMinor,
-            reason: $reason,
+        $mode = (string) config('mutation.cli_guard_mode', 'shadow');
+        if (app()->environment('production') && config('mutation.production_cli_requires_confirmation', true) && ! $this->option('confirm-production')) {
+            $this->error('Production wallet mint requires --confirm-production.');
+
+            return self::FAILURE;
+        }
+
+        if (in_array(strtolower($mode), ['enforce', 'hard', 'hard_enforce'], true) && blank($this->option('operator'))) {
+            $this->error('Wallet mint requires --operator when mutation CLI guard is enforced.');
+
+            return self::FAILURE;
+        }
+
+        $identity = app(MutationIdentityResolver::class)->fromCli(
+            command: $this,
+            action: 'wallet.mint',
+            entityType: 'wallet',
+            entityId: $user->id,
             idempotencyKey: $idempotencyKey,
+            context: [
+                'asset' => $asset,
+                'amount_minor' => $amountMinor,
+                'reason' => $reason,
+                'environment' => app()->environment(),
+            ],
+            mutationPath: 'wallet.mint.cli',
         );
+
+        try {
+            $decision = app(MutationDedupGuard::class)->check(
+                identity: $identity,
+                mutationPath: 'wallet.mint.cli',
+                mode: $mode,
+                guardKey: 'cli:wallet.mint:'.$identity['mutation_id'],
+                metadata: ['command' => $this->getName()],
+            );
+
+            $entry = MutationContext::bind($identity, fn () => $wallets->mintRUBT(
+                user: $user,
+                amountMinor: $amountMinor,
+                reason: $reason,
+                idempotencyKey: $idempotencyKey,
+            ));
+
+            app(MutationDedupGuard::class)->complete($decision['guard_key']);
+        } catch (DuplicateMutationException $e) {
+            $this->error('Duplicate wallet mint rejected: '.$e->mutationId);
+
+            return self::FAILURE;
+        }
+
         $balance = $wallets->balance($user, $asset);
 
         if ($alreadyExisted) {
@@ -110,7 +162,7 @@ class MintBuyerWalletCommand extends Command
         $direct = User::query()
             ->where(function ($query) use ($identifier, $columns, $needles, $bidxValues) {
                 if (ctype_digit($identifier)) {
-                    $query->orWhereKey((int) $identifier);
+                    $query->orWhere('id', (int) $identifier);
                 }
 
                 foreach (['first_name', 'last_name', 'middle_name', 'phone', 'entity_l1_address'] as $column) {

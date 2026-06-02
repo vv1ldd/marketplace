@@ -24,7 +24,7 @@ class WalletLedgerEntry extends Model
         'amount_minor' => 'integer',
         'balance_after_minor' => 'integer',
         'nonce' => 'integer',
-        'payload' => 'array',
+        'payload' => \App\Casts\VaultEncryptedJson::class,
     ];
 
     public function user(): BelongsTo

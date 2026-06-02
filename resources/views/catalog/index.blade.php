@@ -293,6 +293,7 @@
             $selectedSort = (string) ($selectedFacets['sort'] ?? 'relevance');
             $hasActiveFilters = (bool) ($selectedFacets['has_filters'] ?? false);
             $clearQuery = request()->except(['q', 'category', 'brand', 'region', 'nominal', 'face_value', 'currency', 'page']);
+            $categoryLabelKey = app()->getLocale() === 'ru' ? 'label_ru' : 'label_en';
 
             if (($clearQuery['sort'] ?? null) === 'relevance') {
                 unset($clearQuery['sort']);
@@ -355,7 +356,7 @@
                         <option value="">{{ __('catalog.index.all_categories') }}</option>
                         @foreach($categoryFacets as $categoryFacet)
                             <option value="{{ $categoryFacet['slug'] }}" @selected($selectedCategory === $categoryFacet['slug'])>
-                                {{ $categoryFacet['label_ru'] ?? $categoryFacet['name'] ?? $categoryFacet['slug'] }} ({{ $categoryFacet['product_count'] ?? $categoryFacet['count'] ?? 0 }})
+                                {{ $categoryFacet[$categoryLabelKey] ?? $categoryFacet['name'] ?? $categoryFacet['slug'] }} ({{ $categoryFacet['product_count'] ?? $categoryFacet['count'] ?? 0 }})
                             </option>
                         @endforeach
                     </select>

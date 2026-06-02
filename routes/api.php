@@ -60,6 +60,31 @@ Route::prefix('catalog')->group(function () {
     Route::get('summary',         [\App\Http\Controllers\Api\CatalogApiController::class, 'summary']);
 });
 
+Route::prefix('v1')
+    ->middleware(['meanly.api.auth', 'meanly.financial.signature'])
+    ->group(function () {
+        Route::post('check-availability', [\App\Http\Controllers\Api\MeanlyApiController::class, 'checkAvailabilityFromPayload']);
+        Route::post('order', [\App\Http\Controllers\Api\MeanlyApiController::class, 'topLevelOrder']);
+
+        Route::prefix('providers/{provider}')->group(function () {
+            Route::get('unified-catalog', [\App\Http\Controllers\Api\MeanlyApiController::class, 'unifiedCatalog']);
+            Route::get('exchange-rates', [\App\Http\Controllers\Api\MeanlyApiController::class, 'exchangeRates']);
+            Route::get('check-availability/{sku}', [\App\Http\Controllers\Api\MeanlyApiController::class, 'checkAvailability']);
+            Route::post('check-availability', [\App\Http\Controllers\Api\MeanlyApiController::class, 'checkAvailabilityFromPayload']);
+            Route::post('order', [\App\Http\Controllers\Api\MeanlyApiController::class, 'placeOrder']);
+            Route::get('orders/{reference}/normalized-cards', [\App\Http\Controllers\Api\MeanlyApiController::class, 'normalizedCards']);
+        });
+
+        Route::prefix('partners')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\MeanlyApiController::class, 'listPartners']);
+            Route::post('sync', [\App\Http\Controllers\Api\MeanlyApiController::class, 'syncPartner']);
+            Route::post('grant-credit', [\App\Http\Controllers\Api\MeanlyApiController::class, 'grantCredit']);
+            Route::post('top-up', [\App\Http\Controllers\Api\MeanlyApiController::class, 'topUp']);
+            Route::get('{externalId}', [\App\Http\Controllers\Api\MeanlyApiController::class, 'showPartner']);
+            Route::delete('{externalId}', [\App\Http\Controllers\Api\MeanlyApiController::class, 'destroyPartner']);
+        });
+});
+
 // delivery type = 3 - whatsapp, 0 - ничего, 2- sms, 1 - email
 // 1. create-order -> приходит referenceCode
 // 2. запускаем orders/{referenceCode} -> отправляем оригинал клиенту при активации

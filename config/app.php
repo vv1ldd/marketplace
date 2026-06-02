@@ -82,7 +82,7 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
-    'supported_locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('APP_SUPPORTED_LOCALES', 'en,ru'))))),
+    'supported_locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('APP_SUPPORTED_LOCALES', 'en,ru,es,ka'))))),
 
     'locale_labels' => [
         'ru' => 'Русский',
@@ -157,6 +157,7 @@ return [
             [
                 env('APP_DOMAIN', 'meanly.test'),
                 env('APP_PRODUCTION_DOMAIN', 'meanly.one'),
+                'api.wildflow.dev',
                 parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST),
             ],
         ),

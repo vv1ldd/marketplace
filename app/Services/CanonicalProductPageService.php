@@ -29,6 +29,7 @@ class CanonicalProductPageService
         private readonly MeanlyFirstPartyStorefrontService $storefront,
         private readonly ProductIndexingPolicyService $indexingPolicy,
         private readonly CanonicalProductIdentityCurationService $curation,
+        private readonly CanonicalProductMarketUrlService $marketUrls,
     ) {}
 
     /**
@@ -129,8 +130,11 @@ class CanonicalProductPageService
                     ->filter()
                     ->max();
 
+                $urlMatrix = $this->marketUrls->productUrlMatrix((string) $group['identity_slug']);
+
                 return [
-                    'loc' => route('meanly.canonical-products.show', $group['identity_slug']),
+                    'loc' => data_get($urlMatrix, 'current.url', route('meanly.canonical-products.show', $group['identity_slug'])),
+                    'alternates' => data_get($urlMatrix, 'primary_by_market', []),
                     'lastmod' => optional($lastModified)->toAtomString(),
                     'changefreq' => 'weekly',
                     'priority' => $group['confidence'] === 'high' ? '0.58' : '0.5',
@@ -155,8 +159,9 @@ class CanonicalProductPageService
             ->values();
         $canonicalIdentity = $this->canonicalIdentityForFacts($products, $persistedIdentity);
         $identitySlug = (string) $canonicalIdentity['identity_slug'];
-        $url = route('meanly.canonical-products.show', $identitySlug);
-        $machineReadableAt = route('llms.catalog.canonical-products.show', $identitySlug);
+        $urlMatrix = $this->marketUrls->productUrlMatrix($identitySlug);
+        $url = (string) data_get($urlMatrix, 'current.url', route('meanly.canonical-products.show', $identitySlug));
+        $machineReadableAt = (string) data_get($urlMatrix, 'current.machine_readable_url', route('llms.catalog.canonical-products.show', $identitySlug));
         $sellerOffers = $this->canonicalSellerOfferUrls(
             $this->aggregatedSellerOffers($products, $persistedIdentity),
             $identitySlug,
@@ -186,10 +191,7 @@ class CanonicalProductPageService
         );
 
         $intentResolution['url'] = $this->intentUrl($identitySlug, (string) $intentResolution['intent']);
-        $intentResolution['machine_readable_at'] = route('llms.catalog.canonical-products.intents.show', [
-            'identitySlug' => $identitySlug,
-            'intent' => $intentResolution['intent'],
-        ]);
+        $intentResolution['machine_readable_at'] = $this->marketUrls->intentJsonUrl($identitySlug, (string) $intentResolution['intent']);
         $intentResolution['candidate']['url'] = $intentResolution['url'];
         $intentResolution['candidate']['machine_readable_at'] = $intentResolution['machine_readable_at'];
         $intentResolution['indexing_policy'] = $indexing;
@@ -198,7 +200,12 @@ class CanonicalProductPageService
         return [
             'type' => 'CanonicalProductPage',
             'canonical_identity' => $canonicalIdentity,
+            'market_context' => data_get($urlMatrix, 'current'),
+            'locale' => app()->getLocale(),
             'url' => $url,
+            'canonical_url' => $url,
+            'alternate_urls' => data_get($urlMatrix, 'variants', []),
+            'alternate_market_urls' => data_get($urlMatrix, 'primary_by_market', []),
             'machine_readable_at' => $machineReadableAt,
             'intent_url' => $intentResolution['url'],
             'name' => $pageCandidate['name'],
@@ -376,12 +383,17 @@ class CanonicalProductPageService
                 return [$identity, $canonicalIdentity, $policy];
             })
             ->filter(fn (array $row) => $this->includePolicyInSitemap($row[2], $includeLlmOnly))
-            ->map(fn (array $row) => [
-                'loc' => route('meanly.canonical-products.show', $row[0]->identity_slug),
-                'lastmod' => optional($row[0]->last_seen_at ?: $row[0]->updated_at)->toAtomString(),
-                'changefreq' => 'weekly',
-                'priority' => ($row[1]['confidence'] ?? null) === 'high' ? '0.58' : '0.5',
-            ])
+            ->map(function (array $row) {
+                $urlMatrix = $this->marketUrls->productUrlMatrix((string) $row[0]->identity_slug);
+
+                return [
+                    'loc' => data_get($urlMatrix, 'current.url', route('meanly.canonical-products.show', $row[0]->identity_slug)),
+                    'alternates' => data_get($urlMatrix, 'primary_by_market', []),
+                    'lastmod' => optional($row[0]->last_seen_at ?: $row[0]->updated_at)->toAtomString(),
+                    'changefreq' => 'weekly',
+                    'priority' => ($row[1]['confidence'] ?? null) === 'high' ? '0.58' : '0.5',
+                ];
+            })
             ->values();
     }
 
@@ -497,9 +509,7 @@ class CanonicalProductPageService
                     $query['intent'] = trim($intent);
                 }
 
-                $offer['url'] = route('meanly.canonical-products.show', [
-                    'identitySlug' => $identitySlug,
-                ] + array_filter($query));
+                $offer['url'] = $this->marketUrls->productPageUrl($identitySlug, $query);
 
                 return $offer;
             })
@@ -605,7 +615,7 @@ class CanonicalProductPageService
             'url' => route('meanly.network.products.show', $slug),
             'machine_readable_at' => route('llms.network.products.show', $slug),
             'canonical_category' => $canonicalCategory,
-            'canonical_product_url' => $canonicalIdentity !== null ? route('meanly.canonical-products.show', $canonicalIdentity['identity_slug']) : null,
+            'canonical_product_url' => $canonicalIdentity !== null ? $this->marketUrls->productUrl((string) $canonicalIdentity['identity_slug']) : null,
             'estimated_provider_price' => [
                 'amount' => (float) ($product->retail_price ?: $product->purchase_price ?: $product->min_price ?: 0),
                 'currency' => strtoupper((string) ($product->currency ?: 'USD')),
@@ -682,10 +692,7 @@ class CanonicalProductPageService
 
     private function intentUrl(string $identitySlug, string $intent): string
     {
-        return route('meanly.canonical-products.show', [
-            'identitySlug' => $identitySlug,
-            'intent' => $intent,
-        ]);
+        return $this->marketUrls->productPageUrl($identitySlug, ['intent' => $intent]);
     }
 
     private function categoryFromIdentitySlug(string $identitySlug): ?string

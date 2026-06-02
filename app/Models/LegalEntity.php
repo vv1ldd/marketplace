@@ -37,7 +37,12 @@ class LegalEntity extends Model
         'allowed_brands',
         'allow_all_brands',
         'is_active',
+        'meanly_api_token',
+        'meanly_financial_secret',
+        'meanly_ip_whitelist',
         'wildflow_api_token',
+        'wildflow_financial_secret',
+        'wildflow_ip_whitelist',
         'country_code',
         'tax_system',
         'tax_rate',
@@ -63,8 +68,14 @@ class LegalEntity extends Model
         'allowed_brands' => 'array',
         'allow_all_brands' => 'boolean',
         'is_active' => 'boolean',
-        'agreement_metadata' => 'array',
-        'vendor_credentials' => 'array',
+        'agreement_metadata' => \App\Casts\VaultEncryptedJson::class,
+        'vendor_credentials' => \App\Casts\VaultEncryptedJson::class,
+        'meanly_api_token' => \App\Casts\VaultEncrypted::class,
+        'meanly_ip_whitelist' => \App\Casts\VaultEncryptedJson::class,
+        'meanly_financial_secret' => \App\Casts\VaultEncrypted::class,
+        'wildflow_api_token' => \App\Casts\VaultEncrypted::class,
+        'wildflow_ip_whitelist' => \App\Casts\VaultEncryptedJson::class,
+        'wildflow_financial_secret' => \App\Casts\VaultEncrypted::class,
         
         // 💰 Finance & Tax Casting
         'tax_system' => \App\Enums\TaxSystemEnum::class,
@@ -95,14 +106,14 @@ class LegalEntity extends Model
         static::created(function ($entity) {
             app(\App\Services\LedgerService::class)->recordGlobal('LEGAL_ENTITY_CREATED', $entity, $entity->toArray());
             
-            // 📡 AUTO-SYNC to Wildflow Kernel
+            // Sync partner state to the Meanly API plane when enabled.
             try {
-                (new \App\Services\WildflowService())->syncPartner(
+                (new \App\Services\MeanlyApiService())->syncPartner(
                     $entity, 
                     $entity->vendor_credentials ?? []
                 );
             } catch (\Exception $e) {
-                \Log::warning("Wildflow Partner Sync failed during registration: " . $e->getMessage());
+                \Log::warning("Meanly API partner sync failed during registration: " . $e->getMessage());
             }
         });
 
@@ -116,15 +127,15 @@ class LegalEntity extends Model
                 'original' => array_intersect_key($entity->getOriginal(), $changes)
             ]);
 
-            // 📡 BALANCE & STATUS SYNC: If critical state changed, push to Kernel
+            // Balance and status updates are mirrored to the Meanly API plane.
             if (isset($changes['balance']) || isset($changes['available_balance']) || isset($changes['status']) || isset($changes['vendor_credentials']) || isset($changes['agreement_metadata'])) {
                 try {
-                    (new \App\Services\WildflowService())->syncPartner(
+                    (new \App\Services\MeanlyApiService())->syncPartner(
                         $entity, 
                         $entity->vendor_credentials ?? []
                     );
                 } catch (\Exception $e) {
-                    \Log::warning("Wildflow State Sync failed: " . $e->getMessage());
+                    \Log::warning("Meanly API state sync failed: " . $e->getMessage());
                 }
             }
         });
@@ -143,6 +154,33 @@ class LegalEntity extends Model
                 'inn' => $entity->inn
             ]);
         });
+    }
+
+    public function meanlyApiToken(): string
+    {
+        return (string) (
+            $this->getAttribute('meanly_api_token')
+            ?: $this->getAttribute('wildflow_api_token')
+            ?: ''
+        );
+    }
+
+    public function meanlyFinancialSecret(): string
+    {
+        return (string) (
+            $this->getAttribute('meanly_financial_secret')
+            ?: $this->getAttribute('wildflow_financial_secret')
+            ?: ''
+        );
+    }
+
+    public function meanlyIpWhitelist(): array
+    {
+        $whitelist = $this->getAttribute('meanly_ip_whitelist')
+            ?: $this->getAttribute('wildflow_ip_whitelist')
+            ?: [];
+
+        return is_array($whitelist) ? $whitelist : [];
     }
 
     public static function findByInn(string $inn): ?self

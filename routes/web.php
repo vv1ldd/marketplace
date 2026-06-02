@@ -162,7 +162,7 @@ $meanlyPublicRoutes = function () {
     Route::get('/cabinet/vault/passkey-options', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyOptions'])->middleware(['auth']);
     Route::post('/cabinet/vault/passkey-confirm', [\App\Http\Controllers\CabinetController::class, 'vaultPasskeyConfirm'])->middleware(['auth']);
     Route::post('/cabinet/vault/lock', [\App\Http\Controllers\CabinetController::class, 'vaultLock'])->middleware(['auth']);
-    Route::get('/operator', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.operator')->middleware(['auth', 'plane.guard']);
+    Route::redirect('/operator', '/ops')->name('partner.operator');
     Route::get('/reader', fn () => view('reader'))->name('reader');
     Route::get('/terminal', fn () => view('terminal'))->name('terminal');
     Route::redirect('/partner-old', '/partner')->name('partner.legacy');
@@ -261,10 +261,10 @@ $meanlyPublicRoutes = function () {
             Route::get('/dashboard/tickets/{id}/details', [\App\Http\Controllers\PartnerDashboardController::class, 'getTicketDetails'])->name('partner.dashboard.tickets.details');
             Route::post('/dashboard/tickets/{id}/reply', [\App\Http\Controllers\PartnerDashboardController::class, 'replyToTicket'])->name('partner.dashboard.tickets.reply');
 
-            // 🧠 B2B AI Sovereign Ledger Analyst & Cyber Chat SPA Management
-            Route::get('/dashboard/operator/data', [\App\Http\Controllers\PartnerDashboardController::class, 'getOperatorWorkspaceData'])->name('partner.dashboard.operator.data');
-            Route::post('/dashboard/ai/audit', [\App\Http\Controllers\PartnerDashboardController::class, 'runAiAudit'])->name('partner.dashboard.ai.audit');
-            Route::post('/dashboard/ai/chat', [\App\Http\Controllers\PartnerDashboardController::class, 'sendAiChatMessage'])->name('partner.dashboard.ai.chat');
+            // Operator and AI audit workflows moved to /ops.
+            Route::get('/dashboard/operator/data', fn () => response()->json(['error' => 'Operator workspace moved to /ops.'], 410))->name('partner.dashboard.operator.data');
+            Route::post('/dashboard/ai/audit', fn () => response()->json(['error' => 'AI audit moved to /ops.'], 410))->name('partner.dashboard.ai.audit');
+            Route::post('/dashboard/ai/chat', fn () => response()->json(['error' => 'AI chat moved to /ops.'], 410))->name('partner.dashboard.ai.chat');
 
             // 📦 B2B Warehouses SPA Management
             Route::get('/dashboard/warehouses/data', [\App\Http\Controllers\PartnerDashboardController::class, 'getWarehousesData'])->name('partner.dashboard.warehouses.data');
@@ -316,10 +316,28 @@ $meanlyPublicRoutes = function () {
             
             // 📋 Global Ops AJAX endpoints for SPA tabs
             Route::get('/dashboard/partners/data', [\App\Http\Controllers\OpsDashboardController::class, 'getPartnersData'])->name('ops.dashboard.partners.data');
+            Route::get('/dashboard/treasury/data', [\App\Http\Controllers\OpsDashboardController::class, 'getTreasuryData'])->name('ops.dashboard.treasury.data');
+            Route::get('/dashboard/liquidity/data', [\App\Http\Controllers\OpsDashboardController::class, 'getLiquidityData'])->name('ops.dashboard.liquidity.data');
+            Route::get('/dashboard/channels/data', [\App\Http\Controllers\OpsDashboardController::class, 'getChannelsData'])->name('ops.dashboard.channels.data');
+            Route::get('/dashboard/growth/data', [\App\Http\Controllers\OpsDashboardController::class, 'getGrowthData'])->name('ops.dashboard.growth.data');
+            Route::get('/dashboard/search-integrations/data', [\App\Http\Controllers\OpsDashboardController::class, 'getSearchIntegrationsData'])->name('ops.dashboard.search-integrations.data');
+            Route::post('/dashboard/zero-layer/connect', [\App\Http\Controllers\OpsDashboardController::class, 'saveZeroLayerIntegration'])->name('ops.dashboard.zero-layer.connect');
+            Route::post('/dashboard/zero-layer/{integration}/sync', [\App\Http\Controllers\OpsDashboardController::class, 'syncZeroLayerIntegration'])->name('ops.dashboard.zero-layer.sync');
+            Route::post('/dashboard/search-signals/pull', [\App\Http\Controllers\OpsDashboardController::class, 'pullSearchSignals'])->name('ops.dashboard.search-signals.pull');
+            Route::post('/dashboard/search-signals/analyze', [\App\Http\Controllers\OpsDashboardController::class, 'analyzeSearchSignals'])->name('ops.dashboard.search-signals.analyze');
+            Route::post('/dashboard/search-signals/recommend', [\App\Http\Controllers\OpsDashboardController::class, 'recommendSearchSignals'])->name('ops.dashboard.search-signals.recommend');
+            Route::post('/dashboard/search-signals/promote-zero-layer', [\App\Http\Controllers\OpsDashboardController::class, 'promoteZeroLayerSignals'])->name('ops.dashboard.search-signals.promote-zero-layer');
             Route::post('/dashboard/partners/{legalEntity}/approve', [\App\Http\Controllers\OpsDashboardController::class, 'approvePartner'])->name('ops.dashboard.partners.approve');
             Route::get('/dashboard/shops/data', [\App\Http\Controllers\OpsDashboardController::class, 'getShopsData'])->name('ops.dashboard.shops.data');
             Route::get('/dashboard/orders/data', [\App\Http\Controllers\OpsDashboardController::class, 'getOrdersData'])->name('ops.dashboard.orders.data');
+            Route::get('/dashboard/operations/data', [\App\Http\Controllers\OpsDashboardController::class, 'getOperationsData'])->name('ops.dashboard.operations.data');
             Route::get('/dashboard/catalog/data', [\App\Http\Controllers\OpsDashboardController::class, 'getCatalogData'])->name('ops.dashboard.catalog.data');
+            Route::get('/dashboard/inventory/data', [\App\Http\Controllers\OpsDashboardController::class, 'getInventoryData'])->name('ops.dashboard.inventory.data');
+            Route::get('/dashboard/providers/data', [\App\Http\Controllers\OpsDashboardController::class, 'getProvidersData'])->name('ops.dashboard.providers.data');
+            Route::post('/dashboard/providers/{provider}/sync', [\App\Http\Controllers\OpsDashboardController::class, 'syncProvider'])->name('ops.dashboard.providers.sync');
+            Route::post('/dashboard/partners/{legalEntity}/top-up', [\App\Http\Controllers\OpsDashboardController::class, 'topUpPartnerBalance'])->name('ops.dashboard.partners.top-up');
+            Route::post('/dashboard/providers/partners/{legalEntity}/grant-credit', [\App\Http\Controllers\OpsDashboardController::class, 'grantPartnerCredit'])->name('ops.dashboard.providers.partners.grant-credit');
+            Route::post('/dashboard/providers/partners/{legalEntity}/top-up', [\App\Http\Controllers\OpsDashboardController::class, 'topUpPartnerBalance'])->name('ops.dashboard.providers.partners.top-up');
             Route::get('/dashboard/tickets/data', [\App\Http\Controllers\OpsDashboardController::class, 'getTicketsData'])->name('ops.dashboard.tickets.data');
             Route::get('/dashboard/tickets/{id}/details', [\App\Http\Controllers\OpsDashboardController::class, 'getTicketDetails'])->name('ops.dashboard.tickets.details');
             Route::post('/dashboard/tickets/{id}/reply', [\App\Http\Controllers\OpsDashboardController::class, 'replyToTicket'])->name('ops.dashboard.tickets.reply');

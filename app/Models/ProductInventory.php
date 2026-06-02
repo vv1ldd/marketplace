@@ -5,6 +5,10 @@ namespace App\Models;
 use App\Models\Order\OrderItems;
 use App\Models\Product;
 use App\Models\WarehouseStock;
+use App\Services\Mutation\ModelMutationGuard;
+use App\Services\Mutation\MutationContext;
+use App\Services\Mutation\MutationDedupGuard;
+use App\Services\Mutation\MutationIdentityResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -89,6 +93,12 @@ class ProductInventory extends Model
         static::saved(function ($inventory) {
             // Если статус использования изменился или это новый ваучер — пересчитываем склад
             if ($inventory->isDirty('is_used') || $inventory->isDirty('status') || $inventory->wasRecentlyCreated) {
+                app(ModelMutationGuard::class)->guard('product_inventory.saved', [
+                    'inventory_id' => $inventory->id,
+                    'sku_bidx' => $inventory->sku_bidx,
+                    'status' => $inventory->status,
+                ]);
+
                 $product = Product::queryByOfferSku($inventory->sku)->first();
                 
                 if ($product && $inventory->warehouse_id) {
@@ -115,6 +125,34 @@ class ProductInventory extends Model
      */
     public function liquidate(string $reason = 'Provider Error'): void
     {
+        if (! MutationContext::isActive()) {
+            $identity = app(MutationIdentityResolver::class)->resolve(
+                actor: 'model:product_inventory',
+                action: 'inventory.liquidate',
+                entityType: 'product_inventory',
+                entityId: $this->id,
+                idempotencyKey: 'inventory:liquidate:'.$this->id.':'.sha1($reason),
+                context: [
+                    'reason' => $reason,
+                    'status' => $this->status,
+                    'order_item_id' => $this->order_item_id,
+                ],
+                mutationPath: 'inventory.reserve',
+            );
+            $decision = app(MutationDedupGuard::class)->check(
+                identity: $identity,
+                mutationPath: 'inventory.reserve',
+                mode: (string) config('mutation.default_mode', 'shadow'),
+                guardKey: 'inventory:liquidate:'.$this->id.':'.sha1($reason),
+                metadata: ['source' => 'ProductInventory::liquidate'],
+            );
+
+            MutationContext::bind($identity, fn () => $this->liquidate($reason));
+            app(MutationDedupGuard::class)->complete($decision['guard_key']);
+
+            return;
+        }
+
         if ($this->status === 'liquidated') {
             return;
         }

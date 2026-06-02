@@ -441,156 +441,37 @@ class PasskeyStorefrontCheckoutTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Meanly Vault', false)
-            ->assertSee('Operator Workspace', false)
+            ->assertDontSee('Operator Workspace', false)
             ->assertSee('Подарочные карты', false)
             ->assertSee('MS-', false)
             ->assertDontSee('Sovereign Provider')
             ->assertDontSee('SL1-SOV-PROD-01');
     }
 
-    public function test_operator_workspace_route_opens_partner_console_tab(): void
+    public function test_operator_workspace_route_hands_off_to_ops(): void
     {
         $response = $this->actingAs($this->user)
             ->get(route('partner.operator'));
 
-        $response->assertOk()
-            ->assertSee('Operator Workspace', false)
-            ->assertSee('Commerce Scorecard', false)
-            ->assertSee('System Health', false)
-            ->assertSee('Team Members', false)
-            ->assertDontSee('Sellers', false)
-            ->assertSee('Yandex Connected', false)
-            ->assertSee('API Apps', false);
+        $response->assertRedirect('/ops');
     }
 
-    public function test_operator_workspace_data_endpoint_returns_partner_intelligence(): void
+    public function test_operator_workspace_data_endpoint_is_retired_from_partner_surface(): void
     {
-        $seller = \App\Models\Seller::create([
-            'first_name' => 'Channel',
-            'last_name' => 'Manager',
-            'email' => 'channel-manager@example.test',
-            'password' => 'password',
-            'is_active' => true,
-        ]);
-        $this->legalEntity->sellers()->attach($seller->id, ['role' => 'manager']);
-
-        $this->shop->forceFill([
-            'business_id' => 'business-1',
-            'campaign_id' => 'campaign-1',
-            'api_key' => 'yandex-api-token',
-            'ym_warehouse_id' => '1001',
-            'ym_legal_verified_at' => now(),
-            'ym_legal_verification' => ['matches' => ['inn' => true]],
-        ])->save();
-
-        \App\Models\ApiApplication::create([
-            'shop_id' => $this->shop->id,
-            'type' => \App\Models\ApiApplication::TYPE_SHOP,
-            'name' => 'Seller API',
-            'domain' => 'seller.example.test',
-            'token' => \App\Models\ApiApplication::generateToken(),
-            'is_active' => true,
-        ]);
-
-        $product = \App\Models\Product::create([
-            'shop_id' => $this->shop->id,
-            'sku' => 'OPERATOR-SKU-1',
-            'name' => 'Operator Product',
-            'price_rub' => 100000,
-            'is_active' => true,
-            'ym_errors' => ['missing_picture'],
-        ]);
-
-        $warehouse = \App\Models\Warehouse::create([
-            'shop_id' => $this->shop->id,
-            'name' => 'Yandex Stock',
-            'channel' => 'yandex_market',
-            'is_active' => true,
-            'is_main' => false,
-            'ym_id' => 1001,
-        ]);
-
-        \App\Models\WarehouseStock::create([
-            'warehouse_id' => $warehouse->id,
-            'product_id' => $product->id,
-            'count' => 2,
-        ]);
-
-        \App\Models\Ticket::create([
-            'shop_id' => $this->shop->id,
-            'seller_id' => $seller->id,
-            'subject' => 'Need help with channel order',
-            'status' => 'open',
-            'priority' => 'high',
-        ]);
-
         $response = $this->actingAs($this->user)
             ->getJson(route('partner.dashboard.operator.data'));
 
-        $response->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonStructure([
-                'data' => [
-                    'summary',
-                    'critical_alerts',
-                    'trusted_recommendations',
-                    'pending_reviews',
-                    'failed_publishes',
-                    'scorecard',
-                    'health',
-                    'tokenomics',
-                ],
-            ])
-            ->assertJsonPath('data.summary.team_members', 1)
-            ->assertJsonPath('data.summary.active_team_members', 1)
-            ->assertJsonPath('data.summary.active_channels', 1)
-            ->assertJsonPath('data.summary.yandex_connected_channels', 1)
-            ->assertJsonPath('data.summary.api_applications', 1)
-            ->assertJsonMissingPath('data.summary.sellers')
-            ->assertJsonPath('data.health.team.total', 1)
-            ->assertJsonPath('data.health.team.active', 1)
-            ->assertJsonMissingPath('data.health.sellers')
-            ->assertJsonPath('data.health.integrations.active_api_applications', 1)
-            ->assertJsonPath('data.health.integrations.yandex_connected_channels', 1)
-            ->assertJsonPath('data.health.inventory.low_stock', 1)
-            ->assertJsonPath('data.tokenomics.recommendations.generated_count', 6)
-            ->assertJsonPath('data.tokenomics.recommendations.used_count', 6);
-
-        $this->assertDatabaseHas('token_metering_events', [
-            'legal_entity_id' => $this->legalEntity->id,
-            'event_type' => 'recommendation_generated',
-        ]);
-        $this->assertDatabaseHas('sovereign_ledger', [
-            'legal_entity_id' => $this->legalEntity->id,
-            'event_type' => 'TOKEN_USAGE_METERED',
-        ]);
+        $response->assertGone()
+            ->assertJsonPath('error', 'Operator workspace moved to /ops.');
     }
 
-    public function test_ai_audit_is_metered_as_sl1_usage(): void
+    public function test_ai_audit_endpoint_is_retired_from_partner_surface(): void
     {
-        $this->mock(\App\Services\Ai\PartnerAnalystService::class, function ($mock) {
-            $mock->shouldReceive('analyze')
-                ->once()
-                ->andReturn('AI audit completed');
-        });
-
         $response = $this->actingAs($this->user)
             ->postJson(route('partner.dashboard.ai.audit'));
 
-        $response->assertOk()
-            ->assertJsonPath('success', true);
-
-        $this->assertDatabaseHas('token_metering_events', [
-            'legal_entity_id' => $this->legalEntity->id,
-            'shop_id' => $this->shop->id,
-            'event_type' => 'ai_audit_run',
-            'sl1_amount' => 2.0000,
-        ]);
-        $this->assertDatabaseHas('token_metering_events', [
-            'legal_entity_id' => $this->legalEntity->id,
-            'shop_id' => $this->shop->id,
-            'event_type' => 'ai_audit_object',
-        ]);
+        $response->assertGone()
+            ->assertJsonPath('error', 'AI audit moved to /ops.');
     }
 
     /**

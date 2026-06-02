@@ -136,15 +136,17 @@ return [
         'key' => env('IMGBB_API_KEY'),
     ],
 
-    'trusted_hosts' => env('TRUSTED_HOSTS', 'meanly.test,meanly.one,www.meanly.one,meanly.ru,www.meanly.ru,meanly.ar,digitienda.ar,www.digitienda.ar,tsipruli.ge,www.tsipruli.ge'),
+    'trusted_hosts' => env('TRUSTED_HOSTS', 'meanly.test,meanly.one,www.meanly.one,api.wildflow.dev,meanly.ru,www.meanly.ru,meanly.ar,digitienda.ar,www.digitienda.ar,tsipruli.ge,www.tsipruli.ge'),
 
     /*
     | При смене SKU в wildflow_catalogs парсером: алиасы + обновление products у этих магазинов (id через запятую).
     | По умолчанию 1 — MEANLY.
     */
     'wildflow' => [
-        'base_url' => env('APP_WILDFLOW_URL', 'https://api.wildflow.dev/api/v1/'),
+        'base_url' => env('APP_WILDFLOW_URL') ?: rtrim((string) env('APP_URL', 'https://meanly.one'), '/').'/api/v1/',
         'verify_tls' => env('WILDFLOW_VERIFY_TLS', true),
+        'kernel_mode' => env('WILDFLOW_KERNEL_MODE', 'local'),
+        'financial_secret' => env('WILDFLOW_FINANCIAL_SECRET'),
         'sku_map_shop_ids' => (function (): array {
             $raw = trim((string) env('WILDFLOW_SKU_MAP_SHOP_IDS', '1'));
 
@@ -153,6 +155,13 @@ return [
                 explode(',', $raw === '' ? '1' : $raw)
             )));
         })(),
+    ],
+
+    'ezpin' => [
+        'client_id' => env('EZPIN_CLIENT_ID'),
+        'secret_key' => env('EZPIN_SECRET_KEY', env('EZPIN_CLIENT_SECRET')),
+        'terminal_id' => env('EZPIN_TERMINAL_ID'),
+        'terminal_pin' => env('EZPIN_TERMINAL_PIN'),
     ],
 
     'dadata' => [

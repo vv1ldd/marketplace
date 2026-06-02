@@ -2,7 +2,7 @@
 
 return [
     'identity_provider_url' => rtrim((string) env('SIMPLE_L1_IDENTITY_PROVIDER_URL', 'https://simplel1.online'), '/'),
-    'protocol_gateway_url' => rtrim((string) env('SIMPLE_L1_PROTOCOL_GATEWAY_URL', 'https://api.wildflow.test'), '/'),
+    'protocol_gateway_url' => rtrim((string) (env('SIMPLE_L1_PROTOCOL_GATEWAY_URL') ?: env('APP_URL', 'https://meanly.one')), '/'),
     'proof_introspection_path' => env('SIMPLE_L1_PROOF_INTROSPECTION_PATH', '/api/sl1e/proofs/introspect'),
     'client_id' => env('SIMPLE_L1_CLIENT_ID', 'meanly.one'),
     'client_name' => env('SIMPLE_L1_CLIENT_NAME', 'Meanly'),

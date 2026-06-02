@@ -24,6 +24,14 @@ class LocaleResolver
 
     public function resolve(Request $request): array
     {
+        $marketContext = $request->attributes->get('market_context');
+        if ($marketContext?->matchedDomain && $marketContext->market === 'global') {
+            return [
+                'locale' => $this->normalize($marketContext->locale) ?? 'en',
+                'source' => 'market',
+            ];
+        }
+
         foreach ($this->candidates($request) as $source => $candidate) {
             $locale = $this->normalize($candidate);
 

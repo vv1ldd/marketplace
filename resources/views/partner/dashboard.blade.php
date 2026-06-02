@@ -1534,16 +1534,6 @@
                         Команда
                     </a>
 
-                    <div class="sidebar-section-title">интеллект</div>
-                    <a href="javascript:void(0)" onclick="switchTab('operator')" class="menu-item" id="menu-operator">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"></path></svg>
-                        Operator Workspace
-                    </a>
-                    <a href="javascript:void(0)" onclick="switchTab('ai-audit')" class="menu-item" id="menu-ai-audit">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-cpu"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
-                        AI Аудит
-                    </a>
-
                     <div class="sidebar-section-title">витрина</div>
                     <a href="/" class="menu-item" id="menu-exit-b2b" style="color: var(--primary) !important;">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--primary) !important;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -2645,6 +2635,8 @@
                     </div>
                 </div>
 
+                @if(false)
+                {{-- Moved to /ops as part of the production ownership transition. --}}
                 <!-- Operator Workspace tab pane -->
                 <div class="tab-pane" id="tab-operator">
                     <div class="grid-12" style="margin-bottom: 1.5rem;">
@@ -2898,6 +2890,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
         </div>
 
@@ -4047,6 +4040,14 @@
 
             // 🌐 SPA Tab Router Setup
             function switchTab(tabId) {
+                const partnerTabs = new Set([
+                    'dashboard', 'orders', 'storefront', 'shops', 'catalog', 'activations',
+                    'warehouses', 'vouchers', 'finance', 'team', 'support', 'documents'
+                ]);
+                if (!partnerTabs.has(tabId)) {
+                    tabId = 'dashboard';
+                }
+
                 document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
                 
@@ -4067,8 +4068,6 @@
                     'finance': 'Финансы',
                     'team': 'Команда',
                     'support': 'Служба поддержки',
-                    'operator': 'Operator Workspace',
-                    'ai-audit': 'AI Аудит',
                     'documents': 'Документооборот'
                 };
                 document.getElementById('page-title-text').innerText = pageTitleText[tabId] || 'Кабинет';
@@ -4076,13 +4075,6 @@
 
                 if (tabId === 'finance') {
                     renderFinanceTab();
-                }
-
-                if (tabId === 'ai-audit') {
-                    setTimeout(() => {
-                        const input = document.getElementById('ai-chat-input');
-                        if (input) input.focus();
-                    }, 100);
                 }
             }
 

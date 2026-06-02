@@ -107,15 +107,16 @@ class CanonicalCategoryResolver
         return $default;
     }
 
-    public function label(string $canonicalCategory, string $locale = 'ru'): string
+    public function label(string $canonicalCategory, ?string $locale = null): string
     {
         $category = $this->isKnown($canonicalCategory)
             ? $canonicalCategory
             : (string) config('catalog_taxonomy.default', 'gift_cards');
+        $locale = $locale ?: app()->getLocale();
 
         return (string) config(
             "catalog_taxonomy.categories.{$category}.label_{$locale}",
-            config("catalog_taxonomy.categories.{$category}.label_ru", $category)
+            config("catalog_taxonomy.categories.{$category}.label_en", config("catalog_taxonomy.categories.{$category}.label_ru", $category))
         );
     }
 
