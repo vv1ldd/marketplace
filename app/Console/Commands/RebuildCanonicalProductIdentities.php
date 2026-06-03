@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Continuity\ProjectionRebuildRegistryService;
 use App\Services\CanonicalProductIdentityIndexService;
 use Illuminate\Console\Command;
 
@@ -13,8 +14,10 @@ class RebuildCanonicalProductIdentities extends Command
 
     protected $description = 'Rebuild the persisted canonical product identity index';
 
-    public function handle(CanonicalProductIdentityIndexService $index): int
+    public function handle(CanonicalProductIdentityIndexService $index, ProjectionRebuildRegistryService $registry): int
     {
+        $registry->ensureDefaults();
+
         $limit = $this->option('limit');
         $limit = $limit !== null && $limit !== '' ? max(1, (int) $limit) : null;
         $dryRun = (bool) $this->option('dry-run');
@@ -34,6 +37,14 @@ class RebuildCanonicalProductIdentities extends Command
         $this->line('Seller sources: '.$stats['seller_sources']);
         $this->line('Low confidence sources: '.$stats['low_confidence_sources']);
         $this->line('Skipped without fingerprint: '.$stats['skipped_no_fingerprint']);
+
+        if (! $dryRun) {
+            $registry->markRebuilt(
+                projectionName: 'canonical_product_identity_projection',
+                sourceRevision: 'canonical_product_identities:'.$stats['identities_touched'],
+                metadata: $stats,
+            );
+        }
 
         return self::SUCCESS;
     }

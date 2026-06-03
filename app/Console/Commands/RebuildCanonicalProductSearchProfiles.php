@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\CanonicalProductIdentity;
 use App\Models\CanonicalProductSearchProfile;
+use App\Services\Continuity\ProjectionRebuildRegistryService;
 use App\Services\CanonicalProductSearchProfileBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,8 +18,10 @@ class RebuildCanonicalProductSearchProfiles extends Command
 
     protected $description = 'Rebuild materialized canonical product search profiles';
 
-    public function handle(CanonicalProductSearchProfileBuilder $builder): int
+    public function handle(CanonicalProductSearchProfileBuilder $builder, ProjectionRebuildRegistryService $registry): int
     {
+        $registry->ensureDefaults();
+
         if (! $this->tablesExist()) {
             $this->warn('Canonical product identity/search profile tables do not exist yet. Run migrations first.');
 
@@ -67,6 +70,17 @@ class RebuildCanonicalProductSearchProfiles extends Command
         $this->line('profiles_failed: '.$health['profiles_failed']);
         $this->line('last_rebuild_at: '.($health['last_rebuild_at'] ?? 'null'));
         $this->line('profile_version_distribution: '.json_encode($health['profile_version_distribution'], JSON_UNESCAPED_SLASHES));
+
+        $registry->markRebuilt(
+            projectionName: 'canonical_product_search_profile_projection',
+            sourceRevision: 'canonical_product_search_profiles:'.$health['profiles_total'],
+            metadata: $health + [
+                'profiles_targeted' => $totalToProcess,
+                'profiles_rebuilt' => $stats['profiles_rebuilt'],
+                'profiles_failed_this_run' => $stats['profiles_failed'],
+                'rebuild_duration_ms' => $durationMs,
+            ],
+        );
 
         return $stats['profiles_failed'] > 0 ? self::FAILURE : self::SUCCESS;
     }

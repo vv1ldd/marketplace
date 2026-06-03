@@ -52,6 +52,10 @@ class ProjectionRebuildRegistryService
                 'source_transitions' => [
                     'wallet_ledger_entries',
                     'sovereign_ledger:BUYER_WALLET_TOPUP',
+                    'sovereign_ledger:BUYER_WALLET_DEBIT',
+                    'sovereign_ledger:BUYER_WALLET_RESERVE',
+                    'sovereign_ledger:BUYER_WALLET_RESERVED_DEBIT',
+                    'sovereign_ledger:BUYER_WALLET_RESERVATION_RELEASE',
                 ],
                 'source_authority_decisions' => ['wallet_authority_decisions'],
                 'required_anchor_range' => 'wallet_anchor_range',
@@ -62,11 +66,10 @@ class ProjectionRebuildRegistryService
                 'projection_name' => 'marketplace_orders_projection',
                 'classification' => 'class_b_rebuildable_projection',
                 'source_transitions' => [
-                    'order_transitions',
-                    'sovereign_ledger:ORDER_CREATED',
-                    'sovereign_ledger:ORDER_CAPTURED',
-                    'sovereign_ledger:ORDER_FULFILLED',
-                    'sovereign_ledger:ORDER_REFUNDED',
+                    'orders',
+                    'order_items',
+                    'currencies',
+                    'order_item_purchase_status_transitions',
                 ],
                 'source_authority_decisions' => ['order_authority_decisions'],
                 'required_anchor_range' => 'order_anchor_range',
@@ -74,11 +77,37 @@ class ProjectionRebuildRegistryService
                 'verify_command' => 'marketplace:verify-orders',
             ],
             [
-                'projection_name' => 'catalog_search_projection',
+                'projection_name' => 'canonical_product_identity_projection',
                 'classification' => 'class_b_rebuildable_projection',
                 'source_transitions' => [
-                    'provider_catalog_transitions',
-                    'canonical_product_identity_transitions',
+                    'provider_products',
+                    'products',
+                    'canonical_product_identity_overrides',
+                ],
+                'source_authority_decisions' => ['catalog_authority_decisions'],
+                'required_anchor_range' => 'catalog_identity_anchor_range',
+                'rebuild_command' => 'catalog:rebuild-identities',
+                'verify_command' => 'catalog:verify-identities',
+            ],
+            [
+                'projection_name' => 'canonical_product_search_profile_projection',
+                'classification' => 'class_b_rebuildable_projection',
+                'source_transitions' => [
+                    'canonical_product_identities',
+                    'canonical_product_identity_sources',
+                    'canonical_product_identity_overrides',
+                ],
+                'source_authority_decisions' => ['catalog_authority_decisions'],
+                'required_anchor_range' => 'catalog_search_profile_anchor_range',
+                'rebuild_command' => 'search-profile:rebuild',
+                'verify_command' => 'search-profile:verify',
+            ],
+            [
+                'projection_name' => 'catalog_search_projection',
+                'classification' => 'class_b_aggregate_projection',
+                'source_transitions' => [
+                    'canonical_product_identity_projection',
+                    'canonical_product_search_profile_projection',
                 ],
                 'source_authority_decisions' => ['catalog_authority_decisions'],
                 'required_anchor_range' => 'catalog_anchor_range',
@@ -117,6 +146,41 @@ class ProjectionRebuildRegistryService
         $projection->forceFill([
             'last_verified_at' => now(),
             'verification_result' => $verificationResult,
+            'source_revision' => $sourceRevision,
+            'anchor_range' => $anchorRange,
+            'metadata' => $metadata ?? $projection->metadata,
+        ])->save();
+
+        return $projection;
+    }
+
+    public function markRebuilt(
+        string $projectionName,
+        ?string $sourceRevision = null,
+        ?string $anchorRange = null,
+        ?array $metadata = null,
+    ): ?ProjectionRebuildRegistry {
+        if (! Schema::hasTable('projection_rebuild_registry')) {
+            return null;
+        }
+
+        $projection = ProjectionRebuildRegistry::query()
+            ->where('projection_name', $projectionName)
+            ->first();
+
+        if (! $projection) {
+            $this->ensureDefaults();
+            $projection = ProjectionRebuildRegistry::query()
+                ->where('projection_name', $projectionName)
+                ->first();
+        }
+
+        if (! $projection) {
+            return null;
+        }
+
+        $projection->forceFill([
+            'last_rebuilt_at' => now(),
             'source_revision' => $sourceRevision,
             'anchor_range' => $anchorRange,
             'metadata' => $metadata ?? $projection->metadata,

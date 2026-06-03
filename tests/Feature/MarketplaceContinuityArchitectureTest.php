@@ -3,9 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\LegalEntity;
+use App\Models\Order\Order;
+use App\Models\Order\OrderItems;
 use App\Models\MarketplaceTransitionOutbox;
+use App\Models\ProjectionRebuildRegistry;
 use App\Models\SovereignLedger;
 use App\Models\User;
+use App\Models\WalletAccount;
 use App\Models\WalletLedgerEntry;
 use App\Models\WildflowKernelOrder;
 use App\Services\Continuity\WriterAuthorityService;
@@ -13,6 +17,7 @@ use App\Services\LedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class MarketplaceContinuityArchitectureTest extends TestCase
@@ -183,5 +188,136 @@ class MarketplaceContinuityArchitectureTest extends TestCase
         $this->assertNotNull($payload['last_balance_rebuild']);
         $this->assertNotNull($payload['last_balance_verify']);
         $this->assertContains($payload['projection_rebuild'], ['healthy', 'degraded']);
+    }
+
+    public function test_buyer_wallet_projection_rebuild_and_verify_replay_wallet_ledger_entries(): void
+    {
+        $user = User::factory()->create();
+
+        WalletAccount::create([
+            'user_id' => $user->id,
+            'asset' => 'SL',
+            'available_minor' => 1,
+            'reserved_minor' => 2,
+        ]);
+
+        foreach ([
+            ['direction' => 'credit', 'entry_type' => 'CASHBACK', 'amount_minor' => 1000, 'balance_after_minor' => 1000],
+            ['direction' => 'reserve', 'entry_type' => 'MULTIPAY_SL1_RESERVE', 'amount_minor' => 300, 'balance_after_minor' => 700],
+            ['direction' => 'debit', 'entry_type' => 'MULTIPAY_SL1_COMMIT', 'amount_minor' => 200, 'balance_after_minor' => 700],
+            ['direction' => 'release', 'entry_type' => 'MULTIPAY_SL1_RELEASE', 'amount_minor' => 50, 'balance_after_minor' => 750],
+        ] as $index => $entry) {
+            WalletLedgerEntry::create([
+                'user_id' => $user->id,
+                'asset' => 'SL',
+                'direction' => $entry['direction'],
+                'entry_type' => $entry['entry_type'],
+                'amount_minor' => $entry['amount_minor'],
+                'balance_after_minor' => $entry['balance_after_minor'],
+                'idempotency_key' => 'wallet-projection-test-'.$index,
+                'payload' => ['source' => 'test'],
+            ]);
+        }
+
+        $this->artisan('marketplace:verify-buyer-wallets', [
+            '--user' => $user->id,
+            '--json' => true,
+        ])->assertExitCode(1);
+
+        $this->artisan('marketplace:rebuild-buyer-wallets', [
+            '--user' => $user->id,
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $account = WalletAccount::query()
+            ->where('user_id', $user->id)
+            ->where('asset', 'SL')
+            ->firstOrFail();
+
+        $this->assertSame(750, (int) $account->available_minor);
+        $this->assertSame(50, (int) $account->reserved_minor);
+
+        $this->artisan('marketplace:verify-buyer-wallets', [
+            '--user' => $user->id,
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $this->assertTrue(ProjectionRebuildRegistry::query()
+            ->where('projection_name', 'buyer_wallet_projection')
+            ->firstOrFail()
+            ->isHealthy());
+    }
+
+    public function test_marketplace_orders_projection_rebuild_and_verify_denormalized_fields(): void
+    {
+        $order = Order::create([
+            'uuid' => (string) Str::uuid(),
+            'order_id' => 909001,
+            'status' => 'PROCESSING',
+            'progress_id' => 2,
+            'info' => ['buyerTotal' => 20, 'currency' => 'RUB'],
+            'client_info' => [],
+            'total_amount' => 1,
+            'currency' => 'RUB',
+            'total_amount_base' => 1,
+            'exchange_rate' => 1,
+            'cost_amount' => 1,
+            'cost_currency' => 'RUB',
+            'cost_amount_base' => 1,
+            'margin_base' => 0,
+        ]);
+
+        OrderItems::create([
+            'key' => 'projection-key-1',
+            'order_id' => $order->id,
+            'sku' => (string) Str::uuid(),
+            'count' => 1,
+            'activate_till' => now()->addDay()->toDateString(),
+            'price_rub' => 5,
+            'price_try' => 0,
+            'purchase_status' => 'success',
+            'is_activated' => true,
+        ]);
+
+        $this->artisan('marketplace:verify-orders', [
+            '--order' => $order->id,
+            '--json' => true,
+        ])->assertExitCode(1);
+
+        $this->artisan('marketplace:rebuild-orders', [
+            '--order' => $order->id,
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $order->refresh();
+
+        $this->assertSame('20.00', $order->total_amount);
+        $this->assertSame('5.00', $order->cost_amount);
+        $this->assertSame('15.00', $order->margin_base);
+        $this->assertSame(4, (int) $order->progress_id);
+
+        $this->artisan('marketplace:verify-orders', [
+            '--order' => $order->id,
+            '--json' => true,
+        ])->assertExitCode(0);
+    }
+
+    public function test_catalog_search_registry_is_split_into_concrete_verifiable_projections(): void
+    {
+        $this->artisan('catalog:verify-identities', ['--json' => true])->assertExitCode(0);
+        $this->artisan('search-profile:verify', ['--json' => true])->assertExitCode(0);
+        $this->artisan('marketplace:verify-catalog-search', ['--json' => true])->assertExitCode(0);
+
+        $this->assertTrue(ProjectionRebuildRegistry::query()
+            ->where('projection_name', 'canonical_product_identity_projection')
+            ->firstOrFail()
+            ->isHealthy());
+        $this->assertTrue(ProjectionRebuildRegistry::query()
+            ->where('projection_name', 'canonical_product_search_profile_projection')
+            ->firstOrFail()
+            ->isHealthy());
+        $this->assertSame('class_b_aggregate_projection', ProjectionRebuildRegistry::query()
+            ->where('projection_name', 'catalog_search_projection')
+            ->value('classification'));
     }
 }
