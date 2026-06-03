@@ -3,10 +3,24 @@ FROM serversideup/php:8.3-fpm-nginx
 # 1. Run as root to install system packages and extensions
 USER root
 
-# Install PHP extensions
-RUN install-php-extensions bcmath intl && \
-    install-php-extensions gd && \
-    install-php-extensions imagick
+# Install PHP extensions. Build imagick from GitHub because pecl.php.net can
+# transiently return broken redirects during emergency deploys.
+ARG IMAGICK_VERSION=3.8.0
+RUN install-php-extensions bcmath intl gd && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libmagickwand-dev && \
+    curl -fsSL "https://github.com/Imagick/imagick/archive/refs/tags/${IMAGICK_VERSION}.tar.gz" -o /tmp/imagick.tar.gz && \
+    mkdir -p /tmp/imagick && \
+    tar -xzf /tmp/imagick.tar.gz -C /tmp/imagick --strip-components=1 && \
+    cd /tmp/imagick && \
+    phpize && \
+    ./configure && \
+    make -j"$(nproc)" && \
+    make install && \
+    docker-php-ext-enable imagick && \
+    rm -rf /tmp/imagick /tmp/imagick.tar.gz && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Node.js (LTS) and system dependencies required for Composer
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
