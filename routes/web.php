@@ -6,6 +6,13 @@ use App\Http\Middleware\ApplyRedeemThemeFromQuery;
 use App\Http\Controllers\TelemetryController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/healthcheck', fn () => response()->json([
+    'ok' => true,
+    'service' => 'marketplace',
+    'region' => config('mutation.region', env('APP_REGION', 'local')),
+    'checked_at' => now()->toIso8601String(),
+]))->name('marketplace.healthcheck');
+
 Route::middleware('web')->group(function () {
     Route::get('/reset-opcache', function() {
         if (function_exists('opcache_reset')) {
