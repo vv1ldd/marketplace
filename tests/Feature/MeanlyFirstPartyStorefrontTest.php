@@ -304,6 +304,88 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
     }
 
+    /**
+     * @return array{proof_response: array<string, mixed>, private_key: \OpenSSLAsymmetricKey}
+     */
+    private function signedNativeProofResponse(array $proof): array
+    {
+        $privateKey = openssl_pkey_new([
+            'private_key_type' => OPENSSL_KEYTYPE_EC,
+            'curve_name' => 'prime256v1',
+        ]);
+        $this->assertInstanceOf(\OpenSSLAsymmetricKey::class, $privateKey);
+
+        $details = openssl_pkey_get_details($privateKey);
+        $this->assertIsArray($details);
+        $x = data_get($details, 'ec.x');
+        $y = data_get($details, 'ec.y');
+        $this->assertIsString($x);
+        $this->assertIsString($y);
+
+        $publicKey = 'base64url:'.$this->base64UrlEncode("\x04".$x.$y);
+        $proof['keyPublicKey'] = $publicKey;
+        $proof['keyAddress'] = app(\App\Services\L1IdentityService::class)->keyAddressFromPublicKey($publicKey);
+        $proof['entityAddress'] ??= 'sl1e_'.substr(hash('sha256', 'simple-l1:v1:entity:native:'.$publicKey), 0, 39);
+        $proof['requestHost'] ??= parse_url((string) data_get($proof, 'redirectUri', ''), PHP_URL_HOST);
+        $proof['routingDecisionId'] ??= 'rdc_test_'.substr(hash('sha256', $proof['keyAddress']), 0, 12);
+        $proof['policyVersion'] ??= 'l1_policy_v0';
+        $proof['routingDecision'] ??= [
+            'routing_decision_id' => $proof['routingDecisionId'],
+            'request_host' => $proof['requestHost'],
+            'client_id' => $proof['clientId'] ?? '',
+            'policy_version' => $proof['policyVersion'],
+            'eligible_keys' => [$proof['keyAddress']],
+            'selected_key' => $proof['keyAddress'],
+            'selection_reason' => 'single_eligible_key',
+            'exclusion_reasons' => [],
+            'policy_applied' => ['allowed_relying_parties_or_client_match'],
+            'intent' => data_get($proof, 'intent.type', 'identity.session'),
+            'timestamp' => now()->timestamp,
+        ];
+        $proof['signatureAlgorithm'] = 'p256-sha256-der';
+        $proof['signaturePayload'] = $this->nativeProofSigningPayload($proof);
+
+        $signature = '';
+        $this->assertTrue(openssl_sign($proof['signaturePayload'], $signature, $privateKey, OPENSSL_ALGO_SHA256));
+        $proof['signature'] = $this->base64UrlEncode($signature);
+
+        return [
+            'private_key' => $privateKey,
+            'proof_response' => [
+                'protocol' => 'simple-l1',
+                'active' => true,
+                'proof_token' => 'native-proof-token',
+                'proof' => $proof,
+                'identity' => [
+                    'entity_l1_address' => $proof['entityAddress'],
+                    'key_l1_address' => $proof['keyAddress'],
+                ],
+            ],
+        ];
+    }
+
+    private function nativeProofSigningPayload(array $proof): string
+    {
+        return implode("\n", [
+            (string) data_get($proof, 'type', ''),
+            (string) data_get($proof, 'routingDecisionId', ''),
+            (string) data_get($proof, 'policyVersion', ''),
+            (string) data_get($proof, 'clientId', ''),
+            strtolower((string) data_get($proof, 'requestHost', '')),
+            (string) data_get($proof, 'redirectUri', ''),
+            (string) data_get($proof, 'state', ''),
+            (string) data_get($proof, 'nonce', ''),
+            (string) data_get($proof, 'mode', ''),
+            strtolower((string) data_get($proof, 'entityAddress', '')),
+            strtolower((string) data_get($proof, 'keyAddress', '')),
+            (string) data_get($proof, 'issuedAt', ''),
+            (string) data_get($proof, 'expiresAt', ''),
+            (string) data_get($proof, 'intent.type', ''),
+            (string) data_get($proof, 'intent.nonce', ''),
+            (string) data_get($proof, 'intent.resource', ''),
+        ]);
+    }
+
     private function canonicalCheckoutViewData(Product $product): array
     {
         $selectedOffer = [
@@ -927,12 +1009,17 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $response->assertOk();
         $location = (string) $response->viewData('authorizeUrl');
+        $deepLink = (string) $response->viewData('deepLinkUrl');
 
         $this->assertStringStartsWith('https://simplel1.online/authorize?', $location);
         $this->assertStringContainsString('client_name=Meanly', $location);
         $this->assertStringContainsString('ui_theme=neobrutalism', $location);
         $this->assertStringContainsString('response_mode=code', $location);
-        $response->assertSee('Входим через Simple Layer One?', false);
+        $this->assertStringStartsWith('simplel1://authorize?', $deepLink);
+        $this->assertStringContainsString('client_name=Meanly', $deepLink);
+        $this->assertStringContainsString('ui_theme=neobrutalism', $deepLink);
+        $this->assertStringContainsString('response_mode=code', $deepLink);
+        $response->assertSee(__('auth.simple_l1.identity_confirm.title'), false);
     }
 
     public function test_simple_l1_connect_skips_handoff_after_user_has_seen_it(): void
@@ -962,7 +1049,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ]));
 
         $response->assertOk();
-        $response->assertSee('Открываете сейф?', false);
+        $response->assertSee(__('auth.simple_l1.vault_open.title'), false);
     }
 
     public function test_simple_l1_connect_returns_inline_handoff_payload_for_ui_clicks(): void
@@ -977,7 +1064,9 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertOk()
             ->assertJsonPath('show_handoff', true)
             ->assertJsonPath('handoff.key', 'vault_open')
-            ->assertJsonPath('handoff.title', 'Открываете сейф?');
+            ->assertJsonPath('handoff.title', __('auth.simple_l1.vault_open.title'));
+
+        $this->assertStringStartsWith('simplel1://authorize?', (string) $response->json('deep_link_url'));
     }
 
     public function test_simple_l1_callback_verifies_proof_and_stores_marketplace_session_identity(): void
@@ -1085,6 +1174,206 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             && $request['code'] === 'sl1c_test'
             && $request['client_id'] === config('simple_l1.client_id')
             && $request['redirect_uri'] === route('meanly.simple_l1.callback'));
+    }
+
+    public function test_simple_l1_callback_accepts_native_direct_proof_without_server_round_trip(): void
+    {
+        config(['simple_l1.accept_native_direct_proof' => true]);
+        $signed = $this->signedNativeProofResponse([
+            'type' => 'sl1e.login.proof.v1',
+            'clientId' => config('simple_l1.client_id'),
+            'redirectUri' => route('meanly.simple_l1.callback'),
+            'state' => 'expected-state',
+            'nonce' => 'expected-nonce',
+            'mode' => 'login',
+            'displayName' => 'Native User',
+            'issuedAt' => now()->toIso8601String(),
+            'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+        ]);
+        $proofResponse = $signed['proof_response'];
+        $l1Address = data_get($proofResponse, 'proof.entityAddress');
+        $proofPayload = rtrim(strtr(base64_encode(json_encode($proofResponse, JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
+
+        Http::fake();
+
+        $this->withSession([
+            'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.nonce' => 'expected-nonce',
+            'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+            'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+            'simple_l1_connect.mode' => 'login',
+            'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
+        ])->get('/simple-l1/callback?state=expected-state&proof_response='.$proofPayload)
+            ->assertRedirect('/store/products/meanly-sl1-connect')
+            ->assertSessionHas('sovereign_l1_address', $l1Address)
+            ->assertSessionHas('simple_l1_identity.entity_l1_address', $l1Address)
+            ->assertSessionHas('simple_l1_identity.proof_token_hash', hash('sha256', 'native-proof-token'));
+
+        Http::assertNothingSent();
+        $this->assertAuthenticated();
+        $this->assertSame('Native User', auth()->user()?->first_name);
+        $this->assertDatabaseHas('simple_l1_identity_keys', [
+            'entity_l1_address' => $l1Address,
+            'key_l1_address' => data_get($proofResponse, 'proof.keyAddress'),
+            'key_type' => 'native_macos_p256',
+            'revoked_at' => null,
+        ]);
+        $identityKey = \App\Models\SimpleL1IdentityKey::where('key_l1_address', data_get($proofResponse, 'proof.keyAddress'))->firstOrFail();
+        $this->assertSame(data_get($proofResponse, 'proof.routingDecisionId'), data_get($identityKey->metadata, 'last_routing_decision_id'));
+        $this->assertSame('single_eligible_key', data_get($identityKey->metadata, 'last_routing_decision.selection_reason'));
+        $this->assertSame('PROOF_ACCEPTED', data_get($identityKey->metadata, 'last_verification_result.decision'));
+        $this->assertSame('passed', data_get($identityKey->metadata, 'last_verification_result.verification_steps.signature'));
+        $this->assertSame('passed', data_get($identityKey->metadata, 'last_verification_result.verification_steps.key_binding'));
+        $this->assertContains('ROUTING_DECISION_MATCH', data_get($identityKey->metadata, 'last_verification_result.diagnostic_signals'));
+
+        $connectEvent = SovereignLedger::where('event_type', 'IDENTITY_CONNECT_EXTERNAL_INTENT')->latest('id')->firstOrFail();
+        $this->assertSame(data_get($proofResponse, 'proof.routingDecisionId'), data_get($connectEvent->payload, 'routing_decision_id'));
+        $this->assertSame('l1_policy_v0', data_get($connectEvent->payload, 'policy_version'));
+        $this->assertSame('PROOF_ACCEPTED', data_get($connectEvent->payload, 'verification_result.decision'));
+        $this->assertSame(data_get($identityKey->metadata, 'last_verification_result_id'), data_get($connectEvent->payload, 'verification_result_id'));
+    }
+
+    public function test_simple_l1_callback_rejects_native_direct_proof_with_bad_signature(): void
+    {
+        config(['simple_l1.accept_native_direct_proof' => true]);
+        $signed = $this->signedNativeProofResponse([
+            'type' => 'sl1e.login.proof.v1',
+            'clientId' => config('simple_l1.client_id'),
+            'redirectUri' => route('meanly.simple_l1.callback'),
+            'state' => 'expected-state',
+            'nonce' => 'expected-nonce',
+            'mode' => 'login',
+            'displayName' => 'Native User',
+            'issuedAt' => now()->toIso8601String(),
+            'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+        ]);
+        $proofResponse = $signed['proof_response'];
+        data_set($proofResponse, 'proof.signature', $this->base64UrlEncode('bad-signature'));
+        $proofPayload = rtrim(strtr(base64_encode(json_encode($proofResponse, JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
+
+        Http::fake();
+        \Illuminate\Support\Facades\Log::spy();
+
+        $this->withSession([
+            'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.nonce' => 'expected-nonce',
+            'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+            'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+            'simple_l1_connect.mode' => 'login',
+            'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
+        ])->get('/simple-l1/callback?state=expected-state&proof_response='.$proofPayload)
+            ->assertForbidden();
+
+        Http::assertNothingSent();
+        $this->assertGuest();
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('simple_l1.native_direct_proof_rejected', \Mockery::on(fn ($context) => data_get($context, 'verification_result.accepted') === false
+                && data_get($context, 'verification_result.decision') === 'SIGNATURE_REJECTED'
+                && data_get($context, 'verification_result.verification_steps.signature') === 'failed'
+                && in_array('ROUTING_DECISION_MATCH', data_get($context, 'verification_result.diagnostic_signals', []), true)));
+    }
+
+    public function test_simple_l1_callback_rejects_unregistered_native_key_claiming_existing_entity(): void
+    {
+        config(['simple_l1.accept_native_direct_proof' => true]);
+        $existingEntityAddress = 'sl1e_'.str_repeat('c', 39);
+        User::factory()->create([
+            'entity_l1_address' => $existingEntityAddress,
+            'identity_provider' => 'identity_wildflow',
+            'meta' => ['entity_l1_address' => $existingEntityAddress],
+        ]);
+
+        $signed = $this->signedNativeProofResponse([
+            'type' => 'sl1e.login.proof.v1',
+            'clientId' => config('simple_l1.client_id'),
+            'redirectUri' => route('meanly.simple_l1.callback'),
+            'state' => 'expected-state',
+            'nonce' => 'expected-nonce',
+            'mode' => 'login',
+            'entityAddress' => $existingEntityAddress,
+            'displayName' => 'Native User',
+            'issuedAt' => now()->toIso8601String(),
+            'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+        ]);
+        $proofResponse = $signed['proof_response'];
+        $proofPayload = rtrim(strtr(base64_encode(json_encode($proofResponse, JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
+
+        Http::fake();
+
+        $this->withSession([
+            'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.nonce' => 'expected-nonce',
+            'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+            'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+            'simple_l1_connect.mode' => 'login',
+            'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
+        ])->get('/simple-l1/callback?state=expected-state&proof_response='.$proofPayload)
+            ->assertForbidden();
+
+        Http::assertNothingSent();
+        $this->assertGuest();
+        $this->assertDatabaseMissing('simple_l1_identity_keys', [
+            'key_l1_address' => data_get($proofResponse, 'proof.keyAddress'),
+        ]);
+    }
+
+    public function test_simple_l1_callback_rejects_registered_native_key_for_disallowed_host(): void
+    {
+        config(['simple_l1.accept_native_direct_proof' => true]);
+        $signed = $this->signedNativeProofResponse([
+            'type' => 'sl1e.login.proof.v1',
+            'clientId' => config('simple_l1.client_id'),
+            'redirectUri' => route('meanly.simple_l1.callback'),
+            'requestHost' => 'meanly.test',
+            'state' => 'expected-state',
+            'nonce' => 'expected-nonce',
+            'mode' => 'login',
+            'displayName' => 'Native User',
+            'issuedAt' => now()->toIso8601String(),
+            'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+        ]);
+        $proofResponse = $signed['proof_response'];
+        $user = User::factory()->create([
+            'entity_l1_address' => data_get($proofResponse, 'proof.entityAddress'),
+            'identity_provider' => 'identity_wildflow',
+        ]);
+        \App\Models\SimpleL1IdentityKey::create([
+            'user_id' => $user->id,
+            'entity_l1_address' => data_get($proofResponse, 'proof.entityAddress'),
+            'key_l1_address' => data_get($proofResponse, 'proof.keyAddress'),
+            'key_type' => 'native_macos_p256',
+            'public_key' => data_get($proofResponse, 'proof.keyPublicKey'),
+            'public_key_hash' => hash('sha256', (string) data_get($proofResponse, 'proof.keyPublicKey')),
+            'trust_level' => 'device_user_presence',
+            'metadata' => [
+                'allowed_relying_parties' => ['other.test'],
+                'allowed_clients' => [],
+            ],
+        ]);
+
+        $proofPayload = rtrim(strtr(base64_encode(json_encode($proofResponse, JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
+        Http::fake();
+        \Illuminate\Support\Facades\Log::spy();
+
+        $this->withSession([
+            'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.nonce' => 'expected-nonce',
+            'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+            'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+            'simple_l1_connect.mode' => 'login',
+            'simple_l1_connect.return_to' => '/store/products/meanly-sl1-connect',
+        ])->get('/simple-l1/callback?state=expected-state&proof_response='.$proofPayload)
+            ->assertForbidden();
+
+        Http::assertNothingSent();
+        $this->assertGuest();
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('simple_l1.native_direct_proof_rejected', \Mockery::on(fn ($context) => data_get($context, 'verification_result.accepted') === false
+                && data_get($context, 'verification_result.decision') === 'HOST_REJECTED'
+                && data_get($context, 'verification_result.verification_steps.host_policy') === 'failed'
+                && in_array('ROUTING_DECISION_MATCH', data_get($context, 'verification_result.diagnostic_signals', []), true)));
     }
 
     public function test_simple_l1_callback_rejects_proof_with_mismatched_nonce(): void

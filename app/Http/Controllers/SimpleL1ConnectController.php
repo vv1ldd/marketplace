@@ -4,15 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\IntentLedgerService;
+use App\Services\L1IdentityService;
+use App\Services\SimpleL1IdentityRegistryService;
 use App\Services\SimpleL1ProtocolClient;
+use App\Services\SimpleL1VerificationResultService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use SimpleLayer\Sl1e\Exception\Sl1eValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class SimpleL1ConnectController extends Controller
 {
@@ -62,7 +67,8 @@ class SimpleL1ConnectController extends Controller
             resource: 'simple-l1-wallet',
         );
 
-        $authorizeUrl = app(SimpleL1ProtocolClient::class)->authorizationUrl(
+        $simpleL1Client = app(SimpleL1ProtocolClient::class);
+        $authorizeUrl = $simpleL1Client->authorizationUrl(
             redirectUri: $redirectUri,
             state: $state,
             nonce: $nonce,
@@ -72,6 +78,17 @@ class SimpleL1ConnectController extends Controller
             identityHint: $this->simpleL1IdentityHint($request),
             uiLocale: $this->simpleL1Locale($request),
         );
+        $deepLinkUrl = $simpleL1Client->authorizationDeepLinkUrl(
+            redirectUri: $redirectUri,
+            state: $state,
+            nonce: $nonce,
+            mode: $mode,
+            intent: $intent,
+            flow: $flow,
+            identityHint: $this->simpleL1IdentityHint($request),
+            uiLocale: $this->simpleL1Locale($request),
+        );
+        $nativeDeepLinkAutoLaunch = (bool) config('simple_l1.native_deep_link_auto_launch', false);
         $handoff = $this->simpleL1HandoffContext($mode, $intent, $returnTo);
 
         if (! $this->shouldShowSimpleL1Handoff($request, $handoff['key'])) {
@@ -79,6 +96,8 @@ class SimpleL1ConnectController extends Controller
                 return response()->json([
                     'show_handoff' => false,
                     'redirect_url' => $authorizeUrl,
+                    'deep_link_url' => $deepLinkUrl,
+                    'native_auto_launch' => $nativeDeepLinkAutoLaunch,
                 ]);
             }
 
@@ -91,12 +110,16 @@ class SimpleL1ConnectController extends Controller
             return response()->json([
                 'show_handoff' => true,
                 'redirect_url' => $authorizeUrl,
+                'deep_link_url' => $deepLinkUrl,
+                'native_auto_launch' => $nativeDeepLinkAutoLaunch,
                 'handoff' => $handoff,
             ]);
         }
 
         return view('auth.simple-l1-handoff', [
             'authorizeUrl' => $authorizeUrl,
+            'deepLinkUrl' => $deepLinkUrl,
+            'nativeDeepLinkAutoLaunch' => $nativeDeepLinkAutoLaunch,
             'mode' => $mode,
             'intentTitle' => $intent['intent_title'] ?: null,
             'returnTo' => $returnTo,
@@ -120,11 +143,32 @@ class SimpleL1ConnectController extends Controller
 
         $code = trim((string) $request->input('code', ''));
         $proofToken = trim((string) $request->input('proof_token', ''));
-        abort_if($code === '' && $proofToken === '', 422, 'Simple L1 authorization code is missing.');
+        $isNativeDirectProof = false;
+        $verificationResult = null;
+        $directProofResponse = config('simple_l1.accept_native_direct_proof', false)
+            ? $this->simpleL1DirectProofResponse(
+                $request->input('proof_response', $request->input('proof')),
+                $proofToken,
+            )
+            : null;
+        abort_if($code === '' && $proofToken === '' && $directProofResponse === null, 422, 'Simple L1 authorization code is missing.');
 
         if ($code !== '') {
             $proofResponse = app(SimpleL1ProtocolClient::class)->exchangeAuthorizationCode($code, $expectedClientId, $expectedRedirectUri);
             $proofToken = (string) data_get($proofResponse, 'proof_token', '');
+        } elseif ($directProofResponse !== null) {
+            $isNativeDirectProof = true;
+            $proofResponse = $directProofResponse;
+            $proofToken = (string) data_get($proofResponse, 'proof_token', $proofToken);
+            try {
+                if (config('simple_l1.require_native_direct_proof_signature', true)) {
+                    $this->assertNativeDirectProofSignature($proofResponse);
+                }
+                app(SimpleL1IdentityRegistryService::class)->assertNativeDirectProofCanAuthenticate($proofResponse, Auth::user());
+            } catch (HttpExceptionInterface $exception) {
+                $this->recordRejectedNativeVerificationResult($proofResponse, $exception->getMessage());
+                throw $exception;
+            }
         } else {
             $proofResponse = app(SimpleL1ProtocolClient::class)->introspectProof($proofToken);
         }
@@ -143,8 +187,14 @@ class SimpleL1ConnectController extends Controller
                 mode: $mode,
             );
         } catch (Sl1eValidationException $exception) {
+            if ($isNativeDirectProof) {
+                $this->recordRejectedNativeVerificationResult($proofResponse, $exception->getMessage());
+            }
             $status = str_contains($exception->getMessage(), 'malformed') || str_contains($exception->getMessage(), 'missing') ? 422 : 403;
             abort($status, $exception->getMessage());
+        }
+        if ($isNativeDirectProof) {
+            $verificationResult = app(SimpleL1VerificationResultService::class)->accepted($proofResponse);
         }
 
         $l1Address = $identityProof->entityAddress;
@@ -152,6 +202,9 @@ class SimpleL1ConnectController extends Controller
         $alias = $this->simpleL1Alias($proofResponse);
         $displayAlias = $this->simpleL1DisplayAlias($proofResponse);
         $user = $this->resolveOrCreateUserFromProof($proofResponse, $l1Address, $keyAddress);
+        if ($isNativeDirectProof && $user instanceof User) {
+            app(SimpleL1IdentityRegistryService::class)->recordNativeDirectProof($proofResponse, $user, $verificationResult);
+        }
 
         if ($user && ! Auth::check()) {
             Auth::login($user);
@@ -198,20 +251,28 @@ class SimpleL1ConnectController extends Controller
             'simple_l1_connect.intent',
         ]);
 
+        $ledgerPayload = [
+            'connected_entity_l1_address' => strtolower($l1Address),
+            'connected_key_l1_address' => $keyAddress,
+            'alias' => $alias,
+            'display_alias' => $displayAlias,
+            'proof_token_hash' => $identityProof->proofTokenHash,
+            'routing_decision_id' => data_get($identityProof->proof, 'routingDecisionId'),
+            'policy_version' => data_get($identityProof->proof, 'policyVersion'),
+            'return_to_hash' => hash('sha256', $returnTo),
+            'mode' => $identityProof->mode,
+            'connected_at' => now()->toIso8601String(),
+        ];
+        if ($verificationResult !== null) {
+            $ledgerPayload['verification_result_id'] = data_get($verificationResult, 'verification_result_id');
+            $ledgerPayload['verification_result'] = $verificationResult;
+        }
+
         app(IntentLedgerService::class)->record(
             eventType: 'IDENTITY_CONNECT_EXTERNAL_INTENT',
             intentType: 'identity.connect_external',
             entity: $user ?: $request->user(),
-            payload: [
-                'connected_entity_l1_address' => strtolower($l1Address),
-                'connected_key_l1_address' => $keyAddress,
-                'alias' => $alias,
-                'display_alias' => $displayAlias,
-                'proof_token_hash' => $identityProof->proofTokenHash,
-                'return_to_hash' => hash('sha256', $returnTo),
-                'mode' => $identityProof->mode,
-                'connected_at' => now()->toIso8601String(),
-            ],
+            payload: $ledgerPayload,
             request: $request,
             user: $user ?: $request->user(),
             scope: 'identity.external',
@@ -428,6 +489,280 @@ class SimpleL1ConnectController extends Controller
         if (is_string($issuedAt) && ($issuedAtTimestamp = strtotime($issuedAt)) !== false) {
             abort_unless($issuedAtTimestamp >= now()->subMinutes(10)->getTimestamp(), 403, 'Simple L1 proof is stale.');
         }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function simpleL1DirectProofResponse(mixed $value, string $proofToken = ''): ?array
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $decoded = is_array($value) ? $value : $this->decodeSimpleL1ProofPayload((string) $value);
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        $proof = data_get($decoded, 'proof');
+        if (! is_array($proof) && isset($decoded['type'])) {
+            $proof = $decoded;
+        }
+
+        if (! is_array($proof)) {
+            return null;
+        }
+
+        $proofJson = json_encode($proof, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '';
+        $proofToken = trim((string) data_get($decoded, 'proof_token', $proofToken));
+
+        return [
+            'protocol' => data_get($decoded, 'protocol', 'simple-l1'),
+            'active' => (bool) data_get($decoded, 'active', true),
+            'proof_token' => $proofToken !== '' ? $proofToken : 'native:'.hash('sha256', $proofJson),
+            'proof' => $proof,
+            'identity' => is_array(data_get($decoded, 'identity')) ? data_get($decoded, 'identity') : [],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function decodeSimpleL1ProofPayload(string $value): ?array
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        $normalized = strtr($value, '-_', '+/');
+        $normalized .= str_repeat('=', (4 - strlen($normalized) % 4) % 4);
+        $json = base64_decode($normalized, true);
+        if (! is_string($json) || $json === '') {
+            return null;
+        }
+
+        $decoded = json_decode($json, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * @param array<string, mixed> $proofResponse
+     */
+    private function assertNativeDirectProofSignature(array $proofResponse): void
+    {
+        $proof = data_get($proofResponse, 'proof');
+        abort_unless(is_array($proof), 422, 'Simple L1 native proof is missing.');
+
+        $publicKey = (string) data_get($proof, 'keyPublicKey', '');
+        $signature = (string) data_get($proof, 'signature', '');
+        $algorithm = (string) data_get($proof, 'signatureAlgorithm', '');
+        abort_unless($publicKey !== '' && $signature !== '', 422, 'Simple L1 native proof signature is missing.');
+        abort_unless($algorithm === 'p256-sha256-der', 422, 'Simple L1 native proof signature algorithm is unsupported.');
+
+        $expectedKeyAddress = app(L1IdentityService::class)->keyAddressFromPublicKey($publicKey);
+        abort_unless(hash_equals($expectedKeyAddress, strtolower((string) data_get($proof, 'keyAddress', ''))), 403, 'Simple L1 native proof key mismatch.');
+
+        $rawPublicKey = $this->decodeNativePublicKey($publicKey);
+        $rawSignature = $this->base64UrlDecode($signature);
+        abort_unless($rawPublicKey !== null && $rawSignature !== null, 422, 'Simple L1 native proof key material is malformed.');
+
+        $payload = $this->nativeProofSigningPayload($proof);
+        $providedPayload = (string) data_get($proof, 'signaturePayload', '');
+        if ($providedPayload !== '') {
+            abort_unless(hash_equals($payload, $providedPayload), 403, 'Simple L1 native proof payload mismatch.');
+        }
+
+        $pem = $this->p256X963PublicKeyToPem($rawPublicKey);
+        $verified = openssl_verify($payload, $rawSignature, $pem, OPENSSL_ALGO_SHA256);
+        abort_unless($verified === 1, 403, 'Simple L1 native proof signature mismatch.');
+    }
+
+    /**
+     * @param array<string, mixed> $proofResponse
+     */
+    private function recordRejectedNativeVerificationResult(array $proofResponse, string $message): void
+    {
+        $decision = $this->nativeDirectProofRejectionDecision($message);
+        $verificationResult = app(SimpleL1VerificationResultService::class)->rejected(
+            proofResponse: $proofResponse,
+            decision: $decision,
+            checks: $this->nativeDirectProofRejectionSteps($decision),
+        );
+
+        Log::warning('simple_l1.native_direct_proof_rejected', [
+            'verification_result' => $verificationResult,
+        ]);
+    }
+
+    private function nativeDirectProofRejectionDecision(string $message): string
+    {
+        $message = Str::lower($message);
+
+        return match (true) {
+            str_contains($message, 'signature'),
+            str_contains($message, 'payload mismatch'),
+            str_contains($message, 'key material') => 'SIGNATURE_REJECTED',
+            str_contains($message, 'nonce') => 'NONCE_REPLAY',
+            str_contains($message, 'expired'),
+            str_contains($message, 'stale') => 'PROOF_EXPIRED',
+            str_contains($message, 'request host'),
+            str_contains($message, 'relying party') => 'HOST_REJECTED',
+            str_contains($message, 'client') => 'CLIENT_REJECTED',
+            str_contains($message, 'key'),
+            str_contains($message, 'entity') => 'KEY_BINDING_REJECTED',
+            default => 'POLICY_REJECTED',
+        };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function nativeDirectProofRejectionSteps(string $decision): array
+    {
+        return match ($decision) {
+            'SIGNATURE_REJECTED' => ['signature' => 'failed'],
+            'KEY_BINDING_REJECTED' => [
+                'signature' => 'passed',
+                'key_binding' => 'failed',
+            ],
+            'HOST_REJECTED' => [
+                'signature' => 'passed',
+                'key_binding' => 'passed',
+                'host_policy' => 'failed',
+            ],
+            'CLIENT_REJECTED' => [
+                'signature' => 'passed',
+                'key_binding' => 'passed',
+                'client_policy' => 'failed',
+            ],
+            'NONCE_REPLAY' => [
+                'signature' => 'passed',
+                'key_binding' => 'passed',
+                'host_policy' => 'passed',
+                'client_policy' => 'passed',
+                'nonce' => 'failed',
+            ],
+            'PROOF_EXPIRED' => [
+                'signature' => 'passed',
+                'key_binding' => 'passed',
+                'host_policy' => 'passed',
+                'client_policy' => 'passed',
+                'nonce' => 'passed',
+                'expiration' => 'failed',
+            ],
+            default => [
+                'signature' => 'passed',
+                'key_binding' => 'passed',
+                'host_policy' => 'failed',
+                'client_policy' => 'failed',
+            ],
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $proof
+     */
+    private function nativeProofSigningPayload(array $proof): string
+    {
+        return implode("\n", [
+            (string) data_get($proof, 'type', ''),
+            (string) data_get($proof, 'routingDecisionId', ''),
+            (string) data_get($proof, 'policyVersion', ''),
+            (string) data_get($proof, 'clientId', ''),
+            strtolower((string) data_get($proof, 'requestHost', '')),
+            (string) data_get($proof, 'redirectUri', ''),
+            (string) data_get($proof, 'state', ''),
+            (string) data_get($proof, 'nonce', ''),
+            (string) data_get($proof, 'mode', ''),
+            strtolower((string) data_get($proof, 'entityAddress', '')),
+            strtolower((string) data_get($proof, 'keyAddress', '')),
+            (string) data_get($proof, 'issuedAt', ''),
+            (string) data_get($proof, 'expiresAt', ''),
+            (string) data_get($proof, 'intent.type', ''),
+            (string) data_get($proof, 'intent.nonce', ''),
+            (string) data_get($proof, 'intent.resource', ''),
+        ]);
+    }
+
+    private function decodeNativePublicKey(string $publicKey): ?string
+    {
+        $publicKey = trim($publicKey);
+        if (! str_starts_with($publicKey, 'base64url:')) {
+            return null;
+        }
+
+        $raw = $this->base64UrlDecode(substr($publicKey, strlen('base64url:')));
+        if ($raw === null || strlen($raw) !== 65 || $raw[0] !== "\x04") {
+            return null;
+        }
+
+        return $raw;
+    }
+
+    private function base64UrlDecode(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        $normalized = strtr($value, '-_', '+/');
+        $normalized .= str_repeat('=', (4 - strlen($normalized) % 4) % 4);
+        $decoded = base64_decode($normalized, true);
+
+        return is_string($decoded) ? $decoded : null;
+    }
+
+    private function p256X963PublicKeyToPem(string $publicKey): string
+    {
+        $algorithm = $this->derSequence(
+            $this->derOid(hex2bin('2A8648CE3D0201') ?: '')
+            .$this->derOid(hex2bin('2A8648CE3D030107') ?: '')
+        );
+        $subjectPublicKey = $this->derBitString($publicKey);
+        $spki = $this->derSequence($algorithm.$subjectPublicKey);
+
+        return "-----BEGIN PUBLIC KEY-----\n"
+            .chunk_split(base64_encode($spki), 64, "\n")
+            ."-----END PUBLIC KEY-----\n";
+    }
+
+    private function derSequence(string $value): string
+    {
+        return "\x30".$this->derLength(strlen($value)).$value;
+    }
+
+    private function derOid(string $value): string
+    {
+        return "\x06".$this->derLength(strlen($value)).$value;
+    }
+
+    private function derBitString(string $value): string
+    {
+        return "\x03".$this->derLength(strlen($value) + 1)."\x00".$value;
+    }
+
+    private function derLength(int $length): string
+    {
+        if ($length < 128) {
+            return chr($length);
+        }
+
+        $bytes = '';
+        while ($length > 0) {
+            $bytes = chr($length & 0xff).$bytes;
+            $length >>= 8;
+        }
+
+        return chr(0x80 | strlen($bytes)).$bytes;
     }
 
     private function proofTokenForSessionIdentity(array $identity): ?string

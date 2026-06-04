@@ -7,5 +7,10 @@ return [
     'client_id' => env('SIMPLE_L1_CLIENT_ID', 'meanly.one'),
     'client_name' => env('SIMPLE_L1_CLIENT_NAME', 'Meanly'),
     'ui_theme' => env('SIMPLE_L1_UI_THEME', 'neobrutalism'),
+    'prefer_native_deep_link' => env('SIMPLE_L1_PREFER_NATIVE_DEEP_LINK', true),
+    'native_deep_link_scheme' => env('SIMPLE_L1_NATIVE_DEEP_LINK_SCHEME', 'simplel1'),
+    'native_deep_link_auto_launch' => env('SIMPLE_L1_NATIVE_DEEP_LINK_AUTO_LAUNCH', false),
+    'accept_native_direct_proof' => env('SIMPLE_L1_ACCEPT_NATIVE_DIRECT_PROOF', false),
+    'require_native_direct_proof_signature' => env('SIMPLE_L1_REQUIRE_NATIVE_DIRECT_PROOF_SIGNATURE', true),
     'verify_tls' => env('SIMPLE_L1_VERIFY_TLS', true),
 ];

@@ -36,39 +36,48 @@ class SimpleL1ProtocolClient
         ?string $identityHint = null,
         ?string $uiLocale = null,
     ): string {
-        $url = $this->sl1e()->authorizationUrl(new AuthorizeRequest(
+        $url = $this->sl1e()->authorizationUrl($this->authorizeRequest(
             redirectUri: $redirectUri,
             state: $state,
             nonce: $nonce,
             mode: $mode,
             scope: $scope,
-            responseMode: 'code',
-            intent: new Intent(
-                type: $intent['intent_type'] ?? null,
-                title: $intent['intent_title'] ?? null,
-                description: $intent['intent_description'] ?? null,
-                cta: $intent['intent_cta'] ?? null,
-                nonce: $intent['intent_nonce'] ?? null,
-                resource: $intent['intent_resource'] ?? null,
-            ),
+            intent: $intent,
         ));
 
-        if ($flow !== null && $flow !== '') {
-            $separator = str_contains($url, '?') ? '&' : '?';
-            $url .= $separator.'flow='.rawurlencode($flow);
-        }
-
-        if ($identityHint !== null && $identityHint !== '') {
-            $separator = str_contains($url, '?') ? '&' : '?';
-            $url .= $separator.'identity_hint='.rawurlencode($identityHint);
-        }
-
-        if ($uiLocale !== null && $uiLocale !== '') {
-            $separator = str_contains($url, '?') ? '&' : '?';
-            $url .= $separator.'ui_locale='.rawurlencode($uiLocale).'&alias_locale='.rawurlencode($uiLocale);
-        }
+        $url = $this->appendOptionalAuthorizeParams($url, $flow, $identityHint, $uiLocale);
 
         return $url;
+    }
+
+    /**
+     * @param array<string, string|null> $intent
+     */
+    public function authorizationDeepLinkUrl(
+        string $redirectUri,
+        string $state,
+        string $nonce,
+        string $mode = 'login',
+        string $scope = 'openid sl1e marketplace',
+        array $intent = [],
+        ?string $flow = null,
+        ?string $identityHint = null,
+        ?string $uiLocale = null,
+    ): ?string {
+        if (! config('simple_l1.prefer_native_deep_link', true)) {
+            return null;
+        }
+
+        $url = $this->sl1e()->authorizationDeepLink($this->authorizeRequest(
+            redirectUri: $redirectUri,
+            state: $state,
+            nonce: $nonce,
+            mode: $mode,
+            scope: $scope,
+            intent: $intent,
+        ));
+
+        return $this->appendOptionalAuthorizeParams($url, $flow, $identityHint, $uiLocale);
     }
 
     /**
@@ -184,6 +193,60 @@ class SimpleL1ProtocolClient
             'client_name' => config('simple_l1.client_name', 'Meanly'),
             'ui_theme' => config('simple_l1.ui_theme', 'neobrutalism'),
             'verify_tls' => config('simple_l1.verify_tls', true),
+            'native_deep_link_scheme' => config('simple_l1.native_deep_link_scheme', 'simplel1'),
         ]), new LaravelSl1eHttpClient());
+    }
+
+    /**
+     * @param array<string, string|null> $intent
+     */
+    private function authorizeRequest(
+        string $redirectUri,
+        string $state,
+        string $nonce,
+        string $mode,
+        string $scope,
+        array $intent,
+    ): AuthorizeRequest {
+        return new AuthorizeRequest(
+            redirectUri: $redirectUri,
+            state: $state,
+            nonce: $nonce,
+            mode: $mode,
+            scope: $scope,
+            responseMode: 'code',
+            intent: new Intent(
+                type: $intent['intent_type'] ?? null,
+                title: $intent['intent_title'] ?? null,
+                description: $intent['intent_description'] ?? null,
+                cta: $intent['intent_cta'] ?? null,
+                nonce: $intent['intent_nonce'] ?? null,
+                resource: $intent['intent_resource'] ?? null,
+            ),
+        );
+    }
+
+    private function appendOptionalAuthorizeParams(
+        string $url,
+        ?string $flow,
+        ?string $identityHint,
+        ?string $uiLocale,
+    ): string {
+        if ($flow !== null && $flow !== '') {
+            $separator = str_contains($url, '?') ? '&' : '?';
+            $url .= $separator.'flow='.rawurlencode($flow);
+        }
+
+        if ($identityHint !== null && $identityHint !== '') {
+            $separator = str_contains($url, '?') ? '&' : '?';
+            $url .= $separator.'identity_hint='.rawurlencode($identityHint);
+        }
+
+        if ($uiLocale !== null && $uiLocale !== '') {
+            $separator = str_contains($url, '?') ? '&' : '?';
+            $url .= $separator.'ui_locale='.rawurlencode($uiLocale).'&alias_locale='.rawurlencode($uiLocale);
+        }
+
+        return $url;
     }
 }

@@ -11,6 +11,7 @@ final readonly class Sl1eConfig
         public string $uiTheme = 'default',
         public bool $verifyTls = true,
         public string $codeExchangePath = '/api/sl1e/authorization-code/exchange',
+        public string $nativeDeepLinkScheme = 'simplel1',
     ) {
     }
 
@@ -26,6 +27,7 @@ final readonly class Sl1eConfig
             uiTheme: (string) ($config['ui_theme'] ?? 'default'),
             verifyTls: filter_var($config['verify_tls'] ?? true, FILTER_VALIDATE_BOOL),
             codeExchangePath: (string) ($config['code_exchange_path'] ?? '/api/sl1e/authorization-code/exchange'),
+            nativeDeepLinkScheme: (string) ($config['native_deep_link_scheme'] ?? 'simplel1'),
         );
     }
 
@@ -35,5 +37,16 @@ final readonly class Sl1eConfig
         $path = '/'.ltrim($path, '/');
 
         return $base.$path;
+    }
+
+    public function nativeDeepLinkScheme(): string
+    {
+        $scheme = trim($this->nativeDeepLinkScheme);
+        $scheme = preg_replace('#://.*$#', '', $scheme) ?: '';
+        $scheme = rtrim($scheme, ':/.');
+
+        return preg_match('/^[a-z][a-z0-9+.-]*$/i', $scheme) === 1
+            ? strtolower($scheme)
+            : '';
     }
 }

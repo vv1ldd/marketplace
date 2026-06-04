@@ -148,11 +148,14 @@
             @endforeach
         </div>
         <div class="actions">
-            <a class="primary" href="{{ $authorizeUrl }}">{{ $handoff['cta'] }}</a>
+            <a class="primary" href="{{ $nativeDeepLinkAutoLaunch && $deepLinkUrl ? $deepLinkUrl : $authorizeUrl }}">{{ $handoff['cta'] }}</a>
             <span class="small">{{ __('auth.simple_l1.countdown_prefix') }} <span data-handoff-countdown>5</span> {{ __('auth.simple_l1.countdown_suffix') }}</span>
         </div>
     </main>
     <script>
+        const authorizeUrl = @json($authorizeUrl);
+        const deepLinkUrl = @json($deepLinkUrl);
+        const nativeDeepLinkAutoLaunch = @json($nativeDeepLinkAutoLaunch);
         let secondsLeft = 5;
         const countdownNode = document.querySelector('[data-handoff-countdown]');
         const countdown = window.setInterval(() => {
@@ -164,9 +167,15 @@
                 window.clearInterval(countdown);
             }
         }, 1000);
-        window.setTimeout(() => {
-            window.location.assign(@json($authorizeUrl));
-        }, 5000);
+        if (nativeDeepLinkAutoLaunch && deepLinkUrl) {
+            window.setTimeout(() => {
+                window.location.assign(deepLinkUrl);
+            }, 250);
+        } else {
+            window.setTimeout(() => {
+                window.location.assign(authorizeUrl);
+            }, 5000);
+        }
     </script>
 </body>
 </html>

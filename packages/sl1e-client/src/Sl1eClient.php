@@ -17,6 +17,11 @@ final readonly class Sl1eClient
         return (new AuthorizationUrlBuilder($this->config))->build($request);
     }
 
+    public function authorizationDeepLink(AuthorizeRequest $request): string
+    {
+        return (new AuthorizationDeepLinkBuilder($this->config))->build($request);
+    }
+
     /**
      * @return array<string, mixed>
      */
