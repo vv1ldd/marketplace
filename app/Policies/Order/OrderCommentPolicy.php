@@ -40,8 +40,8 @@ class OrderCommentPolicy
      */
     public function update($user, OrderComment $orderComment): bool
     {
-        // Редактировать можно только свои комментарии (или если ты админ)
-        if (method_exists($user, 'hasRole') && $user->hasRole('super_admin')) {
+        // Sovereign validators can correct operational comment history.
+        if (method_exists($user, 'hasOpsSovereignAccess') && $user->hasOpsSovereignAccess()) {
             return true;
         }
 
@@ -53,8 +53,8 @@ class OrderCommentPolicy
      */
     public function delete($user, OrderComment $orderComment): bool
     {
-        // Удалять может только админ или автор
-        if (method_exists($user, 'hasRole') && $user->hasRole('super_admin')) {
+        // Sovereign validators can correct operational comment history.
+        if (method_exists($user, 'hasOpsSovereignAccess') && $user->hasOpsSovereignAccess()) {
             return true;
         }
 

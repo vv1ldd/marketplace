@@ -11,6 +11,7 @@ class WildflowDriver implements ProviderDriverInterface
     protected ?Provider $provider = null;
     protected ?WildflowService $service = null;
     protected ?array $lastOrderResponse = null;
+    protected ?array $lastSourceLedgerReceipt = null;
 
     public function setProvider(Provider $provider): self
     {
@@ -37,18 +38,21 @@ class WildflowDriver implements ProviderDriverInterface
             $terminalId = (string)($meta['terminal_id'] ?? '');
             $sellerName = (string)($meta['seller_name'] ?? '');
 
-            Log::info("Wildflow JIT Credit: Attempting to grant {$totalAmount} for ref {$reference}", [
+            Log::info("Meanly EZPin authority: attempting JIT credit grant for {$reference}", [
+                'amount' => $totalAmount,
+                'upstream_provider' => $upstreamProvider,
                 'terminal_id' => $terminalId,
                 'seller_name' => $sellerName
             ]);
 
             $this->getService()->grantCredit($totalAmount, $reference, $terminalId);
+            $this->lastSourceLedgerReceipt = $this->getService()->lastSourceLedgerReceipt();
         } catch (\Throwable $e) {
-            Log::error("Wildflow JIT Credit FAILED: " . $e->getMessage());
+            Log::error("Meanly EZPin authority JIT credit failed: " . $e->getMessage());
             throw $e;
         }
 
-        // Wildflow createOrder returns the aggregator order object. Keep the
+        // Meanly provider authority returns the normalized order object. Keep the
         // marketplace reference as the idempotent handle for later card polling.
         $order = $this->getService()->createOrder(
             service_sku: $sku,
@@ -63,6 +67,8 @@ class WildflowDriver implements ProviderDriverInterface
             sellerName: $meta['seller_name'] ?? null
         );
         $this->lastOrderResponse = is_array($order) ? $order : null;
+        $this->lastSourceLedgerReceipt = data_get($this->lastOrderResponse, 'source_ledger_receipt')
+            ?: $this->getService()->lastSourceLedgerReceipt();
 
         return $reference;
     }
@@ -70,6 +76,11 @@ class WildflowDriver implements ProviderDriverInterface
     public function lastOrderResponse(): ?array
     {
         return $this->lastOrderResponse;
+    }
+
+    public function lastSourceLedgerReceipt(): ?array
+    {
+        return $this->lastSourceLedgerReceipt;
     }
 
     public function getCodes(string $externalOrderId): array
@@ -100,8 +111,10 @@ class WildflowDriver implements ProviderDriverInterface
             ?? data_get($this->provider?->settings, 'provider')
             ?? data_get($this->provider?->credentials, 'upstream_provider')
             ?? data_get($this->provider?->credentials, 'provider')
-            ?? ($this->provider?->type === 'wildflow-sandbox' ? 'ezpin-sandbox' : null)
-            ?? 'ezpin'
+            ?? match ($this->provider?->type) {
+                'ezpin-sandbox', 'wildflow-sandbox' => 'ezpin-sandbox',
+                default => 'ezpin',
+            }
         );
     }
 }

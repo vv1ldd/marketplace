@@ -15,9 +15,9 @@ return new class extends Migration
      *                                        │
      *                          Marketplace master token
      *                                        ↓
-     *                               api-wildflow-dev
+     *                           digital-goods-source
      *                                        │
-     *                             EzPin / Fazercards / ...
+     *                             Upstream providers
      */
     public function up(): void
     {

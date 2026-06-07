@@ -65,9 +65,13 @@ class EnsureUserHasPasskey
                 }
             } else {
                 $hasPasskeys = $user->passkeys()->exists();
+                $identityRule = data_get($user->meta, 'simple_l1.identity_rule');
                 $hasExternalIdentityProvider = $user instanceof \App\Models\User
                     && $user->sovereignIdentityAddress() !== null
-                    && data_get($user->meta, 'simple_l1.identity_rule') === 'external_identity_provider';
+                    && (
+                        $user->identity_provider === 'identity_wildflow'
+                        || in_array($identityRule, ['external_identity_provider', 'entity_with_registered_keys'], true)
+                    );
                 \Illuminate\Support\Facades\Log::debug("EnsureUserHasPasskey: Standard User check", [
                     'has_passkeys' => $hasPasskeys,
                     'has_external_identity_provider' => $hasExternalIdentityProvider,

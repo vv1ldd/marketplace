@@ -9,16 +9,16 @@ class AgreementSeeder extends Seeder
 {
     public function run(): void
     {
-        // 🤝 B2B Partner Offer
+        // Merchant Center partner offer.
         Agreement::updateOrCreate(['type' => 'b2b'], [
-            'name' => 'Партнерский договор-оферта B2B',
+            'name' => 'Договор-оферта Meanly Merchant Center',
             'version' => '1.0',
-            'content' => "ДОГОВОР-ОФЕРТА НА ОКАЗАНИЕ УСЛУГ ДЛЯ ПАРТНЕРОВ (B2B)\n\n" .
+            'content' => "ДОГОВОР-ОФЕРТА MEANLY MERCHANT CENTER\n\n" .
                          "1. ПРЕДМЕТ ДОГОВОРА\n" .
                          "1.1. Маркетплейс предоставляет Заказчику (Юридическому лицу или ИП) услуги по размещению товарных предложений, интеграции с внешними витринами (Яндекс.Маркет, OZON) и проведению взаиморасчетов.\n\n" .
                          "2. СУВЕРЕННАЯ ИДЕНТИФИКАЦИЯ L1\n" .
                          "2.1. Подписание настоящего договора производится путем наложения криптографической подписи суверенного Passkey-ключа, привязанного к адресу L1 (Sovereign Address).\n" .
-                         "[Полный текст B2B-договора загружен и активен]",
+                         "[Полный текст договора Meanly Merchant Center загружен и активен]",
             'is_active' => true,
             'published_at' => now(),
         ]);

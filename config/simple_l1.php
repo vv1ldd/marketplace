@@ -5,7 +5,7 @@ return [
     'protocol_gateway_url' => rtrim((string) (env('SIMPLE_L1_PROTOCOL_GATEWAY_URL') ?: env('APP_URL', 'https://meanly.one')), '/'),
     'proof_introspection_path' => env('SIMPLE_L1_PROOF_INTROSPECTION_PATH', '/api/sl1e/proofs/introspect'),
     'client_id' => env('SIMPLE_L1_CLIENT_ID', 'meanly.one'),
-    'client_name' => env('SIMPLE_L1_CLIENT_NAME', 'Meanly'),
+    'client_name' => env('SIMPLE_L1_CLIENT_NAME', 'Meanly One'),
     'ui_theme' => env('SIMPLE_L1_UI_THEME', 'neobrutalism'),
     'prefer_native_deep_link' => env('SIMPLE_L1_PREFER_NATIVE_DEEP_LINK', true),
     'native_deep_link_scheme' => env('SIMPLE_L1_NATIVE_DEEP_LINK_SCHEME', 'simplel1'),

@@ -49,7 +49,7 @@ class AppServiceProvider extends ServiceProvider
             return str_replace('Models', 'Policies', $modelClass).'Policy';
         });
 
-        // Grant super_admin sovereign access to all permissions globally
+        // Grant sovereign validators access to all protected operations.
         Gate::before(function ($user, $ability) {
             return $user->hasOpsSovereignAccess() ? true : null;
         });

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Mail\VerificationCodeMail;
+use Spatie\Permission\Models\Role;
 
 class PartnerRegistrationController extends Controller
 {
@@ -255,7 +256,7 @@ class PartnerRegistrationController extends Controller
                 return response()->json(['error' => 'Сессия создания Simple L1 профиля истекла. Обновите страницу и попробуйте снова.'], 422);
             }
 
-            $user->assignRole('customer');
+            $user->assignRole(User::ROLE_WALLET_HOLDER);
             $optionsJson = session('passkey_options');
 
             return DB::transaction(function() use ($user, $request, $optionsJson) {
@@ -390,7 +391,7 @@ class PartnerRegistrationController extends Controller
                     $meta['business_registration_status'] = 'individual_only';
                     $meta['business_registration_note'] = 'DaData did not find an active IP or legal entity for this tax ID.';
                     $user->meta = $meta;
-                    $user->assignRole('customer');
+                    $user->assignRole(User::ROLE_WALLET_HOLDER);
                     $user->save();
 
                     return redirect()
@@ -557,7 +558,7 @@ class PartnerRegistrationController extends Controller
                     // 🏦 TRANSFORM USER TO SELLER & LINK
                     $seller = $this->sellerForLegalEntity($user, $entity);
 
-                    $this->assignB2BRoles($user, $seller);
+                    $this->assignMerchantNodeRoles($user, $seller);
 
                     $entity->update(['seller_id' => $seller->id]);
                     $seller->managedLegalEntities()->syncWithoutDetaching([
@@ -579,7 +580,7 @@ class PartnerRegistrationController extends Controller
                 if ($request->expectsJson()) {
                     return response()->json([
                         'success' => true,
-                        'redirect' => route('partner.register.offer')
+                        'redirect' => '/business/register/offer'
                     ]);
                 }
 
@@ -677,6 +678,111 @@ class PartnerRegistrationController extends Controller
         ]);
     }
 
+    public function offerPayload(Request $request)
+    {
+        $reg = session('partner_registration');
+        $user = Auth::user();
+
+        if (!$reg || !$user) {
+            return response()->json([
+                'error' => 'Registration session is missing.',
+                'redirect' => '/business/register',
+            ], 409);
+        }
+
+        if (! $user->hasSovereignIdentity()) {
+            return response()->json([
+                'error' => 'Meanly identity is required before signing the offer.',
+                'redirect' => route('meanly.simple_l1.connect', [
+                    'return_to' => '/business/register/offer',
+                    'mode' => 'login',
+                ], false),
+            ], 409);
+        }
+
+        $type = $this->agreementTypeForRegistration($reg);
+        $fallbackType = ($reg['is_b2b'] ?? true) ? 'b2b' : 'b2c';
+        $agreement = \App\Models\Agreement::where('type', $type)->where('is_active', true)->latest('published_at')->first();
+        if (!$agreement && in_array($type, ['b2b', 'b2c'], true)) {
+            $agreement = \App\Models\Agreement::where('type', $fallbackType)->where('is_active', true)->latest('published_at')->first();
+        }
+
+        $agreementText = $agreement ? $agreement->content : $this->fallbackAgreementText($type);
+        $isCompletingSl1eOffer = $request->query('sl1e_offer_complete') === '1';
+        $existingSigningContext = session('agreement_signing_context');
+        $existingSigningNonce = (string) session('agreement_signing_nonce', '');
+        $existingSigningResource = (string) session('agreement_signing_resource', '');
+        $contextEntityId = is_array($existingSigningContext) ? (int) ($existingSigningContext['legal_entity_id'] ?? 0) : 0;
+        $contextPendingEntity = $contextEntityId > 0
+            ? ($user->managedLegalEntities()->whereKey($contextEntityId)->where('status', 'pending_signature')->first()
+                ?? $user->legalEntities()->whereKey($contextEntityId)->where('status', 'pending_signature')->first())
+            : null;
+        $pendingEntity = ($isCompletingSl1eOffer ? $contextPendingEntity : null)
+            ?? $user->managedLegalEntities()->where('status', 'pending_signature')->latest()->first()
+            ?? $user->legalEntities()->where('status', 'pending_signature')->latest()->first();
+        $canReuseSigningContext = $isCompletingSl1eOffer
+            && is_array($existingSigningContext)
+            && $existingSigningNonce !== ''
+            && $existingSigningResource !== ''
+            && hash_equals('agreement_context:'.(string) ($existingSigningContext['context_hash'] ?? ''), $existingSigningResource)
+            && (int) ($existingSigningContext['legal_entity_id'] ?? 0) === (int) ($pendingEntity?->id ?? 0)
+            && hash_equals(
+                strtolower((string) $user->sovereignIdentityAddress()),
+                strtolower((string) ($existingSigningContext['entity_l1_address'] ?? ''))
+            );
+
+        if ($canReuseSigningContext) {
+            $agreementSigningNonce = $existingSigningNonce;
+            $agreementSigningResource = $existingSigningResource;
+            $agreementSigningContext = $existingSigningContext;
+        } else {
+            $agreementSigningNonce = Str::random(40);
+            $agreementSigningContext = $this->agreementSigningContext($reg, $pendingEntity, $agreement, $agreementText, $type, $user, $agreementSigningNonce);
+            $agreementSigningResource = 'agreement_context:'.$agreementSigningContext['context_hash'];
+            session([
+                'agreement_signing_entity_l1_address' => strtolower((string) $user->sovereignIdentityAddress()),
+                'agreement_signing_nonce' => $agreementSigningNonce,
+                'agreement_signing_resource' => $agreementSigningResource,
+                'agreement_signing_context' => $agreementSigningContext,
+                'agreement_signing_started_at' => now()->toIso8601String(),
+            ]);
+        }
+
+        $agreementSigningContexts = session('agreement_signing_contexts', []);
+        if (! is_array($agreementSigningContexts)) {
+            $agreementSigningContexts = [];
+        }
+        $agreementSigningContexts[$agreementSigningResource] = [
+            'entity_l1_address' => strtolower((string) $user->sovereignIdentityAddress()),
+            'nonce' => $agreementSigningNonce,
+            'resource' => $agreementSigningResource,
+            'context' => $agreementSigningContext,
+            'started_at' => session('agreement_signing_started_at') ?: now()->toIso8601String(),
+        ];
+        session(['agreement_signing_contexts' => array_slice($agreementSigningContexts, -5, null, true)]);
+
+        return response()->json([
+            'contract' => [
+                'name' => 'business-registration-offer',
+                'version' => 'v1',
+            ],
+            'registration' => [
+                'legal_name' => $reg['legal_name'] ?? null,
+                'is_npd' => $type === 'b2b_npd',
+            ],
+            'agreement' => [
+                'type' => $type,
+                'title' => $this->agreementTitle($type),
+                'text' => $agreementText,
+                'published_at' => $agreement?->published_at?->toDateString(),
+            ],
+            'signing' => [
+                'nonce' => $agreementSigningNonce,
+                'resource' => $agreementSigningResource,
+            ],
+        ]);
+    }
+
     public function showOnboarding(Request $request)
     {
         $user = Auth::user();
@@ -697,6 +803,81 @@ class PartnerRegistrationController extends Controller
             'user' => $user,
             'legalEntity' => $entity,
             'submittedAt' => $entity?->agreement_signed_at,
+        ]);
+    }
+
+    public function onboardingPayload(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'error' => 'Authentication is required.',
+                'redirect' => '/business/register',
+            ], 401);
+        }
+
+        $entity = $user->managedLegalEntities()->latest()->first()
+            ?? $user->legalEntities()->latest()->first();
+
+        if (!$entity) {
+            return response()->json([
+                'error' => 'Business registration was not found.',
+                'redirect' => '/business/register',
+            ], 404);
+        }
+
+        if ($entity->status === 'active' && $entity->is_active) {
+            return response()->json([
+                'redirect' => '/partner',
+                'legal_entity' => [
+                    'id' => $entity->id,
+                    'name' => $entity->name,
+                    'status' => $entity->status,
+                    'is_active' => (bool) $entity->is_active,
+                ],
+            ]);
+        }
+
+        $submittedAt = $entity->agreement_signed_at ?: now();
+        $statusLabel = match ($entity->status) {
+            'active' => 'профиль открыт',
+            'pending_signature' => 'ждем подпись',
+            'pending_moderation' => 'проверяем компанию',
+            default => $entity->is_active ? 'профиль открыт' : 'проверяем компанию',
+        };
+
+        return response()->json([
+            'contract' => [
+                'name' => 'business-onboarding-status',
+                'version' => 'v1',
+            ],
+            'headline' => 'Мы проверяем компанию',
+            'eyebrow' => 'Заявка отправлена',
+            'body' => 'Подпись получили, компанию взяли в работу. Обычно мы просто сверяем данные и открываем доступ. Если понадобится что-то уточнить, напишем на email компании.',
+            'notice' => 'Все в порядке, сейчас ничего делать не нужно. Если нам понадобятся детали, мы напишем на подтвержденный email компании.',
+            'steps' => [
+                [
+                    'title' => 'Все подписано',
+                    'body' => 'Заявка связана с вашим профилем и компанией.',
+                ],
+                [
+                    'title' => 'Смотрим компанию',
+                    'body' => 'Проверим ИНН, название и базовые данные, чтобы не открыть кабинет случайной организации.',
+                ],
+                [
+                    'title' => 'Откроем кабинет',
+                    'body' => 'После одобрения здесь появится доступ к заказам, товарам и настройкам.',
+                ],
+            ],
+            'legal_entity' => [
+                'id' => $entity->id,
+                'name' => $entity->name ?: 'профиль создается',
+                'status' => $entity->status,
+                'status_label' => $statusLabel,
+                'email' => $entity->email ?: 'не указан',
+                'submitted_at' => $submittedAt->format('d.m.Y H:i'),
+            ],
         ]);
     }
 
@@ -871,7 +1052,7 @@ class PartnerRegistrationController extends Controller
 
                     // 🏦 TRANSFORM USER TO SELLER EARLY
                     $seller = $this->sellerForLegalEntity($user, $entity);
-                    $this->assignB2BRoles($user, $seller);
+                    $this->assignMerchantNodeRoles($user, $seller);
 
                     // Link Seller to Entity through managers
                     $entity->update(['seller_id' => $seller->id]);
@@ -1200,7 +1381,7 @@ class PartnerRegistrationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'redirect' => route('partner.onboarding')
+                'redirect' => '/business/register/onboarding'
             ]);
 
         } catch (\Exception $e) {
@@ -1372,13 +1553,13 @@ class PartnerRegistrationController extends Controller
         return $identity;
     }
 
-    private function assignB2BRoles(User $user, \App\Models\Seller $seller): void
+    private function assignMerchantNodeRoles(User $user, \App\Models\Seller $seller): void
     {
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
-        $sellerRole = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'sellers']);
+        Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
+        $sellerRole = Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'sellers']);
 
-        if (! $user->hasRole('b2b_partner')) {
-            $user->assignRole('b2b_partner');
+        if (! $user->hasRole(User::ROLE_MERCHANT_NODE)) {
+            $user->assignRole(User::ROLE_MERCHANT_NODE);
         }
 
         if (! $seller->hasRole($sellerRole)) {

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -60,16 +61,17 @@ class MeanlyProductionReadinessCommand extends Command
             $activeProducts = Schema::hasTable('provider_products')
                 ? DB::table('provider_products')->where('is_active', true)->count()
                 : 0;
-            $sdkReady = class_exists(\EzPin\EzPinClient::class) && class_exists(\FazerSdk\FazerClient::class);
             $baseUrl = (string) config('services.wildflow.base_url');
+            $kernelMode = (string) config('services.wildflow.kernel_mode', 'http');
             $usesLegacyRuntimeUrl = str_contains($baseUrl, 'api.wildflow.dev') || str_contains($baseUrl, 'api.wildflow.test');
+            $kernelReady = $kernelMode !== 'local' && filled($baseUrl) && ! $usesLegacyRuntimeUrl;
 
-            $status = $activeProviders > 0 && $sdkReady && ! $usesLegacyRuntimeUrl ? 'pass' : 'warn';
+            $status = $activeProviders > 0 && $kernelReady ? 'pass' : 'warn';
 
             $this->addCheck(
                 'Providers',
                 $status,
-                "active_providers={$activeProviders}, active_provider_products={$activeProducts}, sdk_ready=".($sdkReady ? 'yes' : 'no').", base_url={$baseUrl}",
+                "active_providers={$activeProviders}, active_provider_products={$activeProducts}, kernel_mode={$kernelMode}, base_url={$baseUrl}",
             );
         } catch (Throwable $e) {
             $this->addCheck('Providers', 'fail', $e->getMessage());
@@ -227,17 +229,17 @@ class MeanlyProductionReadinessCommand extends Command
                 && Route::has('ops.dashboard.providers.data')
                 && Route::has('ops.dashboard.inventory.data')
                 && Route::has('ops.dashboard.search-integrations.data');
-            $superAdmins = Schema::hasTable('model_has_roles') && Schema::hasTable('roles')
+            $sovereignValidators = Schema::hasTable('model_has_roles') && Schema::hasTable('roles')
                 ? DB::table('model_has_roles')
                     ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
-                    ->where('roles.name', 'super_admin')
+                    ->where('roles.name', User::ROLE_SOVEREIGN_VALIDATOR)
                     ->count()
                 : 0;
 
             $this->addCheck(
                 'Ops',
-                $routesReady ? ($superAdmins > 0 ? 'pass' : 'warn') : 'fail',
-                "routes_ready=".($routesReady ? 'yes' : 'no').", super_admin_assignments={$superAdmins}",
+                $routesReady ? ($sovereignValidators > 0 ? 'pass' : 'warn') : 'fail',
+                "routes_ready=".($routesReady ? 'yes' : 'no').", sovereign_validator_assignments={$sovereignValidators}",
             );
         } catch (Throwable $e) {
             $this->addCheck('Ops', 'fail', $e->getMessage());

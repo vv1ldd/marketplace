@@ -185,19 +185,19 @@ class MeanlyLaunchReadinessCommand extends Command
     private function checkAdminPasskeyReadiness(): void
     {
         try {
-            $adminCount = User::role('super_admin')->count();
-            $adminPasskeys = User::role('super_admin')
+            $adminCount = User::role(User::ROLE_SOVEREIGN_VALIDATOR)->count();
+            $adminPasskeys = User::role(User::ROLE_SOVEREIGN_VALIDATOR)
                 ->whereHas('passkeys')
                 ->count();
             $this->addCheck(
-                'admin passkey',
+                'sovereign validator passkey',
                 $adminPasskeys > 0 ? 'pass' : 'warn',
                 $adminPasskeys > 0
-                    ? "super_admins={$adminCount}, admin_passkeys={$adminPasskeys}"
-                    : "super_admins={$adminCount}, admin_passkeys=0",
+                    ? "sovereign_validators={$adminCount}, validator_passkeys={$adminPasskeys}"
+                    : "sovereign_validators={$adminCount}, validator_passkeys=0",
             );
         } catch (Throwable $e) {
-            $this->addCheck('admin passkey', 'warn', $e->getMessage());
+            $this->addCheck('sovereign validator passkey', 'warn', $e->getMessage());
         }
     }
 

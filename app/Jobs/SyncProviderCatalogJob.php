@@ -16,7 +16,7 @@ class SyncProviderCatalogJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $timeout = 1200; // Increased for large Fazer catalog
+    public int $timeout = 1200; // Increased for large source catalogs
     public int $tries = 1;
 
     public function __construct(public int $providerId) {}
@@ -56,7 +56,7 @@ class SyncProviderCatalogJob implements ShouldQueue
         } elseif ($provider->type === 'playstation_us') {
             Artisan::call('ps:sync-region');
         } else {
-            // Fazer, Wildflow, and others handled by the unified aggregator sync
+            // Digital Goods Source and embedded projections are handled by the unified aggregator sync.
             Artisan::call('app:sync-catalogs', [
                 'provider' => $provider->id,
                 '--force' => true

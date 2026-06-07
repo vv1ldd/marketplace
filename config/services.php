@@ -143,10 +143,14 @@ return [
     | По умолчанию 1 — MEANLY.
     */
     'wildflow' => [
-        'base_url' => env('APP_WILDFLOW_URL') ?: rtrim((string) env('APP_URL', 'https://meanly.one'), '/').'/api/v1/',
+        'kernel_url' => env('DIGITAL_GOODS_SOURCE_URL', env('WILDFLOW_KERNEL_URL')),
+        'base_url' => env('DIGITAL_GOODS_SOURCE_URL')
+            ?: env('WILDFLOW_KERNEL_URL')
+            ?: env('APP_WILDFLOW_URL')
+            ?: rtrim((string) env('APP_URL', 'https://meanly.one'), '/').'/api/v1/',
         'verify_tls' => env('WILDFLOW_VERIFY_TLS', true),
-        'kernel_mode' => env('WILDFLOW_KERNEL_MODE', 'local'),
-        'financial_secret' => env('WILDFLOW_FINANCIAL_SECRET'),
+        'kernel_mode' => env('WILDFLOW_KERNEL_MODE', (env('DIGITAL_GOODS_SOURCE_URL') || env('WILDFLOW_KERNEL_URL')) ? 'http' : 'local'),
+        'financial_secret' => env('DIGITAL_GOODS_SOURCE_FINANCIAL_SECRET', env('WILDFLOW_KERNEL_FINANCIAL_SECRET', env('WILDFLOW_FINANCIAL_SECRET'))),
         'sku_map_shop_ids' => (function (): array {
             $raw = trim((string) env('WILDFLOW_SKU_MAP_SHOP_IDS', '1'));
 
@@ -158,10 +162,12 @@ return [
     ],
 
     'ezpin' => [
+        'base_url' => env('EZPIN_BASE_URL'),
         'client_id' => env('EZPIN_CLIENT_ID'),
-        'secret_key' => env('EZPIN_SECRET_KEY', env('EZPIN_CLIENT_SECRET')),
+        'secret_key' => env('EZPIN_SECRET_KEY'),
         'terminal_id' => env('EZPIN_TERMINAL_ID'),
         'terminal_pin' => env('EZPIN_TERMINAL_PIN'),
+        'sandbox' => env('EZPIN_SANDBOX', false),
     ],
 
     'dadata' => [

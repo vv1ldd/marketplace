@@ -97,9 +97,17 @@ class MarketContextTest extends TestCase
                 rawurlencode("https://{$host}/simple-l1/callback"),
                 (string) $response->json('redirect_url')
             );
+            $this->assertStringContainsString(
+                rawurlencode("https://{$host}/simple-l1/callback"),
+                (string) $response->json('deep_link_url')
+            );
             $this->assertStringNotContainsString(
                 rawurlencode('https://meanly.one/simple-l1/callback'),
                 (string) $response->json('redirect_url')
+            );
+            $this->assertStringNotContainsString(
+                rawurlencode('https://meanly.one/simple-l1/callback'),
+                (string) $response->json('deep_link_url')
             );
             $this->assertSame("https://{$host}/simple-l1/callback", session('simple_l1_connect.redirect_uri'));
             session()->flush();

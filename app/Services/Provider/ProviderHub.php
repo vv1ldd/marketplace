@@ -12,30 +12,30 @@ class ProviderHub extends Manager
      */
     public function getDefaultDriver(): string
     {
-        return 'wildflow';
+        return 'ezpin';
     }
 
     /**
-     * Create Wildflow driver.
+     * Legacy Wildflow provider records now route through Meanly's EZPin authority.
      */
-    public function createWildflowDriver(): WildflowDriver
+    public function createWildflowDriver(): EzpinDriver
     {
-        return new WildflowDriver();
+        return new EzpinDriver();
     }
 
-    public function createWildflowSandboxDriver(): WildflowDriver
+    public function createWildflowSandboxDriver(): EzpinDriver
     {
-        return new WildflowDriver();
+        return new EzpinDriver();
     }
 
-    public function createEzpinDriver(): WildflowDriver
+    public function createEzpinDriver(): EzpinDriver
     {
-        return new WildflowDriver();
+        return new EzpinDriver();
     }
 
-    public function createEzpinSandboxDriver(): WildflowDriver
+    public function createEzpinSandboxDriver(): EzpinDriver
     {
-        return new WildflowDriver();
+        return new EzpinDriver();
     }
 
     /**
@@ -43,7 +43,7 @@ class ProviderHub extends Manager
      */
     public function forProvider(Provider $provider): ProviderDriverInterface
     {
-        $driverName = $provider->type; // 'wildflow', etc.
+        $driverName = $provider->type;
         
         /** @var ProviderDriverInterface $driver */
         $driver = $this->driver($driverName);

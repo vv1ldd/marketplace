@@ -159,6 +159,159 @@ class PartnerDashboardController extends Controller
         ];
     }
 
+    private function yandexLegalEntityPrecondition(\App\Models\LegalEntity $legalEntity): array
+    {
+        $inn = $this->normalizeLegalDigits($legalEntity->inn);
+
+        return [
+            'required' => true,
+            'can_configure' => $inn !== '',
+            'name' => (string) ($legalEntity->short_name ?: $legalEntity->name),
+            'inn' => $inn,
+            'kpp' => $this->normalizeLegalDigits($legalEntity->kpp),
+            'ogrn' => $this->normalizeLegalDigits($legalEntity->ogrn),
+            'reason' => $inn === ''
+                ? 'Для подключения Yandex Market сначала укажите ИНН юрлица продавца.'
+                : null,
+        ];
+    }
+
+    private function classifyYandexChannelState(
+        Shop $shop,
+        \App\Models\LegalEntity $legalEntity,
+        ?string $lastError = null
+    ): string {
+        $precondition = $this->yandexLegalEntityPrecondition($legalEntity);
+        if (! $precondition['can_configure']) {
+            return 'legal_entity_required';
+        }
+
+        if (! \App\Support\SalesChannels::isChannelAllowedForShop('yandex_market', $shop)) {
+            return 'market_unavailable';
+        }
+
+        $hasCredentials = filled($shop->business_id)
+            && filled($shop->campaign_id)
+            && filled($shop->api_key)
+            && filled($shop->ym_warehouse_id);
+
+        if (! $hasCredentials) {
+            return 'not_connected';
+        }
+
+        if (filled($lastError)) {
+            return 'sync_error';
+        }
+
+        if ($shop->isYandexMarketActive()) {
+            return 'active';
+        }
+
+        $verification = (array) ($shop->ym_legal_verification ?? []);
+        $backgroundStatus = (string) data_get($verification, 'background_services_report.status', '');
+        $tier = (string) data_get($verification, 'verification_tier', '');
+        $status = (string) data_get($verification, 'status', '');
+
+        if ($tier === 'rejected' || $status === 'rejected' || $backgroundStatus === 'failed') {
+            return 'rejected';
+        }
+
+        if (in_array($backgroundStatus, ['queued', 'processing'], true)) {
+            return 'legal_check_queued';
+        }
+
+        if ($tier === 'attention' || $status === 'review_required' || $backgroundStatus === 'review_required') {
+            return 'needs_review';
+        }
+
+        return 'credentials_saved';
+    }
+
+    private function yandexChannelStateLabel(string $state): string
+    {
+        return match ($state) {
+            'active' => 'Active',
+            'sync_error' => 'Sync error',
+            'legal_check_queued' => 'Legal check queued',
+            'needs_review' => 'Needs review',
+            'rejected' => 'Rejected',
+            'credentials_saved' => 'Credentials saved',
+            'market_unavailable' => 'Unavailable in this market',
+            'legal_entity_required' => 'INN required',
+            default => 'Not connected',
+        };
+    }
+
+    private function yandexChannelNextAction(string $state): string
+    {
+        return match ($state) {
+            'active' => 'Канал активен. Можно публиковать товары и синхронизировать остатки.',
+            'sync_error' => 'Проверьте ошибку синхронизации товара или перезапустите публикацию.',
+            'legal_check_queued' => 'Дождитесь фоновой проверки ИНН по отчету Yandex Market.',
+            'needs_review' => 'Проверьте реквизиты или обратитесь в поддержку для ручной проверки.',
+            'rejected' => 'Исправьте credentials или подключите Yandex кабинет с тем же ИНН.',
+            'credentials_saved' => 'Сохраните API-данные и дождитесь проверки юрлица.',
+            'market_unavailable' => 'Yandex Market доступен только для RU sales channel.',
+            'legal_entity_required' => 'Сначала добавьте ИНН в юрлицо продавца.',
+            default => 'Введите Business ID, Campaign ID, Warehouse ID и API Key.',
+        };
+    }
+
+    private function yandexChannelStatus(Shop $shop, \App\Models\LegalEntity $legalEntity): array
+    {
+        $precondition = $this->yandexLegalEntityPrecondition($legalEntity);
+        $channelRows = \App\Models\ProductSalesChannel::query()
+            ->where('shop_id', $shop->id)
+            ->where('channel', 'yandex_market')
+            ->get();
+        $lastError = (string) ($channelRows->first(fn ($row) => filled($row->last_error))?->last_error ?? '');
+        $lastSyncedAt = $channelRows->pluck('last_synced_at')->filter()->sortDesc()->first();
+        $state = $this->classifyYandexChannelState($shop, $legalEntity, $lastError);
+        $warehouse = \App\Models\Warehouse::query()
+            ->where('shop_id', $shop->id)
+            ->where('channel', 'yandex_market')
+            ->first();
+
+        return [
+            'key' => 'yandex_market',
+            'label' => 'Yandex Market',
+            'state' => $state,
+            'state_label' => $this->yandexChannelStateLabel($state),
+            'next_action' => $this->yandexChannelNextAction($state),
+            'active' => $shop->isYandexMarketActive(),
+            'legal_verified' => $shop->isYandexMarketVerified(),
+            'allowed_for_market' => \App\Support\SalesChannels::isChannelAllowedForShop('yandex_market', $shop),
+            'legal_entity' => $precondition,
+            'credentials' => [
+                'business_id' => $shop->business_id !== null ? (int) $shop->business_id : null,
+                'campaign_id' => $shop->campaign_id !== null ? (int) $shop->campaign_id : null,
+                'ym_warehouse_id' => $shop->ym_warehouse_id !== null ? (int) $shop->ym_warehouse_id : null,
+                'api_key_present' => filled($shop->api_key),
+            ],
+            'verification' => $shop->ym_legal_verification,
+            'notification_url' => filled($shop->notification_token)
+                ? url('/api/ym/'.$shop->notification_token.'/notification')
+                : null,
+            'warehouse' => [
+                'id' => $warehouse?->id,
+                'name' => $warehouse?->name,
+                'ym_id' => $warehouse?->ym_id !== null
+                    ? (int) $warehouse->ym_id
+                    : ($shop->ym_warehouse_id !== null ? (int) $shop->ym_warehouse_id : null),
+                'channel_quota' => $warehouse?->channel_quota,
+                'is_active' => (bool) ($warehouse?->is_active ?? false),
+            ],
+            'publication' => [
+                'total_products' => $channelRows->count(),
+                'enabled_products' => $channelRows->where('is_enabled', true)->count(),
+                'last_synced_at' => $lastSyncedAt instanceof \Illuminate\Support\Carbon
+                    ? $lastSyncedAt->toIso8601String()
+                    : ($lastSyncedAt ? \Illuminate\Support\Carbon::parse($lastSyncedAt)->toIso8601String() : null),
+                'last_error' => $lastError !== '' ? $lastError : null,
+            ],
+        ];
+    }
+
     private function storefrontProductsQuery(\App\Models\LegalEntity $legalEntity): \Illuminate\Database\Eloquent\Builder
     {
         return \App\Models\ProviderProduct::query()
@@ -726,6 +879,9 @@ class PartnerDashboardController extends Controller
             ->get();
 
         $operatorWorkspace = $operatorService->payload($legalEntity, $stats, $sovereignRequests);
+        $yandexChannelStatuses = $shops
+            ->mapWithKeys(fn (Shop $shop): array => [$shop->id => $this->yandexChannelStatus($shop, $legalEntity)])
+            ->all();
 
         $agreement = \App\Models\Agreement::where('is_active', true)->latest('published_at')->first();
         $agreementText = $agreement ? $agreement->content : "Текст оферты не найден.";
@@ -752,6 +908,7 @@ class PartnerDashboardController extends Controller
             'activations' => $activations,
             'sovereignRequests' => $sovereignRequests,
             'operatorWorkspace' => $operatorWorkspace,
+            'yandexChannelStatuses' => $yandexChannelStatuses,
             'activePartnerTab' => $this->activePartnerTab(),
         ]);
     }
@@ -804,6 +961,287 @@ class PartnerDashboardController extends Controller
             'success' => true,
             'data' => $operatorService->payload($legalEntity, null, $sovereignRequests),
         ]);
+    }
+
+    public function workspaceSummary(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $legalEntity = $this->currentLegalEntity($user);
+        if (!$legalEntity) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Legal entity not found',
+                'next_action' => route('business.register'),
+            ], 404);
+        }
+
+        app(\App\Services\SellerDistributionCenterService::class)
+            ->ensureForLegalEntity($legalEntity);
+
+        $l1State = app(\App\Services\L1StateService::class)->reconstructBalance($legalEntity);
+        $operatorService = app(\App\Services\PartnerOperatorIntelligenceService::class);
+        $stats = $operatorService->stats($legalEntity, $l1State);
+        $shops = $legalEntity->shops()->withCount(['products', 'orders', 'apiApplications'])->get();
+        $channels = $this->workspaceSalesChannels($legalEntity, $shops);
+        $capabilities = $this->workspaceCapabilities($legalEntity);
+
+        return response()->json([
+            'success' => true,
+            'contract' => [
+                'name' => 'PartnerWorkspaceProjection',
+                'version' => 'v1',
+                'authority' => 'laravel',
+                'read_model_only' => true,
+            ],
+            'authority_invariant' => [
+                'nextjs' => [
+                    'may_render' => true,
+                    'may_cache' => true,
+                    'may_navigate' => true,
+                ],
+                'nextjs_must_not' => [
+                    'create_authority' => true,
+                    'evaluate_authority' => true,
+                    'persist_authority' => true,
+                ],
+                'laravel_owns' => [
+                    'auth',
+                    'legal_entity_state',
+                    'capabilities',
+                    'channel_readiness',
+                    'publishing',
+                    'orders',
+                    'finance',
+                ],
+            ],
+            'user' => [
+                'id' => $user->id,
+                'name' => trim((string) ($user->getFullName() ?: $user->name ?: $user->email)),
+                'email' => $user->email,
+            ],
+            'legal_entity' => [
+                'id' => $legalEntity->id,
+                'name' => (string) $legalEntity->name,
+                'short_name' => (string) ($legalEntity->short_name ?: $legalEntity->name),
+                'inn' => (string) $legalEntity->inn,
+                'kpp' => (string) $legalEntity->kpp,
+                'status' => (string) $legalEntity->status,
+                'is_active' => (bool) $legalEntity->is_active,
+            ],
+            'capabilities' => $capabilities,
+            'navigation' => $this->workspaceNavigation($capabilities),
+            'shops' => $shops->map(fn (Shop $shop): array => [
+                'id' => $shop->id,
+                'name' => $shop->name,
+                'domain' => $shop->domain,
+                'region' => $shop->shop_region ?: ($shop->allowed_regions[0] ?? 'RU'),
+                'is_active' => (bool) $shop->is_active,
+                'is_sandbox' => (bool) $shop->is_sandbox,
+                'product_count' => (int) $shop->products_count,
+                'orders_count' => (int) $shop->orders_count,
+                'api_applications_count' => (int) $shop->api_applications_count,
+            ])->values(),
+            'sales_channels' => $channels,
+            'orders_summary' => [
+                'active' => (int) ($stats['active_orders'] ?? 0),
+                'completed_30_days' => (int) ($stats['completed_orders_30_days'] ?? 0),
+                'revenue_30_days' => (float) ($stats['revenue_30_days'] ?? 0),
+            ],
+            'catalog_summary' => [
+                'products' => \App\Models\Product::whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))->count(),
+                'active_products' => \App\Models\Product::whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))->where('is_active', true)->count(),
+                'market_errors' => (int) ($stats['market_errors_count'] ?? 0),
+            ],
+            'finance_summary' => [
+                'available' => (float) ($stats['balance'] ?? $legalEntity->available_balance ?? 0),
+                'reserved' => (float) ($stats['reserved_balance'] ?? $legalEntity->reserved_balance ?? 0),
+                'native_available' => (float) ($stats['native_balance'] ?? $legalEntity->native_token_balance ?? 0),
+                'integrity_secured' => (bool) ($stats['integrity_secured'] ?? false),
+            ],
+            'support_summary' => [
+                'open_tickets' => \App\Models\Ticket::whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))
+                    ->whereNotIn('status', ['closed', 'resolved'])
+                    ->count(),
+            ],
+            'alerts' => $this->workspaceAlerts($legalEntity, $stats, $channels),
+            'module_endpoints' => $this->workspaceModuleEndpoints(),
+            'actions' => $this->workspaceActionEndpoints(),
+            'legacy_url' => url('/partner/legacy'),
+            'generated_at' => now()->toIso8601String(),
+        ]);
+    }
+
+    private function workspaceCapabilities(\App\Models\LegalEntity $legalEntity): array
+    {
+        $active = (bool) $legalEntity->is_active && $legalEntity->status !== 'pending_moderation';
+
+        return [
+            'overview' => true,
+            'orders' => $active,
+            'catalog' => $active,
+            'sales_channels' => $active,
+            'provider_storefront' => $active,
+            'warehouses' => $active,
+            'activations' => $active,
+            'vouchers' => $active,
+            'finance' => $active,
+            'support' => $active,
+            'settings' => $active,
+            'reason_codes' => $active ? [] : ['legal_entity_not_active'],
+        ];
+    }
+
+    private function workspaceNavigation(array $capabilities): array
+    {
+        return collect([
+            ['key' => 'overview', 'label' => 'Overview', 'href' => '/partner'],
+            ['key' => 'sales_channels', 'label' => 'Sales Channels', 'href' => '/partner/channels'],
+            ['key' => 'orders', 'label' => 'Orders', 'href' => '/partner/orders'],
+            ['key' => 'catalog', 'label' => 'Catalog', 'href' => '/partner/catalog'],
+            ['key' => 'provider_storefront', 'label' => 'Supply', 'href' => '/partner/storefront'],
+            ['key' => 'warehouses', 'label' => 'Stock', 'href' => '/partner/warehouses'],
+            ['key' => 'vouchers', 'label' => 'Vouchers', 'href' => '/partner/vouchers'],
+            ['key' => 'finance', 'label' => 'Finance', 'href' => '/partner/finance'],
+            ['key' => 'support', 'label' => 'Support', 'href' => '/partner/support'],
+            ['key' => 'settings', 'label' => 'Settings', 'href' => '/partner/settings'],
+        ])->map(fn (array $item): array => $item + [
+            'enabled' => (bool) ($capabilities[$item['key']] ?? false),
+            'disabled_reason' => (bool) ($capabilities[$item['key']] ?? false)
+                ? null
+                : 'Laravel authority has not granted this capability.',
+        ])->values()->all();
+    }
+
+    private function workspaceSalesChannels(\App\Models\LegalEntity $legalEntity, \Illuminate\Support\Collection $shops): array
+    {
+        $channels = [];
+
+        foreach (\App\Support\SalesChannels::all() as $key => $meta) {
+            $perShop = $shops->map(function (Shop $shop) use ($key, $legalEntity): array {
+                if ($key === 'yandex_market') {
+                    $status = $this->yandexChannelStatus($shop, $legalEntity);
+                    $ready = (bool) ($status['active'] ?? false);
+
+                    return $status + [
+                        'shop_id' => $shop->id,
+                        'shop_name' => $shop->name,
+                        'configured' => $ready,
+                        'ready' => $ready,
+                        'issues' => $ready ? [] : [[
+                            'code' => (string) ($status['state'] ?? 'not_connected'),
+                            'message' => (string) ($status['next_action'] ?? 'Finish Yandex Market setup.'),
+                        ]],
+                    ];
+                }
+
+                $allowed = \App\Support\SalesChannels::isChannelAllowedForShop($key, $shop);
+                $configured = \App\Support\SalesChannels::isChannelConfigured($key, $shop);
+
+                return [
+                    'shop_id' => $shop->id,
+                    'shop_name' => $shop->name,
+                    'state' => $configured ? 'active' : ($allowed ? 'not_connected' : 'market_unavailable'),
+                    'configured' => $configured,
+                    'ready' => $configured,
+                    'issues' => $configured ? [] : [[
+                        'code' => $allowed ? 'not_configured' : 'market_unavailable',
+                        'message' => $allowed ? 'Channel is available but not configured.' : 'Channel is not available for this shop market.',
+                    ]],
+                    'next_action' => $configured ? 'Channel is ready for publishing.' : 'Configure this channel in Laravel authority.',
+                ];
+            })->values();
+
+            $configuredCount = $perShop->filter(fn (array $status): bool => (bool) ($status['ready'] ?? $status['active'] ?? false))->count();
+            $issues = $perShop
+                ->flatMap(fn (array $status): array => (array) ($status['issues'] ?? []))
+                ->values()
+                ->all();
+
+            $channels[] = [
+                'type' => $key,
+                'label' => (string) ($meta['label'] ?? $key),
+                'icon' => (string) ($meta['icon'] ?? ''),
+                'group' => (string) ($meta['group'] ?? 'other'),
+                'implemented' => (bool) ($meta['implemented'] ?? false),
+                'enabled' => (bool) ($meta['enabled'] ?? false),
+                'configured' => $configuredCount > 0,
+                'ready' => $configuredCount > 0,
+                'issues' => $issues,
+                'shops' => $perShop,
+                'next_action' => $configuredCount > 0
+                    ? 'Channel is ready for product publishing.'
+                    : (($meta['implemented'] ?? false) ? 'Configure the channel for at least one shop.' : 'Channel implementation is not available yet.'),
+            ];
+        }
+
+        return $channels;
+    }
+
+    private function workspaceAlerts(\App\Models\LegalEntity $legalEntity, array $stats, array $channels): array
+    {
+        $alerts = collect();
+
+        if (blank($legalEntity->inn)) {
+            $alerts->push([
+                'type' => 'legal_entity_inn_missing',
+                'severity' => 'high',
+                'title' => 'INN is required for marketplace channels',
+                'description' => 'Add company INN before activating channels such as Yandex Market.',
+            ]);
+        }
+
+        if (($stats['market_errors_count'] ?? 0) > 0) {
+            $alerts->push([
+                'type' => 'catalog_market_errors',
+                'severity' => 'medium',
+                'title' => 'Catalog has marketplace errors',
+                'description' => 'Review products with channel sync errors before publishing more stock.',
+                'value' => (int) $stats['market_errors_count'],
+            ]);
+        }
+
+        $blockedChannels = collect($channels)->filter(fn (array $channel): bool => ($channel['implemented'] ?? false) && ! ($channel['ready'] ?? false))->count();
+        if ($blockedChannels > 0) {
+            $alerts->push([
+                'type' => 'channels_need_setup',
+                'severity' => 'info',
+                'title' => 'Some sales channels need setup',
+                'description' => 'Open Sales Channels to finish credentials, legal checks, or warehouse settings.',
+                'value' => $blockedChannels,
+            ]);
+        }
+
+        return $alerts->values()->all();
+    }
+
+    private function workspaceModuleEndpoints(): array
+    {
+        return [
+            'orders' => url('/partner/dashboard/orders/data'),
+            'catalog' => url('/partner/dashboard/catalog/data'),
+            'shops' => url('/partner/dashboard/shops/data'),
+            'tickets' => url('/partner/dashboard/tickets/data'),
+            'provider_storefront' => url('/partner/dashboard/storefront/products'),
+            'warehouses' => url('/partner/dashboard/warehouses/data'),
+            'activations' => url('/partner/dashboard/activations/data'),
+            'vouchers' => url('/partner/dashboard/vouchers/data'),
+            'finance' => url('/partner/dashboard/finance/data'),
+        ];
+    }
+
+    private function workspaceActionEndpoints(): array
+    {
+        return [
+            'orders_sync' => url('/partner/dashboard/orders/sync'),
+            'shop_create' => url('/partner/dashboard/shop/create'),
+            'ticket_create' => url('/partner/dashboard/tickets/create'),
+            'warehouse_create' => url('/partner/dashboard/warehouses/create'),
+            'storefront_add_to_catalog' => url('/partner/dashboard/storefront/add-to-catalog'),
+        ];
     }
 
     private function operatorStats(\App\Models\LegalEntity $legalEntity, array $l1State): array
@@ -1484,7 +1922,7 @@ class PartnerDashboardController extends Controller
     }
 
     /**
-     * Create a new B2B Partner Shop / Sales Channel.
+     * Create a new Merchant Node shop / sales channel.
      */
     public function createShop(Request $request)
     {
@@ -1545,6 +1983,15 @@ class PartnerDashboardController extends Controller
         $shop = $legalEntity->shops()->find($id);
         if (!$shop) {
             return response()->json(['error' => 'Магазин не найден.'], 404);
+        }
+
+        $precondition = $this->yandexLegalEntityPrecondition($legalEntity);
+        if (! $precondition['can_configure']) {
+            return response()->json([
+                'success' => false,
+                'error' => $precondition['reason'],
+                'yandex_channel_status' => $this->yandexChannelStatus($shop, $legalEntity),
+            ], 422);
         }
 
         try {
@@ -1663,6 +2110,7 @@ class PartnerDashboardController extends Controller
             return response()->json([
                 'success' => true,
                 'verification' => $shop->ym_legal_verification,
+                'yandex_channel_status' => $this->yandexChannelStatus($shop, $legalEntity),
                 'shop' => [
                     'id' => $shop->id,
                     'name' => $shop->name,
@@ -1698,6 +2146,16 @@ class PartnerDashboardController extends Controller
         $shop = $legalEntity->shops()->find($id);
         if (!$shop) {
             return response()->json(['error' => 'Магазин не найден.'], 404);
+        }
+
+        $precondition = $this->yandexLegalEntityPrecondition($legalEntity);
+        if (! $precondition['can_configure']) {
+            return response()->json([
+                'success' => false,
+                'verified' => false,
+                'error' => $precondition['reason'],
+                'yandex_channel_status' => $this->yandexChannelStatus($shop, $legalEntity),
+            ], 422);
         }
 
         try {
@@ -1788,6 +2246,7 @@ class PartnerDashboardController extends Controller
                 'success' => true,
                 'verified' => $verification['verified'],
                 'verification' => $verification,
+                'yandex_channel_status' => $this->yandexChannelStatus($shop, $legalEntity),
                 'shop' => [
                     'id' => $shop->id,
                     'name' => $shop->name,
@@ -1825,6 +2284,15 @@ class PartnerDashboardController extends Controller
         $shop = $legalEntity->shops()->find($id);
         if (!$shop) {
             return response()->json(['error' => 'Магазин не найден.'], 404);
+        }
+
+        $precondition = $this->yandexLegalEntityPrecondition($legalEntity);
+        if (! $precondition['can_configure']) {
+            return response()->json([
+                'success' => false,
+                'error' => $precondition['reason'],
+                'yandex_channel_status' => $this->yandexChannelStatus($shop, $legalEntity),
+            ], 422);
         }
 
         $validated = $request->validate([

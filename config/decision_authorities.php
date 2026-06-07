@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\SearchDemandRecommendation;
+use App\Models\User;
 
 return [
     'transitions' => [
@@ -20,44 +21,44 @@ return [
 
     'types' => [
         'ADD_ALIAS' => [
-            'approve' => ['roles' => ['super_admin']],
-            'reject' => ['roles' => ['super_admin']],
+            'approve' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
+            'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
         ],
         'ADD_PRODUCT' => [
-            'approve' => ['roles' => ['super_admin']],
-            'reject' => ['roles' => ['super_admin']],
+            'approve' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
+            'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
         ],
         'ADD_REGION_VARIANT' => [
-            'approve' => ['roles' => ['super_admin']],
-            'reject' => ['roles' => ['super_admin']],
+            'approve' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
+            'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
         ],
         'IMPROVE_RANKING' => [
-            'approve' => ['roles' => ['super_admin']],
-            'reject' => ['roles' => ['super_admin']],
+            'approve' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
+            'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
         ],
         'IMPROVE_SUPPLY' => [
-            'approve' => ['roles' => ['super_admin', 'b2b_partner']],
-            'reject' => ['roles' => ['super_admin', 'b2b_partner']],
+            'approve' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR, User::ROLE_MERCHANT_NODE]],
+            'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR, User::ROLE_MERCHANT_NODE]],
         ],
         'OPEN_PARTNER_OPPORTUNITY' => [
-            'approve' => ['roles' => ['super_admin', 'b2b_partner']],
-            'reject' => ['roles' => ['super_admin', 'b2b_partner']],
+            'approve' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR, User::ROLE_MERCHANT_NODE]],
+            'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR, User::ROLE_MERCHANT_NODE]],
         ],
         'CREATE_COLLECTION' => [
-            'approve' => ['roles' => ['super_admin']],
-            'reject' => ['roles' => ['super_admin']],
+            'approve' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
+            'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
         ],
         'APPLY_REBUILD' => [
             'approve' => [
-                'roles' => ['super_admin'],
+                'roles' => [User::ROLE_SOVEREIGN_VALIDATOR],
                 'dual_control' => true,
             ],
-            'reject' => ['roles' => ['super_admin']],
+            'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
         ],
     ],
 
     'default' => [
-        'approve' => ['roles' => ['super_admin']],
-        'reject' => ['roles' => ['super_admin']],
+        'approve' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
+        'reject' => ['roles' => [User::ROLE_SOVEREIGN_VALIDATOR]],
     ],
 ];

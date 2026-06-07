@@ -84,6 +84,9 @@ $meanlyPublicRoutes = function () {
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
     Route::get('/simple-l1/complete', [\App\Http\Controllers\SimpleL1ConnectController::class, 'complete'])->name('meanly.simple_l1.complete');
     Route::get('/simple-l1/status', [\App\Http\Controllers\SimpleL1ConnectController::class, 'status'])->name('meanly.simple_l1.status');
+    Route::post('/api/storefront/v1/identity/handoff', [\App\Http\Controllers\Api\Storefront\StorefrontIdentityController::class, 'handoff'])
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+        ->name('storefront.identity.handoff');
     Route::get('/csrf-token', fn () => response()->json(['csrf_token' => csrf_token()]))->name('csrf.token');
     Route::post('/store/favorites/{product}/toggle', [\App\Http\Controllers\MeanlyStorefrontController::class, 'toggleFavorite'])->name('meanly.storefront.favorites.toggle');
     Route::post('/store/checkout/availability', [\App\Http\Controllers\MeanlyStorefrontController::class, 'checkoutAvailability'])->name('meanly.storefront.checkout.availability');
@@ -129,7 +132,7 @@ $meanlyPublicRoutes = function () {
 
         return redirect()->route('home');
     })->middleware('auth')->name('cabinet.logout');
-    Route::get('/register', fn () => redirect()->route('meanly.simple_l1.connect', ['return_to' => '/vault', 'mode' => 'register']))->name('register');
+    Route::get('/register', fn () => redirect()->route('meanly.simple_l1.connect', ['return_to' => '/vault', 'mode' => 'connect']))->name('register');
     Route::get('/register/verify-intent', [\App\Http\Controllers\PartnerRegistrationController::class, 'verifyIntent'])->name('register.verify');
     Route::get('/business', fn () => view('business', [
         'serviceFacts' => app(\App\Services\LlmServiceFactsService::class)->services(),
@@ -139,6 +142,8 @@ $meanlyPublicRoutes = function () {
     Route::get('/business/services/{slug}', [\App\Http\Controllers\MeanlyServiceController::class, 'show'])->name('business.services.show');
     Route::get('/partner-landing', fn () => redirect()->route('business.landing'))->name('partner.landing');
     Route::get('/business/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'showLegalEntity'])->name('business.register');
+    Route::get('/business/register/offer', [\App\Http\Controllers\PartnerRegistrationController::class, 'offerPayload'])->name('business.register.offer.payload');
+    Route::get('/business/register/onboarding', [\App\Http\Controllers\PartnerRegistrationController::class, 'onboardingPayload'])->name('business.register.onboarding.payload');
     Route::post('/business/register', [\App\Http\Controllers\PartnerRegistrationController::class, 'register'])->name('business.register.submit');
     Route::post('/business/register/options', [\App\Http\Controllers\PartnerRegistrationController::class, 'options'])->name('business.register.options');
     Route::post('/business/register/email/send', [\App\Http\Controllers\PartnerRegistrationController::class, 'sendBusinessEmailCode'])->name('business.register.email.send');
@@ -153,11 +158,11 @@ $meanlyPublicRoutes = function () {
     Route::get('/vault', [\App\Http\Controllers\CabinetController::class, 'index'])->name('cabinet.dashboard')->middleware(['auth']);
     Route::get('/cabinet/register', fn () => redirect()->route('meanly.simple_l1.connect', [
         'return_to' => route('cabinet.dashboard', [], false),
-        'mode' => 'register',
+        'mode' => 'connect',
     ]));
     Route::get('/vault/register', fn () => redirect()->route('meanly.simple_l1.connect', [
         'return_to' => route('cabinet.dashboard', [], false),
-        'mode' => 'register',
+        'mode' => 'connect',
     ]))->name('cabinet.register');
     Route::redirect('/cabinet/orders', '/vault')->name('cabinet.orders');
     Route::redirect('/cabinet/orders/{record}', '/vault')->name('cabinet.orders.show');
@@ -175,6 +180,13 @@ $meanlyPublicRoutes = function () {
     Route::redirect('/partner-old', '/partner')->name('partner.legacy');
     Route::redirect('/partner-old/{path}', '/partner')->where('path', '.*')->name('partner.legacy.deep');
     
+    Route::prefix('api/partner/workspace')
+        ->middleware(['auth', 'plane.guard', 'partner.intent'])
+        ->group(function () {
+            Route::get('/summary', [\App\Http\Controllers\PartnerDashboardController::class, 'workspaceSummary'])
+                ->name('partner.workspace.summary');
+        });
+
     Route::prefix('partner')->group(function () {
         Route::get('/onboarding', [\App\Http\Controllers\PartnerRegistrationController::class, 'showOnboarding'])
             ->middleware('auth')
@@ -183,6 +195,8 @@ $meanlyPublicRoutes = function () {
         // 🔐 Protected Dashboard
         Route::middleware(['auth', 'plane.guard', 'partner.intent'])->group(function () {
             Route::get('/', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard');
+            Route::get('/legacy', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard.legacy');
+            Route::get('/dashboard', [\App\Http\Controllers\PartnerDashboardController::class, 'index'])->name('partner.dashboard.legacy_root');
             Route::post('/dashboard/sign', [\App\Http\Controllers\PartnerDashboardController::class, 'signAgreement'])->name('partner.dashboard.sign');
             Route::post('/dashboard/bank', [\App\Http\Controllers\PartnerDashboardController::class, 'updateBank'])->name('partner.dashboard.bank');
             Route::post('/dashboard/sandbox', [\App\Http\Controllers\PartnerDashboardController::class, 'createSandboxOrder'])->name('partner.dashboard.sandbox');
@@ -294,6 +308,9 @@ $meanlyPublicRoutes = function () {
             Route::post('/dashboard/finance/deposit', [\App\Http\Controllers\PartnerDashboardController::class, 'simulateDeposit'])->name('partner.dashboard.finance.deposit');
             Route::post('/dashboard/finance/sovereign-request/options', [\App\Http\Controllers\PartnerDashboardController::class, 'sovereignBalanceRequestOptions'])->name('partner.dashboard.finance.sovereign_request.options');
             Route::post('/dashboard/finance/sovereign-request/create', [\App\Http\Controllers\PartnerDashboardController::class, 'createSovereignBalanceRequest'])->name('partner.dashboard.finance.sovereign_request.create');
+
+            Route::get('/dashboard/{section}', fn (\Illuminate\Http\Request $request) => redirect()->route('partner.dashboard', $request->query()))
+                ->where('section', '[^/]+');
             
             // 🚪 Safe Logout
             Route::post('/logout', function () {
@@ -340,6 +357,7 @@ $meanlyPublicRoutes = function () {
             Route::get('/dashboard/operations/data', [\App\Http\Controllers\OpsDashboardController::class, 'getOperationsData'])->name('ops.dashboard.operations.data');
             Route::get('/dashboard/catalog/data', [\App\Http\Controllers\OpsDashboardController::class, 'getCatalogData'])->name('ops.dashboard.catalog.data');
             Route::get('/dashboard/inventory/data', [\App\Http\Controllers\OpsDashboardController::class, 'getInventoryData'])->name('ops.dashboard.inventory.data');
+            Route::post('/dashboard/inventory/sync-warehouses', [\App\Http\Controllers\OpsDashboardController::class, 'syncInventoryWarehouses'])->name('ops.dashboard.inventory.sync-warehouses');
             Route::get('/dashboard/providers/data', [\App\Http\Controllers\OpsDashboardController::class, 'getProvidersData'])->name('ops.dashboard.providers.data');
             Route::post('/dashboard/providers/{provider}/sync', [\App\Http\Controllers\OpsDashboardController::class, 'syncProvider'])->name('ops.dashboard.providers.sync');
             Route::post('/dashboard/partners/{legalEntity}/top-up', [\App\Http\Controllers\OpsDashboardController::class, 'topUpPartnerBalance'])->name('ops.dashboard.partners.top-up');
@@ -371,6 +389,30 @@ $meanlyPublicRoutes = function () {
 
 };
 
+$storefrontApiFrontendRedirectRoutes = function () {
+    Route::get('/simple-l1/connect', [\App\Http\Controllers\SimpleL1ConnectController::class, 'connect']);
+    Route::get('/simple-l1/callback', [\App\Http\Controllers\SimpleL1ConnectController::class, 'callback']);
+    Route::post('/simple-l1/callback', [\App\Http\Controllers\SimpleL1ConnectController::class, 'callback'])
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+    Route::get('/simple-l1/complete', [\App\Http\Controllers\SimpleL1ConnectController::class, 'complete']);
+    Route::get('/simple-l1/status', [\App\Http\Controllers\SimpleL1ConnectController::class, 'status']);
+
+    Route::get('/{frontendPath?}', function (\Illuminate\Http\Request $request, string $frontendPath = '') {
+        $query = $request->getQueryString();
+        $target = rtrim((string) config('storefront.frontend_url', 'https://meanly.test'), '/').'/'.ltrim($frontendPath, '/');
+
+        return redirect()->away($target.($query ? '?'.$query : ''));
+    })->where('frontendPath', '^(?!(api|csrf-token|healthcheck|ops|partner|business|legal-entities)(/|$)).*');
+};
+
+foreach ((array) config('storefront.api_hosts', []) as $domain) {
+    Route::domain($domain)->group($storefrontApiFrontendRedirectRoutes);
+}
+
+foreach ((array) config('storefront.api_hosts', []) as $domain) {
+    Route::domain($domain)->group($meanlyPublicRoutes);
+}
+
 foreach (array_values(array_unique(array_filter(array_merge(
     config('app.public_domains', [config('app.domain')]),
     collect(config('markets.markets', []))
@@ -378,6 +420,27 @@ foreach (array_values(array_unique(array_filter(array_merge(
         ->all(),
 )))) as $domain) {
     Route::domain($domain)->group($meanlyPublicRoutes);
+}
+
+$storefrontIdentityBridgeRoutes = function () {
+    Route::get('/simple-l1/connect', [\App\Http\Controllers\SimpleL1ConnectController::class, 'connect']);
+    Route::get('/simple-l1/callback', [\App\Http\Controllers\SimpleL1ConnectController::class, 'callback']);
+    Route::post('/simple-l1/callback', [\App\Http\Controllers\SimpleL1ConnectController::class, 'callback'])
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+    Route::get('/simple-l1/complete', [\App\Http\Controllers\SimpleL1ConnectController::class, 'complete']);
+    Route::get('/simple-l1/status', [\App\Http\Controllers\SimpleL1ConnectController::class, 'status']);
+    Route::post('/api/storefront/v1/identity/handoff', [\App\Http\Controllers\Api\Storefront\StorefrontIdentityController::class, 'handoff'])
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+    Route::get('/{frontendPath}', function (\Illuminate\Http\Request $request, string $frontendPath) {
+        $query = $request->getQueryString();
+        $target = rtrim((string) config('storefront.frontend_url', 'https://meanly.test'), '/').'/'.ltrim($frontendPath, '/');
+
+        return redirect()->away($target.($query ? '?'.$query : ''));
+    })->where('frontendPath', '^(?!(api|simple-l1|csrf-token|healthcheck|ops|partner|business|legal-entities)(/|$)).*');
+};
+
+foreach ((array) config('storefront.api_hosts', []) as $domain) {
+    Route::domain($domain)->group($storefrontIdentityBridgeRoutes);
 }
 
 Route::get('/lang/{locale}', function (string $locale) {

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B2B Консоль — Meanly</title>
+    <title>Meanly Merchant Center</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
@@ -1466,7 +1466,7 @@
             <!-- Sidebar Navigation -->
             <div class="sidebar">
                 <div class="sidebar-logo">
-                    <a href="{{ route('partner.dashboard') }}" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 4px; width: 100%;" title="B2B Консоль управления">
+                    <a href="{{ route('partner.dashboard') }}" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 4px; width: 100%;" title="Meanly Merchant Center">
                         <span class="logo-dot"></span>
                         <span class="logo-text-partner">MEANLY <span class="logo-sub">PARTNER</span></span>
                         <span class="logo-text-consortium" style="display: none;">MEANLY <span class="logo-sub" style="background: rgba(245, 48, 3, 0.1); color: var(--primary); border: 1px solid rgba(245, 48, 3, 0.2);">BUSINESS</span></span>
@@ -1813,6 +1813,7 @@
                                     @forelse($catalog as $item)
                                         @php
                                             $enabledChannels = $item->salesChannels ?? collect();
+                                            $yandexChannel = $enabledChannels->firstWhere('channel', 'yandex_market');
                                             $isYandexProduct = data_get($item->data ?? [], 'ym_raw') !== null;
                                             $retailRub = ((int) ($item->price_rub ?? 0)) / 100;
                                             $purchaseRub = ((int) ($item->purchase_price_rub ?? 0)) / 100;
@@ -1831,7 +1832,12 @@
                                                     @if($enabledChannels->contains('channel', 'meanly_storefront'))
                                                         <span class="badge-neo badge-amber">Storefront</span>
                                                     @endif
-                                                    @if(!$isYandexProduct && !$enabledChannels->contains('channel', 'meanly_storefront'))
+                                                    @if($yandexChannel)
+                                                        <span class="badge-neo {{ $yandexChannel->last_error ? '' : 'badge-green' }}" title="{{ $yandexChannel->last_error ?: ($yandexChannel->last_synced_at ? 'Last sync: '.$yandexChannel->last_synced_at->format('d.m.Y H:i') : 'Yandex channel enabled') }}" style="{{ $yandexChannel->last_error ? 'color: var(--rose); border-color: rgba(244,63,94,0.35);' : '' }}">
+                                                            Yandex {{ $yandexChannel->last_error ? 'error' : 'enabled' }}
+                                                        </span>
+                                                    @endif
+                                                    @if(!$isYandexProduct && !$enabledChannels->contains('channel', 'meanly_storefront') && !$enabledChannels->contains('channel', 'yandex_market'))
                                                         <span style="color: var(--text-muted);">—</span>
                                                     @endif
                                                 </div>
@@ -2027,12 +2033,29 @@
                         <input type="hidden" id="yandex-shop-id">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px;">
                             <div>
-                                <div style="font-size: 1.05rem; font-weight: 950; color: var(--text-main); letter-spacing: -0.02em;" id="yandex-settings-title">Настройка Yandex Market</div>
-                                <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">Отдельная настройка канала без попапа. Сохраняем API, затем backend сам проверяет юрлицо по JSON-отчету Yandex.</div>
+                                <div style="font-size: 1.05rem; font-weight: 950; color: var(--text-main); letter-spacing: -0.02em;" id="yandex-settings-title">Yandex Market sales channel</div>
+                                <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">Канал подключается к существующему юрлицу продавца. Meanly сверяет ИНН продавца с сигналами кабинета Yandex Market.</div>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <span class="badge-neo" id="yandex-legal-status-badge" style="background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 0.68rem;">Not checked</span>
                             </div>
+                        </div>
+
+                        @if(blank($legalEntity->inn))
+                            <div class="card-neo" style="margin-bottom: 14px; padding: 12px; border-color: rgba(244,63,94,0.28); background: rgba(244,63,94,0.06);">
+                                <div style="font-size: 0.82rem; font-weight: 950; color: var(--rose);">ИНН юрлица обязателен для Yandex Market</div>
+                                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px; line-height: 1.45;">
+                                    Yandex channel не создаёт новый аккаунт. Сначала завершите профиль компании с ИНН, затем подключайте Business ID, Campaign ID, склад и API Key.
+                                </div>
+                            </div>
+                        @endif
+
+                        <div id="yandex-channel-status-summary" class="card-neo" style="margin-bottom: 14px; padding: 12px; display: grid; gap: 8px; background: rgba(255,255,255,0.02);">
+                            <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:0.72rem;">
+                                <span style="color: var(--text-muted);">Channel state</span>
+                                <strong id="yandex-channel-state-label" style="color: var(--text-main);">Not connected</strong>
+                            </div>
+                            <div id="yandex-channel-next-action" style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.45;">Введите данные Yandex Market для проверки канала.</div>
                         </div>
 
                         <div class="grid-12" style="gap: 14px; align-items: start;">
@@ -2069,13 +2092,15 @@
                                     Юрлицо в Meanly: {{ $legalEntity->short_name ?: $legalEntity->name }} · ИНН {{ $legalEntity->inn }}@if($legalEntity->kpp) · КПП {{ $legalEntity->kpp }}@endif
                                 </div>
                                 <div id="yandex-legal-status" style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.5;">Фоновая проверка запустится после сохранения API-данных и склада.</div>
+                                <div id="yandex-notification-url" style="font-size: 0.68rem; color: var(--text-muted); line-height: 1.45; word-break: break-all;"></div>
+                                <div id="yandex-publication-status" style="font-size: 0.68rem; color: var(--text-muted); line-height: 1.45;"></div>
                                 <button type="button" id="yandex-support-action" onclick="openYandexSupportFromSettings()" class="btn-neo" style="display: none; justify-content: center; font-size: 0.74rem; font-weight: 850; padding: 8px 10px;">Обратиться в поддержку</button>
                             </div>
                         </div>
 
                         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; flex-wrap: wrap;">
                             <button type="button" onclick="closeIntegrationDetail()" class="btn-neo">Отмена</button>
-                            <button type="button" onclick="submitSaveYandexMarket()" class="btn-neo btn-primary-neo">Сохранить и запустить проверку</button>
+                            <button type="button" id="yandex-save-button" onclick="submitSaveYandexMarket()" class="btn-neo btn-primary-neo" @if(blank($legalEntity->inn)) disabled style="opacity:0.55; cursor:not-allowed;" @endif>Сохранить и запустить проверку</button>
                         </div>
                     </div>
 
@@ -2120,9 +2145,21 @@
                                     <div class="grid-12" style="gap: 15px;">
                                         <!-- Yandex Market -->
                                         @php
-                                            $yandexMarketActive = $sh->isYandexMarketActive();
-                                            $yandexLegalVerified = $sh->isYandexMarketVerified();
-                                            $yandexHasCredentials = filled($sh->business_id) && filled($sh->campaign_id) && filled($sh->api_key) && filled($sh->ym_warehouse_id);
+                                            $yandexStatus = $yandexChannelStatuses[$sh->id] ?? [];
+                                            $yandexMarketActive = (bool) data_get($yandexStatus, 'active', $sh->isYandexMarketActive());
+                                            $yandexLegalVerified = (bool) data_get($yandexStatus, 'legal_verified', $sh->isYandexMarketVerified());
+                                            $yandexHasCredentials = (bool) data_get($yandexStatus, 'credentials.api_key_present')
+                                                && filled(data_get($yandexStatus, 'credentials.business_id'))
+                                                && filled(data_get($yandexStatus, 'credentials.campaign_id'))
+                                                && filled(data_get($yandexStatus, 'credentials.ym_warehouse_id'));
+                                            $yandexState = (string) data_get($yandexStatus, 'state', 'not_connected');
+                                            $yandexStateLabel = (string) data_get($yandexStatus, 'state_label', 'Not connected');
+                                            $yandexStateStyle = match ($yandexState) {
+                                                'active' => 'background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);',
+                                                'legal_check_queued', 'needs_review', 'credentials_saved' => 'background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2);',
+                                                'sync_error', 'rejected', 'legal_entity_required' => 'background: rgba(244, 63, 94, 0.1); color: var(--rose); border: 1px solid rgba(244, 63, 94, 0.2);',
+                                                default => 'background: rgba(255,255,255,0.02); color: var(--text-muted);',
+                                            };
                                         @endphp
                                         <div class="col-4 card-neo" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-card); padding: 15px; display: flex; flex-direction: column; justify-content: space-between; gap: 15px; min-height: 140px;">
                                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -2130,13 +2167,20 @@
                                                     <div style="font-weight: 850; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; color: var(--text-main);">
                                                         🏪 Yandex Market
                                                     </div>
-                                                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Синхронизация по API FBS/DBS</div>
+                                                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">{{ data_get($yandexStatus, 'next_action', 'Синхронизация по API FBS/DBS') }}</div>
                                                 </div>
-                                                <span class="badge-neo" style="{{ $yandexMarketActive ? 'background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);' : ($yandexHasCredentials ? 'background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2);' : 'background: rgba(255,255,255,0.02); color: var(--text-muted);') }} font-size: 0.65rem; padding: 1px 6px;">
-                                                    {{ $yandexMarketActive ? 'Active' : ($yandexHasCredentials ? 'Needs legal check' : 'Offline') }}
+                                                <span class="badge-neo" style="{{ $yandexStateStyle }} font-size: 0.65rem; padding: 1px 6px;">
+                                                    {{ $yandexStateLabel }}
                                                 </span>
                                             </div>
-                                            <button onclick="openYandexMarketModal({{ $sh->id }}, @js($sh->name), @js($sh->business_id), @js($sh->campaign_id), @js($sh->ym_warehouse_id), @js($sh->ym_legal_verification), {{ $yandexLegalVerified ? 'true' : 'false' }})" class="btn-neo" style="width: 100%; font-size: 0.72rem; padding: 6px; font-weight: 750;">
+                                            <div style="display:grid; gap: 5px; font-size: 0.68rem; color: var(--text-muted);">
+                                                <div>ИНН: <strong style="color: var(--text-main);">{{ data_get($yandexStatus, 'legal_entity.inn') ?: '—' }}</strong></div>
+                                                <div>Товары: <strong style="color: var(--text-main);">{{ (int) data_get($yandexStatus, 'publication.enabled_products', 0) }}</strong> active / {{ (int) data_get($yandexStatus, 'publication.total_products', 0) }} total</div>
+                                                @if(data_get($yandexStatus, 'publication.last_error'))
+                                                    <div style="color: var(--rose);">Sync: {{ \Illuminate\Support\Str::limit(data_get($yandexStatus, 'publication.last_error'), 70) }}</div>
+                                                @endif
+                                            </div>
+                                            <button onclick="openYandexMarketModal({{ $sh->id }}, @js($sh->name), @js($sh->business_id), @js($sh->campaign_id), @js($sh->ym_warehouse_id), @js($sh->ym_legal_verification), {{ $yandexLegalVerified ? 'true' : 'false' }}, @js($yandexStatus))" class="btn-neo" style="width: 100%; font-size: 0.72rem; padding: 6px; font-weight: 750;">
                                                 {{ $yandexMarketActive ? 'Настройки канала ⚙️' : ($yandexHasCredentials ? 'Открыть проверку 🧾' : 'Подключить 🔌') }}
                                             </button>
                                         </div>
@@ -2917,7 +2961,14 @@
                         <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px; font-weight: 700; text-transform: uppercase;">Центр дистрибуции 🏪</label>
                         <select id="storefront-purchase-shop-id" class="input-neo" style="width: 100%; font-size: 0.85rem; padding: 10px; cursor: pointer;" onchange="updateStorefrontWarehouseHint(); updateStorefrontSalesChannelAvailability();">
                             @foreach($shops as $sh)
-                                <option value="{{ $sh->id }}" data-yandex-active="{{ $sh->isYandexMarketActive() ? '1' : '0' }}">{{ $sh->name }} ({{ $sh->shop_region ?? 'RU' }})</option>
+                                @php($shopYandexStatus = $yandexChannelStatuses[$sh->id] ?? [])
+                                <option
+                                    value="{{ $sh->id }}"
+                                    data-yandex-active="{{ data_get($shopYandexStatus, 'active') ? '1' : '0' }}"
+                                    data-yandex-state="{{ data_get($shopYandexStatus, 'state', 'not_connected') }}"
+                                    data-yandex-state-label="{{ data_get($shopYandexStatus, 'state_label', 'Not connected') }}"
+                                    data-yandex-next-action="{{ data_get($shopYandexStatus, 'next_action', 'Подключите Yandex Market в Sales Channels.') }}"
+                                >{{ $sh->name }} ({{ $sh->shop_region ?? 'RU' }})</option>
                             @endforeach
                         </select>
                         <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px;" id="storefront-master-warehouse-hint">
@@ -3171,7 +3222,7 @@
                                 <input type="text" id="prof-phone" class="input-neo" value="{{ $user->phone }}">
                             </div>
                             <div>
-                                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">SL1E Identity</label>
+                                <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 6px;">Meanly One identity</label>
                                 <input type="text" class="input-neo" value="{{ $user->sovereignIdentityAddress() }}" disabled style="opacity: 0.6; cursor: not-allowed; background: rgba(0,0,0,0.2);">
                             </div>
                         </div>
@@ -3368,7 +3419,7 @@
             </div>
         </div>
 
-        <!-- 🛡️ B2B Console Client-Side JS SPA Logic -->
+        <!-- Merchant Center client-side SPA logic -->
         <script>
             let shops = @json($shops);
             let catalog = @json($catalog);
@@ -4661,7 +4712,7 @@
             // --- 🏪 Yandex Market Configuration Panel ---
             let activeYandexShopName = '';
 
-            function openYandexMarketModal(shopId, shopName, businessId, campaignId, warehouseId, verification = null, legalVerified = false) {
+            function openYandexMarketModal(shopId, shopName, businessId, campaignId, warehouseId, verification = null, legalVerified = false, channelStatus = null) {
                 document.getElementById('yandex-shop-id').value = shopId;
                 activeYandexShopName = shopName || '';
                 document.getElementById('yandex-settings-title').innerText = `Настройка Yandex Market — ${shopName}`;
@@ -4682,6 +4733,7 @@
                 }
                 document.getElementById('yandex-api-key').value = '';
                 renderYandexLegalStatus(verification, legalVerified);
+                renderYandexChannelStatus(channelStatus);
                 showIntegrationDetail('yandex-settings-panel');
             }
 
@@ -4790,6 +4842,57 @@
 
                 if (support && (tier === 'attention' || tier === 'rejected')) {
                     support.style.display = 'flex';
+                }
+            }
+
+            function renderYandexChannelStatus(channelStatus = null) {
+                const stateLabel = document.getElementById('yandex-channel-state-label');
+                const nextAction = document.getElementById('yandex-channel-next-action');
+                const notification = document.getElementById('yandex-notification-url');
+                const publication = document.getElementById('yandex-publication-status');
+                const saveButton = document.getElementById('yandex-save-button');
+
+                const status = channelStatus || {};
+                const legalEntity = status.legal_entity || {};
+                const state = status.state || 'not_connected';
+                const label = status.state_label || 'Not connected';
+
+                if (stateLabel) {
+                    stateLabel.innerText = label;
+                    stateLabel.style.color = ['active'].includes(state)
+                        ? '#10b981'
+                        : (['sync_error', 'rejected', 'legal_entity_required'].includes(state) ? 'var(--rose)' : 'var(--text-main)');
+                }
+
+                if (nextAction) {
+                    nextAction.innerText = status.next_action || 'Введите данные Yandex Market для проверки канала.';
+                }
+
+                if (notification) {
+                    notification.innerHTML = status.notification_url
+                        ? `<strong style="color: var(--text-main);">Webhook:</strong> ${escapeHtml(status.notification_url)}`
+                        : 'Webhook URL появится после сохранения настроек канала.';
+                }
+
+                if (publication) {
+                    const stats = status.publication || {};
+                    const warehouse = status.warehouse || {};
+                    const parts = [
+                        `Товары в канале: ${Number(stats.enabled_products || 0)} active / ${Number(stats.total_products || 0)} total`,
+                        warehouse.ym_id ? `Yandex warehouse: ${warehouse.ym_id}` : null,
+                        warehouse.channel_quota ? `quota: ${warehouse.channel_quota}%` : null,
+                        stats.last_synced_at ? `last sync: ${new Date(stats.last_synced_at).toLocaleString()}` : null,
+                    ].filter(Boolean);
+                    publication.innerHTML = parts.join(' · ');
+                    if (stats.last_error) {
+                        publication.innerHTML += `<div style="color: var(--rose); margin-top: 5px;">Last sync error: ${escapeHtml(stats.last_error)}</div>`;
+                    }
+                }
+
+                if (saveButton && legalEntity.can_configure === false) {
+                    saveButton.disabled = true;
+                    saveButton.style.opacity = '0.55';
+                    saveButton.style.cursor = 'not-allowed';
                 }
             }
 
@@ -4908,8 +5011,14 @@
                         if (data.verification) {
                             renderYandexLegalStatus(data.verification, Boolean(data.shop?.legal_verified));
                         }
+                        if (data.yandex_channel_status) {
+                            renderYandexChannelStatus(data.yandex_channel_status);
+                        }
                         window.location.reload();
                     } else {
+                        if (data.yandex_channel_status) {
+                            renderYandexChannelStatus(data.yandex_channel_status);
+                        }
                         alert(`Ошибка сохранения настроек: ${data.error || data.message || 'неизвестная ошибка'}`);
                     }
                 } catch (e) {
@@ -5362,7 +5471,7 @@
                 chatBody.insertAdjacentHTML('beforeend', errorHtml);
             }
 
-            // 🏪 B2B Storefront & Simple Layer One Ledger clearing actions
+            // 🏪 B2B Storefront & Meanly One clearing actions
             let currentStorefrontProduct = null;
             let currentStorefrontIsSovereign = false;
             let storefrontPaymentMethod = 'rub_token';
@@ -5881,6 +5990,8 @@
                 if (!select || !yandexCheckbox) return;
 
                 const yandexActive = select.options[select.selectedIndex]?.dataset?.yandexActive === '1';
+                const yandexStateLabel = select.options[select.selectedIndex]?.dataset?.yandexStateLabel || 'Not connected';
+                const yandexNextAction = select.options[select.selectedIndex]?.dataset?.yandexNextAction || 'Подключите Yandex Market в Sales Channels.';
                 yandexCheckbox.disabled = !yandexActive;
                 yandexCheckbox.checked = yandexActive;
                 if (yandexLabel) {
@@ -5890,7 +6001,7 @@
                 if (yandexHint) {
                     yandexHint.innerText = yandexActive
                         ? 'Yandex Market активен: после закупки товар и остаток будут поставлены в очередь синхронизации.'
-                        : 'Yandex Market недоступен: подтвердите юрлицо и Warehouse ID в настройках интеграции.';
+                        : `Yandex Market недоступен (${yandexStateLabel}): ${yandexNextAction}`;
                     yandexHint.style.color = yandexActive ? 'var(--green)' : 'var(--text-muted)';
                 }
             }
@@ -5981,7 +6092,7 @@
                 }
 
                 if (!window.SimpleWebAuthnBrowser || !window.PublicKeyCredential) {
-                    alert('Для подтверждения Simple Layer One транзакции нужен браузер с поддержкой Passkey/WebAuthn.');
+                    alert('Для подтверждения операции нужен браузер с поддержкой Passkey/WebAuthn или Meanly One.');
                     return;
                 }
 
@@ -6011,7 +6122,7 @@
                 };
 
                 try {
-                    writeLog('⚙️ Запрос параметров Passkey для конкретной Simple Layer One транзакции...');
+                    writeLog('⚙️ Запрос параметров Passkey для операции Meanly One...');
                     const optionsResp = await fetch('/partner/dashboard/storefront/buy-options', {
                         method: 'POST',
                         headers: {
@@ -6030,7 +6141,7 @@
                     writeLog('🔑 Подтвердите закупку стока через Passkey (FaceID/TouchID)...');
                     assertionPayload = await SimpleWebAuthnBrowser.startAuthentication(options);
                     writeLog(`🔒 Passkey-подпись создана: ${assertionPayload.id.substring(0, 16)}...`);
-                    writeLog(`📡 Отправка подписанного запроса списания ${paymentMethod === 'native_token' ? 'SL1' : 'RUBT'} на Simple Layer One консенсус-ноду...`);
+                    writeLog(`📡 Отправка подписанного запроса списания ${paymentMethod === 'native_token' ? 'SL1' : 'RUBT'} через Meanly One...`);
                 } catch (authErr) {
                     console.error(authErr);
                     writeLog(`❌ Ошибка подписи транзакции: ${authErr.message}`);
@@ -6171,7 +6282,7 @@
 
                 statusEl.style.display = 'block';
                 statusEl.style.color = 'var(--text-muted)';
-                statusEl.innerText = 'Проверяем запись в Simple Layer One Ledger...';
+                statusEl.innerText = 'Проверяем запись операции Meanly One...';
 
                 try {
                     const response = await fetch(receipt.explorer_url, {

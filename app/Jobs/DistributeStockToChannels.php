@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Warehouse;
 use App\Models\WarehouseStock;
+use App\Services\SellerDistributionCenterService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,7 +31,7 @@ class DistributeStockToChannels implements ShouldQueue
 
     public function handle(): void
     {
-        $master = Warehouse::where('shop_id', $this->shop->id)->master()->first();
+        $master = app(SellerDistributionCenterService::class)->masterWarehouseForShop($this->shop);
 
         if (! $master) {
             Log::warning('DistributeStock: мастер-склад не найден', ['shop_id' => $this->shop->id]);

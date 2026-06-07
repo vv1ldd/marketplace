@@ -11,7 +11,6 @@ use App\Models\Provider;
 use App\Models\ProviderProduct;
 use App\Models\SellerTerminal;
 use App\Services\FinanceService;
-use App\Services\Provider\EzPinCatalogPuller;
 use App\Services\Provider\ProviderCatalogAggregator;
 use App\Services\VaultTransitService;
 use Illuminate\Http\JsonResponse;
@@ -93,43 +92,6 @@ class WildflowKernelController extends Controller
             )
             : null;
 
-        if ($request->boolean('live') && ($provider === 'ezpin' || $provider === 'ezpin-sandbox')) {
-            $vendor = $this->resolveVendorProvider($provider);
-            if (! $vendor) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'EZPin provider credentials are not configured.',
-                ], 422);
-            }
-
-            try {
-                $availability = app(EzPinCatalogPuller::class)->checkAvailability(
-                    $vendor,
-                    $sku,
-                    $quantity,
-                    $request->query('price') !== null ? (float) $request->query('price') : null,
-                );
-
-                return response()->json([
-                    'success' => true,
-                    'provider' => $provider,
-                    'service_sku' => $sku,
-                    'available' => (bool) (
-                        data_get($availability, 'available')
-                        ?? data_get($availability, 'availability')
-                        ?? true
-                    ),
-                    'availability' => $availability,
-                    'source' => 'ezpin-live',
-                ]);
-            } catch (\Throwable $error) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'EZPin availability failed: '.$error->getMessage(),
-                ], 502);
-            }
-        }
-
         return response()->json([
             'success' => true,
             'provider' => $provider,
@@ -142,11 +104,11 @@ class WildflowKernelController extends Controller
                 'affordable' => $balanceCheck['affordable'] ?? null,
                 'required_usd' => $balanceCheck['required_usd'] ?? null,
                 'available_usd' => $balanceCheck['available_usd'] ?? null,
-                'detail' => $available ? 'Available from Meanly local kernel.' : 'Product is inactive or missing.',
+                'detail' => $available ? 'Available from Meanly local projection.' : 'Product is inactive or missing.',
             ],
             'delivery_type' => 0,
             'delivery_type_text' => 'Instant',
-            'detail' => $available ? 'Available from Meanly local kernel.' : 'Product is inactive or missing.',
+            'detail' => $available ? 'Available from Meanly local projection.' : 'Product is inactive or missing.',
         ], $product || $available ? 200 : 404);
     }
 
@@ -727,118 +689,13 @@ class WildflowKernelController extends Controller
 
     private function placeDirectVendorOrder(string $provider, MeanlyApiOrder $order, array $payload): ?array
     {
-        $vendor = $this->resolveVendorProvider($provider);
-        if (! $vendor) {
-            return null;
-        }
-
-        if ($provider === 'ezpin' || $provider === 'ezpin-sandbox') {
-            return $this->placeEzpinOrder($vendor, $order, $payload);
-        }
-
-        if ($provider === 'fazer') {
-            return $this->placeFazerOrder($vendor, $order, $payload);
-        }
-
+        // Direct provider calls are forbidden after provider authority moves to Digital Goods Source.
         return null;
-    }
-
-    private function placeEzpinOrder(Provider $provider, MeanlyApiOrder $order, array $payload): array
-    {
-        $puller = app(EzPinCatalogPuller::class);
-        $credentials = $puller->credentialsFor($provider);
-
-        $request = new \EzPin\DTO\OrderRequest(
-            sku: (int) $order->service_sku,
-            quantity: (int) ($payload['quantity'] ?? 1),
-            price: (float) ($payload['price'] ?? $order->price),
-            referenceCode: $order->proxy_reference,
-            terminal_pin: (string) ($payload['provider_terminal_pin'] ?? $credentials['terminal_pin'] ?? ''),
-            terminal_id: (int) ($payload['provider_terminal_id'] ?? $credentials['terminal_id'] ?? 0),
-            destination: (string) ($payload['destination'] ?? ''),
-            preOrder: (bool) ($payload['pre_order'] ?? false),
-            deliveryType: (int) ($payload['delivery_type'] ?? 0),
-        );
-
-        return $puller->clientFor($provider)->createOrder($request);
-    }
-
-    private function placeFazerOrder(Provider $provider, MeanlyApiOrder $order, array $payload): array
-    {
-        if (! class_exists(\FazerSdk\FazerClient::class)) {
-            throw new \RuntimeException('Fazer SDK is not available.');
-        }
-
-        $apiKey = (string) data_get($provider->credentials, 'api_key', config('services.fazer.api_key'));
-        if ($apiKey === '') {
-            throw new \RuntimeException('Fazer credentials are not configured.');
-        }
-
-        return (new \FazerSdk\FazerClient($apiKey))->orders()->createGiftCardOrder(
-            $order->service_sku,
-            (int) ($payload['quantity'] ?? 1)
-        );
     }
 
     private function directVendorCards(string $provider, MeanlyApiOrder $order): array
     {
-        $vendor = $this->resolveVendorProvider($provider);
-        $reference = $order->vendor_reference ?: $order->proxy_reference;
-        if (! $vendor || $reference === '') {
-            return [];
-        }
-
-        try {
-            if (($provider === 'ezpin' || $provider === 'ezpin-sandbox') && class_exists(\EzPin\EzPinClient::class)) {
-                $rawCards = app(EzPinCatalogPuller::class)->getCards($vendor, $reference);
-                $cards = $rawCards['results'] ?? $rawCards;
-
-                return collect($cards)
-                    ->map(fn (array $card): array => [
-                        'pinCode' => $card['pin_code'] ?? $card['pinCode'] ?? $card['card_number'] ?? $card['code'] ?? null,
-                        'pin_code' => $card['pin_code'] ?? $card['pinCode'] ?? $card['card_number'] ?? $card['code'] ?? null,
-                        'serial' => $card['serial'] ?? $card['serial_number'] ?? null,
-                        'expiry' => $card['expiry_date'] ?? $card['expire_date'] ?? null,
-                        'raw_data' => $card,
-                    ])
-                    ->filter(fn (array $card): bool => filled($card['pinCode']))
-                    ->values()
-                    ->all();
-            }
-
-            if ($provider === 'fazer' && class_exists(\FazerSdk\FazerClient::class)) {
-                $raw = (new \FazerSdk\FazerClient((string) data_get($vendor->credentials, 'api_key')))->orders()->getStatus($reference);
-                $code = $raw['code'] ?? $raw['pin'] ?? $raw['content'] ?? null;
-
-                return $code ? [[
-                    'pinCode' => (string) $code,
-                    'pin_code' => (string) $code,
-                    'serial' => $raw['serial'] ?? null,
-                    'raw_data' => $raw,
-                ]] : [];
-            }
-        } catch (\Throwable) {
-            return [];
-        }
-
         return [];
-    }
-
-    private function resolveVendorProvider(string $provider): ?Provider
-    {
-        $upstream = Provider::query()
-            ->where('type', $provider)
-            ->where('is_active', true)
-            ->first();
-
-        if ($upstream) {
-            return $upstream;
-        }
-
-        return Provider::query()
-            ->where('type', $this->meanlyProviderType($provider))
-            ->where('is_active', true)
-            ->first();
     }
 
     private function vendorReferenceFromResponse(array $response, string $fallback): string

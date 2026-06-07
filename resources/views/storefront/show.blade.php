@@ -1003,17 +1003,17 @@
                     {{ __('product.public.checkout_email_safe') }}
                 </div>
                 <div class="simple-l1-panel" data-simple-l1-panel>
-                    <span>Simple L1 identity</span>
+                    <span>Meanly Connect</span>
                     @if($simpleL1Address)
-                        <strong>{{ __('product.public.wallet_connected') }}</strong>
+                        <strong>Meanly connected</strong>
                         <code>{{ $simpleL1Address }}</code>
                     @else
-                        <strong>{{ __('product.public.connect_wallet') }}</strong>
-                        <p class="recipient-help" style="margin-bottom: 0;">{{ __('product.public.wallet_help') }}</p>
+                        <strong>Continue with Meanly</strong>
+                        <p class="recipient-help" style="margin-bottom: 0;">Connect when you are ready to buy, save, or open state.</p>
                     @endif
                     <a class="btn {{ $simpleL1Address ? 'btn-secondary' : 'btn-primary' }}"
-                       href="{{ route('meanly.simple_l1.connect', ['return_to' => request()->getRequestUri()], false) }}">
-                        {{ $simpleL1Address ? __('product.public.reconnect_wallet') : 'Connect Simple L1 wallet' }}
+                       href="{{ route('meanly.simple_l1.connect', ['return_to' => request()->getRequestUri(), 'mode' => 'connect'], false) }}">
+                        {{ $simpleL1Address ? 'Reconnect Meanly' : 'Continue with Meanly' }}
                     </a>
                 </div>
                 <form method="POST" action="{{ route('meanly.storefront.checkout') }}" data-gift-checkout>

@@ -36,7 +36,7 @@ class SyncProductStockToChannels implements ShouldQueue
         }
 
         // 1. Get the Master stock (Source of Truth)
-        $masterWarehouse = \App\Models\Warehouse::where('shop_id', $shop->id)->where('is_main', true)->first();
+        $masterWarehouse = app(\App\Services\SellerDistributionCenterService::class)->masterWarehouseForShop($shop);
         if (!$masterWarehouse) {
             Log::warning("Dynamic Sync: No Master warehouse for shop {$shop->id}");
             return;

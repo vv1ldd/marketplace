@@ -178,6 +178,7 @@ class OrderService
                 throw new \Exception("Заказ создан у провайдера {$provider->name}, но не получен внешний ID.");
             }
 
+            $sourceReceipt = method_exists($driver, 'lastSourceLedgerReceipt') ? $driver->lastSourceLedgerReceipt() : null;
             $item->update(['provider_order_id' => $externalOrderId]);
 
             sleep(1);
@@ -192,6 +193,7 @@ class OrderService
                         'provider' => $provider->type,
                         'external_id' => $externalOrderId,
                         'sku' => $catalogSku,
+                        ...$this->sourceReceiptPayload($sourceReceipt),
                     ]);
                 }
 
@@ -226,6 +228,18 @@ class OrderService
             'success' => true,
             'status'  => 'processing',
             'message' => 'Заказ в обработке у провайдера.',
+        ];
+    }
+
+    private function sourceReceiptPayload(?array $receipt): array
+    {
+        if (! is_array($receipt)) {
+            return [];
+        }
+
+        return [
+            'digital_goods_source_receipt_hash' => $receipt['event_hash'] ?? null,
+            'source_order_reference' => $receipt['reference'] ?? null,
         ];
     }
 

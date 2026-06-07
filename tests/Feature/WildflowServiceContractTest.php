@@ -60,7 +60,7 @@ class WildflowServiceContractTest extends TestCase
                 && $this->firstHeader($request, 'X-Auth-Token') === 'wf-token'
                 && $this->firstHeader($request, 'X-Client-Id') === 'wf-client'
                 && is_numeric($timestamp)
-                && hash_equals(hash_hmac('sha256', $timestamp.'.'.$request->body(), 'wf-secret'), $signature)
+                && hash_equals(hash_hmac('sha256', $timestamp.'.'.$request->method().'.'.parse_url($request->url(), PHP_URL_PATH).'.'.$request->body(), 'wf-secret'), $signature)
                 && array_key_exists('price', $payload)
                 && (float) $payload['price'] === 0.0
                 && array_key_exists('pre_order', $payload)
@@ -116,6 +116,54 @@ class WildflowServiceContractTest extends TestCase
                 && $payload['currency'] === 'RUB'
                 && $payload['l1_address'] === 'sl1e_e5b0faf926b528b3cfeb384c3111f1816ef0099';
         });
+    }
+
+    public function test_create_order_preserves_digital_goods_source_receipt_without_provider_payload(): void
+    {
+        config(['services.wildflow.verify_tls' => false]);
+
+        $provider = Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Wildflow Contract',
+                'is_active' => true,
+                'credentials' => [
+                    'base_url' => 'https://api.wildflow.test/api/v1/',
+                    'api_key' => 'wf-token',
+                    'client_id' => 'wf-client',
+                    'financial_secret' => 'wf-secret',
+                ],
+            ]
+        );
+
+        Http::fake([
+            'https://api.wildflow.test/api/v1/providers/ezpin/order' => Http::response([
+                'order' => ['referenceCode' => 'SL1-RECEIPT-ORDER'],
+                'source_ledger_receipt' => [
+                    'ledger' => 'digital-goods-source',
+                    'event_type' => 'source.order.accepted',
+                    'event_hash' => 'source-hash-1',
+                    'previous_hash' => null,
+                    'reference' => 'SL1-RECEIPT-ORDER',
+                    'kernel_protocol_version' => 'v1',
+                    'provider_contract_version' => 'v1',
+                ],
+            ], 200),
+        ]);
+
+        $service = new WildflowService(providerModel: $provider);
+        $order = $service->createOrder(
+            service_sku: 'WF-RECEIPT-SKU',
+            order_item_id: 'SL1-RECEIPT-ORDER',
+            price: 10.0,
+            quantity: 1,
+            provider: 'ezpin',
+        );
+
+        $this->assertSame('source-hash-1', data_get($service->lastSourceLedgerReceipt(), 'event_hash'));
+        $this->assertSame('source-hash-1', data_get($order, 'source_ledger_receipt.event_hash'));
+        $this->assertArrayNotHasKey('provider_payload', $order);
+        $this->assertArrayNotHasKey('provider_credentials', $order);
     }
 
     private function firstHeader(Request $request, string $name): ?string

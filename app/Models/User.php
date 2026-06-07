@@ -165,7 +165,7 @@ class User extends Authenticatable implements HasPasskeys
     {
         static::created(function (User $user) {
             if ($user->roles()->count() === 0) {
-                $user->assignRole('customer');
+                $user->assignRole(static::ROLE_WALLET_HOLDER);
             }
         });
     }
@@ -183,29 +183,53 @@ class User extends Authenticatable implements HasPasskeys
         ];
     }
 
-    const SYSTEM_ROLES = [
-        'super_admin',
-        'manager',
-        'executor',
-        'support',
-        'auditor',
-        'telemetry_monitor',
-        'treasurer',
-        'system_engineer',
+    public const ROLE_SOVEREIGN_VALIDATOR = 'sovereign_validator';
+    public const ROLE_PROTOCOL_OPERATOR = 'protocol_operator';
+    public const ROLE_EXECUTION_RELAYER = 'execution_relayer';
+    public const ROLE_SUPPORT_GUARDIAN = 'support_guardian';
+    public const ROLE_LEDGER_AUDITOR = 'ledger_auditor';
+    public const ROLE_SIGNAL_WATCHER = 'signal_watcher';
+    public const ROLE_LIQUIDITY_STEWARD = 'liquidity_steward';
+    public const ROLE_KERNEL_MAINTAINER = 'kernel_maintainer';
+    public const ROLE_MERCHANT_NODE = 'merchant_node';
+    public const ROLE_WALLET_HOLDER = 'wallet_holder';
+
+    public const LEGACY_ROLE_RENAMES = [
+        'super_admin' => self::ROLE_SOVEREIGN_VALIDATOR,
+        'manager' => self::ROLE_PROTOCOL_OPERATOR,
+        'executor' => self::ROLE_EXECUTION_RELAYER,
+        'support' => self::ROLE_SUPPORT_GUARDIAN,
+        'auditor' => self::ROLE_LEDGER_AUDITOR,
+        'telemetry_monitor' => self::ROLE_SIGNAL_WATCHER,
+        'treasurer' => self::ROLE_LIQUIDITY_STEWARD,
+        'system_engineer' => self::ROLE_KERNEL_MAINTAINER,
+        'b2b_partner' => self::ROLE_MERCHANT_NODE,
+        'customer' => self::ROLE_WALLET_HOLDER,
     ];
 
-    const PARTNER_ROLES = [
-        'b2b_partner',
+    public const SYSTEM_ROLES = [
+        self::ROLE_SOVEREIGN_VALIDATOR,
+        self::ROLE_PROTOCOL_OPERATOR,
+        self::ROLE_EXECUTION_RELAYER,
+        self::ROLE_SUPPORT_GUARDIAN,
+        self::ROLE_LEDGER_AUDITOR,
+        self::ROLE_SIGNAL_WATCHER,
+        self::ROLE_LIQUIDITY_STEWARD,
+        self::ROLE_KERNEL_MAINTAINER,
     ];
 
-    public function isB2BPartner(): bool
+    public const PARTNER_ROLES = [
+        self::ROLE_MERCHANT_NODE,
+    ];
+
+    public function isMerchantNode(): bool
     {
         return $this->hasAnyRole(static::PARTNER_ROLES);
     }
 
-    public function isCustomer(): bool
+    public function isWalletHolder(): bool
     {
-        return $this->hasRole('customer');
+        return $this->hasRole(static::ROLE_WALLET_HOLDER);
     }
 
     public function isSystemUser(): bool
@@ -215,7 +239,7 @@ class User extends Authenticatable implements HasPasskeys
 
     public function hasOpsSovereignAccess(): bool
     {
-        return $this->hasRole('super_admin') && $this->hasSovereignIdentity();
+        return $this->hasRole(static::ROLE_SOVEREIGN_VALIDATOR) && $this->hasSovereignIdentity();
     }
 
     public function isClient(): bool

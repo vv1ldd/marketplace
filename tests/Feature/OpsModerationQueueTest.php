@@ -19,7 +19,7 @@ class OpsModerationQueueTest extends TestCase
 
         config(['session.domain' => null]);
 
-        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_SOVEREIGN_VALIDATOR, 'guard_name' => 'web']);
     }
 
     public function test_ops_partners_data_exposes_status_without_legacy_access_links(): void
@@ -131,7 +131,7 @@ class OpsModerationQueueTest extends TestCase
             'email' => $email,
             'meta' => ['entity_l1_address' => 'sl1e_'.str_repeat($identityHex, 39)],
         ]);
-        $admin->assignRole('super_admin');
+        $admin->assignRole(User::ROLE_SOVEREIGN_VALIDATOR);
         \Spatie\LaravelPasskeys\Models\Passkey::factory()->create([
             'authenticatable_id' => $admin->id,
         ]);

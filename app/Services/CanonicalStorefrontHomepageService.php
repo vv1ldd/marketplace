@@ -31,6 +31,11 @@ class CanonicalStorefrontHomepageService
     private ?bool $overrideTableExists = null;
 
     /**
+     * @var array<string, float|null>
+     */
+    private array $currencyRateToRubCache = [];
+
+    /**
      * @var array<string, array{label: string, description: string}>
      */
     private const PRODUCT_KIND_META = [
@@ -400,7 +405,8 @@ class CanonicalStorefrontHomepageService
             return null;
         }
 
-        $allCards = $this->identityQuery('', null, $category)
+        $allIdentities = $this->identityQuery('', null, $category)
+            ->setEagerLoads([])
             ->reorder()
             ->where('brand', $brand)
             ->orderByRaw('case when best_offer_product_id is null then 1 else 0 end')
@@ -409,9 +415,9 @@ class CanonicalStorefrontHomepageService
             ->orderBy('face_value')
             ->orderBy('face_value_currency')
             ->orderBy('region')
-            ->get()
-            ->map(fn (CanonicalProductIdentity $identity) => $this->cardForIdentity($identity))
-            ->filter()
+            ->get();
+        $allCards = $allIdentities
+            ->map(fn (CanonicalProductIdentity $identity) => $this->productGroupIdentityCard($identity))
             ->filter(fn (array $card): bool => $this->productKindForCard($card)['slug'] === $kindSlug)
             ->values();
 
@@ -444,9 +450,31 @@ class CanonicalStorefrontHomepageService
                 ->filter(fn (array $card): bool => Str::lower((string) ($card['region'] ?? '')) === Str::lower((string) $filters['region']))
                 ->values()
             : $allCards;
-        $priceRange = $this->productGroupPriceRange($filteredCards->isNotEmpty() ? $filteredCards : $nominalFacetCards);
+        $priceRange = $request->boolean('compact')
+            ? null
+            : $this->productGroupPriceRange($filteredCards->isNotEmpty() ? $filteredCards : $nominalFacetCards);
+        $pageIds = $filteredCards
+            ->forPage($page, $perPage)
+            ->pluck('id')
+            ->filter()
+            ->values();
+        $pageIdentitiesById = $this->identityQuery('', null, $category)
+            ->whereIn('id', $pageIds)
+            ->get()
+            ->keyBy('id');
+        $pageCards = $filteredCards
+            ->forPage($page, $perPage)
+            ->map(function (array $card) use ($pageIdentitiesById): ?array {
+                $identity = $pageIdentitiesById->get($card['id'] ?? null);
+
+                return $identity instanceof CanonicalProductIdentity
+                    ? $this->cardForIdentity($identity)
+                    : $card;
+            })
+            ->filter()
+            ->values();
         $paginator = new LengthAwarePaginator(
-            $filteredCards->forPage($page, $perPage)->values(),
+            $pageCards,
             $total,
             $perPage,
             $page,
@@ -473,7 +501,7 @@ class CanonicalStorefrontHomepageService
                 'selected_product' => $selectedProduct,
                 'selected_offer' => $selectedProduct['selected_offer'] ?? null,
                 'price_range' => $priceRange,
-                'variants' => $this->productGroupVariantOptions($allCards),
+                'variants' => $request->boolean('compact') ? collect() : $this->productGroupVariantOptions($allCards),
                 'canonical_url' => route('meanly.catalog.groups.show', [
                     'category' => $category,
                     'brandSlug' => Str::slug($brand),
@@ -669,7 +697,7 @@ class CanonicalStorefrontHomepageService
      */
     private function productGroupPriceRange(Collection $cards): ?array
     {
-        $nominals = $cards
+        $rubAmounts = $cards
             ->map(function (array $card): ?array {
                 $faceValue = $card['face_value'] ?? null;
                 $currency = $this->normalizeCurrency((string) ($card['face_value_currency'] ?? ''));
@@ -684,36 +712,31 @@ class CanonicalStorefrontHomepageService
                     return null;
                 }
 
-                $rubAmount = round((float) $faceValue * $rate, 2);
-                $displayPrice = $this->pricingProjection->publicPriceForStorageAmount($rubAmount);
-
                 return [
-                    'amount' => $displayPrice['amount'],
-                    'currency' => $displayPrice['currency'],
-                    'label' => $displayPrice['label'],
-                    'storage_amount' => $rubAmount,
-                    'storage_currency' => 'RUB',
+                    'storage_amount' => round((float) $faceValue * $rate, 2),
                 ];
             })
             ->filter()
             ->sortBy([
-                ['amount', 'asc'],
-                ['currency', 'asc'],
+                ['storage_amount', 'asc'],
             ])
             ->values();
 
-        if ($nominals->isEmpty()) {
+        if ($rubAmounts->isEmpty()) {
             return null;
         }
 
-        $first = $nominals->first();
+        $minRubAmount = (float) $rubAmounts->first()['storage_amount'];
+        $maxRubAmount = (float) $rubAmounts->max('storage_amount');
+        $displayPrice = $this->pricingProjection->publicPriceForStorageAmount($minRubAmount);
+        $maxDisplayPrice = $this->pricingProjection->publicPriceForStorageAmount($maxRubAmount);
 
         return [
-            'min' => $first['amount'],
-            'max' => (float) $nominals->max('amount'),
-            'currency' => $first['currency'],
-            'count' => $nominals->count(),
-            'label' => __('runtime.home.from_label', ['label' => $first['label']]),
+            'min' => $displayPrice['amount'],
+            'max' => $maxDisplayPrice['amount'],
+            'currency' => $displayPrice['currency'],
+            'count' => $rubAmounts->count(),
+            'label' => __('runtime.home.from_label', ['label' => $displayPrice['label']]),
         ];
     }
 
@@ -735,6 +758,7 @@ class CanonicalStorefrontHomepageService
 
                 $formatted = $this->formatAmount((float) $faceValue);
                 $offer = data_get($card, 'selected_offer');
+                $offerPrice = data_get($offer, 'price');
                 $nominalRubAmount = ($rate = $this->currencyRateToRub($currency)) !== null
                     ? round((float) $faceValue * $rate, 2)
                     : null;
@@ -752,10 +776,13 @@ class CanonicalStorefrontHomepageService
                     'currency' => $currency,
                     'nominal_rub_price' => $nominalRubAmount,
                     'has_offer' => $offer !== null,
-                    'offer' => $offer,
+                    'offer' => $offer !== null ? [
+                        'product_id' => data_get($offer, 'product_id'),
+                        'price' => $offerPrice,
+                    ] : null,
                     'price' => [
-                        'amount' => is_numeric(data_get($offer, 'price.amount')) ? (float) data_get($offer, 'price.amount') : null,
-                        'currency' => (string) data_get($offer, 'price.currency', 'RUB'),
+                        'amount' => is_numeric(data_get($offerPrice, 'amount')) ? (float) data_get($offerPrice, 'amount') : null,
+                        'currency' => (string) data_get($offerPrice, 'currency', 'RUB'),
                     ],
                     'seller' => [
                         'name' => (string) data_get($offer, 'seller.name', 'Meanly seller'),
@@ -782,6 +809,18 @@ class CanonicalStorefrontHomepageService
                 ['currency', 'asc'],
                 ['face_value', 'asc'],
             ])
+            ->values()
+            ->map(fn (array $variant): array => [
+                'name' => $variant['name'],
+                'region' => $variant['region'],
+                'region_label' => $variant['region_label'],
+                'nominal_key' => $variant['nominal_key'],
+                'nominal_label' => $variant['nominal_label'],
+                'offer' => $variant['offer'],
+                'price' => $variant['price'],
+                'seller' => $variant['seller'],
+                'match_count' => $variant['match_count'],
+            ])
             ->values();
     }
 
@@ -797,7 +836,11 @@ class CanonicalStorefrontHomepageService
             return 1.0;
         }
 
-        return Cache::remember("marketplace.currency-rate-to-rub.{$currency}", 300, function () use ($currency): ?float {
+        if (array_key_exists($currency, $this->currencyRateToRubCache)) {
+            return $this->currencyRateToRubCache[$currency];
+        }
+
+        return $this->currencyRateToRubCache[$currency] = Cache::remember("marketplace.currency-rate-to-rub.{$currency}", 300, function () use ($currency): ?float {
             $model = Currency::where('code', $currency)->first();
             $rate = $model?->effective_rate;
 
@@ -1209,6 +1252,37 @@ class CanonicalStorefrontHomepageService
             'provider_count' => (int) $identity->provider_candidates_count,
             'seller_offer_count' => (int) $identity->seller_offers_count,
             'has_selected_offer' => $identity->best_offer_product_id !== null,
+            'last_seen_timestamp' => optional($identity->last_seen_at ?: $identity->updated_at)->getTimestamp() ?? 0,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function productGroupIdentityCard(CanonicalProductIdentity $identity): array
+    {
+        $canonicalIdentity = $identity->toArray();
+        $category = (string) ($canonicalIdentity['canonical_category'] ?: config('catalog_taxonomy.default', 'gift_cards'));
+        $bestOfferProductId = $identity->best_offer_product_id;
+
+        return [
+            'id' => $identity->id,
+            'slug' => (string) $canonicalIdentity['identity_slug'],
+            'name' => $this->displayName($canonicalIdentity, $identity),
+            'category' => $category,
+            'category_label' => $this->categoryResolver->label($category),
+            'brand' => $canonicalIdentity['brand'] ?? null,
+            'product_family' => $canonicalIdentity['product_family'] ?? null,
+            'face_value' => $canonicalIdentity['face_value'] ?? null,
+            'face_value_currency' => $canonicalIdentity['face_value_currency'] ?? null,
+            'region' => $canonicalIdentity['region'] ?: 'global',
+            'provider_count' => (int) $identity->provider_candidates_count,
+            'seller_offer_count' => (int) $identity->seller_offers_count,
+            'has_selected_offer' => $bestOfferProductId !== null,
+            'selected_offer' => $bestOfferProductId !== null ? [
+                'product_id' => $bestOfferProductId,
+                'price' => null,
+            ] : null,
             'last_seen_timestamp' => optional($identity->last_seen_at ?: $identity->updated_at)->getTimestamp() ?? 0,
         ];
     }

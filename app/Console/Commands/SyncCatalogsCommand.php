@@ -9,7 +9,6 @@ use App\Models\WildflowSkuAlias;
 use App\Services\BrandActivationUrlResolver;
 use App\Services\CanonicalCategoryResolver;
 use App\Services\MappingService;
-use App\Services\Provider\EzPinCatalogPuller;
 use App\Services\Provider\ProviderCatalogAggregator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -19,10 +18,10 @@ class SyncCatalogsCommand extends Command
     protected $signature = 'app:sync-catalogs
         {provider? : ID or type of provider to sync}
         {--force : Force sync even if catalog hasn\'t changed}
-        {--embedded : Use meanly.one embedded provider catalog projection instead of the external Wildflow API}
-        {--pull-upstream : Pull fresh provider catalog from the upstream SDK before syncing the embedded projection}';
+        {--embedded : Use the embedded Meanly provider catalog projection instead of pulling EZPin}
+        {--pull-upstream : Force a direct EZPin upstream pull even when the provider defaults to embedded catalog data}';
 
-    protected $description = 'Sync catalogs from external providers (Wildflow, etc.)';
+    protected $description = 'Sync catalogs from upstream providers through Meanly provider authority.';
 
     /** @var array<string, string> service_sku => текущий sku в каталоге (память между retailer / catalog) */
     private array $previousCatalogSkusByService = [];
@@ -56,7 +55,7 @@ class SyncCatalogsCommand extends Command
         foreach ($providers as $provider) {
             $this->info("--- Syncing Provider: [{$provider->name}] (type: {$provider->type}) ---");
             
-            if (in_array($provider->type, ['wildflow', 'wildflow-sandbox', 'ezpin', 'ezpin-sandbox', 'fazer'], true)) {
+            if (in_array($provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox', 'fazer'], true)) {
                 $this->syncWildflow($provider);
             } else {
                 $this->warn("Provider type [{$provider->type}] not yet supported for automated sync.");
@@ -66,7 +65,7 @@ class SyncCatalogsCommand extends Command
 
     protected function syncWildflow($provider)
     {
-        $this->info('Wildflow catalog sync started...');
+        $this->info('Meanly EZPin catalog sync started...');
         ini_set('memory_limit', '1024M');
         set_time_limit(600);
 
@@ -78,18 +77,6 @@ class SyncCatalogsCommand extends Command
         $this->brandCache = [];
         $this->brandNameUpperById = [];
         $this->currencyCache = \App\Models\Currency::pluck('id', 'code')->toArray();
-
-        if ($this->shouldPullEzPinUpstream($provider)) {
-            $this->info('Pulling fresh EZPin catalog directly from upstream SDK...');
-            $stats = app(EzPinCatalogPuller::class)->pullIntoProvider($provider);
-            $this->info(sprintf(
-                'EZPin upstream pull complete: %d persisted (%d catalog, %d retailer), %d deactivated.',
-                $stats['total'],
-                $stats['catalog'],
-                $stats['retailer'],
-                $stats['deactivated'],
-            ));
-        }
 
         $client = null;
         if (! $this->useEmbeddedCatalog($provider)) {
@@ -139,8 +126,8 @@ class SyncCatalogsCommand extends Command
 
     private function useEmbeddedCatalog($provider): bool
     {
-        if ($this->shouldPullEzPinUpstream($provider)) {
-            return true;
+        if ((bool) $this->option('pull-upstream')) {
+            return false;
         }
 
         if ((bool) $this->option('embedded')) {
@@ -148,15 +135,6 @@ class SyncCatalogsCommand extends Command
         }
 
         return (string) data_get($provider->settings, 'catalog_source') === 'embedded';
-    }
-
-    private function shouldPullEzPinUpstream($provider): bool
-    {
-        if (! (bool) $this->option('pull-upstream')) {
-            return false;
-        }
-
-        return in_array($provider->type, ['wildflow', 'wildflow-sandbox', 'ezpin', 'ezpin-sandbox'], true);
     }
 
     private function parseCatalog($client, string $type, $provider, $financeService): bool
@@ -167,7 +145,7 @@ class SyncCatalogsCommand extends Command
             $items = $payload['items'] ?? [];
             $responseBody = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } else {
-            $providerSlug = $provider->type === 'wildflow' ? 'ezpin' : $provider->type;
+            $providerSlug = $this->upstreamProviderSlug($provider);
             $endpoint = "providers/{$providerSlug}/unified-catalog";
             $response = $client->get($endpoint, ['include_inactive' => 1]);
             $items = $response->json('items') ?? [];
@@ -292,7 +270,7 @@ class SyncCatalogsCommand extends Command
         $manual_rate = $provider->settings['currency_rate'] ?? null;
 
         $usdt_rub = $bybit_service->tickerPrice('USDTRUB');
-        // Wildflow is usually USD based
+        // EZPin catalog prices are usually USD based.
         $effective_rate = $manual_rate ?? $usdt_rub;
 
         $ym = new \App\Http\Controllers\Ym\MainController($tax);
@@ -330,7 +308,7 @@ class SyncCatalogsCommand extends Command
             $maxPrice = (float)($item['max_price'] ?? $item['data']['max_price'] ?? $item['data']['price']['max'] ?? 0);
             
             $currencyCode = $item['currency'] ?? $item['data']['currency']['code'] ?? 'USD';
-            $externalBrandName = $item['brand'] ?? $item['category'] ?? $item['data']['categories'][0]['name'] ?? 'WILDFLOW GIFTS';
+            $externalBrandName = $item['brand'] ?? $item['category'] ?? $item['data']['categories'][0]['name'] ?? 'EZPIN GIFTS';
             $providerCategoryName = $item['category'] ?? $item['data']['categories'][0]['name'] ?? $externalBrandName;
 
             // Calculated values ensuring stability for ranged products: Always lean on Min Price!
@@ -622,6 +600,15 @@ class SyncCatalogsCommand extends Command
         return true;
     }
 
+    private function upstreamProviderSlug($provider): string
+    {
+        return match ((string) $provider->type) {
+            'wildflow', 'ezpin' => 'ezpin',
+            'wildflow-sandbox', 'ezpin-sandbox' => 'ezpin-sandbox',
+            default => (string) $provider->type,
+        };
+    }
+
     private function brandDisplayNameUpper(int $brandId, string $externalBrandFallback): string
     {
         if ($brandId > 0) {
@@ -666,7 +653,7 @@ class SyncCatalogsCommand extends Command
     }
 
     /**
-     * Короткий стабильный SKU каталога по service_sku Wildflow (один и тот же при каждом парсе).
+     * Короткий стабильный SKU каталога по upstream service_sku (один и тот же при каждом парсе).
      */
     private function resolveCatalogSku(string $serviceSku): string
     {

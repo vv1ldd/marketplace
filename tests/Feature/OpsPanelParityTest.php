@@ -20,9 +20,13 @@ use App\Models\SearchDemandRecommendation;
 use App\Models\Shop;
 use App\Models\SovereignBalanceRequest;
 use App\Models\SovereignLedger;
+use App\Models\Ticket;
+use App\Models\TicketMessage;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseStock;
+use App\Services\Provider\EzpinDriver;
+use App\Services\Provider\ProviderHub;
 use App\Models\ZeroLayerIntegration;
 use App\Models\ZeroLayerSignal;
 use App\Models\WildflowCreditReservation;
@@ -41,8 +45,8 @@ class OpsPanelParityTest extends TestCase
         parent::setUp();
 
         config(['session.domain' => null]);
-        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
-        Role::firstOrCreate(['name' => 'auditor', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_SOVEREIGN_VALIDATOR, 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_LEDGER_AUDITOR, 'guard_name' => 'web']);
     }
 
     public function test_ops_dashboard_merges_ledger_tribunal_into_audit_ai_tab(): void
@@ -84,9 +88,9 @@ class OpsPanelParityTest extends TestCase
         $admin = $this->opsAdmin('d');
 
         Provider::updateOrCreate(
-            ['type' => 'wildflow'],
+            ['type' => 'ezpin'],
             [
-                'name' => 'Wildflow',
+                'name' => 'EZPin',
                 'is_active' => true,
                 'credentials' => [
                     'client_id' => 'configured',
@@ -109,8 +113,14 @@ class OpsPanelParityTest extends TestCase
             ->getJson('https://meanly.test/ops/dashboard/providers/data')
             ->assertOk();
 
-        $provider = collect($response->json('data'))->firstWhere('type', 'wildflow');
+        $provider = collect($response->json('data'))->firstWhere('type', 'ezpin');
         $this->assertNotNull($provider);
+        $this->assertSame('meanly.one', data_get($provider, 'authority'));
+        $this->assertSame('ezpin', data_get($provider, 'upstream_provider'));
+        $this->assertFalse(data_get($provider, 'is_legacy_alias'));
+        $this->assertSame('direct_ezpin', data_get($response->json('kernel'), 'mode'));
+        $this->assertSame('meanly.one', data_get($response->json('kernel'), 'authority'));
+        $this->assertSame('ezpin', data_get($response->json('kernel'), 'upstream'));
         $this->assertTrue(data_get($provider, 'credentials.client_id'));
         $this->assertTrue(data_get($provider, 'credentials.secret_key'));
         $this->assertTrue(data_get($provider, 'terminal.id_configured'));
@@ -118,6 +128,22 @@ class OpsPanelParityTest extends TestCase
         $this->assertTrue(data_get($provider, 'health.credentials_ready'));
         $this->assertSame('/api/v1/providers/{provider}/order', data_get($response->json('kernel'), 'support_planes.docs.orders'));
         $this->assertIsInt(data_get($response->json('kernel'), 'support_planes.devices.terminals_total'));
+    }
+
+    public function test_legacy_wildflow_provider_type_resolves_to_ezpin_driver_alias(): void
+    {
+        $provider = Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Legacy Wildflow Alias',
+                'is_active' => true,
+                'settings' => ['upstream_provider' => 'ezpin'],
+            ],
+        );
+
+        $driver = app(ProviderHub::class)->forProvider($provider);
+
+        $this->assertInstanceOf(EzpinDriver::class, $driver);
     }
 
     public function test_ops_organizations_expose_partner_api_identity_and_settlement_controls(): void
@@ -527,6 +553,121 @@ class OpsPanelParityTest extends TestCase
             ->assertJsonPath('vouchers.0.status', 'available');
     }
 
+    public function test_ops_inventory_syncs_marketplace_warehouses_from_distribution_master(): void
+    {
+        $admin = $this->opsAdmin('m');
+        $entity = LegalEntity::withoutEvents(fn () => LegalEntity::create([
+            'name' => 'Marketplace Warehouse Partner',
+            'inn' => '770000008888',
+            'available_balance' => 100,
+            'reserved_balance' => 0,
+            'currency' => 'USD',
+            'is_active' => true,
+        ]));
+        $distributionShop = Shop::create([
+            'name' => 'Distribution Center',
+            'legal_entity_id' => $entity->id,
+            'is_active' => true,
+            'is_distribution_center' => true,
+        ]);
+        $marketplaceShop = Shop::create([
+            'name' => 'Marketplace Shop',
+            'legal_entity_id' => $entity->id,
+            'is_active' => true,
+        ]);
+        $product = Product::create([
+            'sku' => 'OPS-MARKETPLACE-STOCK-1',
+            'name' => 'Ops Marketplace Stock Product',
+            'price_rub' => 1000,
+            'shop_id' => $marketplaceShop->id,
+            'is_active' => true,
+        ]);
+        $master = Warehouse::create([
+            'shop_id' => $distributionShop->id,
+            'name' => 'Distribution Master',
+            'is_active' => true,
+            'is_main' => true,
+            'channel_quota' => 100,
+        ]);
+        $marketplaceWarehouse = Warehouse::create([
+            'shop_id' => $marketplaceShop->id,
+            'name' => 'Marketplace Projection',
+            'type' => 'channel',
+            'is_active' => true,
+            'is_main' => false,
+            'channel' => 'meanly_storefront',
+            'channel_quota' => 50,
+        ]);
+        WarehouseStock::withoutEvents(fn () => WarehouseStock::create([
+            'warehouse_id' => $master->id,
+            'product_id' => $product->id,
+            'count' => 9,
+            'synced_at' => now(),
+        ]));
+
+        $this->actingAs($admin)
+            ->postJson('https://meanly.test/ops/dashboard/inventory/sync-warehouses')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('synced_shops', 1)
+            ->assertJsonPath('channel_warehouses', 1);
+
+        $this->assertDatabaseHas('warehouse_stocks', [
+            'warehouse_id' => $marketplaceWarehouse->id,
+            'product_id' => $product->id,
+            'count' => 4,
+        ]);
+    }
+
+    public function test_ops_support_reply_marks_admin_reply_and_resolves_ticket(): void
+    {
+        $admin = $this->opsAdmin('n');
+        $entity = LegalEntity::withoutEvents(fn () => LegalEntity::create([
+            'name' => 'Support Partner',
+            'inn' => '770000009999',
+            'available_balance' => 100,
+            'reserved_balance' => 0,
+            'currency' => 'RUB',
+            'is_active' => true,
+        ]));
+        $shop = Shop::create([
+            'name' => 'Support Shop',
+            'legal_entity_id' => $entity->id,
+            'is_active' => true,
+        ]);
+        $ticket = Ticket::create([
+            'shop_id' => $shop->id,
+            'subject' => 'B2B onboarding',
+            'status' => 'open',
+            'priority' => 'medium',
+        ]);
+        TicketMessage::create([
+            'ticket_id' => $ticket->id,
+            'message' => 'Need onboarding help',
+            'is_admin_reply' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("https://meanly.test/ops/dashboard/tickets/{$ticket->id}/reply", [
+                'message' => 'Approved. We will contact you today.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('ticket.status', 'resolved')
+            ->assertJsonPath('reply.is_admin', true);
+
+        $ticket->refresh();
+        $this->assertSame('resolved', $ticket->status);
+        $this->assertNotNull($ticket->last_reply_at);
+        $this->assertTrue(TicketMessage::where('ticket_id', $ticket->id)->latest('id')->first()->is_admin_reply);
+
+        $this->actingAs($admin)
+            ->getJson("https://meanly.test/ops/dashboard/tickets/{$ticket->id}/details")
+            ->assertOk()
+            ->assertJsonPath('messages.1.is_admin', true)
+            ->assertJsonPath('messages.1.message', 'Approved. We will contact you today.');
+    }
+
     public function test_ops_search_integrations_surface_masks_credentials_and_promotes_signals(): void
     {
         $admin = $this->opsAdmin('k');
@@ -618,9 +759,9 @@ class OpsPanelParityTest extends TestCase
         $this->assertSame(1, ExternalSearchQuerySignal::where('normalized_query', 'xbox gift card usa')->count());
     }
 
-    public function test_auditor_can_access_tribunal_validation_without_super_admin(): void
+    public function test_ledger_auditor_can_access_tribunal_validation_without_sovereign_validator(): void
     {
-        $auditor = $this->opsUserWithRole('auditor', 'c');
+        $auditor = $this->opsUserWithRole(User::ROLE_LEDGER_AUDITOR, 'c');
 
         $this->actingAs($auditor)
             ->postJson('https://meanly.test/ops/dashboard/tribunal/validate-chain')
@@ -630,7 +771,7 @@ class OpsPanelParityTest extends TestCase
 
     private function opsAdmin(string $identityHex = 'a'): User
     {
-        return $this->opsUserWithRole('super_admin', $identityHex);
+        return $this->opsUserWithRole(User::ROLE_SOVEREIGN_VALIDATOR, $identityHex);
     }
 
     private function opsUserWithRole(string $role, string $identityHex): User

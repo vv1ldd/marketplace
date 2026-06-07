@@ -146,6 +146,107 @@ class YandexMarketNotificationEndpointTest extends TestCase
         $this->assertSame('existing-yandex-key', $shop->api_key);
     }
 
+    public function test_yandex_market_setup_requires_legal_entity_inn(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $entity = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Seller Without INN',
+            'inn' => '',
+            'is_active' => true,
+        ]);
+
+        $shop = new Shop([
+            'name' => 'Seller Shop',
+            'domain' => 'meanly.ru',
+            'shop_region' => 'RU',
+            'is_active' => true,
+        ]);
+        $shop->legal_entity_id = $entity->id;
+        $shop->save();
+
+        $this->withoutMiddleware()
+            ->actingAs($user)
+            ->postJson(route('partner.dashboard.shop.yandex_market', $shop), [
+                'business_id' => 123,
+                'campaign_id' => 456,
+                'ym_warehouse_id' => 789,
+                'api_key' => 'seller-yandex-key',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('yandex_channel_status.state', 'legal_entity_required')
+            ->assertJsonPath('yandex_channel_status.legal_entity.can_configure', false);
+
+        $this->assertNull($shop->fresh()->business_id);
+    }
+
+    public function test_yandex_market_setup_response_exposes_channel_status_shape(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $entity = LegalEntity::create([
+            'user_id' => $user->id,
+            'name' => 'Seller Legal Entity',
+            'inn' => '770000000557',
+            'is_active' => true,
+        ]);
+
+        $shop = new Shop([
+            'name' => 'Seller Shop',
+            'domain' => 'meanly.ru',
+            'shop_region' => 'RU',
+            'is_active' => true,
+        ]);
+        $shop->legal_entity_id = $entity->id;
+        $shop->save();
+
+        $product = Product::create([
+            'shop_id' => $shop->id,
+            'sku' => 'YM-STATUS-001',
+            'name' => 'Yandex Status Product',
+            'price_rub' => 12000,
+            'type' => 'giftcard',
+            'is_active' => true,
+        ]);
+
+        \App\Models\ProductSalesChannel::create([
+            'shop_id' => $shop->id,
+            'product_id' => $product->id,
+            'channel' => 'yandex_market',
+            'is_enabled' => true,
+            'last_synced_at' => now(),
+            'last_error' => 'Previous sync warning',
+        ]);
+
+        \App\Models\Warehouse::create([
+            'shop_id' => $shop->id,
+            'name' => 'Yandex Market',
+            'type' => 'channel',
+            'is_main' => false,
+            'is_active' => true,
+            'channel' => 'yandex_market',
+            'channel_quota' => 75,
+            'ym_id' => 789,
+        ]);
+
+        $this->withoutMiddleware()
+            ->actingAs($user)
+            ->postJson(route('partner.dashboard.shop.yandex_market', $shop), [
+                'business_id' => 123,
+                'campaign_id' => 456,
+                'ym_warehouse_id' => 789,
+                'api_key' => null,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('yandex_channel_status.key', 'yandex_market')
+            ->assertJsonPath('yandex_channel_status.legal_entity.inn', '770000000557')
+            ->assertJsonPath('yandex_channel_status.warehouse.ym_id', 789)
+            ->assertJsonPath('yandex_channel_status.warehouse.channel_quota', 75)
+            ->assertJsonPath('yandex_channel_status.publication.enabled_products', 1)
+            ->assertJsonPath('yandex_channel_status.publication.last_error', 'Previous sync warning');
+    }
+
     public function test_yandex_notification_reaches_ezpin_sandbox_and_activates_redeem_code(): void
     {
         config(['queue.default' => 'sync']);

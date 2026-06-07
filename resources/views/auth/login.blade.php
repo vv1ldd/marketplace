@@ -487,14 +487,14 @@
 
             <h1 class="auth-title">Добро пожаловать</h1>
             <p class="auth-subtitle">
-                Рады видеть! Авторизуйтесь через SL1E Identity: passkey проверяется в identity center, а Meanly получает только proof входа.
+                Рады видеть! Авторизуйтесь через Meanly One: passkey проверяется в приложении, а Meanly получает только proof входа.
             </p>
 
             <div class="auth-interaction">
-                <!-- SL1E Identity Authentication -->
+                <!-- Meanly One authentication -->
                 <div class="space-y-4">
                     <a href="{{ $sl1eConnectUrl }}" class="sovereign-btn-trigger">
-                        Продолжить через SL1E Identity
+                        Продолжить через Meanly One
                     </a>
                 </div>
             </div>

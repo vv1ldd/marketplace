@@ -56,12 +56,12 @@ class PasswordlessLoginTest extends TestCase
 
     public function test_logout_routes_return_to_home(): void
     {
-        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
-        Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_WALLET_HOLDER, 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
 
         $user = User::factory()->create();
         $partner = User::factory()->create();
-        $partner->assignRole('b2b_partner');
+        $partner->assignRole(User::ROLE_MERCHANT_NODE);
         \Spatie\LaravelPasskeys\Models\Passkey::factory()->create([
             'authenticatable_id' => $user->id,
         ]);
@@ -103,24 +103,24 @@ class PasswordlessLoginTest extends TestCase
         $this->assertDatabaseMissing('passkeys', ['id' => $passkey->id]);
     }
 
-    public function test_b2b_registration_assigns_seller_role_with_sellers_guard(): void
+    public function test_merchant_registration_assigns_seller_role_with_sellers_guard(): void
     {
-        Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
 
         $user = User::factory()->create();
         $seller = Seller::create([
-            'first_name' => 'B2B',
+            'first_name' => 'Merchant',
             'is_active' => true,
         ]);
 
         $controller = new \App\Http\Controllers\PartnerRegistrationController();
-        $method = new \ReflectionMethod($controller, 'assignB2BRoles');
+        $method = new \ReflectionMethod($controller, 'assignMerchantNodeRoles');
         $method->setAccessible(true);
         $method->invoke($controller, $user, $seller);
 
-        $this->assertTrue($user->fresh()->hasRole('b2b_partner'));
-        $this->assertDatabaseHas('roles', ['name' => 'b2b_partner', 'guard_name' => 'sellers']);
-        $this->assertTrue($seller->fresh()->hasRole('b2b_partner', 'sellers'));
+        $this->assertTrue($user->fresh()->hasRole(User::ROLE_MERCHANT_NODE));
+        $this->assertDatabaseHas('roles', ['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'sellers']);
+        $this->assertTrue($seller->fresh()->hasRole(User::ROLE_MERCHANT_NODE, 'sellers'));
     }
 
     public function test_pending_moderation_partner_sees_onboarding_instead_of_dashboard(): void
@@ -160,13 +160,13 @@ class PasswordlessLoginTest extends TestCase
 
     public function test_partner_deposit_mutation_endpoints_are_disabled(): void
     {
-        Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
 
         $user = User::factory()->create([
             'entity_l1_address' => 'sl1e_'.str_repeat('c', 39),
             'meta' => ['simple_l1' => ['identity_rule' => 'external_identity_provider']],
         ]);
-        $user->assignRole('b2b_partner');
+        $user->assignRole(User::ROLE_MERCHANT_NODE);
 
         $entity = LegalEntity::create([
             'user_id' => $user->id,
@@ -198,13 +198,13 @@ class PasswordlessLoginTest extends TestCase
 
     public function test_partner_finance_mutations_require_privileged_role(): void
     {
-        Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
 
         $user = User::factory()->create([
             'entity_l1_address' => 'sl1e_'.str_repeat('d', 39),
             'meta' => ['simple_l1' => ['identity_rule' => 'external_identity_provider']],
         ]);
-        $user->assignRole('b2b_partner');
+        $user->assignRole(User::ROLE_MERCHANT_NODE);
 
         $entity = LegalEntity::create([
             'name' => 'Viewer Business LLC',
@@ -306,7 +306,7 @@ class PasswordlessLoginTest extends TestCase
 
     public function test_business_registration_with_sl1_identity_does_not_require_local_passkey_attestation(): void
     {
-        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_WALLET_HOLDER, 'guard_name' => 'web']);
 
         $user = User::factory()->create([
             'meta' => [
@@ -374,7 +374,7 @@ class PasswordlessLoginTest extends TestCase
             ->get(route('partner.register.offer'))
             ->assertOk()
             ->assertSee("window.location.search).get('sl1e_offer_complete')", false)
-            ->assertSee('Переходим в SL1E Identity')
+            ->assertSee('Переходим в Meanly One')
             ->assertSee('intent_type=agreement.sign', false)
             ->assertSee(rawurlencode('Подписать публичную оферту'), false)
             ->assertSee(rawurlencode('Подтвердить подпись'), false)
@@ -735,7 +735,7 @@ class PasswordlessLoginTest extends TestCase
         $this->get('/vault/register')
             ->assertRedirect(route('meanly.simple_l1.connect', [
                 'return_to' => route('cabinet.dashboard', [], false),
-                'mode' => 'register',
+                'mode' => 'connect',
             ]));
     }
 
@@ -772,7 +772,7 @@ class PasswordlessLoginTest extends TestCase
 
     public function test_connected_business_user_sees_console_cta_instead_of_connect_business(): void
     {
-        $role = Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
         $user = User::factory()->create([
             'first_name' => 'Connected',
         ]);
@@ -803,13 +803,13 @@ class PasswordlessLoginTest extends TestCase
         $this->actingAs($user)
             ->get('/')
             ->assertOk()
-            ->assertSee('B2B Консоль', false)
+            ->assertSee('Merchant Center', false)
             ->assertDontSee('Подключить бизнес', false);
 
         $this->actingAs($user)
             ->get('/business')
             ->assertOk()
-            ->assertSee('Открыть B2B консоль', false)
+            ->assertSee('Открыть Merchant Center', false)
             ->assertDontSee('Подключить бизнес', false);
     }
 

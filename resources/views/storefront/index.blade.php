@@ -935,7 +935,7 @@
             <div class="proof"><strong>💬 {{ $copy['proofs'][2]['title'] }}</strong><span>{{ $copy['proofs'][2]['text'] }}</span></div>
         </section>
 
-        @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
+        @if(auth()->check() && (auth()->user()->isMerchantNode() || auth()->user()->isSystemUser()))
         <section class="stats-grid" aria-label="Marketplace catalog stats">
             <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.total_canonical_products', 0), 0, '.', ' ') }}</strong><span>{{ $copy['stats']['total'] }}</span></div>
             <div class="stat-card"><strong>{{ number_format((int) data_get($homepage, 'stats.provider_backed_products', 0), 0, '.', ' ') }}</strong><span>{{ $copy['stats']['provider'] }}</span></div>
@@ -1012,13 +1012,13 @@
             <div class="shelf-title">
                 <div>
                     <h2>{{ $copy['coming_title'] }}</h2>
-                    @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
+                    @if(auth()->check() && (auth()->user()->isMerchantNode() || auth()->user()->isSystemUser()))
                         <span>{{ $copy['coming_partner_subtitle'] }}</span>
                     @else
                         <span>{{ $copy['coming_public_subtitle'] }}</span>
                     @endif
                 </div>
-                @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
+                @if(auth()->check() && (auth()->user()->isMerchantNode() || auth()->user()->isSystemUser()))
                     <a class="text-link" href="{{ route('business.register') }}">{{ $copy['connect_seller'] }}</a>
                 @endif
             </div>
@@ -1034,7 +1034,7 @@
                                 </div>
                             @endif
                             <span class="status-pill network">{{ $copy['coming_status'] }}</span>
-                            @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
+                            @if(auth()->check() && (auth()->user()->isMerchantNode() || auth()->user()->isSystemUser()))
                                 <div class="offer-summary">{{ $copy['network_partner_summary'] }}</div>
                             @else
                                 <div class="offer-summary">{{ $copy['network_public_summary'] }}</div>
@@ -1042,7 +1042,7 @@
                         </div>
                         <div class="card-actions">
                             <a class="btn btn-primary" href="{{ $product['url'] }}">{{ $copy['open'] }}</a>
-                            @if(auth()->check() && (auth()->user()->isB2BPartner() || auth()->user()->isSystemUser()))
+                            @if(auth()->check() && (auth()->user()->isMerchantNode() || auth()->user()->isSystemUser()))
                                 <a class="text-link" href="{{ route('business.register') }}">{{ $copy['connect'] }}</a>
                             @endif
                         </div>

@@ -47,16 +47,13 @@
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }
-        .sl1-inline-handoff-mark {
-            width: 18px;
-            height: 18px;
-            display: inline-grid;
-            place-items: center;
+        .meanly-one-inline-app-icon {
+            width: 22px;
+            height: 22px;
             border: 2px solid #050505;
-            background: #7c3aed;
-            color: #ffffff;
-            font-size: 10px;
-            line-height: 1;
+            border-radius: 7px;
+            box-shadow: 2px 2px 0 #050505;
+            display: block;
         }
         .sl1-inline-handoff-title {
             margin: 0 0 10px;
@@ -135,7 +132,7 @@
     </style>
     <div class="sl1-inline-handoff" data-sl1-inline-handoff aria-hidden="true">
         <section class="sl1-inline-handoff-card" role="status" aria-live="polite">
-            <div class="sl1-inline-handoff-eyebrow"><span class="sl1-inline-handoff-mark">SL</span> Simple Layer One</div>
+            <div class="sl1-inline-handoff-eyebrow"><img class="meanly-one-inline-app-icon" src="{{ asset('meanly-one-app-icon.svg') }}" alt=""> Meanly One app</div>
             <h2 class="sl1-inline-handoff-title" data-sl1-inline-handoff-title>{{ __('auth.simple_l1.inline.title') }}</h2>
             <p class="sl1-inline-handoff-body" data-sl1-inline-handoff-body>{{ __('auth.simple_l1.inline.body') }}</p>
             <div class="sl1-inline-handoff-facts" data-sl1-inline-handoff-facts></div>
@@ -222,8 +219,8 @@
                 const showHandoff = (handoff, redirectUrl, deepLinkUrl = null, nativeAutoLaunch = false) => {
                     clearTimers();
                     const copy = window.meanlySimpleL1HandoffCopy || {};
-                    titleNode.textContent = handoff?.title || copy.title || 'Simple Layer One is opening';
-                    bodyNode.textContent = handoff?.body || copy.body || 'Confirm with your passkey, then return to Meanly.';
+                    titleNode.textContent = handoff?.title || copy.title || 'Meanly One is opening';
+                    bodyNode.textContent = handoff?.body || copy.body || 'Approve the identity request, then return to Meanly.';
                     actionNode.textContent = handoff?.cta || copy.cta || 'Continue now';
                     actionNode.href = nativeAutoLaunch && deepLinkUrl ? deepLinkUrl : redirectUrl;
                     factsNode.innerHTML = '';
@@ -277,7 +274,7 @@
                         });
 
                         if (!response.ok) {
-                            throw new Error('Simple Layer One handoff failed.');
+                            throw new Error('Meanly One handoff failed.');
                         }
 
                         const payload = await response.json();

@@ -2,6 +2,14 @@
 
 // use App\Http\Controllers\PlayStation\MainController;
 use App\Http\Controllers\WooPriceUpdateController;
+use App\Http\Controllers\Api\Storefront\StorefrontCatalogController;
+use App\Http\Controllers\Api\Storefront\StorefrontCheckoutController;
+use App\Http\Controllers\Api\Storefront\StorefrontContextController;
+use App\Http\Controllers\Api\Storefront\StorefrontIdentityController;
+use App\Http\Controllers\Api\Storefront\StorefrontPartnerRegistrationController;
+use App\Http\Controllers\Api\Storefront\StorefrontPersonalizationController;
+use App\Http\Controllers\Api\Storefront\StorefrontVaultController;
+use App\Http\Controllers\Api\UiProjectionController;
 use App\Http\Controllers\Ym\MainController as YmMainController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,13 +59,55 @@ Route::get('description-generate', [YmMainController::class, 'descriptionGenerat
 
 Route::post('telegram/webhook/{token}', [\App\Http\Controllers\TelemetryController::class, 'telegramWebhook']);
 
-// Route::post('webhooks/fazer', [\App\Http\Controllers\Api\Webhooks\FazerWebhookController::class, 'handle']);
+// Provider webhooks terminate in Digital Goods Source.
 
 /** Unified provider catalog — GET /api/catalog/products?token=xxx&provider=fazer */
 Route::prefix('catalog')->group(function () {
     Route::get('products',        [\App\Http\Controllers\Api\CatalogApiController::class, 'products']);
     Route::get('products/{sku}',  [\App\Http\Controllers\Api\CatalogApiController::class, 'show']);
     Route::get('summary',         [\App\Http\Controllers\Api\CatalogApiController::class, 'summary']);
+});
+
+Route::prefix('storefront/v1')
+    ->middleware([
+        \App\Http\Middleware\ResolveMarketContext::class,
+        \App\Http\Middleware\ResolvePricingContext::class,
+    ])
+    ->group(function () {
+    Route::get('context', [StorefrontContextController::class, 'show']);
+    Route::get('catalog', [StorefrontCatalogController::class, 'index']);
+    Route::get('catalog/search', [StorefrontCatalogController::class, 'search']);
+    Route::get('catalog/suggest', [StorefrontCatalogController::class, 'suggest']);
+    Route::get('catalog/categories/{category}', [StorefrontCatalogController::class, 'category']);
+    Route::get('catalog/groups/{category}/{brandSlug}/{kindSlug}', [StorefrontCatalogController::class, 'group']);
+    Route::get('catalog/products/{slug}', [StorefrontCatalogController::class, 'product']);
+    Route::post('checkout/availability', [StorefrontCheckoutController::class, 'availability']);
+    Route::post('checkout/intent', [StorefrontCheckoutController::class, 'intent']);
+    Route::post('checkout/create', [StorefrontCheckoutController::class, 'create'])
+        ->middleware('storefront.token:storefront:checkout');
+    Route::get('orders/{order:uuid}/safe/status', [StorefrontCheckoutController::class, 'orderSafe'])
+        ->middleware('storefront.token:storefront:read');
+    Route::post('orders/{order:uuid}/safe/open', [StorefrontCheckoutController::class, 'open'])
+        ->middleware('storefront.token:storefront:read');
+    Route::post('orders/{order:uuid}/safe/scratch', [StorefrontCheckoutController::class, 'scratch'])
+        ->middleware('storefront.token:storefront:read');
+    Route::get('orders/{order:uuid}/safe/support', [StorefrontCheckoutController::class, 'support'])
+        ->middleware('storefront.token:storefront:read');
+    Route::get('vault', [StorefrontVaultController::class, 'index'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::get('personalization/home', [StorefrontPersonalizationController::class, 'home'])
+        ->middleware('storefront.token:storefront:read');
+    Route::post('favorites/toggle', [StorefrontPersonalizationController::class, 'toggleFavorite'])
+        ->middleware('storefront.token:storefront:read');
+    Route::get('partner-registration/state', [StorefrontPartnerRegistrationController::class, 'state']);
+    Route::post('identity/token', [StorefrontIdentityController::class, 'exchange']);
+    Route::get('identity/session', [StorefrontIdentityController::class, 'session'])
+        ->middleware('storefront.token:storefront:read');
+});
+
+Route::prefix('ui/v1')->group(function () {
+    Route::get('projections/{surface}/{path?}', [UiProjectionController::class, 'show'])
+        ->where('path', '.*');
 });
 
 Route::prefix('v1')

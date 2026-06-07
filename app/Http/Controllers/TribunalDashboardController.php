@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SovereignLedger;
+use App\Models\User;
 use App\Services\LedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,7 +13,7 @@ class TribunalDashboardController extends Controller
     public function validateChain(Request $request)
     {
         $user = Auth::user();
-        if (!$user || (!$user->hasRole('super_admin') && !$user->hasRole('auditor'))) {
+        if (!$user || (!$user->hasOpsSovereignAccess() && !$user->hasRole(User::ROLE_LEDGER_AUDITOR))) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -82,7 +83,7 @@ class TribunalDashboardController extends Controller
     public function chatOracle(Request $request)
     {
         $user = Auth::user();
-        if (!$user || (!$user->hasRole('super_admin') && !$user->hasRole('auditor'))) {
+        if (!$user || (!$user->hasOpsSovereignAccess() && !$user->hasRole(User::ROLE_LEDGER_AUDITOR))) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -97,7 +98,7 @@ class TribunalDashboardController extends Controller
 
         $prompt = <<<EOT
 Ты — Sovereign Audit Oracle, суверенная языковая модель ИИ-Трибунала платформы Meanly.
-Ты помогаешь государственным аудиторам и супер-администратору проверять криптографическую целостность Ledger-реестра, искать признаки фрода, сговора или несанкционированного изменения балансов.
+Ты помогаешь ledger auditors и sovereign validators проверять криптографическую целостность Ledger-реестра, искать признаки фрода, сговора или несанкционированного изменения балансов.
 
 КОНТЕКСТ ТРИБУНАЛА:
 - Всего Ledger-блоков в цепи: $totalBlocks

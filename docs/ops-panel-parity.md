@@ -37,8 +37,8 @@ UI:
 
 Access:
 
-- `super_admin`
-- `auditor` for tribunal validation/chat routes
+- `sovereign_validator`
+- `ledger_auditor` for tribunal validation/chat routes
 
 ## Guardrail
 

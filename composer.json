@@ -39,9 +39,7 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "AppYandexSdk\\": "app/YandexSdk/lib/",
-            "EzPin\\": "packages/ezpin-sdk/src/",
-            "FazerSdk\\": "packages/fazer-sdk/src/"
+            "AppYandexSdk\\": "app/YandexSdk/lib/"
         },
         "files": [
             "app/helpers.php"

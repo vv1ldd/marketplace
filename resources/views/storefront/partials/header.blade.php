@@ -504,11 +504,11 @@
 
         <div class="nav-actions">
             @auth
-                @if(auth()->user()?->hasRole('super_admin'))
+                @if(auth()->user()?->hasOpsSovereignAccess())
                     <a href="{{ $opsUrl }}" @class(['btn-nav-login', 'active' => request()->is('ops*')])>
                         Ops
                     </a>
-                @elseif(auth()->user()?->hasRole('b2b_partner'))
+                @elseif(auth()->user()?->isMerchantNode())
                     <a href="{{ $partnerUrl }}" @class(['btn-nav-cta', 'active' => request()->is('partner*')])>
                         {{ __('storefront.header.b2b_console') }}
                     </a>

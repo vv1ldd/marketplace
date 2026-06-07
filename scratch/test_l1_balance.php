@@ -24,7 +24,7 @@ $user = User::create([
     'password' => Hash::make(Str::random(32)),
     'password_login_enabled' => false,
 ]);
-$user->assignRole('b2b_partner');
+$user->assignRole(User::ROLE_MERCHANT_NODE);
 
 $brand = Brand::first();
 

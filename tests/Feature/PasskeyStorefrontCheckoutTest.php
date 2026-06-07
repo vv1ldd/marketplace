@@ -32,8 +32,8 @@ class PasskeyStorefrontCheckoutTest extends TestCase
         config(['app.domain' => 'localhost']);
         config(['session.domain' => null]);
 
-        // 1. Create B2B Partner Role and User
-        $role = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        // 1. Create Merchant Node role and user.
+        $role = \Spatie\Permission\Models\Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
         
         $this->user = User::factory()->create([
             'first_name' => 'Sovereign',

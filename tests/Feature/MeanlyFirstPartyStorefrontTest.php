@@ -88,7 +88,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
     private function checkoutUser(array $attributes = []): User
     {
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => User::ROLE_WALLET_HOLDER, 'guard_name' => 'web']);
 
         $user = User::factory()->create([
             'first_name' => 'Account',
@@ -982,8 +982,8 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $this->get(route('meanly.storefront.products.show', $product->slug))
             ->assertOk()
-            ->assertSee('Connect Simple L1 wallet')
-            ->assertSee(route('meanly.simple_l1.connect', ['return_to' => '/store/products/'.$product->slug]), false);
+            ->assertSee('Continue with Meanly')
+            ->assertSee(route('meanly.simple_l1.connect', ['return_to' => '/store/products/'.$product->slug], false), false);
 
         \Illuminate\Support\Facades\Cache::put('simple_l1:proof_token:test-proof-handle', 'proof-token', now()->addMinutes(10));
 
@@ -995,9 +995,9 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ],
         ])->get(route('meanly.storefront.products.show', $product->slug))
             ->assertOk()
-            ->assertSee(__('product.public.wallet_connected'))
+            ->assertSee('Meanly connected')
             ->assertSee($l1Address)
-            ->assertSee(__('product.public.reconnect_wallet'));
+            ->assertSee('Reconnect Meanly');
     }
 
     public function test_simple_l1_connect_passes_marketplace_theme_context_to_pass(): void
@@ -1316,6 +1316,62 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertDatabaseMissing('simple_l1_identity_keys', [
             'key_l1_address' => data_get($proofResponse, 'proof.keyAddress'),
         ]);
+    }
+
+    public function test_simple_l1_connect_enrolls_native_key_for_existing_entity(): void
+    {
+        config(['simple_l1.accept_native_direct_proof' => true]);
+        $existingEntityAddress = 'sl1e_'.str_repeat('d', 39);
+        $existingUser = User::factory()->create([
+            'entity_l1_address' => $existingEntityAddress,
+            'identity_provider' => 'identity_wildflow',
+            'meta' => ['entity_l1_address' => $existingEntityAddress],
+        ]);
+
+        $signed = $this->signedNativeProofResponse([
+            'type' => 'sl1e.login.proof.v1',
+            'clientId' => config('simple_l1.client_id'),
+            'redirectUri' => route('meanly.simple_l1.callback'),
+            'state' => 'expected-state',
+            'nonce' => 'expected-nonce',
+            'mode' => 'login',
+            'entityAddress' => $existingEntityAddress,
+            'displayName' => 'Native User',
+            'issuedAt' => now()->toIso8601String(),
+            'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+        ]);
+        $proofResponse = $signed['proof_response'];
+        $proofPayload = rtrim(strtr(base64_encode(json_encode($proofResponse, JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
+
+        Http::fake();
+
+        $response = $this->withSession([
+            'simple_l1_connect.state' => 'expected-state',
+            'simple_l1_connect.nonce' => 'expected-nonce',
+            'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+            'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+            'simple_l1_connect.mode' => 'login',
+            'simple_l1_connect.flow' => 'connect',
+            'simple_l1_connect.return_to' => '/vault',
+            'simple_l1_connect.intent' => [
+                'intent_type' => 'meanly.vault.open',
+                'intent_title' => 'Open Meanly Vault',
+                'intent_cta' => 'Continue with Meanly',
+            ],
+        ])->get('/simple-l1/callback?state=expected-state&proof_response='.$proofPayload);
+
+        $response->assertRedirect();
+        $response->assertRedirect('/vault');
+        Http::assertNothingSent();
+        $this->assertAuthenticatedAs($existingUser);
+        $response->assertSessionHas('simple_l1_identity.entity_l1_address', $existingEntityAddress);
+        $this->assertDatabaseHas('simple_l1_identity_keys', [
+            'user_id' => $existingUser->id,
+            'entity_l1_address' => $existingEntityAddress,
+            'key_l1_address' => data_get($proofResponse, 'proof.keyAddress'),
+        ]);
+
+        $this->get('/vault')->assertOk();
     }
 
     public function test_simple_l1_callback_rejects_registered_native_key_for_disallowed_host(): void

@@ -20,7 +20,7 @@ class DecisionConsoleTest extends TestCase
         parent::setUp();
 
         config(['session.domain' => null]);
-        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_SOVEREIGN_VALIDATOR, 'guard_name' => 'web']);
     }
 
     public function test_ops_admin_can_view_decision_console_recommendations(): void
@@ -111,9 +111,9 @@ class DecisionConsoleTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_partner_role_cannot_approve_add_product_even_if_posting_to_endpoint(): void
+    public function test_merchant_node_cannot_approve_add_product_even_if_posting_to_endpoint(): void
     {
-        $partner = $this->opsUserWithRole('b2b_partner', 'e');
+        $partner = $this->opsUserWithRole(User::ROLE_MERCHANT_NODE, 'e');
         $recommendation = $this->recommendation([
             'type' => 'ADD_PRODUCT',
         ]);
@@ -172,7 +172,7 @@ class DecisionConsoleTest extends TestCase
 
     private function opsAdmin(string $identityHex = 'a'): User
     {
-        return $this->opsUserWithRole('super_admin', $identityHex);
+        return $this->opsUserWithRole(User::ROLE_SOVEREIGN_VALIDATOR, $identityHex);
     }
 
     private function opsUserWithRole(string $role, string $identityHex): User

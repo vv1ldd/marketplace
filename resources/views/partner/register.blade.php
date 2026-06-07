@@ -1104,7 +1104,7 @@
                     <div id="background-data"></div>
 
                     <button type="submit" id="submit-btn" class="btn-submit">
-                        {{ Auth::check() && Auth::user()->hasSovereignIdentity() ? 'Продолжить регистрацию' : 'Подключить SL1E и продолжить' }}
+                        {{ Auth::check() && Auth::user()->hasSovereignIdentity() ? 'Продолжить подключение' : 'Продолжить с Meanly' }}
                     </button>
                 </div>
             @endif
@@ -1116,7 +1116,7 @@
 @php
     $sl1eBusinessConnectUrl = route('meanly.simple_l1.connect', [
         'return_to' => route('meanly.simple_l1.complete', ['next' => route('business.register', [], false)], false),
-        'mode' => 'register',
+        'mode' => 'connect',
     ]);
 @endphp
 <script src="https://unpkg.com/@simplewebauthn/browser@13.3.0/dist/bundle/index.umd.min.js"></script>
@@ -1182,7 +1182,7 @@
     };
     const idleSubmitLabel = () => {
         if (isBusinessRegistration) {
-            return hasSovereignIdentity ? 'Продолжить регистрацию' : 'Подключить SL1E и продолжить';
+            return hasSovereignIdentity ? 'Продолжить подключение' : 'Продолжить с Meanly';
         }
 
         return isUpgrade ? 'Продолжить регистрацию' : 'Создать профиль';
@@ -1217,7 +1217,7 @@
         hasSovereignIdentity = true;
         registrationForm.dataset.submitting = 'true';
         submitBtn.disabled = true;
-        submitBtn.innerText = 'SL1E подтвержден. Обновляем сессию...';
+        submitBtn.innerText = 'Meanly подтвержден. Обновляем сессию...';
 
         try {
             await refreshCsrfToken();
@@ -1305,7 +1305,7 @@
             e.preventDefault();
             registrationForm.dataset.submitting = 'true';
             submitBtn.disabled = true;
-            submitBtn.innerText = 'Переходим в SL1E Identity...';
+            submitBtn.innerText = 'Переходим в Meanly Connect...';
             redirectToSl1eConnect();
             return;
         }

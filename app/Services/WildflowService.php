@@ -11,12 +11,19 @@ class WildflowService
 
     private PendingRequest $client;
     private ?string $financial_secret = null;
+    private bool $hasRemoteKernelEndpoint = false;
+    private ?array $lastSourceLedgerReceipt = null;
 
     public function __construct(?string $overrideToken = null, ?\App\Models\Provider $providerModel = null)
     {
         $providerModel = $providerModel ?? \App\Models\Provider::where('type', 'wildflow')->first();
 
-        $baseUrl = $providerModel->credentials['base_url']
+        $kernelUrl = config('services.wildflow.kernel_url');
+        $providerBaseUrl = $providerModel->credentials['base_url'] ?? null;
+        $this->hasRemoteKernelEndpoint = filled($kernelUrl) || filled($providerBaseUrl);
+
+        $baseUrl = $kernelUrl
+            ?? $providerBaseUrl
             ?? config('services.wildflow.base_url')
             ?? rtrim((string) config('app.url', 'https://meanly.one'), '/').'/api/v1/';
         $this->base_url = rtrim($baseUrl, '/') . '/';
@@ -44,6 +51,7 @@ class WildflowService
                 return function (\Psr\Http\Message\RequestInterface $request, array $options) use ($handler, $clientId) {
                     $timestamp = time();
                     $body = (string)$request->getBody();
+                    $path = $request->getUri()->getPath();
 
                     if ($clientId) {
                         $request = $request->withHeader('X-Client-Id', (string)$clientId);
@@ -52,7 +60,7 @@ class WildflowService
                     $request = $request->withHeader('X-Financial-Timestamp', (string)$timestamp);
 
                     if ($this->financial_secret) {
-                        $signature = hash_hmac('sha256', $timestamp . '.' . $body, $this->financial_secret);
+                        $signature = hash_hmac('sha256', $timestamp.'.'.strtoupper($request->getMethod()).'.'.$path.'.'.$body, $this->financial_secret);
                         $request = $request->withHeader('X-Financial-Signature', $signature);
                     }
 
@@ -64,6 +72,11 @@ class WildflowService
     public function getClient(): PendingRequest
     {
         return $this->client;
+    }
+
+    public function lastSourceLedgerReceipt(): ?array
+    {
+        return $this->lastSourceLedgerReceipt;
     }
 
     public function getExchangeRates(string $provider = 'ezpin'): array
@@ -85,6 +98,8 @@ class WildflowService
             throw new \RuntimeException("Wildflow Failed Get Rates: " . $response->body());
         }
  
+        $this->rememberSourceLedgerReceipt($response->json());
+
         return $response->json('data.results') ?? $response->json('data') ?? [];
     }
 
@@ -145,7 +160,15 @@ class WildflowService
             throw new \RuntimeException("API Error: " . $response->body());
         }
 
-        return $response->json('order');
+        $payload = $response->json();
+        $this->rememberSourceLedgerReceipt($payload);
+
+        $order = $payload['order'] ?? [];
+        if (is_array($order) && isset($payload['source_ledger_receipt'])) {
+            $order['source_ledger_receipt'] = $payload['source_ledger_receipt'];
+        }
+
+        return $order;
     }
 
     /**
@@ -197,6 +220,7 @@ class WildflowService
 
         // Aggregator returns { success: true, availability: { availability: true, detail: '...' } }
         $data = $response->json();
+        $this->rememberSourceLedgerReceipt($data);
         $a = $data['availability'] ?? [];
         
         // 🎯 ABSOLUTE COMPLIANCE FIX:
@@ -253,7 +277,10 @@ class WildflowService
         }
  
         // Returns perfectly normalized card DTO payload!
-        return $response->json('cards');
+        $payload = $response->json();
+        $this->rememberSourceLedgerReceipt($payload);
+
+        return $payload['cards'] ?? [];
     }
 
     /**
@@ -294,7 +321,10 @@ class WildflowService
             throw new \RuntimeException("Failed to grant credit: " . $response->body());
         }
 
-        return $response->json();
+        $payload = $response->json();
+        $this->rememberSourceLedgerReceipt($payload);
+
+        return $payload;
     }
  
     public function syncPartner(\App\Models\LegalEntity $entity, array $providerCredentials = []): array
@@ -355,7 +385,10 @@ class WildflowService
             throw new \RuntimeException("Failed to sync partner in Kernel: " . $response->body());
         }
  
-        return $response->json();
+        $payload = $response->json();
+        $this->rememberSourceLedgerReceipt($payload);
+
+        return $payload;
     }
 
     public function getPartner(string $terminalId): array
@@ -382,7 +415,10 @@ class WildflowService
             throw new \RuntimeException("Failed to fetch partner data: " . $response->body());
         }
 
-        return $response->json('data') ?? [];
+        $payload = $response->json();
+        $this->rememberSourceLedgerReceipt($payload);
+
+        return $payload['data'] ?? [];
     }
 
     public function topUp(string $terminalId, float $amount, string $reference = ''): array
@@ -416,7 +452,10 @@ class WildflowService
             throw new \RuntimeException("Failed to top up partner in Kernel: " . $response->body());
         }
 
-        return $response->json();
+        $payload = $response->json();
+        $this->rememberSourceLedgerReceipt($payload);
+
+        return $payload;
     }
 
     public function listPartners(): array
@@ -441,7 +480,10 @@ class WildflowService
             throw new \RuntimeException("Failed to list partners from Kernel: " . $response->body());
         }
 
-        return $response->json('data') ?? [];
+        $payload = $response->json();
+        $this->rememberSourceLedgerReceipt($payload);
+
+        return $payload['data'] ?? [];
     }
 
     public function deletePartner(string $terminalId): array
@@ -468,7 +510,23 @@ class WildflowService
 
     private function usesLocalKernel(): bool
     {
+        if ($this->hasRemoteKernelEndpoint) {
+            return false;
+        }
+
         return (string) config('services.wildflow.kernel_mode', 'http') === 'local';
+    }
+
+    private function rememberSourceLedgerReceipt(mixed $payload): void
+    {
+        if (! is_array($payload)) {
+            return;
+        }
+
+        $receipt = data_get($payload, 'source_ledger_receipt');
+        if (is_array($receipt)) {
+            $this->lastSourceLedgerReceipt = $receipt;
+        }
     }
 
     private function resolveLocalLegalEntity(?string $terminalId): ?\App\Models\LegalEntity

@@ -83,6 +83,7 @@ class RedeemFallbackPurchaseService
                     'terminal_id' => $shop ? (string)$shop->legal_entity_id : null,
                 ]
             );
+            $sourceReceipt = method_exists($driver, 'lastSourceLedgerReceipt') ? $driver->lastSourceLedgerReceipt() : null;
 
             sleep(1);
 
@@ -98,6 +99,7 @@ class RedeemFallbackPurchaseService
                         'provider' => $provider->type,
                         'external_id' => $externalOrderId,
                         'is_fallback' => true,
+                        ...$this->sourceReceiptPayload($sourceReceipt),
                     ]);
                 }
 
@@ -137,5 +139,17 @@ class RedeemFallbackPurchaseService
             ?? data_get($catalog->data, 'product.sku')
             ?? $catalog->service_sku
             ?? null;
+    }
+
+    private function sourceReceiptPayload(?array $receipt): array
+    {
+        if (! is_array($receipt)) {
+            return [];
+        }
+
+        return [
+            'digital_goods_source_receipt_hash' => $receipt['event_hash'] ?? null,
+            'source_order_reference' => $receipt['reference'] ?? null,
+        ];
     }
 }

@@ -696,9 +696,9 @@
 
     signBtn.addEventListener('click', async () => {
         signBtn.disabled = true;
-        signBtn.innerText = "Переходим в SL1E Identity...";
+        signBtn.innerText = "Переходим в Meanly One...";
         statusMsg.style.display = 'block';
-        statusMsg.innerText = "Подтвердите подпись в Simple Layer Identity. После этого мы вернем вас и завершим оферту.";
+        statusMsg.innerText = "Подтвердите подпись в Meanly One. После этого мы вернем вас и завершим оферту.";
         sl1eSignInProgress = true;
         sl1eCompletionHandled = false;
         redirectToSl1e();

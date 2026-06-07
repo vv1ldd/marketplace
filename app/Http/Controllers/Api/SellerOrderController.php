@@ -327,6 +327,7 @@ class SellerOrderController extends Controller
                 throw new \Exception("External order reference not returned from provider driver.");
             }
 
+            $sourceReceipt = method_exists($driver, 'lastSourceLedgerReceipt') ? $driver->lastSourceLedgerReceipt() : null;
             $orderItem->update(['provider_order_id' => $externalOrderId]);
 
             // 10. Synchronous Polling for Codes (12 attempts x 2s)
@@ -365,6 +366,7 @@ class SellerOrderController extends Controller
                     'external_id' => $externalOrderId,
                     'sku' => $product->sku,
                     'code_masked' => Str::mask($originalCode, '*', 4, -4),
+                    ...$this->sourceReceiptPayload($sourceReceipt),
                 ], $legalEntity);
 
                 $this->ledger->record($shop, 'FINANCE_CAPTURE', $order, [
@@ -569,5 +571,17 @@ class SellerOrderController extends Controller
         }
 
         return response()->json($payload, $status === 'failed' ? 500 : 200);
+    }
+
+    private function sourceReceiptPayload(?array $receipt): array
+    {
+        if (! is_array($receipt)) {
+            return [];
+        }
+
+        return [
+            'digital_goods_source_receipt_hash' => $receipt['event_hash'] ?? null,
+            'source_order_reference' => $receipt['reference'] ?? null,
+        ];
     }
 }

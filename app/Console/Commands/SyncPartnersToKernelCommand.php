@@ -23,14 +23,14 @@ class SyncPartnersToKernelCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Sync seller balances to the Wildflow Kernel.';
+    protected $description = 'Sync seller balances to Digital Goods Source.';
 
     /**
      * Execute the console command.
      */
     public function handle(): int
     {
-        $this->info('Starting sync of seller balances to the Wildflow Kernel...');
+        $this->info('Starting sync of seller balances to Digital Goods Source...');
         $this->newLine();
 
         // Build query
@@ -97,9 +97,9 @@ class SyncPartnersToKernelCommand extends Command
             }
         }
 
-        // 🧼 PRUNING Logic: Clean up any sub-partners in the Kernel that no longer exist in the local database matching the criteria
+        // Clean up any source-side sub-partners that no longer exist in the local database matching the criteria.
         $this->newLine();
-        $this->info('🧼 Starting pruning of obsolete sub-partners in Wildflow Kernel...');
+        $this->info('Starting pruning of obsolete sub-partners in Digital Goods Source...');
         try {
             $kernelPartners = $wfService->listPartners();
             $syncedExternalIds = $entities->pluck('id')->map(fn($id) => (string)$id)->toArray();

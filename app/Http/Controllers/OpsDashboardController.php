@@ -724,14 +724,25 @@ class OpsDashboardController extends Controller
 
         $search = trim((string) $request->get('search', ''));
 
-        $ledgerQuery = SovereignLedger::with(['legalEntity', 'shop.legalEntity'])->latest('created_at');
+        $ledgerEvents = SovereignLedger::with(['legalEntity', 'shop.legalEntity'])
+            ->latest('created_at')
+            ->limit($search !== '' ? 100 : 20)
+            ->get();
+
         if ($search !== '') {
-            $ledgerQuery->where(function ($query) use ($search) {
-                $query->where('event_type', 'like', "%{$search}%")
-                    ->orWhere('currency', 'like', "%{$search}%")
-                    ->orWhere('trigger_source', 'like', "%{$search}%")
-                    ->orWhere('payload', 'like', "%{$search}%");
-            });
+            $needle = Str::lower($search);
+            $ledgerEvents = $ledgerEvents
+                ->filter(function (SovereignLedger $event) use ($needle): bool {
+                    $haystack = Str::lower(json_encode([
+                        $event->event_type,
+                        $event->currency,
+                        $event->trigger_source,
+                        $event->payload,
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+                    return Str::contains($haystack, $needle);
+                })
+                ->values();
         }
 
         $itemQuery = OrderItems::with(['order.shop.legalEntity'])->latest();
@@ -746,7 +757,7 @@ class OpsDashboardController extends Controller
         }
 
         $events = collect()
-            ->merge($ledgerQuery->limit(20)->get()->map(fn (SovereignLedger $event) => $this->ledgerOperationPayload($event)))
+            ->merge($ledgerEvents->take(20)->map(fn (SovereignLedger $event) => $this->ledgerOperationPayload($event)))
             ->merge($itemQuery->limit(20)->get()->map(fn (OrderItems $item) => $this->orderItemOperationPayload($item)));
 
         if (Schema::hasTable('wildflow_kernel_orders')) {
@@ -842,6 +853,45 @@ class OpsDashboardController extends Controller
         ]);
     }
 
+    public function syncInventoryWarehouses(Request $request)
+    {
+        $user = Auth::user();
+        if (! $this->canAccessOps($user)) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        if (! Schema::hasTable('warehouses') || ! Schema::hasTable('warehouse_stocks')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Warehouse tables are not available.',
+                'synced_shops' => 0,
+                'channel_warehouses' => 0,
+            ]);
+        }
+
+        $shops = Shop::query()
+            ->whereHas('warehouses', fn ($query) => $query->channelWarehouses()->where('is_active', true))
+            ->get();
+
+        $channelWarehouseCount = Warehouse::query()
+            ->channelWarehouses()
+            ->where('is_active', true)
+            ->count();
+
+        $synced = 0;
+        foreach ($shops as $shop) {
+            \App\Jobs\DistributeStockToChannels::dispatchSync($shop);
+            $synced++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Marketplace warehouses synced from master warehouse.',
+            'synced_shops' => $synced,
+            'channel_warehouses' => $channelWarehouseCount,
+        ]);
+    }
+
     // 📋 AJAX — Поддержка и Тикеты
     public function getTicketsData(Request $request)
     {
@@ -929,9 +979,12 @@ class OpsDashboardController extends Controller
         return response()->json([
             'data' => $providers->map(fn (Provider $provider): array => $this->providerOpsPayload($provider))->values(),
             'kernel' => [
-                'mode' => config('services.wildflow.kernel_mode', 'http'),
+                'mode' => 'direct_ezpin',
+                'authority' => 'meanly.one',
+                'upstream' => 'ezpin',
                 'compatibility_host' => 'api.meanly.one',
                 'ezpin_env_configured' => filled(config('services.ezpin.client_id')) && filled(config('services.ezpin.secret_key')),
+                'legacy_aliases' => ['wildflow', 'wildflow-sandbox'],
                 'support_planes' => [
                     'docs' => [
                         'catalog' => '/api/v1/providers/{provider}/unified-catalog',
@@ -975,7 +1028,10 @@ class OpsDashboardController extends Controller
 
         try {
             $exitCode = Artisan::call('app:sync-catalogs', $args);
-            $provider->refresh()->forceFill(['sync_status' => 'idle'])->save();
+            $provider->refresh()->forceFill([
+                'sync_status' => 'idle',
+                'last_sync_at' => $exitCode === 0 ? now() : $provider->last_sync_at,
+            ])->save();
 
             return response()->json([
                 'success' => $exitCode === 0,
@@ -1079,9 +1135,9 @@ class OpsDashboardController extends Controller
             ->map(function ($m) {
                 return [
                     'id' => $m->id,
-                    'sender' => $m->user->name ?? ($m->is_admin ? 'Супер-администратор' : 'Партнер'),
+                    'sender' => $m->user->name ?? ($m->is_admin_reply ? 'Sovereign Validator' : 'Партнер'),
                     'message' => $m->message,
-                    'is_admin' => $m->is_admin,
+                    'is_admin' => (bool) $m->is_admin_reply,
                     'created_at' => $m->created_at->format('d.m.Y H:i'),
                 ];
             });
@@ -1106,24 +1162,41 @@ class OpsDashboardController extends Controller
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
-        $request->validate([
-            'message' => 'required|string',
+        $validated = $request->validate([
+            'message' => 'required|string|max:5000',
         ]);
+        $replyText = trim($validated['message']);
+        if ($replyText === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'message' => 'Reply message is required.',
+            ]);
+        }
 
         $ticket = Ticket::findOrFail($id);
 
-        TicketMessage::create([
+        $message = TicketMessage::create([
             'ticket_id' => $id,
             'user_id' => $user->id,
-            'message' => $request->message,
-            'is_admin' => true,
+            'message' => $replyText,
+            'is_admin_reply' => true,
         ]);
 
-        $ticket->update(['status' => 'resolved']);
+        $ticket->update([
+            'status' => 'resolved',
+            'last_reply_at' => now(),
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Ответ успешно добавлен!',
+            'ticket' => [
+                'id' => $ticket->id,
+                'status' => $ticket->status,
+            ],
+            'reply' => [
+                'id' => $message->id,
+                'is_admin' => true,
+            ],
         ]);
     }
 
@@ -1801,14 +1874,19 @@ class OpsDashboardController extends Controller
 
     private function providerOpsPayload(Provider $provider): array
     {
-        $credentials = is_array($provider->credentials) ? $provider->credentials : [];
+        $rawCredentials = is_array($provider->credentials) ? $provider->credentials : [];
+        $credentials = $this->providerAuthorityCredentials($provider, $rawCredentials);
         $settings = is_array($provider->settings) ? $provider->settings : [];
         $supportsUpstreamPull = in_array($provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox'], true);
+        $isLegacyAlias = in_array($provider->type, ['wildflow', 'wildflow-sandbox'], true);
 
         return [
             'id' => $provider->id,
             'name' => $provider->name,
             'type' => $provider->type,
+            'authority' => 'meanly.one',
+            'upstream_provider' => $provider->type === 'ezpin-sandbox' || $provider->type === 'wildflow-sandbox' ? 'ezpin-sandbox' : 'ezpin',
+            'is_legacy_alias' => $isLegacyAlias,
             'is_active' => (bool) $provider->is_active,
             'sync_status' => $provider->sync_status ?: 'idle',
             'last_sync_at' => optional($provider->last_sync_at)->format('d.m.Y H:i') ?: '—',
@@ -1837,6 +1915,24 @@ class OpsDashboardController extends Controller
             ],
             'sync_url' => route('ops.dashboard.providers.sync', ['provider' => $provider->id]),
         ];
+    }
+
+    private function providerAuthorityCredentials(Provider $provider, array $credentials): array
+    {
+        if (in_array($provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox'], true)) {
+            return array_filter([
+                'api_key' => $credentials['api_key'] ?? null,
+                'client_id' => $credentials['client_id'] ?? config('services.ezpin.client_id'),
+                'secret_key' => ($credentials['secret_key'] ?? null) ?: ($credentials['client_secret'] ?? null) ?: config('services.ezpin.secret_key'),
+                'client_secret' => $credentials['client_secret'] ?? null,
+                'terminal_id' => $credentials['terminal_id'] ?? config('services.ezpin.terminal_id'),
+                'terminal_pin' => $credentials['terminal_pin'] ?? config('services.ezpin.terminal_pin'),
+                'financial_secret' => $credentials['financial_secret'] ?? null,
+                'base_url' => $credentials['base_url'] ?? config('services.ezpin.base_url'),
+            ], fn ($value) => filled($value));
+        }
+
+        return $credentials;
     }
 
     private function legalEntityApiIdentityPayload(LegalEntity $entity): array

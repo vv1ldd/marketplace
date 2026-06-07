@@ -36,10 +36,10 @@ class SandboxWildflowRedeemE2eTest extends TestCase
             ], 200),
         ]);
 
-        Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
 
         $user = User::factory()->create(['email' => 'meanly-owner@example.test']);
-        $user->assignRole('b2b_partner');
+        $user->assignRole(User::ROLE_MERCHANT_NODE);
         \Spatie\LaravelPasskeys\Models\Passkey::factory()->create([
             'authenticatable_id' => $user->id,
         ]);

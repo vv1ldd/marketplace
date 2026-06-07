@@ -6,7 +6,7 @@ use App\Models\Currency;
 use App\Models\Provider;
 use App\Models\ProviderProduct;
 use App\Models\WildflowCatalog;
-use App\Services\Provider\EzPinCatalogPuller;
+use App\Services\Provider\ProviderCatalogPayloadNormalizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -158,14 +158,14 @@ class ProviderCatalogAggregationTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_ezpin_puller_persists_catalog_and_retailer_items_into_provider_products(): void
+    public function test_provider_payload_normalizer_persists_catalog_and_retailer_items_into_provider_products(): void
     {
         $provider = Provider::updateOrCreate(
             ['type' => 'wildflow'],
             ['name' => 'Wildflow', 'is_active' => true],
         );
 
-        $stats = app(EzPinCatalogPuller::class)->syncPayloadIntoProvider(
+        $stats = app(ProviderCatalogPayloadNormalizer::class)->syncPayloadIntoProvider(
             $provider,
             [[
                 'sku' => '12345',

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Meanly One app icon</title>
+  <desc id="desc">A macOS-style rounded square icon for the Meanly One app.</desc>
+  <defs>
+    <linearGradient id="bg" x1="180" y1="120" x2="860" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9f7aea"/>
+      <stop offset="0.42" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#32145f"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="220" y1="90" x2="680" y2="680" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.82"/>
+      <stop offset="0.52" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="34" stdDeviation="34" flood-color="#140821" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="76" y="76" width="872" height="872" rx="216" fill="#050505" filter="url(#shadow)"/>
+  <rect x="100" y="92" width="824" height="824" rx="202" fill="url(#bg)"/>
+  <path d="M164 224c62-86 170-132 314-132h240c113 0 206 92 206 206v80c-103-36-206-54-310-54-185 0-335 52-450 156V224z" fill="url(#shine)"/>
+  <path d="M274 666V358h98l140 176 140-176h98v308h-98V506L536 648h-48L372 506v160h-98z" fill="#ffffff"/>
+  <path d="M760 360h54v306h-98V474l-78 46-45-75 167-85z" fill="#d8ff6f"/>
+  <circle cx="292" cy="292" r="38" fill="#d8ff6f" stroke="#050505" stroke-width="18"/>
+</svg>

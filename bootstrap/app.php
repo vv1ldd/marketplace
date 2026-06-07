@@ -38,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'wildflow.api.auth' => \App\Http\Middleware\AuthenticateWildflowKernelAccess::class,
             'wildflow.kernel.auth' => \App\Http\Middleware\AuthenticateWildflowKernelAccess::class,
             'wildflow.financial.signature' => \App\Http\Middleware\VerifyWildflowFinancialSignature::class,
+            'storefront.token' => \App\Http\Middleware\AuthenticateStorefrontToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

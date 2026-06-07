@@ -348,13 +348,13 @@
                 <div class="eyebrow"><span class="logo-mark"></span> Meanly для бизнеса</div>
                 <h1>Продавайте цифровые товары без ручной рутины.</h1>
                 <p class="lead">
-                    Business-профиль Meanly помогает подключить продавца, юрлицо, витрины, API, остатки,
+                    Meanly Merchant Center помогает подключить продавца, юрлицо, витрины, API, остатки,
                     оплату и выдачу кодов в одном понятном рабочем месте.
                 </p>
                 <div class="actions">
                     @auth
-                        @if(auth()->user()->hasRole('b2b_partner'))
-                            <a class="btn btn-primary" href="{{ route('partner.dashboard') }}">Открыть B2B консоль</a>
+                        @if(auth()->user()->isMerchantNode())
+                            <a class="btn btn-primary" href="{{ route('partner.dashboard') }}">Открыть Merchant Center</a>
                             <a class="btn btn-secondary" href="/vault">Сейф</a>
                         @else
                             <a class="btn btn-primary" href="{{ route('business.register') }}">Подключить бизнес</a>

@@ -55,16 +55,13 @@
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }
-        .mark {
-            width: 18px;
-            height: 18px;
-            display: inline-grid;
-            place-items: center;
+        .app-icon {
+            width: 22px;
+            height: 22px;
             border: 2px solid var(--ink);
-            background: var(--brand);
-            color: #fff;
-            font-size: 10px;
-            line-height: 1;
+            border-radius: 7px;
+            box-shadow: 2px 2px 0 var(--ink);
+            display: block;
         }
         h1 {
             margin: 0 0 12px;
@@ -139,7 +136,7 @@
 @include('partials.theme-sync-body')
 <body>
     <main class="handoff-card" aria-labelledby="handoff-title">
-        <div class="eyebrow"><span class="mark">SL</span> Simple Layer One</div>
+        <div class="eyebrow"><img class="app-icon" src="{{ asset('meanly-one-app-icon.svg') }}" alt=""> Meanly One app</div>
         <h1 id="handoff-title">{{ $handoff['title'] }}</h1>
         <p>{{ $handoff['body'] }}</p>
         <div class="facts">

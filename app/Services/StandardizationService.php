@@ -97,7 +97,7 @@ class StandardizationService
     }
 
     /**
-     * Standardize a ProviderProduct (Fazer, or any provider) into the Meanly Golden Schema.
+     * Standardize a ProviderProduct into the Meanly Golden Schema.
      */
     public function standardizeProviderProduct(ProviderProduct $item, ?Shop $shop = null): array
     {

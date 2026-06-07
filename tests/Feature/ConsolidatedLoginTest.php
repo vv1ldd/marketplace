@@ -89,7 +89,7 @@ class ConsolidatedLoginTest extends TestCase
     {
         $this->markTestSkipped('Local passkey login routes are retired; SL1E identity handles auth intents now.');
 
-        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_WALLET_HOLDER, 'guard_name' => 'web']);
         $user = User::factory()->create([
             'email' => 'auth-intent@example.test',
             'meta' => [
@@ -97,7 +97,7 @@ class ConsolidatedLoginTest extends TestCase
                 'key_l1_address' => 'sl1_'.str_repeat('b', 40),
             ],
         ]);
-        $user->assignRole('customer');
+        $user->assignRole(User::ROLE_WALLET_HOLDER);
         $passkey = Passkey::factory()->create(['authenticatable_id' => $user->id]);
         FakeFindPasskeyForLoginIntent::$passkey = $passkey;
 
@@ -126,14 +126,14 @@ class ConsolidatedLoginTest extends TestCase
     }
 
     /**
-     * Test custom Passkey controller redirects Super Admin to /ops.
+     * Test custom Passkey controller redirects Sovereign Validator to /ops.
      */
-    public function test_passkey_redirects_super_admin_to_ops()
+    public function test_passkey_redirects_sovereign_validator_to_ops()
     {
-        $role = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => User::ROLE_SOVEREIGN_VALIDATOR, 'guard_name' => 'web']);
         $user = User::factory()->create([
-            'first_name' => 'Super',
-            'last_name' => 'Admin',
+            'first_name' => 'Sovereign',
+            'last_name' => 'Validator',
             'email' => 'admin@sovereign.l1',
             'meta' => ['entity_l1_address' => 'sl1e_'.str_repeat('a', 39)],
         ]);
@@ -155,11 +155,11 @@ class ConsolidatedLoginTest extends TestCase
     }
 
     /**
-     * Test custom Passkey controller redirects Manager without ops identity to /cabinet.
+     * Test custom Passkey controller redirects Protocol Operator without ops identity to /vault.
      */
-    public function test_passkey_redirects_manager_without_ops_identity_to_cabinet()
+    public function test_passkey_redirects_protocol_operator_without_ops_identity_to_vault()
     {
-        $role = Role::firstOrCreate(['name' => 'manager', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => User::ROLE_PROTOCOL_OPERATOR, 'guard_name' => 'web']);
         $user = User::factory()->create([
             'first_name' => 'Ops',
             'last_name' => 'Manager',
@@ -183,14 +183,14 @@ class ConsolidatedLoginTest extends TestCase
     }
 
     /**
-     * Test custom Passkey controller redirects Partner to /partner.
+     * Test custom Passkey controller redirects Merchant Node to /partner.
      */
-    public function test_passkey_redirects_partner_to_partner()
+    public function test_passkey_redirects_merchant_node_to_partner()
     {
-        $role = Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
         $user = User::factory()->create([
-            'first_name' => 'B2B',
-            'last_name' => 'Partner',
+            'first_name' => 'Merchant',
+            'last_name' => 'Node',
             'email' => 'partner@sovereign.l1',
         ]);
         $user->assignRole($role);
@@ -211,17 +211,17 @@ class ConsolidatedLoginTest extends TestCase
     }
 
     /**
-     * Test custom Passkey controller redirects regular customers to /cabinet.
+     * Test custom Passkey controller redirects wallet holders to /vault.
      */
-    public function test_passkey_redirects_customer_to_cabinet()
+    public function test_passkey_redirects_wallet_holder_to_vault()
     {
-        Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => User::ROLE_WALLET_HOLDER, 'guard_name' => 'web']);
         $user = User::factory()->create([
             'first_name' => 'Regular',
             'last_name' => 'Customer',
             'email' => 'customer@meanly.test',
         ]);
-        $user->assignRole('customer');
+        $user->assignRole(User::ROLE_WALLET_HOLDER);
 
         $this->actingAs($user);
         Session::put('passkeys.redirect', '/partner');
@@ -240,11 +240,11 @@ class ConsolidatedLoginTest extends TestCase
     }
 
     /**
-     * Test custom Passkey controller redirects Treasurer to /cabinet after panel consolidation.
+     * Test custom Passkey controller redirects Liquidity Steward to /vault after panel consolidation.
      */
-    public function test_passkey_redirects_treasurer_to_cabinet_after_panel_consolidation()
+    public function test_passkey_redirects_liquidity_steward_to_vault_after_panel_consolidation()
     {
-        $role = Role::firstOrCreate(['name' => 'treasurer', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => User::ROLE_LIQUIDITY_STEWARD, 'guard_name' => 'web']);
         $user = User::factory()->create([
             'first_name' => 'Sovereign',
             'last_name' => 'Treasurer',
@@ -268,11 +268,11 @@ class ConsolidatedLoginTest extends TestCase
     }
 
     /**
-     * Test custom Passkey controller redirects Auditor to /cabinet after panel consolidation.
+     * Test custom Passkey controller redirects Ledger Auditor to /vault after panel consolidation.
      */
-    public function test_passkey_redirects_auditor_to_cabinet_after_panel_consolidation()
+    public function test_passkey_redirects_ledger_auditor_to_vault_after_panel_consolidation()
     {
-        $role = Role::firstOrCreate(['name' => 'auditor', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => User::ROLE_LEDGER_AUDITOR, 'guard_name' => 'web']);
         $user = User::factory()->create([
             'first_name' => 'Sovereign',
             'last_name' => 'Auditor',
@@ -296,11 +296,11 @@ class ConsolidatedLoginTest extends TestCase
     }
 
     /**
-     * Test custom Passkey controller redirects Telemetry Monitor to /cabinet after panel consolidation.
+     * Test custom Passkey controller redirects Signal Watcher to /vault after panel consolidation.
      */
     public function test_passkey_redirects_telemetry_to_cabinet_after_panel_consolidation()
     {
-        $role = Role::firstOrCreate(['name' => 'telemetry_monitor', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => User::ROLE_SIGNAL_WATCHER, 'guard_name' => 'web']);
         $user = User::factory()->create([
             'first_name' => 'System',
             'last_name' => 'Engineer',

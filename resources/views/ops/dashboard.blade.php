@@ -1406,7 +1406,7 @@
                         <div class="metric-title" style="color: var(--primary);">Provider Plane</div>
                         <h2 style="font-size: 1.7rem; font-weight: 950; margin: 8px 0; letter-spacing: -0.04em;">Провайдеры товаров</h2>
                         <p style="color: var(--text-muted); margin: 0; max-width: 760px; line-height: 1.6;">
-                            Технический пульт upstream: прямой EZPin/Fazer, синк каталогов, provider credentials и health. Деньги живут только на уровне партнера в Organizations.
+                            Технический пульт upstream: Digital Goods Source, синк каталогов, source health и partner balances. Деньги живут только на уровне партнера в Organizations.
                         </p>
                     </div>
                     <button type="button" class="btn-neo btn-primary-neo" onclick="loadProviders()">Обновить статус</button>
@@ -1822,7 +1822,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
                         <label style="font-size: 0.7rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; margin-bottom: 6px; display: block;">Права Доступа</label>
-                        <input type="text" class="input-neo" value="God Mode (Super Admin)" disabled style="opacity: 0.8; font-size: 0.75rem; padding: 8px 12px;">
+                        <input type="text" class="input-neo" value="Sovereign Validator" disabled style="opacity: 0.8; font-size: 0.75rem; padding: 8px 12px;">
                     </div>
                     <div>
                         <label style="font-size: 0.7rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; margin-bottom: 6px; display: block;">Системный ID</label>

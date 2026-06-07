@@ -9,7 +9,11 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class SimpleL1IdentityRegistryService
 {
-    public function assertNativeDirectProofCanAuthenticate(array $proofResponse, ?User $currentUser = null): void
+    public function assertNativeDirectProofCanAuthenticate(
+        array $proofResponse,
+        ?User $currentUser = null,
+        bool $allowConnectEnrollment = false,
+    ): void
     {
         $proof = data_get($proofResponse, 'proof');
         abort_unless(is_array($proof), 422, 'Simple L1 native proof is missing.');
@@ -39,8 +43,16 @@ class SimpleL1IdentityRegistryService
 
         $existingEntityUser = User::findByEntityL1Address($entityAddress);
         if ($existingEntityUser instanceof User) {
+            if ($currentUser instanceof User && (int) $currentUser->id === (int) $existingEntityUser->id) {
+                return;
+            }
+
+            if ($allowConnectEnrollment && $this->proofRoutesKeyToEntity($proof, $keyAddress)) {
+                return;
+            }
+
             abort_unless(
-                $currentUser instanceof User && (int) $currentUser->id === (int) $existingEntityUser->id,
+                false,
                 403,
                 'Simple L1 native key is not enrolled for this entity.'
             );
@@ -174,5 +186,27 @@ class SimpleL1IdentityRegistryService
             403,
             'Simple L1 native key is not eligible for this relying party.'
         );
+    }
+
+    private function proofRoutesKeyToEntity(array $proof, string $keyAddress): bool
+    {
+        $routingDecision = data_get($proof, 'routingDecision');
+        if (! is_array($routingDecision)) {
+            return false;
+        }
+
+        $selectedKey = Str::lower((string) data_get($routingDecision, 'selected_key', ''));
+        $eligibleKeys = array_map(
+            fn (string $key): string => Str::lower($key),
+            array_filter((array) data_get($routingDecision, 'eligible_keys', []), 'is_string')
+        );
+        $proofDecisionId = (string) data_get($proof, 'routingDecisionId', '');
+        $decisionId = (string) data_get($routingDecision, 'routing_decision_id', '');
+
+        return $selectedKey !== ''
+            && hash_equals($selectedKey, $keyAddress)
+            && in_array($keyAddress, $eligibleKeys, true)
+            && $proofDecisionId !== ''
+            && hash_equals($proofDecisionId, $decisionId);
     }
 }

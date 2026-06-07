@@ -71,7 +71,7 @@ class StorefrontCatalogGroupTest extends TestCase
     {
         config(['app.domain' => 'localhost', 'session.domain' => null]);
 
-        $role = Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
         $user = User::factory()->create();
         $user->assignRole($role);
 

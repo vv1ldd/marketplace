@@ -101,6 +101,10 @@ services:
       SIMPLE_L1_CLIENT_NAME: ${SIMPLE_L1_CLIENT_NAME:-Meanly}
       SIMPLE_L1_UI_THEME: ${SIMPLE_L1_UI_THEME:-neobrutalism}
       SIMPLE_L1_VERIFY_TLS: ${SIMPLE_L1_VERIFY_TLS:-true}
+      STOREFRONT_ALLOWED_ORIGINS: ${STOREFRONT_ALLOWED_ORIGINS:-}
+      STOREFRONT_TOKEN_TTL_SECONDS: ${STOREFRONT_TOKEN_TTL_SECONDS:-900}
+      STOREFRONT_TOKEN_ISSUER: ${STOREFRONT_TOKEN_ISSUER:-meanly-storefront}
+      STOREFRONT_TOKEN_AUDIENCE: ${STOREFRONT_TOKEN_AUDIENCE:-regional-frontends}
       GOOGLE_SEARCH_CONSOLE_SITE_URL: ${GOOGLE_SEARCH_CONSOLE_SITE_URL}
       GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN: ${GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN}
       YANDEX_WEBMASTER_OAUTH_TOKEN: ${YANDEX_WEBMASTER_OAUTH_TOKEN}
@@ -121,6 +125,22 @@ services:
       ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-haiku-latest}
       ANTHROPIC_VERSION: ${ANTHROPIC_VERSION:-2023-06-01}
+    networks:
+      - coolify
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: vv1ldd/meanly-storefront-frontend:latest
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: ${FRONTEND_NODE_ENV:-production}
+      PORT: ${FRONTEND_PORT:-3000}
+      NEXT_PUBLIC_MARKETPLACE_API_URL: ${NEXT_PUBLIC_MARKETPLACE_API_URL:-https://api.meanly.test}
+      NEXT_PUBLIC_MARKETPLACE_REGION: ${NEXT_PUBLIC_MARKETPLACE_REGION:-global}
+      NEXT_PUBLIC_SIMPLE_L1_URL: ${NEXT_PUBLIC_SIMPLE_L1_URL:-https://simplel1.online}
     networks:
       - coolify
 

@@ -25,15 +25,14 @@ class SovereignPlaneGuard
             return redirect()->route('login');
         }
 
-        // God Mode - Redirect Super Admin to the Operations Console (/ops)
-        if ($user->hasRole('super_admin')) {
+        if ($user->hasOpsSovereignAccess()) {
             if ($request->is('partner*') && !$request->is('partner/logout')) {
                 return redirect('/ops');
             }
             return $next($request);
         }
 
-        // Validate B2B Consortium Plane Access
+        // Validate Merchant Center access.
         if ($request->is('partner*')) {
             if ($request->routeIs('partner.onboarding') || $request->routeIs('partner.logout')) {
                 return $next($request);
@@ -61,11 +60,11 @@ class SovereignPlaneGuard
                 return redirect()->route('partner.onboarding');
             }
 
-            if (!$user->isB2BPartner() && !$user->isSystemUser()) {
+            if (!$user->isMerchantNode() && !$user->isSystemUser()) {
                 if ($request->expectsJson()) {
-                    return response()->json(['error' => 'Forbidden: Access to B2B Consortium Plane denied.'], 403);
+                    return response()->json(['error' => 'Forbidden: Access to Merchant Center denied.'], 403);
                 }
-                abort(403, 'Доступ в Consortium B2B Plane ограничен. Требуется статус B2B партнера.');
+                abort(403, 'Доступ в Merchant Center ограничен. Требуется authority merchant_node.');
             }
 
             if ($request->isMethod('POST') && ! $this->canPerformPartnerMutation($user, $legalEntity, (string) $request->route()?->getName())) {
@@ -78,7 +77,7 @@ class SovereignPlaneGuard
 
     private function canPerformPartnerMutation($user, $legalEntity, string $routeName): bool
     {
-        if ($user->isSystemUser() || $user->hasRole('super_admin')) {
+        if ($user->isSystemUser() || $user->hasOpsSovereignAccess()) {
             return true;
         }
 

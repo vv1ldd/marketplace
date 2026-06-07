@@ -2597,8 +2597,8 @@
             <div class="sl1-manage-head">
                 <div class="sl1-manage-icon"><i class="ph-bold ph-circles-three-plus"></i></div>
                 <div>
-                    <span class="sl1-manage-eyebrow">Meanly работает на Simple Layer One</span>
-                    <h3>Зачем здесь Simple Layer One?</h3>
+                    <span class="sl1-manage-eyebrow">Meanly работает с Meanly One</span>
+                    <h3>Зачем здесь Meanly One?</h3>
                 </div>
             </div>
             <p>Это отдельный слой, где живут ваш вход, кошелек и история операций. Meanly использует его как основу: здесь остаются только покупки и сейф, а деньги и ключи не хранятся на сайте.</p>
@@ -2608,7 +2608,7 @@
                 <div class="sl1-manage-feature"><i class="ph-bold ph-shield-check"></i> Подтверждение перед сейфом</div>
             </div>
             <a href="{{ $simpleL1ManageUrl }}" class="sl1-manage-action" target="_blank" rel="noopener">
-                <i class="ph-bold ph-wallet"></i> Открыть SL1 Wallet
+                <i class="ph-bold ph-wallet"></i> Открыть Meanly One
             </a>
         </div>
     </div>
@@ -2801,7 +2801,7 @@
             @endif
         </div>
 
-        @if(false && $user->hasRole('super_admin'))
+        @if(false && $user->hasOpsSovereignAccess())
         <div class="workspace-right" style="display: flex; flex-direction: column; gap: 1rem;">
             <!-- Operations Runtime Panel -->
             <div class="sec-card" id="constitutional-panel" style="background: var(--brand-card); border: 1px solid var(--brand-border); border-radius: 20px; padding: 2rem; position: relative; overflow: hidden; text-align: left;">
@@ -2948,14 +2948,14 @@
     </div>
     </div>
 
-    <!-- B2B Wholesale Perimeter Promo Banner -->
-    @if(!$user->hasRole('b2b_partner'))
+    <!-- Merchant Center Promo Banner -->
+    @if(!$user->isMerchantNode())
         <div class="b2b-banner">
             <div class="b2b-content">
                 <div class="badge-type" style="display: inline-block; margin-bottom: 1rem;">Бизнес-периметр</div>
-                <h3>Масштабируйте покупки до оптовых партий 💼</h3>
+                <h3>Откройте Meanly Merchant Center</h3>
                 <p>
-                    Подключите юридическое лицо (ООО, ИП или Самозанятый), чтобы открыть оптовую B2B-консоль. Получайте максимальные партнерские скидки, управляйте балансом по расчетному счету и настраивайте автоматический импорт ключей на Ozon, Wildberries и Яндекс Маркет.
+                    Подключите юридическое лицо (ООО, ИП или Самозанятый), чтобы получить merchant_node authority, управлять балансом и настраивать автоматический импорт ключей на Ozon, Wildberries и Яндекс Маркет.
                 </p>
             </div>
             <a href="/business" class="btn-nav-cta" style="text-decoration: none; padding: 0.8rem 2rem; flex-shrink: 0;">

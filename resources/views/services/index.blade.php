@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Meanly Services - инфраструктура цифровой коммерции</title>
-    <meta name="description" content="Meanly services: B2B onboarding, digital voucher fulfillment, Simple Layer One clearing and marketplace channel adapters.">
+    <meta name="description" content="Meanly services: B2B onboarding, digital voucher fulfillment, Meanly One approvals and marketplace channel adapters.">
     <link rel="canonical" href="{{ route('business.services.index') }}">
     <link rel="alternate" type="text/plain" href="{{ route('llms.txt') }}">
     <link rel="alternate" type="application/json" href="{{ route('llms.services.index') }}">

@@ -49,6 +49,18 @@ class SimpleL1ConnectController extends Controller
             'simple_l1_connect.flow' => $flow,
             'simple_l1_connect.intent' => array_filter($intent),
         ]);
+        Cache::put($this->connectStateCacheKey($state), [
+            'state' => $state,
+            'nonce' => $nonce,
+            'client_id' => config('simple_l1.client_id', $request->getHost()),
+            'redirect_uri' => $redirectUri,
+            'return_to' => $returnTo,
+            'mode' => $mode,
+            'flow' => $flow,
+            'intent' => array_filter($intent),
+            'host' => $request->getHost(),
+            'created_at' => now()->toIso8601String(),
+        ], now()->addMinutes(10));
 
         app(IntentLedgerService::class)->record(
             eventType: 'IDENTITY_CONNECT_EXTERNAL_START_INTENT',
@@ -129,17 +141,20 @@ class SimpleL1ConnectController extends Controller
 
     public function callback(Request $request): RedirectResponse
     {
-        $expectedState = (string) session('simple_l1_connect.state');
-        $expectedNonce = (string) session('simple_l1_connect.nonce');
-        $expectedClientId = (string) session('simple_l1_connect.client_id', config('simple_l1.client_id'));
-        $expectedRedirectUri = (string) session(
-            'simple_l1_connect.redirect_uri',
+        $callbackState = (string) $request->input('state', '');
+        $connectContext = $this->connectContextForCallback($request, $callbackState);
+        $expectedState = (string) data_get($connectContext, 'state', '');
+        $expectedNonce = (string) data_get($connectContext, 'nonce', '');
+        $expectedClientId = (string) data_get($connectContext, 'client_id', config('simple_l1.client_id'));
+        $expectedRedirectUri = (string) data_get(
+            $connectContext,
+            'redirect_uri',
             $this->absoluteCurrentHostRoute($request, 'meanly.simple_l1.callback')
         );
-        $returnTo = $this->safeReturnTo((string) session('simple_l1_connect.return_to', '/store'));
-        $mode = (string) session('simple_l1_connect.mode', 'login');
+        $returnTo = $this->safeReturnTo((string) data_get($connectContext, 'return_to', '/store'));
+        $mode = (string) data_get($connectContext, 'mode', 'login');
 
-        abort_unless($expectedState !== '' && hash_equals($expectedState, (string) $request->input('state')), 403);
+        abort_unless($expectedState !== '' && hash_equals($expectedState, $callbackState), 403);
 
         $code = trim((string) $request->input('code', ''));
         $proofToken = trim((string) $request->input('proof_token', ''));
@@ -164,9 +179,17 @@ class SimpleL1ConnectController extends Controller
                 if (config('simple_l1.require_native_direct_proof_signature', true)) {
                     $this->assertNativeDirectProofSignature($proofResponse);
                 }
-                app(SimpleL1IdentityRegistryService::class)->assertNativeDirectProofCanAuthenticate($proofResponse, Auth::user());
+                app(SimpleL1IdentityRegistryService::class)->assertNativeDirectProofCanAuthenticate(
+                    $proofResponse,
+                    Auth::user(),
+                    data_get($connectContext, 'flow') === 'connect',
+                );
             } catch (HttpExceptionInterface $exception) {
                 $this->recordRejectedNativeVerificationResult($proofResponse, $exception->getMessage());
+                if ($this->shouldReturnNativeDirectProofToMarketplace($exception, $connectContext)) {
+                    return redirect($this->safeReturnTo((string) data_get($connectContext, 'return_to', '/store')))
+                        ->with('status', 'Meanly app approval was not accepted for this marketplace yet. Continue online if you want to use browser passkey verification.');
+                }
                 throw $exception;
             }
         } else {
@@ -213,10 +236,11 @@ class SimpleL1ConnectController extends Controller
 
         $proofHandle = Str::random(48);
         Cache::put($this->proofTokenCacheKey($proofHandle), $proofToken, now()->addMinutes(10));
-        $connectIntent = session('simple_l1_connect.intent', []);
+        $connectIntent = (array) data_get($connectContext, 'intent', []);
+        $returnPath = parse_url($returnTo, PHP_URL_PATH) ?: $returnTo;
         $opensVault = data_get($connectIntent, 'intent_type') === 'meanly.vault.open'
-            || str_starts_with($returnTo, '/vault')
-            || str_starts_with($returnTo, '/cabinet');
+            || str_starts_with($returnPath, '/vault')
+            || str_starts_with($returnPath, '/cabinet');
         $handoff = $this->simpleL1HandoffContext($mode, $connectIntent, $returnTo);
 
         session([
@@ -250,6 +274,7 @@ class SimpleL1ConnectController extends Controller
             'simple_l1_connect.flow',
             'simple_l1_connect.intent',
         ]);
+        Cache::forget($this->connectStateCacheKey($expectedState));
 
         $ledgerPayload = [
             'connected_entity_l1_address' => strtolower($l1Address),
@@ -314,11 +339,75 @@ class SimpleL1ConnectController extends Controller
     {
         $returnTo = trim($returnTo);
 
-        if ($returnTo === '' || ! str_starts_with($returnTo, '/') || str_starts_with($returnTo, '//')) {
+        if ($returnTo === '') {
             return '/store';
         }
 
-        return $returnTo;
+        if (str_starts_with($returnTo, '/') && ! str_starts_with($returnTo, '//')) {
+            return $returnTo;
+        }
+
+        $parts = parse_url($returnTo);
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return '/store';
+        }
+
+        $port = $parts['port'] ?? null;
+        $origin = $scheme.'://'.$host.($port !== null ? ':'.$port : '');
+        $allowedOrigins = collect((array) config('storefront.allowed_return_origins', []))
+            ->map(fn (string $allowed): string => rtrim(strtolower($allowed), '/'))
+            ->filter()
+            ->values();
+        if (! $allowedOrigins->contains(rtrim(strtolower($origin), '/'))) {
+            return '/store';
+        }
+
+        $path = (string) ($parts['path'] ?? '/');
+        if ($path === '' || ! str_starts_with($path, '/') || str_starts_with($path, '//')) {
+            return '/store';
+        }
+
+        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+        $fragment = isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
+
+        return $origin.$path.$query.$fragment;
+    }
+
+    /**
+     * Native app callbacks can return through a browser context that does not
+     * carry the original Laravel session cookie. Recover the OAuth state from a
+     * short-lived server-side cache while still verifying the random state value.
+     *
+     * @return array<string, mixed>
+     */
+    private function connectContextForCallback(Request $request, string $state): array
+    {
+        $sessionState = (string) session('simple_l1_connect.state');
+        if ($sessionState !== '' && hash_equals($sessionState, $state)) {
+            return [
+                'state' => $sessionState,
+                'nonce' => (string) session('simple_l1_connect.nonce'),
+                'client_id' => (string) session('simple_l1_connect.client_id', config('simple_l1.client_id')),
+                'redirect_uri' => (string) session(
+                    'simple_l1_connect.redirect_uri',
+                    $this->absoluteCurrentHostRoute($request, 'meanly.simple_l1.callback')
+                ),
+                'return_to' => (string) session('simple_l1_connect.return_to', '/store'),
+                'mode' => (string) session('simple_l1_connect.mode', 'login'),
+                'flow' => session('simple_l1_connect.flow'),
+                'intent' => (array) session('simple_l1_connect.intent', []),
+            ];
+        }
+
+        if ($state === '') {
+            return [];
+        }
+
+        $cached = Cache::get($this->connectStateCacheKey($state));
+
+        return is_array($cached) ? $cached : [];
     }
 
     /**
@@ -329,6 +418,11 @@ class SimpleL1ConnectController extends Controller
     private function absoluteCurrentHostRoute(Request $request, string $name, array $parameters = []): string
     {
         return rtrim($request->getSchemeAndHttpHost(), '/').route($name, $parameters, false);
+    }
+
+    private function connectStateCacheKey(string $state): string
+    {
+        return 'simple_l1:connect_state:'.hash('sha256', $state);
     }
 
     private function cleanIntentParam(mixed $value, int $limit): string
@@ -365,6 +459,26 @@ class SimpleL1ConnectController extends Controller
         $locale = str_replace('_', '-', strtolower($locale));
 
         return str_starts_with($locale, 'ru') ? 'ru' : 'en';
+    }
+
+    /**
+     * Native app proof is the primary path for connect flows, but an unenrolled
+     * or host-ineligible app key should degrade to online passkey instead of a
+     * terminal 403 page.
+     *
+     * @param array<string, mixed> $connectContext
+     */
+    private function shouldReturnNativeDirectProofToMarketplace(HttpExceptionInterface $exception, array $connectContext): bool
+    {
+        if ($exception->getStatusCode() !== 403 || data_get($connectContext, 'flow') !== 'connect') {
+            return false;
+        }
+
+        $message = Str::lower($exception->getMessage());
+
+        return str_contains($message, 'not enrolled for this entity')
+            || str_contains($message, 'not eligible for this relying party')
+            || str_contains($message, 'entity bootstrap mismatch');
     }
 
     /**
@@ -581,7 +695,7 @@ class SimpleL1ConnectController extends Controller
         }
 
         $pem = $this->p256X963PublicKeyToPem($rawPublicKey);
-        $verified = openssl_verify($payload, $rawSignature, $pem, OPENSSL_ALGO_SHA256);
+        $verified = @openssl_verify($payload, $rawSignature, $pem, OPENSSL_ALGO_SHA256);
         abort_unless($verified === 1, 403, 'Simple L1 native proof signature mismatch.');
     }
 

@@ -37,8 +37,8 @@ Each recommendation type can define policies for transitions:
 
 ```php
 'ADD_ALIAS' => [
-    'approve' => ['roles' => ['super_admin']],
-    'reject' => ['roles' => ['super_admin']],
+    'approve' => ['roles' => ['sovereign_validator']],
+    'reject' => ['roles' => ['sovereign_validator']],
 ],
 ```
 

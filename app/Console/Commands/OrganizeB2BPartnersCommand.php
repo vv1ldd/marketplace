@@ -17,27 +17,27 @@ class OrganizeB2BPartnersCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'b2b:organize';
+    protected $signature = 'merchant:organize';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Organize B2B Partner accounts and decouple super-admins from storefronts';
+    protected $description = 'Organize Merchant Node accounts and decouple sovereign validators from storefronts';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $this->info("🚀 Decoupling super admins from storefronts and establishing dedicated B2B partner accounts...");
+        $this->info("Decoupling sovereign validators from storefronts and establishing dedicated Merchant Node accounts...");
 
-        // 1. Detach super admins from shops
+        // 1. Detach sovereign validators from shops
         $superAdmins = User::where('type', 'super-admin')->get();
         foreach ($superAdmins as $admin) {
             $admin->update(['shop_id' => null]);
-            $this->info("🔑 Super Admin [ID: {$admin->id}, Email: {$admin->email}] successfully detached from all shops.");
+            $this->info("Sovereign Validator [ID: {$admin->id}] successfully detached from all shops.");
         }
 
         // 2. Map LegalEntities to dedicated user and seller accounts
@@ -57,7 +57,7 @@ class OrganizeB2BPartnersCommand extends Command
                 $currentUser = User::find($entity->user_id);
                 if ($currentUser && $currentUser->type === 'super-admin') {
                     $shouldCreateUser = true;
-                    $this->line("👉 Current owner is a Super Admin. Decoupling and generating a dedicated partner account.");
+                    $this->line("Current owner is a sovereign validator. Decoupling and generating a dedicated merchant account.");
                 } else {
                     $user = $currentUser;
                     $this->line("👉 Points to existing wallet user: [ID: {$user->id}] {$user->sovereignIdentityAddress()}");
@@ -72,7 +72,7 @@ class OrganizeB2BPartnersCommand extends Command
                     'last_name' => $names['last_name'],
                     'middle_name' => $names['middle_name'],
                     'meta' => [
-                        'registration_source' => 'b2b_organize_command',
+                        'registration_source' => 'merchant_organize_command',
                         'requires_sl1e_claim' => true,
                     ],
                 ]);
@@ -82,20 +82,20 @@ class OrganizeB2BPartnersCommand extends Command
                 $entity->update(['user_id' => $user->id]);
             }
 
-            // Verify User type is 'client' and has 'b2b_partner' role
+            // Verify wallet user has merchant node authority.
             if ($user) {
                 if ($user->type !== 'client') {
                     $user->update(['type' => 'client']);
                 }
                 
                 if (method_exists($user, 'assignRole')) {
-                    Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'web']);
-                    $user->assignRole('b2b_partner');
-                    $this->info("✅ Role 'b2b_partner' assigned to User [ID: {$user->id}].");
+                    Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'web']);
+                    $user->assignRole(User::ROLE_MERCHANT_NODE);
+                    $this->info("Role '".User::ROLE_MERCHANT_NODE."' assigned to User [ID: {$user->id}].");
                 }
             }
 
-            // Create or find Seller account (which is linked to B2B dashboard authentication)
+            // Create or find Seller account linked to Merchant Center authentication.
             $sellerNames = $this->parseDirectorName($entity);
             
             $seller = $entity->seller_id ? Seller::find($entity->seller_id) : null;
@@ -106,15 +106,15 @@ class OrganizeB2BPartnersCommand extends Command
                     'middle_name' => $sellerNames['middle_name'],
                     'is_active' => true,
                 ]);
-                $this->info("✨ Created new B2B Seller: [ID: {$seller->id}]");
+                $this->info("Created new Merchant Seller: [ID: {$seller->id}]");
             } else {
                 $this->info("📌 Found existing Seller: [ID: {$seller->id}]");
             }
 
             if (method_exists($seller, 'assignRole')) {
-                $sellerRole = Role::firstOrCreate(['name' => 'b2b_partner', 'guard_name' => 'sellers']);
+                $sellerRole = Role::firstOrCreate(['name' => User::ROLE_MERCHANT_NODE, 'guard_name' => 'sellers']);
                 $seller->assignRole($sellerRole);
-                $this->info("✅ Role 'b2b_partner' assigned to Seller [ID: {$seller->id}].");
+                $this->info("Role '".User::ROLE_MERCHANT_NODE."' assigned to Seller [ID: {$seller->id}].");
             }
 
             // Set the seller_id on LegalEntity
@@ -144,8 +144,7 @@ class OrganizeB2BPartnersCommand extends Command
         }
 
         $this->info("------------------------------------------------------------------");
-        $this->info("🏆 B2B PARTNER ACCOUNTS RECONCILED SUCCESSFULLY!");
-        $this->info("Default password for newly created accounts: MeanlyPartner2026!");
+        $this->info("Merchant Node accounts reconciled successfully.");
         $this->info("------------------------------------------------------------------");
 
         return 0;

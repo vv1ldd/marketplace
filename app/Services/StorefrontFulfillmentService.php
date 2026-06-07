@@ -334,10 +334,19 @@ class StorefrontFulfillmentService
                     ]
                 );
 
+                $sourceReceipt = method_exists($driver, 'lastSourceLedgerReceipt') ? $driver->lastSourceLedgerReceipt() : null;
                 $item->forceFill(['provider_order_id' => $externalOrderId ?: $reference])->save();
 
                 if (method_exists($driver, 'lastOrderResponse')) {
                     $this->rememberProviderOrderResponse($item->fresh(), $providerProduct, $driver->lastOrderResponse());
+                }
+
+                if ($sourceReceipt) {
+                    app(LedgerService::class)->record($shop, 'DIGITAL_GOODS_SOURCE_RECEIPT_OBSERVED', $item->fresh(), [
+                        'provider' => $provider->type,
+                        'reference' => $reference,
+                        ...$this->sourceReceiptPayload($sourceReceipt),
+                    ]);
                 }
             }
 
@@ -382,6 +391,7 @@ class StorefrontFulfillmentService
                 'provider_product_id' => $providerProduct?->id,
                 'codes_count' => count($codes),
                 'context' => 'meanly_storefront_safe',
+                ...$this->sourceReceiptPayload(data_get($item->client_info, 'provider_redemption.source_ledger_receipt')),
             ]);
 
             return ['status' => 'provider_code_ready', 'codes' => count($codes)];
@@ -918,8 +928,23 @@ class StorefrontFulfillmentService
         data_set($clientInfo, 'provider_redemption.aggregator_order.status', data_get($response, 'status_text', data_get($response, 'status')));
         data_set($clientInfo, 'provider_redemption.aggregator_order.order_id', data_get($response, 'order_id', data_get($response, 'referenceCode')));
         data_set($clientInfo, 'provider_redemption.aggregator_order.raw_response', $response);
+        if (is_array(data_get($response, 'source_ledger_receipt'))) {
+            data_set($clientInfo, 'provider_redemption.source_ledger_receipt', data_get($response, 'source_ledger_receipt'));
+        }
 
         $item->forceFill(['client_info' => $clientInfo])->save();
+    }
+
+    private function sourceReceiptPayload(?array $receipt): array
+    {
+        if (! is_array($receipt)) {
+            return [];
+        }
+
+        return [
+            'digital_goods_source_receipt_hash' => $receipt['event_hash'] ?? null,
+            'source_order_reference' => $receipt['reference'] ?? null,
+        ];
     }
 
     private function activationUrl(?WildflowCatalog $catalog, ?ProviderProduct $providerProduct): ?string

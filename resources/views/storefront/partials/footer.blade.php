@@ -16,7 +16,7 @@
             <span class="footer-title">{{ __('storefront.footer.account') }}</span>
             @auth
                 <a href="/vault">{{ __('storefront.footer.vault') }}</a>
-                @if(auth()->user()->hasRole('b2b_partner'))
+                @if(auth()->user()->isMerchantNode())
                     <a href="/partner">{{ __('storefront.footer.b2b_console') }}</a>
                 @endif
             @else

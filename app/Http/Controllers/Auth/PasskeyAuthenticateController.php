@@ -88,13 +88,12 @@ class PasskeyAuthenticateController extends BaseController
         $user = auth()->user();
 
         if ($user) {
-            // God Mode / Admin Panel
+            // Sovereign validator identities land in the operations console.
             if ($user->hasOpsSovereignAccess()) {
                 return redirect()->intended('/ops');
             }
 
-            // B2B Consortium Partner
-            if ($user->isB2BPartner()) {
+            if ($user->isMerchantNode()) {
                 return redirect('/partner');
             }
 
@@ -152,7 +151,7 @@ class PasskeyAuthenticateController extends BaseController
                 return '/ops';
             }
 
-            if ($authenticatable->isB2BPartner()) {
+            if ($authenticatable->isMerchantNode()) {
                 return '/partner';
             }
 
