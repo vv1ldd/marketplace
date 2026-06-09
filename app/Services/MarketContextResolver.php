@@ -15,7 +15,7 @@ class MarketContextResolver
         $host = $this->normalizeHost($request->getHost());
         $markets = (array) config('markets.markets', []);
         $defaultKey = (string) config('markets.default', 'global');
-        $hostMarketKey = $this->marketKeyForHost($host, $markets);
+        $hostMarketKey = $this->marketKeyForHost($host, $markets, $defaultKey);
         $matchedKey = $hostMarketKey ?? $defaultKey;
 
         return $this->contextForMarket($matchedKey, $host, $hostMarketKey !== null, $markets, $defaultKey);
@@ -28,7 +28,7 @@ class MarketContextResolver
         $host = $this->normalizeHost((string) $shop->domain);
 
         if ($host !== '') {
-            $hostMarketKey = $this->marketKeyForHost($host, $markets);
+            $hostMarketKey = $this->marketKeyForHost($host, $markets, $defaultKey);
             if ($hostMarketKey !== null) {
                 return $this->contextForMarket($hostMarketKey, $host, true, $markets, $defaultKey);
             }
@@ -45,8 +45,9 @@ class MarketContextResolver
     /**
      * @param array<string, array<string, mixed>> $markets
      */
-    private function marketKeyForHost(string $host, array $markets): ?string
+    private function marketKeyForHost(string $host, array $markets, string $defaultKey): ?string
     {
+        // 1. Exact match pass
         foreach ($markets as $key => $config) {
             $domains = array_map(
                 static fn (mixed $domain): string => Str::lower(trim((string) $domain)),
@@ -55,6 +56,24 @@ class MarketContextResolver
 
             if (in_array($host, $domains, true)) {
                 return (string) $key;
+            }
+        }
+
+        // 2. Suffix (subdomain) match pass
+        foreach ($markets as $key => $config) {
+            if ((string) $key === $defaultKey) {
+                continue;
+            }
+
+            $domains = array_map(
+                static fn (mixed $domain): string => Str::lower(trim((string) $domain)),
+                Arr::wrap($config['domains'] ?? []),
+            );
+
+            foreach ($domains as $domain) {
+                if (str_ends_with($host, '.' . $domain)) {
+                    return (string) $key;
+                }
             }
         }
 
