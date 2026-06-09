@@ -27,6 +27,7 @@ class StorefrontTokenExchangeTest extends TestCase
                     'active' => true,
                     'entity_l1_address' => 'sl1e_abcdef1234567890abcdef1234567890abcdef1',
                     'key_l1_address' => 'sl1k_key',
+                    'username' => 'Buyer.User',
                     'alias' => 'buyer',
                     'display_alias' => 'Buyer',
                 ]);
@@ -45,6 +46,7 @@ class StorefrontTokenExchangeTest extends TestCase
             ->assertJsonPath('session.issuer', 'meanly-storefront-test')
             ->assertJsonPath('session.audience', 'regional-frontends-test')
             ->assertJsonPath('session.identity.entity_l1_address', 'sl1e_abcdef1234567890abcdef1234567890abcdef1')
+            ->assertJsonPath('session.identity.username', 'buyer.user')
             ->assertJsonPath('session.scopes.0', 'storefront:read')
             ->assertJsonPath('session.scopes.1', 'storefront:checkout')
             ->assertJsonMissing(['admin:root']);
@@ -93,6 +95,7 @@ class StorefrontTokenExchangeTest extends TestCase
             'simple_l1_identity' => [
                 'entity_l1_address' => 'sl1e_abcdef1234567890abcdef1234567890abcdef1',
                 'key_l1_address' => 'sl1k_key',
+                'username' => 'buyer',
                 'alias' => 'buyer',
                 'display_alias' => 'Buyer',
                 'proof_token_hash' => hash('sha256', 'proof-token-session'),
@@ -107,6 +110,7 @@ class StorefrontTokenExchangeTest extends TestCase
             ->assertJsonPath('contract.identity_authority', 'simple-l1')
             ->assertJsonPath('token_type', 'Bearer')
             ->assertJsonPath('session.identity.entity_l1_address', 'sl1e_abcdef1234567890abcdef1234567890abcdef1')
+            ->assertJsonPath('session.identity.username', 'buyer')
             ->assertJsonPath('session.scopes.0', 'storefront:read')
             ->assertJsonPath('session.scopes.1', 'storefront:vault')
             ->assertJsonMissing(['admin:root']);

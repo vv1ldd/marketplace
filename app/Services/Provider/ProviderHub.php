@@ -38,6 +38,11 @@ class ProviderHub extends Manager
         return new EzpinDriver();
     }
 
+    public function createFazerDriver(): FazerDriver
+    {
+        return new FazerDriver();
+    }
+
     /**
      * Get a driver instance for a specific provider model.
      */

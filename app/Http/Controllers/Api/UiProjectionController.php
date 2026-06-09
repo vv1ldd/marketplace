@@ -19,7 +19,7 @@ class UiProjectionController extends Controller
         $projection = match ($surface) {
             'business' => $this->businessProjection($path),
             'services' => $this->servicesProjection($path),
-            'partner' => $this->partnerProjection($path),
+            'merchant', 'partner' => $this->partnerProjection($path),
             'redeem' => $this->redeemProjection($path),
             'ops' => $this->opsProjection($path),
             'reader' => $this->readerProjection(),
@@ -59,9 +59,10 @@ class UiProjectionController extends Controller
             'type' => 'business_projection',
             'eyebrow' => 'Merchant Center',
             'title' => $path === 'register' ? 'Register a Meanly merchant account' : 'Meanly Merchant Center',
-            'lead' => 'Start seller onboarding, connect company data, and manage merchant operations from one protected workspace.',
+            'lead' => 'Merchant Center is the protected merchant workspace at /merchant; business paths stay as onboarding and legal-entity setup.',
             'sections' => [
-                $this->section('Next actions', 'Start by connecting your Meanly identity, then add company details when you are ready to sell.', [
+                $this->section('Next actions', 'Open the workspace if you already have merchant access, or connect company details to request access.', [
+                    $this->card('Open Merchant Center', 'Go to the protected seller workspace for orders, catalog, finance, channels, support, and readiness.', '/merchant'),
                     $this->card('Connect Meanly identity', 'Use Meanly One to confirm who is starting the merchant profile. If you already have a request, we will show its current status instead.', '/business/register'),
                     $this->card('Add company details', 'Enter business email, INN, signer details, and accept the offer. After that we review the company and open seller tools when approved.', '/business/register'),
                 ]),
@@ -69,7 +70,7 @@ class UiProjectionController extends Controller
                     $this->card('Identity and legal entity', 'Merchant Center starts with Meanly identity, verified email, INN lookup, offer signing, and moderation state. The same identity then controls seller permissions.', '/business/register'),
                     $this->card('Catalog and stock source', 'Products stay canonical inside Meanly: face value, region, provider stock, local inventory, and channel mappings are projected outward instead of duplicated per marketplace.', '/services/marketplace-channel-adapters'),
                     $this->card('Checkout to fulfillment', 'Orders connect payment status, reservation, provider redemption, voucher delivery, and support traceability so the buyer sees one clear fulfillment flow.', '/services/digital-voucher-fulfillment'),
-                    $this->card('Operations and finance', 'Seller workspace keeps orders, balance, channel readiness, alerts, and support context together, while protected actions remain gated by authority checks.', '/services/simple-layer-one-clearing'),
+                    $this->card('Operations and finance', 'Seller workspace keeps orders, balance, channel readiness, alerts, and support context together, while protected actions remain gated by authority checks.', '/merchant'),
                 ]),
                 $this->section('Merchant services', 'Operational services available from Meanly Merchant Center.', $services->map(
                     fn (array $service): array => $this->card((string) $service['name'], (string) ($service['description'] ?? $service['outcome'] ?? ''), '/services/'.$service['slug'])
@@ -120,7 +121,7 @@ class UiProjectionController extends Controller
                 $this->card('SLA / timing', trim(((string) ($service['delivery_time'] ?? 'Timing depends on setup')).'. '.((string) ($service['sla'] ?? 'Review and activation happen through Merchant Center.'))), null),
             ]),
             $this->section('Merchant Center scope', 'Typical merchant connection points covered by this service.', [
-                $this->card('Seller workspace', 'Legal entity state, permissions, alerts, orders, catalog, finance, and support are visible from the same React workspace.', '/partner'),
+                $this->card('Seller workspace', 'Legal entity state, permissions, alerts, orders, catalog, finance, and support are visible from the same React workspace.', '/merchant'),
                 $this->card('Buyer storefront', 'The buyer sees product availability, checkout, payment status, and fulfillment status without seeing the internal provider workflow.', '/catalog'),
                 $this->card('Operational APIs', 'Meanly can receive catalog, stock, order, fulfillment, and support events through controlled endpoints and channel adapters.', '/services/marketplace-channel-adapters'),
             ]),
@@ -147,16 +148,16 @@ class UiProjectionController extends Controller
     private function partnerProjection(string $path): array
     {
         return [
-            'type' => 'partner_projection',
-            'eyebrow' => 'Partner projection',
-            'title' => $path === '' ? 'Partner workspace' : Str::headline(str_replace('/', ' ', $path)),
-            'lead' => 'Partner dashboard state is projected from Laravel. Causal writes remain protected by backend auth, intent, and partner guards.',
+            'type' => 'merchant_projection',
+            'eyebrow' => 'Merchant projection',
+            'title' => $path === '' ? 'Merchant workspace' : Str::headline(str_replace('/', ' ', $path)),
+            'lead' => 'Merchant dashboard state is projected from Laravel. Causal writes remain protected by backend auth, intent, and partner guards.',
             'sections' => [
                 $this->section('Workspace modules', 'Legacy partner dashboard modules now have a projection target in Next.', [
-                    $this->card('Onboarding', 'Continue with Meanly and submit legal entity details.', '/partner/register'),
-                    $this->card('Orders', 'Partner order views are backed by Laravel dashboard data endpoints.', '/partner/dashboard/orders'),
-                    $this->card('Catalog', 'Catalog management remains a backend-authorized transition surface.', '/partner/dashboard/catalog'),
-                    $this->card('Tickets', 'Support conversations are rendered from partner dashboard DTOs.', '/partner/dashboard/tickets'),
+                    $this->card('Onboarding', 'Continue with Meanly and submit legal entity details.', '/merchant/register'),
+                    $this->card('Orders', 'Merchant order views are backed by Laravel dashboard data endpoints.', '/merchant/dashboard/orders'),
+                    $this->card('Catalog', 'Catalog management remains a backend-authorized transition surface.', '/merchant/dashboard/catalog'),
+                    $this->card('Tickets', 'Support conversations are rendered from merchant dashboard DTOs.', '/merchant/dashboard/tickets'),
                 ]),
             ],
         ];

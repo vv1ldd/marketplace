@@ -37,6 +37,27 @@ $meanlyPublicRoutes = function () {
     Route::post('/invite/{token}/accept', [\App\Http\Controllers\Auth\InviteAcceptController::class, 'accept'])->name('invite.accept.submit');
 
     Route::get('/', [\App\Http\Controllers\MeanlyStorefrontController::class, 'index'])->name('home');
+    Route::get('/company', [\App\Http\Controllers\LegalPageController::class, 'show'])
+        ->defaults('page', 'company')
+        ->name('legal.company');
+    Route::get('/payment', [\App\Http\Controllers\LegalPageController::class, 'show'])
+        ->defaults('page', 'payment')
+        ->name('legal.payment');
+    Route::get('/delivery', [\App\Http\Controllers\LegalPageController::class, 'show'])
+        ->defaults('page', 'delivery')
+        ->name('legal.delivery');
+    Route::get('/refund', [\App\Http\Controllers\LegalPageController::class, 'show'])
+        ->defaults('page', 'refund')
+        ->name('legal.refund');
+    Route::get('/offer', [\App\Http\Controllers\LegalPageController::class, 'show'])
+        ->defaults('page', 'offer')
+        ->name('legal.offer');
+    Route::get('/privacy', [\App\Http\Controllers\LegalPageController::class, 'show'])
+        ->defaults('page', 'privacy')
+        ->name('legal.privacy');
+    Route::get('/terms', [\App\Http\Controllers\LegalPageController::class, 'show'])
+        ->defaults('page', 'terms')
+        ->name('legal.terms');
     Route::get('/robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('robots.txt');
     Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap.index');
     Route::get('/sitemap-products.xml', [\App\Http\Controllers\SitemapController::class, 'products'])->name('sitemap.products');
@@ -84,9 +105,22 @@ $meanlyPublicRoutes = function () {
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
     Route::get('/simple-l1/complete', [\App\Http\Controllers\SimpleL1ConnectController::class, 'complete'])->name('meanly.simple_l1.complete');
     Route::get('/simple-l1/status', [\App\Http\Controllers\SimpleL1ConnectController::class, 'status'])->name('meanly.simple_l1.status');
+    Route::get('/authorize', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'authorize'])->name('meanly.simple_l1.wallet.authorize');
+    Route::get('/wallet', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'wallet'])->name('meanly.simple_l1.wallet');
+    Route::get('/identity', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'identity'])->name('meanly.simple_l1.wallet.identity');
+    Route::get('/manifest.webmanifest', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'manifest'])->name('meanly.simple_l1.wallet.manifest');
+    Route::get('/identity-icon.svg', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'identityIcon'])->name('meanly.simple_l1.wallet.icon');
+    Route::get('/device-handoff/{handoffId}', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'deviceHandoff'])->name('meanly.simple_l1.wallet.device_handoff');
+    Route::get('/device-pairing/{pairingId}', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'devicePairing'])->name('meanly.simple_l1.wallet.device_pairing');
+    Route::any('/api/sl1e/{path?}', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'sl1eApi'])
+        ->where('path', '.*')
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+        ->name('meanly.simple_l1.wallet.api');
     Route::post('/api/storefront/v1/identity/handoff', [\App\Http\Controllers\Api\Storefront\StorefrontIdentityController::class, 'handoff'])
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
         ->name('storefront.identity.handoff');
+    Route::get('/api/storefront/v1/identity/navigation-authority', [\App\Http\Controllers\Api\Storefront\StorefrontIdentityController::class, 'navigationAuthority'])
+        ->name('storefront.identity.navigation-authority');
     Route::get('/csrf-token', fn () => response()->json(['csrf_token' => csrf_token()]))->name('csrf.token');
     Route::post('/store/favorites/{product}/toggle', [\App\Http\Controllers\MeanlyStorefrontController::class, 'toggleFavorite'])->name('meanly.storefront.favorites.toggle');
     Route::post('/store/checkout/availability', [\App\Http\Controllers\MeanlyStorefrontController::class, 'checkoutAvailability'])->name('meanly.storefront.checkout.availability');
@@ -103,6 +137,7 @@ $meanlyPublicRoutes = function () {
     Route::get('/meanly-ai', [\App\Http\Controllers\StorefrontChatController::class, 'page'])->name('storefront.ai-chat');
     Route::post('/storefront/chat', [\App\Http\Controllers\StorefrontChatController::class, 'chat'])->name('storefront.chat');
     Route::get('/catalog', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'index'])->name('meanly.catalog.index');
+    Route::post('/catalog/need-requests', [\App\Http\Controllers\Api\Storefront\StorefrontNeedRequestController::class, 'store'])->name('meanly.catalog.need-requests.store');
     Route::get('/catalog/tags/{slug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'collection'])->name('meanly.catalog.collections.show');
     Route::get('/catalog/brands/{brandSlug}/regions/{regionSlug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'brandRegion'])->name('meanly.catalog.brand-regions.show');
     Route::get('/catalog/brands/{brandSlug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'brand'])->name('meanly.catalog.brands.show');
@@ -118,17 +153,35 @@ $meanlyPublicRoutes = function () {
     Route::get('/products/{slug}', [\App\Http\Controllers\ProductController::class, 'show'])->name('products.show');
     Route::get('/products-search', [\App\Http\Controllers\ProductController::class, 'search'])->name('products.search');
     Route::get('/login', fn () => view('auth.login'))->name('login');
-    Route::post('/logout', function () {
+    Route::post('/logout', function (\Illuminate\Http\Request $request) {
+        $wantsJsonLogout = $request->expectsJson()
+            || $request->isJson()
+            || $request->ajax()
+            || str_contains(strtolower((string) $request->header('Accept')), 'json');
+
         \Illuminate\Support\Facades\Auth::logout();
-        request()->session()->invalidate();
-        request()->session()->regenerateToken();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        if ($wantsJsonLogout) {
+            return response()->json(['ok' => true]);
+        }
 
         return redirect()->route('home');
     })->middleware('auth')->name('logout');
-    Route::post('/cabinet/logout', function () {
+    Route::post('/cabinet/logout', function (\Illuminate\Http\Request $request) {
+        $wantsJsonLogout = $request->expectsJson()
+            || $request->isJson()
+            || $request->ajax()
+            || str_contains(strtolower((string) $request->header('Accept')), 'json');
+
         \Illuminate\Support\Facades\Auth::logout();
-        request()->session()->invalidate();
-        request()->session()->regenerateToken();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        if ($wantsJsonLogout) {
+            return response()->json(['ok' => true]);
+        }
 
         return redirect()->route('home');
     })->middleware('auth')->name('cabinet.logout');
@@ -160,10 +213,19 @@ $meanlyPublicRoutes = function () {
         'return_to' => route('cabinet.dashboard', [], false),
         'mode' => 'connect',
     ]));
-    Route::get('/vault/register', fn () => redirect()->route('meanly.simple_l1.connect', [
-        'return_to' => route('cabinet.dashboard', [], false),
-        'mode' => 'connect',
-    ]))->name('cabinet.register');
+    Route::get('/vault/register', function (\Illuminate\Http\Request $request) {
+        if (in_array($request->getHost(), (array) config('storefront.api_hosts', []), true)) {
+            $query = $request->getQueryString();
+            $target = rtrim((string) config('storefront.frontend_url', 'https://meanly.test'), '/').'/vault/register';
+
+            return redirect()->away($target.($query ? '?'.$query : ''));
+        }
+
+        return redirect()->route('meanly.simple_l1.connect', [
+            'return_to' => route('cabinet.dashboard', [], false),
+            'mode' => 'connect',
+        ]);
+    })->name('cabinet.register');
     Route::redirect('/cabinet/orders', '/vault')->name('cabinet.orders');
     Route::redirect('/cabinet/orders/{record}', '/vault')->name('cabinet.orders.show');
     Route::redirect('/cabinet/profile', '/vault')->name('cabinet.profile');
@@ -177,17 +239,58 @@ $meanlyPublicRoutes = function () {
     Route::redirect('/operator', '/ops')->name('partner.operator');
     Route::get('/reader', fn () => view('reader'))->name('reader');
     Route::get('/terminal', fn () => view('terminal'))->name('terminal');
-    Route::redirect('/partner-old', '/partner')->name('partner.legacy');
-    Route::redirect('/partner-old/{path}', '/partner')->where('path', '.*')->name('partner.legacy.deep');
+    Route::redirect('/partner-old', '/merchant')->name('partner.legacy');
+    Route::redirect('/partner-old/{path}', '/merchant')->where('path', '.*')->name('partner.legacy.deep');
     
     Route::prefix('api/partner/workspace')
         ->middleware(['auth', 'plane.guard', 'partner.intent'])
         ->group(function () {
             Route::get('/summary', [\App\Http\Controllers\PartnerDashboardController::class, 'workspaceSummary'])
                 ->name('partner.workspace.summary');
+            Route::get('/orders', [\App\Http\Controllers\PartnerDashboardController::class, 'getOrdersData'])
+                ->name('partner.workspace.orders');
+            Route::get('/catalog', [\App\Http\Controllers\PartnerDashboardController::class, 'getStorefrontProducts'])
+                ->name('partner.workspace.catalog');
+            Route::get('/supply', [\App\Http\Controllers\PartnerDashboardController::class, 'getCatalogData'])
+                ->name('partner.workspace.supply');
+            Route::get('/shops', [\App\Http\Controllers\PartnerDashboardController::class, 'getShopsData'])
+                ->name('partner.workspace.shops');
+            Route::get('/tickets', [\App\Http\Controllers\PartnerDashboardController::class, 'getTicketsData'])
+                ->name('partner.workspace.tickets');
+            Route::get('/warehouses', [\App\Http\Controllers\PartnerDashboardController::class, 'getWarehousesData'])
+                ->name('partner.workspace.warehouses');
+            Route::get('/activations', [\App\Http\Controllers\PartnerDashboardController::class, 'getActivationsData'])
+                ->name('partner.workspace.activations');
+            Route::get('/vouchers', [\App\Http\Controllers\PartnerDashboardController::class, 'getVouchersData'])
+                ->name('partner.workspace.vouchers');
+            Route::get('/finance', [\App\Http\Controllers\PartnerDashboardController::class, 'getFinanceData'])
+                ->name('partner.workspace.finance');
+            Route::post('/finance/deposit-intents', [\App\Http\Controllers\PartnerDashboardController::class, 'createMerchantDepositIntent'])
+                ->name('partner.workspace.finance.deposit_intents.create');
+            Route::get('/finance/deposit-intents/{merchantDepositIntent}', [\App\Http\Controllers\PartnerDashboardController::class, 'showMerchantDepositIntent'])
+                ->name('partner.workspace.finance.deposit_intents.show');
+            Route::post('/finance/deposit-intents/{merchantDepositIntent}/cancel', [\App\Http\Controllers\PartnerDashboardController::class, 'cancelMerchantDepositIntent'])
+                ->name('partner.workspace.finance.deposit_intents.cancel');
+            Route::post('/orders/sync', [\App\Http\Controllers\PartnerDashboardController::class, 'syncOrders'])
+                ->name('partner.workspace.orders.sync');
+            Route::post('/storefront/buy-options', [\App\Http\Controllers\PartnerDashboardController::class, 'buyStorefrontOptions'])
+                ->name('partner.workspace.storefront.buy_options');
+            Route::post('/storefront/add-to-catalog', [\App\Http\Controllers\PartnerDashboardController::class, 'addStorefrontToCatalog'])
+                ->name('partner.workspace.storefront.add_to_catalog');
+            Route::post('/storefront/buy-once', [\App\Http\Controllers\PartnerDashboardController::class, 'buyStorefrontOnce'])
+                ->name('partner.workspace.storefront.buy_once');
+            Route::post('/storefront/check-availability', [\App\Http\Controllers\PartnerDashboardController::class, 'checkStorefrontAvailability'])
+                ->name('partner.workspace.storefront.check_availability');
         });
 
-    Route::prefix('partner')->group(function () {
+    Route::get('/partner/{path?}', function (\Illuminate\Http\Request $request, ?string $path = null) {
+        $target = '/merchant'.($path ? '/'.$path : '');
+        $query = $request->getQueryString();
+
+        return redirect($target.($query ? '?'.$query : ''), 301);
+    })->where('path', '.*');
+
+    Route::prefix('merchant')->group(function () {
         Route::get('/onboarding', [\App\Http\Controllers\PartnerRegistrationController::class, 'showOnboarding'])
             ->middleware('auth')
             ->name('partner.onboarding');
@@ -361,6 +464,8 @@ $meanlyPublicRoutes = function () {
             Route::get('/dashboard/providers/data', [\App\Http\Controllers\OpsDashboardController::class, 'getProvidersData'])->name('ops.dashboard.providers.data');
             Route::post('/dashboard/providers/{provider}/sync', [\App\Http\Controllers\OpsDashboardController::class, 'syncProvider'])->name('ops.dashboard.providers.sync');
             Route::post('/dashboard/partners/{legalEntity}/top-up', [\App\Http\Controllers\OpsDashboardController::class, 'topUpPartnerBalance'])->name('ops.dashboard.partners.top-up');
+            Route::post('/dashboard/deposit-intents/{merchantDepositIntent}/approve', [\App\Http\Controllers\OpsDashboardController::class, 'approveDepositIntent'])->name('ops.dashboard.deposit-intents.approve');
+            Route::post('/dashboard/deposit-intents/{merchantDepositIntent}/reject', [\App\Http\Controllers\OpsDashboardController::class, 'rejectDepositIntent'])->name('ops.dashboard.deposit-intents.reject');
             Route::post('/dashboard/providers/partners/{legalEntity}/grant-credit', [\App\Http\Controllers\OpsDashboardController::class, 'grantPartnerCredit'])->name('ops.dashboard.providers.partners.grant-credit');
             Route::post('/dashboard/providers/partners/{legalEntity}/top-up', [\App\Http\Controllers\OpsDashboardController::class, 'topUpPartnerBalance'])->name('ops.dashboard.providers.partners.top-up');
             Route::get('/dashboard/tickets/data', [\App\Http\Controllers\OpsDashboardController::class, 'getTicketsData'])->name('ops.dashboard.tickets.data');
@@ -406,11 +511,11 @@ $storefrontApiFrontendRedirectRoutes = function () {
 };
 
 foreach ((array) config('storefront.api_hosts', []) as $domain) {
-    Route::domain($domain)->group($storefrontApiFrontendRedirectRoutes);
+    Route::domain($domain)->group($meanlyPublicRoutes);
 }
 
 foreach ((array) config('storefront.api_hosts', []) as $domain) {
-    Route::domain($domain)->group($meanlyPublicRoutes);
+    Route::domain($domain)->group($storefrontApiFrontendRedirectRoutes);
 }
 
 foreach (array_values(array_unique(array_filter(array_merge(
@@ -429,8 +534,12 @@ $storefrontIdentityBridgeRoutes = function () {
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
     Route::get('/simple-l1/complete', [\App\Http\Controllers\SimpleL1ConnectController::class, 'complete']);
     Route::get('/simple-l1/status', [\App\Http\Controllers\SimpleL1ConnectController::class, 'status']);
+    Route::any('/api/sl1e/{path?}', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'sl1eApi'])
+        ->where('path', '.*')
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
     Route::post('/api/storefront/v1/identity/handoff', [\App\Http\Controllers\Api\Storefront\StorefrontIdentityController::class, 'handoff'])
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class]);
+    Route::get('/api/storefront/v1/identity/navigation-authority', [\App\Http\Controllers\Api\Storefront\StorefrontIdentityController::class, 'navigationAuthority']);
     Route::get('/{frontendPath}', function (\Illuminate\Http\Request $request, string $frontendPath) {
         $query = $request->getQueryString();
         $target = rtrim((string) config('storefront.frontend_url', 'https://meanly.test'), '/').'/'.ltrim($frontendPath, '/');

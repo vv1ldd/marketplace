@@ -13,7 +13,9 @@ use InvalidArgumentException;
 
 class BuyerWalletService
 {
-    public const ASSET_RUBT = 'RUBT';
+    public const ASSET_RUB = 'RUB';
+    public const ASSET_RUBT = self::ASSET_RUB;
+    private const LEGACY_ASSET_RUBT = 'RUBT';
     public const ASSET_SL1 = 'SL';
 
     /**
@@ -22,13 +24,21 @@ class BuyerWalletService
     public function balance(User $user, string $asset = self::ASSET_RUBT): array
     {
         $asset = $this->normalizeAsset($asset);
-        $account = WalletAccount::query()
+        $query = WalletAccount::query()
             ->where('user_id', $user->id)
-            ->where('asset', $asset)
-            ->first();
+            ->where('asset', $asset);
 
-        $available = (int) ($account?->available_minor ?? 0);
-        $reserved = (int) ($account?->reserved_minor ?? 0);
+        if ($asset === self::ASSET_RUB) {
+            $query->orWhere(function ($legacyQuery) use ($user): void {
+                $legacyQuery->where('user_id', $user->id)
+                    ->where('asset', self::LEGACY_ASSET_RUBT);
+            });
+        }
+
+        $account = $query->get();
+
+        $available = (int) $account->sum('available_minor');
+        $reserved = (int) $account->sum('reserved_minor');
 
         return [
             'available_minor' => $available,
@@ -181,7 +191,7 @@ class BuyerWalletService
                 'reason' => $reason,
                 'source' => 'wallet:mint',
                 'amount_rub' => $this->minorToDecimalString($amountMinor, 2),
-                'token_currency' => self::ASSET_RUBT,
+                'token_currency' => self::ASSET_RUB,
                 'backing_currency' => 'RUB',
                 'backing_ratio' => 1,
             ],
@@ -319,7 +329,7 @@ class BuyerWalletService
 
             if ((int) $account->available_minor < $amountMinor) {
                 throw ValidationException::withMessages([
-                    'wallet' => 'Недостаточно RUBT на балансе для оплаты заказа.',
+                    'wallet' => 'Недостаточно RUB на балансе для оплаты заказа.',
                 ]);
             }
 
@@ -523,7 +533,7 @@ class BuyerWalletService
         $amount = str_replace(',', '.', trim($amount));
 
         if (! preg_match('/^\d+(?:\.\d{1,2})?$/', $amount)) {
-            throw new InvalidArgumentException('RUBT amount must have at most 2 decimal places.');
+            throw new InvalidArgumentException('RUB amount must have at most 2 decimal places.');
         }
 
         [$rubles, $kopecks] = array_pad(explode('.', $amount, 2), 2, '0');
@@ -545,8 +555,9 @@ class BuyerWalletService
     {
         $asset = strtoupper(trim($asset));
         $asset = $asset === 'SL1' ? self::ASSET_SL1 : $asset;
+        $asset = $asset === self::LEGACY_ASSET_RUBT ? self::ASSET_RUB : $asset;
 
-        if (! in_array($asset, [self::ASSET_RUBT, self::ASSET_SL1], true)) {
+        if (! in_array($asset, [self::ASSET_RUB, self::ASSET_SL1], true)) {
             throw new InvalidArgumentException('Unsupported wallet asset: '.$asset);
         }
 
@@ -555,7 +566,28 @@ class BuyerWalletService
 
     private function lockedAccount(User $user, string $asset): WalletAccount
     {
-        $account = WalletAccount::query()->firstOrCreate(
+        if ($asset === self::ASSET_RUB) {
+            $account = WalletAccount::query()
+                ->where('user_id', $user->id)
+                ->whereIn('asset', [self::ASSET_RUB, self::LEGACY_ASSET_RUBT])
+                ->orderByRaw('asset = ? desc', [self::ASSET_RUB])
+                ->first();
+
+            if ($account && $account->asset === self::LEGACY_ASSET_RUBT) {
+                $rubAccountExists = WalletAccount::query()
+                    ->where('user_id', $user->id)
+                    ->where('asset', self::ASSET_RUB)
+                    ->exists();
+
+                if (! $rubAccountExists) {
+                    $account->forceFill(['asset' => self::ASSET_RUB])->save();
+                }
+            }
+        } else {
+            $account = null;
+        }
+
+        $account ??= WalletAccount::query()->firstOrCreate(
             [
                 'user_id' => $user->id,
                 'asset' => $asset,

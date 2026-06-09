@@ -19,11 +19,11 @@
         "mrt1m/playstation-store-api": "^2.2",
         "opcodesio/log-viewer": "^3.18",
         "php-ffmpeg/php-ffmpeg": "^1.4",
-        "simplelayer/sl1e-client": "*",
+        "simplelayer/sl1e-client": "^0.1",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/laravel-passkeys": "^1.7",
         "spatie/laravel-permission": "^7.4",
-        "yandex-market/partner-api-spec": "1.0.0"
+        "yandex-market/partner-api-spec": "^1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

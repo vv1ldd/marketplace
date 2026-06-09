@@ -167,6 +167,11 @@ class MappingService
         static $cache = [];
 
         $key = $slug.'|'.$name;
+        if (array_key_exists($key, $cache)
+            && ! \App\Models\CatalogGroup::query()->whereKey($cache[$key])->exists()) {
+            unset($cache[$key]);
+        }
+
         if (! array_key_exists($key, $cache)) {
             $cache[$key] = (int) \App\Models\CatalogGroup::query()
                 ->where('slug', $slug)

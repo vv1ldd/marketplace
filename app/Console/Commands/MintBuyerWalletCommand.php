@@ -18,8 +18,8 @@ class MintBuyerWalletCommand extends Command
 {
     protected $signature = 'wallet:mint
                             {user : User id, email, handle, or @handle}
-                            {amount : RUBT amount in RUB units, e.g. 10000}
-                            {--asset=RUBT : Wallet asset to mint}
+                            {amount : RUB amount, e.g. 10000}
+                            {--asset=RUB : Wallet asset to mint}
                             {--reason=Dev buyer wallet mint : Audit reason}
                             {--idempotency-key= : Unique key that prevents duplicate minting}
                             {--operator= : Operator identity for audited wallet mutation}
@@ -31,8 +31,11 @@ class MintBuyerWalletCommand extends Command
     public function handle(BuyerWalletService $wallets): int
     {
         $asset = strtoupper((string) $this->option('asset'));
-        if ($asset !== BuyerWalletService::ASSET_RUBT) {
-            $this->error('Only RUBT minting is supported by this command.');
+        if ($asset === 'RUBT') {
+            $asset = BuyerWalletService::ASSET_RUB;
+        }
+        if ($asset !== BuyerWalletService::ASSET_RUB) {
+            $this->error('Only RUB minting is supported by this command.');
 
             return self::FAILURE;
         }
@@ -55,7 +58,7 @@ class MintBuyerWalletCommand extends Command
         $user = $matches->first();
         $amountMinor = $wallets->rubToMinor((string) $this->argument('amount'));
         $idempotencyKey = (string) ($this->option('idempotency-key') ?: sprintf(
-            'dev-mint:user-%d:rubt:%d:%s',
+            'dev-mint:user-%d:rub:%d:%s',
             $user->id,
             $amountMinor,
             now()->toDateString(),
@@ -127,9 +130,9 @@ class MintBuyerWalletCommand extends Command
         $this->line('User: '.$this->formatUser($user));
         $this->line('Asset: '.$asset);
         $this->line('Amount minor: '.$amountMinor);
-        $this->line('Amount RUBT: '.$wallets->minorToDecimalString($amountMinor));
+        $this->line('Amount RUB: '.$wallets->minorToDecimalString($amountMinor));
         $this->line('Available balance minor: '.$balance['available_minor']);
-        $this->line('Available balance RUBT: '.$wallets->minorToDecimalString($balance['available_minor']));
+        $this->line('Available balance RUB: '.$wallets->minorToDecimalString($balance['available_minor']));
         $this->line('Wallet ledger entry id: '.$entry->id);
         $this->line('Entry type: '.$entry->entry_type);
         $this->line('Idempotency key: '.$entry->idempotency_key);

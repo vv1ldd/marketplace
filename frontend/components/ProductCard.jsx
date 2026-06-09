@@ -40,6 +40,7 @@ export function ProductCard({ product }) {
   const allowedActions = actions.allowed_actions || [];
   const href = product.slug ? `/products/${product.slug}` : '#';
   const price = priceLabel(product);
+  const recommendationLabel = product.recommendation_label || product.recommendationLabel;
 
   return (
     <article className="product-card">
@@ -49,6 +50,7 @@ export function ProductCard({ product }) {
       <FavoriteButton product={product} />
       <div className="product-card__body">
         <div className="product-card__meta">
+          {recommendationLabel ? <span>{recommendationLabel}</span> : null}
           <span>{product.category?.label || 'Catalog'}</span>
           <span>{product.region || 'global'}</span>
         </div>

@@ -29,7 +29,7 @@ $controller = new PartnerDashboardController();
 
 // 2. Validate getOrdersData
 echo "\n📦 [TEST] Invoking getOrdersData API endpoint...\n";
-$request = Request::create('/partner/dashboard/orders/data', 'GET', [
+$request = Request::create('/merchant/dashboard/orders/data', 'GET', [
     'status' => '',
     'search' => ''
 ]);
@@ -72,7 +72,7 @@ if (isset($data['success']) && $data['success']) {
 
 // 4. Validate createSandboxOrder (Mock test order creation)
 echo "\n🧪 [TEST] Invoking createSandboxOrder (Sandbox Order creation)...\n";
-$sandboxRequest = Request::create('/partner/dashboard/orders/sandbox', 'POST', [
+$sandboxRequest = Request::create('/merchant/dashboard/orders/sandbox', 'POST', [
     'sku' => 'STEAM-GIFT-100',
     'price_rub' => 5000,
     'code' => 'SANDBOX-TEST-CODE-0000'
@@ -85,7 +85,7 @@ if (isset($sandboxData['success']) && $sandboxData['success']) {
     echo "✅ [SUCCESS] createSandboxOrder executed successfully! Order ID: {$sandboxData['order_id']}\n";
     
     // Check if new sandbox order shows up in list
-    $checkRequest = Request::create('/partner/dashboard/orders/data', 'GET', ['status' => 'sandbox']);
+    $checkRequest = Request::create('/merchant/dashboard/orders/data', 'GET', ['status' => 'sandbox']);
     $checkResponse = $controller->getOrdersData($checkRequest);
     $checkData = json_decode($checkResponse->getContent(), true);
     

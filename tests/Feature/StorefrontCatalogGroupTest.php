@@ -166,7 +166,7 @@ class StorefrontCatalogGroupTest extends TestCase
         $controller = app(PartnerDashboardController::class);
 
         $gamesResponse = $controller->getStorefrontProducts(Request::create(
-            '/partner/dashboard/storefront/products',
+            '/merchant/dashboard/storefront/products',
             'GET',
             ['catalog_group_id' => $games->id],
         ));
@@ -178,7 +178,7 @@ class StorefrontCatalogGroupTest extends TestCase
         $this->assertSame('game_wallet_topups', $gamesPayload['products'][0]['catalog_group_id']);
 
         $retailResponse = $controller->getStorefrontProducts(Request::create(
-            '/partner/dashboard/storefront/products',
+            '/merchant/dashboard/storefront/products',
             'GET',
             ['catalog_group_id' => $retail->id],
         ));
@@ -190,7 +190,7 @@ class StorefrontCatalogGroupTest extends TestCase
         $this->assertSame('gift_cards', $retailPayload['products'][0]['catalog_group_id']);
 
         $unmappedResponse = $controller->getStorefrontProducts(Request::create(
-            '/partner/dashboard/storefront/products',
+            '/merchant/dashboard/storefront/products',
             'GET',
             ['catalog_group_id' => 'unmapped'],
         ));

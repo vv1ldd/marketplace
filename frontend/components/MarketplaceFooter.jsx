@@ -2,12 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { legalPageEntries } from '../lib/legal-pages';
 
 export function MarketplaceFooter({ year }) {
   const pathname = usePathname();
 
   if (
-    pathname === '/partner'
+    pathname === '/merchant'
+    || pathname.startsWith('/merchant/')
+    || pathname === '/partner'
     || pathname.startsWith('/partner/')
     || pathname === '/ops'
     || pathname.startsWith('/ops/')
@@ -22,6 +25,11 @@ export function MarketplaceFooter({ year }) {
         MEANLY
       </Link>
       <span>© {year}</span>
+      <nav aria-label="Юридические документы">
+        {legalPageEntries().map(([key, item]) => (
+          <Link key={key} href={item.href}>{item.title}</Link>
+        ))}
+      </nav>
     </footer>
   );
 }

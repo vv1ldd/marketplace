@@ -26,6 +26,8 @@ class SellerTerminalApiTest extends TestCase
     {
         parent::setUp();
 
+        config(['services.wildflow.kernel_url' => 'https://wildflow.test/api/v1']);
+
         Http::fake([
             '*/partners/*' => Http::response(['data' => ['balance' => 42.5]], 200),
         ]);

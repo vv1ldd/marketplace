@@ -38,7 +38,7 @@ class WildflowDriver implements ProviderDriverInterface
             $terminalId = (string)($meta['terminal_id'] ?? '');
             $sellerName = (string)($meta['seller_name'] ?? '');
 
-            Log::info("Meanly EZPin authority: attempting JIT credit grant for {$reference}", [
+            Log::info("Meanly supply authority: attempting JIT credit grant for {$reference}", [
                 'amount' => $totalAmount,
                 'upstream_provider' => $upstreamProvider,
                 'terminal_id' => $terminalId,
@@ -48,7 +48,7 @@ class WildflowDriver implements ProviderDriverInterface
             $this->getService()->grantCredit($totalAmount, $reference, $terminalId);
             $this->lastSourceLedgerReceipt = $this->getService()->lastSourceLedgerReceipt();
         } catch (\Throwable $e) {
-            Log::error("Meanly EZPin authority JIT credit failed: " . $e->getMessage());
+            Log::error("Meanly supply authority JIT credit failed: " . $e->getMessage());
             throw $e;
         }
 
@@ -113,6 +113,7 @@ class WildflowDriver implements ProviderDriverInterface
             ?? data_get($this->provider?->credentials, 'provider')
             ?? match ($this->provider?->type) {
                 'ezpin-sandbox', 'wildflow-sandbox' => 'ezpin-sandbox',
+                'fazer' => 'fazer',
                 default => 'ezpin',
             }
         );

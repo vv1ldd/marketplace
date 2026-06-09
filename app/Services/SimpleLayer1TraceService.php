@@ -47,6 +47,17 @@ class SimpleLayer1TraceService
         $normalized = strtolower(trim($reference));
 
         if (preg_match('/^[a-f0-9]{64}$/', $normalized)) {
+            if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite') {
+                return SovereignLedger::query()
+                    ->when($legalEntityId, fn ($query) => $query->where('legal_entity_id', $legalEntityId))
+                    ->oldest('id')
+                    ->get()
+                    ->first(function (SovereignLedger $entry) use ($normalized): bool {
+                        return strtolower((string) data_get($entry->payload, 'tx_hash')) === $normalized
+                            || strtolower((string) data_get($entry->payload, 'simple_layer_one.tx_hash')) === $normalized;
+                    });
+            }
+
             return SovereignLedger::query()
                 ->when($legalEntityId, fn ($query) => $query->where('legal_entity_id', $legalEntityId))
                 ->where(function ($query) use ($normalized) {

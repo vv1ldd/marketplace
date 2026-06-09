@@ -16,6 +16,11 @@ class StorefrontVaultController extends Controller
         $identity = (array) $request->attributes->get('storefront_identity', []);
         $address = strtolower((string) data_get($identity, 'entity_l1_address'));
         abort_if($address === '', 403);
+        $user = User::findByEntityL1Address($address);
+        if ($user instanceof User) {
+            $identity['username'] = $user->username;
+            $identity['display_alias'] = $user->publicUsername() ?: ($identity['display_alias'] ?? null);
+        }
 
         $orders = Order::query()
             ->with('items')
@@ -50,13 +55,13 @@ class StorefrontVaultController extends Controller
                 'next_action' => 'VIEW_VAULT',
                 'blocking_reason' => null,
             ],
-            'authority_surfaces' => $this->authoritySurfacesFor($address),
+            'authority_surfaces' => $this->authoritySurfacesFor($address, $user),
         ]);
     }
 
-    private function authoritySurfacesFor(string $entityL1Address): array
+    private function authoritySurfacesFor(string $entityL1Address, ?User $user = null): array
     {
-        $user = User::findByEntityL1Address($entityL1Address);
+        $user ??= User::findByEntityL1Address($entityL1Address);
         if (! $user) {
             return [];
         }
@@ -64,10 +69,10 @@ class StorefrontVaultController extends Controller
         $surfaces = [];
         if ($user->legalEntities()->exists() || $user->managedLegalEntities()->exists()) {
             $surfaces[] = [
-                'key' => 'partner',
-                'label' => 'Partner workspace',
+                'key' => 'merchant',
+                'label' => 'Merchant workspace',
                 'description' => 'Seller tools granted to this Meanly identity.',
-                'href' => '/partner',
+                'href' => '/merchant',
                 'grant' => 'meanly.partner.workspace',
             ];
         }

@@ -26,6 +26,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseStock;
 use App\Services\Provider\EzpinDriver;
+use App\Services\Provider\FazerDriver;
 use App\Services\Provider\ProviderHub;
 use App\Models\ZeroLayerIntegration;
 use App\Models\ZeroLayerSignal;
@@ -100,6 +101,23 @@ class OpsPanelParityTest extends TestCase
                 ],
             ],
         );
+        Provider::updateOrCreate(
+            ['type' => 'fazer'],
+            [
+                'name' => 'Fazer Cards',
+                'is_active' => true,
+                'credentials' => [
+                    'api_key' => 'configured',
+                ],
+            ],
+        );
+        Provider::updateOrCreate(
+            ['type' => 'playstation'],
+            [
+                'name' => 'PlayStation Store (TR)',
+                'is_active' => true,
+            ],
+        );
 
         $this->actingAs($admin)
             ->get('https://meanly.test/ops?tab=providers')
@@ -114,13 +132,22 @@ class OpsPanelParityTest extends TestCase
             ->assertOk();
 
         $provider = collect($response->json('data'))->firstWhere('type', 'ezpin');
+        $fazer = collect($response->json('data'))->firstWhere('type', 'fazer');
+        $source = collect($response->json('catalog_sources'))->firstWhere('type', 'playstation');
         $this->assertNotNull($provider);
+        $this->assertNotNull($fazer);
+        $this->assertNotNull($source);
         $this->assertSame('meanly.one', data_get($provider, 'authority'));
         $this->assertSame('ezpin', data_get($provider, 'upstream_provider'));
+        $this->assertSame('Fazer Cards', data_get($fazer, 'name'));
+        $this->assertSame('fazer', data_get($fazer, 'upstream_provider'));
+        $this->assertSame('Fazer Cards', data_get($fazer, 'upstream_label'));
+        $this->assertSame('parsed_catalog_source', data_get($source, 'source_kind'));
         $this->assertFalse(data_get($provider, 'is_legacy_alias'));
-        $this->assertSame('direct_ezpin', data_get($response->json('kernel'), 'mode'));
+        $this->assertSame('direct_supply_authority', data_get($response->json('kernel'), 'mode'));
         $this->assertSame('meanly.one', data_get($response->json('kernel'), 'authority'));
-        $this->assertSame('ezpin', data_get($response->json('kernel'), 'upstream'));
+        $this->assertSame('ezpin+fazercards', data_get($response->json('kernel'), 'upstream'));
+        $this->assertSame('EZPin + Fazer Cards', data_get($response->json('kernel'), 'upstream_label'));
         $this->assertTrue(data_get($provider, 'credentials.client_id'));
         $this->assertTrue(data_get($provider, 'credentials.secret_key'));
         $this->assertTrue(data_get($provider, 'terminal.id_configured'));
@@ -144,6 +171,49 @@ class OpsPanelParityTest extends TestCase
         $driver = app(ProviderHub::class)->forProvider($provider);
 
         $this->assertInstanceOf(EzpinDriver::class, $driver);
+    }
+
+    public function test_fazer_provider_type_resolves_to_fazer_driver(): void
+    {
+        $provider = Provider::updateOrCreate(
+            ['type' => 'fazer'],
+            [
+                'name' => 'Fazer Cards',
+                'is_active' => true,
+            ],
+        );
+
+        $driver = app(ProviderHub::class)->forProvider($provider);
+
+        $this->assertInstanceOf(FazerDriver::class, $driver);
+    }
+
+    public function test_ops_provider_registry_shows_missing_fazer_supplier_as_not_configured(): void
+    {
+        $admin = $this->opsAdmin('g');
+        Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Legacy Wildflow Alias',
+                'is_active' => true,
+                'settings' => ['upstream_provider' => 'ezpin'],
+            ],
+        );
+
+        $response = $this->actingAs($admin)
+            ->getJson('https://meanly.test/ops/dashboard/providers/data')
+            ->assertOk();
+
+        $ezpin = collect($response->json('data'))->firstWhere('type', 'ezpin');
+        $fazer = collect($response->json('data'))->firstWhere('type', 'fazer');
+
+        $this->assertNotNull($ezpin);
+        $this->assertNotNull($fazer);
+        $this->assertSame('EZPin', data_get($ezpin, 'name'));
+        $this->assertSame('Fazer Cards', data_get($fazer, 'name'));
+        $this->assertSame('not_configured', data_get($fazer, 'sync_status'));
+        $this->assertFalse(data_get($fazer, 'health.supports_upstream_pull'));
+        $this->assertNull(data_get($fazer, 'sync_url'));
     }
 
     public function test_ops_organizations_expose_partner_api_identity_and_settlement_controls(): void
@@ -209,7 +279,8 @@ class OpsPanelParityTest extends TestCase
             ->assertJsonPath('partner.available_balance', 110);
 
         $this->assertTrue(SovereignLedger::query()
-            ->where('event_type', 'OPS_PARTNER_BALANCE_TOP_UP')
+            ->where('legal_entity_id', $entity->id)
+            ->where('event_type', 'FINANCE_CREDITED')
             ->exists());
     }
 

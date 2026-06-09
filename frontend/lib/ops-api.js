@@ -198,6 +198,20 @@ export function topUpOpsPartner(url, { amount, reference }) {
   });
 }
 
+export function approveOpsDepositIntent(url, payload) {
+  return opsFetch(url, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function rejectOpsDepositIntent(url, payload = {}) {
+  return opsFetch(url, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
 export function fetchOpsProviders() {
   return opsFetch('/ops/dashboard/providers/data');
 }

@@ -43,7 +43,7 @@ $controller = new PartnerDashboardController();
 
 // 2. Fetch Warehouses list via dynamic AJAX handler
 echo "\n📦 [TEST] Invoking getWarehousesData (search: '')...\n";
-$request = Request::create('/partner/dashboard/warehouses/data', 'GET', [
+$request = Request::create('/merchant/dashboard/warehouses/data', 'GET', [
     'search' => ''
 ]);
 $response = $controller->getWarehousesData($request);
@@ -62,7 +62,7 @@ if (isset($data['success']) && $data['success']) {
 
 // 3. Create a brand new Warehouse
 echo "\n✨ [TEST] Spawning a brand new Master Warehouse...\n";
-$createReq = Request::create('/partner/dashboard/warehouses/create', 'POST', [
+$createReq = Request::create('/merchant/dashboard/warehouses/create', 'POST', [
     'name' => 'Автоматический Тестовый Склад B2B API',
     'shop_id' => $shopId
 ]);
@@ -81,7 +81,7 @@ if (isset($createData['success']) && $createData['success']) {
 
 // 4. Toggle active status
 echo "\n🔄 [TEST] Toggling active status of Warehouse ID #{$newWhId}...\n";
-$toggleReq = Request::create("/partner/dashboard/warehouses/{$newWhId}/toggle-active", 'POST');
+$toggleReq = Request::create("/merchant/dashboard/warehouses/{$newWhId}/toggle-active", 'POST');
 $toggleRes = $controller->toggleWarehouseActive($toggleReq, $newWhId);
 $toggleData = json_decode($toggleRes->getContent(), true);
 
@@ -95,7 +95,7 @@ if (isset($toggleData['success']) && $toggleData['success']) {
 
 // 5. Verify updated in list search
 echo "\n🔍 [TEST] Searching list for newly created warehouse name...\n";
-$searchReq = Request::create('/partner/dashboard/warehouses/data', 'GET', [
+$searchReq = Request::create('/merchant/dashboard/warehouses/data', 'GET', [
     'search' => 'Автоматический Тестовый Склад'
 ]);
 $searchRes = $controller->getWarehousesData($searchReq);

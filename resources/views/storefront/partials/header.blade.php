@@ -12,7 +12,7 @@
         : (\Illuminate\Support\Facades\Route::has('login') ? route('login', [], false) : '/login');
     $logoutUrl = \Illuminate\Support\Facades\Route::has('logout') ? route('logout', [], false) : '/logout';
     $opsUrl = '/ops';
-    $partnerUrl = '/partner';
+    $partnerUrl = '/merchant';
 @endphp
 
 @once
@@ -509,7 +509,7 @@
                         Ops
                     </a>
                 @elseif(auth()->user()?->isMerchantNode())
-                    <a href="{{ $partnerUrl }}" @class(['btn-nav-cta', 'active' => request()->is('partner*')])>
+                    <a href="{{ $partnerUrl }}" @class(['btn-nav-cta', 'active' => request()->is('merchant*') || request()->is('partner*')])>
                         {{ __('storefront.header.b2b_console') }}
                     </a>
                 @endif

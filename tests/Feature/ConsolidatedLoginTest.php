@@ -32,11 +32,15 @@ class ConsolidatedLoginTest extends TestCase
     {
         // 1. Ops Panel
         $response = $this->get('/ops');
-        $response->assertRedirect('/login');
+        $this->assertStringEndsWith('/login', $response->headers->get('Location'));
 
-        // 2. Partner Panel
+        // 2. Merchant Panel
+        $response = $this->get('/merchant');
+        $this->assertStringEndsWith('/login', $response->headers->get('Location'));
+
+        // 2b. Legacy Partner Panel
         $response = $this->get('/partner');
-        $response->assertRedirect('/login');
+        $response->assertRedirect('/merchant');
 
         // 3. Legacy Treasury Panel
         $response = $this->get('/treasury');
@@ -207,7 +211,7 @@ class ConsolidatedLoginTest extends TestCase
         $response = $method->invoke($controller, $request);
         
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringEndsWith('/partner', $response->headers->get('Location'));
+        $this->assertStringEndsWith('/merchant', $response->headers->get('Location'));
     }
 
     /**
@@ -224,7 +228,7 @@ class ConsolidatedLoginTest extends TestCase
         $user->assignRole(User::ROLE_WALLET_HOLDER);
 
         $this->actingAs($user);
-        Session::put('passkeys.redirect', '/partner');
+        Session::put('passkeys.redirect', '/merchant');
 
         $controller = new PasskeyAuthenticateController();
         $request = Request::create('/passkeys/authenticate', 'POST');

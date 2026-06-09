@@ -9,7 +9,9 @@ use App\Models\WildflowSkuAlias;
 use App\Services\BrandActivationUrlResolver;
 use App\Services\CanonicalCategoryResolver;
 use App\Services\MappingService;
+use App\Services\Provider\EzpinCatalogClient;
 use App\Services\Provider\ProviderCatalogAggregator;
+use App\Services\Provider\ProviderCatalogPayloadNormalizer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -19,7 +21,7 @@ class SyncCatalogsCommand extends Command
         {provider? : ID or type of provider to sync}
         {--force : Force sync even if catalog hasn\'t changed}
         {--embedded : Use the embedded Meanly provider catalog projection instead of pulling EZPin}
-        {--pull-upstream : Force a direct EZPin upstream pull even when the provider defaults to embedded catalog data}';
+        {--pull-upstream : Pull fresh EZPin catalog directly without using the legacy Wildflow gateway}';
 
     protected $description = 'Sync catalogs from upstream providers through Meanly provider authority.';
 
@@ -65,7 +67,7 @@ class SyncCatalogsCommand extends Command
 
     protected function syncWildflow($provider)
     {
-        $this->info('Meanly EZPin catalog sync started...');
+        $this->info('Meanly supply catalog sync started for '.$this->upstreamProviderSlug($provider).'...');
         ini_set('memory_limit', '1024M');
         set_time_limit(600);
 
@@ -77,6 +79,10 @@ class SyncCatalogsCommand extends Command
         $this->brandCache = [];
         $this->brandNameUpperById = [];
         $this->currencyCache = \App\Models\Currency::pluck('id', 'code')->toArray();
+
+        if ((bool) $this->option('pull-upstream')) {
+            $this->pullDirectEzpinCatalog($provider);
+        }
 
         $client = null;
         if (! $this->useEmbeddedCatalog($provider)) {
@@ -90,6 +96,26 @@ class SyncCatalogsCommand extends Command
         $this->parseCatalog($client, 'unified_catalog', $provider, $financeService);
 
         $this->processAutoSync($provider);
+    }
+
+    private function pullDirectEzpinCatalog($provider): void
+    {
+        $this->info('Pulling fresh EZPin catalog directly as Meanly One...');
+        $payload = app(EzpinCatalogClient::class, ['provider' => $provider])->pullCatalogs();
+        $stats = app(ProviderCatalogPayloadNormalizer::class)->syncPayloadIntoProvider(
+            $provider,
+            $payload['catalog'],
+            $payload['retailer'],
+            true,
+        );
+
+        $this->info(sprintf(
+            'EZPin direct pull persisted %d provider rows (%d catalog, %d retailer, %d deactivated).',
+            $stats['total'],
+            $stats['catalog'],
+            $stats['retailer'],
+            $stats['deactivated'],
+        ));
     }
 
     protected function processDeactivations($provider)
@@ -127,14 +153,14 @@ class SyncCatalogsCommand extends Command
     private function useEmbeddedCatalog($provider): bool
     {
         if ((bool) $this->option('pull-upstream')) {
-            return false;
+            return true;
         }
 
         if ((bool) $this->option('embedded')) {
             return true;
         }
 
-        return (string) data_get($provider->settings, 'catalog_source') === 'embedded';
+        return (string) data_get($provider->settings, 'catalog_source', 'meanly_one') !== 'legacy_http';
     }
 
     private function parseCatalog($client, string $type, $provider, $financeService): bool

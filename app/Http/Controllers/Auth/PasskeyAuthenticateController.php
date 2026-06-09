@@ -94,7 +94,7 @@ class PasskeyAuthenticateController extends BaseController
             }
 
             if ($user->isMerchantNode()) {
-                return redirect('/partner');
+                return redirect('/merchant');
             }
 
         }
@@ -152,7 +152,7 @@ class PasskeyAuthenticateController extends BaseController
             }
 
             if ($authenticatable->isMerchantNode()) {
-                return '/partner';
+                return '/merchant';
             }
 
         }

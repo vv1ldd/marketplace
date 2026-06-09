@@ -2980,9 +2980,9 @@
                     <div>
                         <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 8px; font-weight: 700; text-transform: uppercase;">Способ оплаты / Расчеты 💳</label>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" id="storefront-payment-selector-container">
-                            <div class="card-neo active" id="storefront-pay-rub" onclick="selectStorefrontPaymentMethod('rub_token')" style="padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; border: 1.5px solid var(--primary); background: rgba(245, 48, 3, 0.05); border-radius: 8px; transition: all 0.2s ease;">
+                            <div class="card-neo active" id="storefront-pay-rub" onclick="selectStorefrontPaymentMethod('rub')" style="padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; border: 1.5px solid var(--primary); background: rgba(245, 48, 3, 0.05); border-radius: 8px; transition: all 0.2s ease;">
                                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; font-weight: 800; color: var(--text-main);">
-                                    <span>RUB-token</span>
+                                    <span>RUB</span>
                                     <i class="ph-bold ph-credit-card" style="color: var(--primary);"></i>
                                 </div>
                                 <div style="font-size: 0.75rem; color: var(--text-muted);" id="storefront-payment-rub-balance">
@@ -2999,7 +2999,7 @@
                                 </div>
                             </div>
                         </div>
-                        <input type="hidden" id="storefront-payment-method" value="rub_token">
+                        <input type="hidden" id="storefront-payment-method" value="rub">
                     </div>
 
                     <!-- Nominal Amount (for variable products) -->
@@ -4364,7 +4364,7 @@
                     await new Promise(r => setTimeout(r, 400));
                     
                     writeLog('📡 Запрос криптографического челленджа (Passkey Options)...');
-                    const optionsResp = await fetch('/partner/dashboard/finance/sovereign-request/options', {
+                    const optionsResp = await fetch('/merchant/dashboard/finance/sovereign-request/options', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4402,7 +4402,7 @@
                     await new Promise(r => setTimeout(r, 400));
                     
                     writeLog('📡 Передача подписанного блока на сервер консенсуса...');
-                    const createResp = await fetch('/partner/dashboard/finance/sovereign-request/create', {
+                    const createResp = await fetch('/merchant/dashboard/finance/sovereign-request/create', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4506,7 +4506,7 @@
 
             async function fetchFinanceDataAndRefresh() {
                 try {
-                    const response = await fetch('/partner/dashboard/finance/data', {
+                    const response = await fetch('/merchant/dashboard/finance/data', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4611,7 +4611,7 @@
                 }
 
                 try {
-                    const response = await fetch('/partner/dashboard/deposit-intent', {
+                    const response = await fetch('/merchant/dashboard/deposit-intent', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4642,7 +4642,7 @@
                 if (!activeFintentToken) return;
 
                 try {
-                    const response = await fetch('/partner/dashboard/clear-deposit-intent', {
+                    const response = await fetch('/merchant/dashboard/clear-deposit-intent', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4931,7 +4931,7 @@
                 }
 
                 try {
-                    const response = await fetch(`/partner/dashboard/shop/${id}/yandex-market/warehouses`, {
+                    const response = await fetch(`/merchant/dashboard/shop/${id}/yandex-market/warehouses`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4992,7 +4992,7 @@
                 const api_key = document.getElementById('yandex-api-key').value;
 
                 try {
-                    const response = await fetch(`/partner/dashboard/shop/${id}/yandex-market`, {
+                    const response = await fetch(`/merchant/dashboard/shop/${id}/yandex-market`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5049,7 +5049,7 @@
                 }
 
                 try {
-                    const response = await fetch('/partner/dashboard/shop/create', {
+                    const response = await fetch('/merchant/dashboard/shop/create', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5166,7 +5166,7 @@
                 const client_secret = document.getElementById('market-client-secret') ? document.getElementById('market-client-secret').value : null;
 
                 try {
-                    const response = await fetch(`/partner/dashboard/shop/${id}/yandex-market`, {
+                    const response = await fetch(`/merchant/dashboard/shop/${id}/yandex-market`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5211,7 +5211,7 @@
                 }
 
                 try {
-                    const response = await fetch('/partner/dashboard/tickets/create', {
+                    const response = await fetch('/merchant/dashboard/tickets/create', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5253,7 +5253,7 @@
 
                 try {
                     // 1. Update Profile Settings
-                    const profileResp = await fetch('/partner/dashboard/profile-update', {
+                    const profileResp = await fetch('/merchant/dashboard/profile-update', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5357,7 +5357,7 @@
                 btnLoader.style.display = 'inline-block';
 
                 try {
-                    const response = await fetch('/partner/dashboard/ai/audit', {
+                    const response = await fetch('/merchant/dashboard/ai/audit', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5419,7 +5419,7 @@
                 chatBody.scrollTop = chatBody.scrollHeight;
 
                 try {
-                    const response = await fetch('/partner/dashboard/ai/chat', {
+                    const response = await fetch('/merchant/dashboard/ai/chat', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5474,7 +5474,7 @@
             // 🏪 B2B Storefront & Meanly One clearing actions
             let currentStorefrontProduct = null;
             let currentStorefrontIsSovereign = false;
-            let storefrontPaymentMethod = 'rub_token';
+            let storefrontPaymentMethod = 'rub';
             let storefrontPage = 1;
             let storefrontLastPage = Math.ceil(({{ (int) ($providerProductsTotal ?? count($providerProducts)) }}) / 24) || 1;
             let storefrontTotal = {{ (int) ($providerProductsTotal ?? count($providerProducts)) }};
@@ -5683,7 +5683,7 @@
                 }
 
                 try {
-                    const response = await fetch(`/partner/dashboard/provider-catalog/data?${params.toString()}`, {
+                    const response = await fetch(`/merchant/dashboard/provider-catalog/data?${params.toString()}`, {
                         headers: { 'Accept': 'application/json' }
                     });
                     const data = await response.json();
@@ -5733,7 +5733,7 @@
                 body.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 1.5rem;">Загружаем сток...</td></tr>';
 
                 try {
-                    const response = await fetch(`/partner/dashboard/warehouses/${warehouseId}/stock`, {
+                    const response = await fetch(`/merchant/dashboard/warehouses/${warehouseId}/stock`, {
                         headers: { 'Accept': 'application/json' },
                     });
                     const data = await response.json();
@@ -5791,8 +5791,8 @@
                 const signCheckbox = document.getElementById('storefront-l1-sign-checkbox');
 
                 if (method === 'rub_token' || method === 'rub') {
-                    storefrontPaymentMethod = 'rub_token';
-                    document.getElementById('storefront-payment-method').value = 'rub_token';
+                    storefrontPaymentMethod = 'rub';
+                    document.getElementById('storefront-payment-method').value = 'rub';
                     if (rubCard) {
                         rubCard.style.border = '1.5px solid var(--primary)';
                         rubCard.style.background = 'rgba(245, 48, 3, 0.05)';
@@ -5891,7 +5891,7 @@
                 }
 
                 // Reset payment selection to tokenized RUB.
-                selectStorefrontPaymentMethod('rub_token');
+                selectStorefrontPaymentMethod('rub');
 
                 // Show main form, hide clearing stream & success panels
                 document.getElementById('storefront-purchase-form-area').style.display = 'flex';
@@ -5923,7 +5923,7 @@
                 }
 
                 try {
-                    const response = await fetch('/partner/dashboard/storefront/check-availability', {
+                    const response = await fetch('/merchant/dashboard/storefront/check-availability', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -6061,8 +6061,8 @@
                     document.getElementById('storefront-total-calculated-cost').innerText = `${totalCostSl1.toFixed(4)} SL1`;
                     document.getElementById('storefront-total-calculated-cost').style.color = '#10b981';
                 } else {
-                    document.getElementById('storefront-cost-breakdown').innerText = `${qty} × ${unitPrice.toFixed(2)} RUBT`;
-                    document.getElementById('storefront-total-calculated-cost').innerText = `${total.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} RUBT`;
+                    document.getElementById('storefront-cost-breakdown').innerText = `${qty} × ${unitPrice.toFixed(2)} RUB`;
+                    document.getElementById('storefront-total-calculated-cost').innerText = `${total.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} RUB`;
                     document.getElementById('storefront-total-calculated-cost').style.color = 'var(--primary)';
                 }
             }
@@ -6123,7 +6123,7 @@
 
                 try {
                     writeLog('⚙️ Запрос параметров Passkey для операции Meanly One...');
-                    const optionsResp = await fetch('/partner/dashboard/storefront/buy-options', {
+                    const optionsResp = await fetch('/merchant/dashboard/storefront/buy-options', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -6141,7 +6141,7 @@
                     writeLog('🔑 Подтвердите закупку стока через Passkey (FaceID/TouchID)...');
                     assertionPayload = await SimpleWebAuthnBrowser.startAuthentication(options);
                     writeLog(`🔒 Passkey-подпись создана: ${assertionPayload.id.substring(0, 16)}...`);
-                    writeLog(`📡 Отправка подписанного запроса списания ${paymentMethod === 'native_token' ? 'SL1' : 'RUBT'} через Meanly One...`);
+                    writeLog(`📡 Отправка подписанного запроса списания ${paymentMethod === 'native_token' ? 'SL1' : 'RUB'} через Meanly One...`);
                 } catch (authErr) {
                     console.error(authErr);
                     writeLog(`❌ Ошибка подписи транзакции: ${authErr.message}`);
@@ -6156,7 +6156,7 @@
 
                 try {
                     // Send actual backend request synchronously
-                    const response = await fetch('/partner/dashboard/storefront/add-to-catalog', {
+                    const response = await fetch('/merchant/dashboard/storefront/add-to-catalog', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -6225,7 +6225,7 @@
                             let currentBalance = parseFloat(currentBalanceText) || 0;
                             let newBalance = currentBalance - totalDeducted;
                             if (newBalance < 0) newBalance = 0;
-                            el.innerText = `${newBalance.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} RUBT`;
+                            el.innerText = `${newBalance.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} RUB`;
                         });
                     }
 
@@ -6245,7 +6245,7 @@
 
                 window.currentStorefrontTxReceipt = txHash ? {
                     tx_hash: txHash,
-                    explorer_url: data.explorer_url || `/partner/dashboard/simple-layer-1/trace?reference=${encodeURIComponent(txHash)}`
+                    explorer_url: data.explorer_url || `/merchant/dashboard/simple-layer-1/trace?reference=${encodeURIComponent(txHash)}`
                 } : null;
 
                 if (!receiptEl || !hashEl || !txHash) {

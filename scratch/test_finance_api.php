@@ -45,7 +45,7 @@ echo "✔ Original Balances: Available: $origAvailable ₽, Held: $origReserved 
 echo "📋 Testing B2B Finance Data Fetch...\n";
 $controller = new \App\Http\Controllers\PartnerDashboardController();
 
-$request = Illuminate\Http\Request::create('http://' . config('app.domain') . '/partner/dashboard/finance/data', 'GET', [
+$request = Illuminate\Http\Request::create('http://' . config('app.domain') . '/merchant/dashboard/finance/data', 'GET', [
     'page' => 1,
     'status' => 'all'
 ]);
@@ -77,7 +77,7 @@ if ($response->getStatusCode() === 200 && ($data['success'] ?? false)) {
 
 // 4. Test Simulating a Deposit of 25,000 RUB
 echo "\n💰 Testing Simulated Account Replenishment (Deposit: 25 000 ₽)...\n";
-$depositRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/partner/dashboard/finance/deposit', 'POST', [
+$depositRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/merchant/dashboard/finance/deposit', 'POST', [
     'amount' => 25000
 ]);
 
@@ -136,7 +136,7 @@ if ($depositResponse->getStatusCode() === 200 && ($depositData['success'] ?? fal
 
 // 5. Test Filters and Searches with the new record
 echo "\n🔍 Testing Finance Data Filters & Searches...\n";
-$filterRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/partner/dashboard/finance/data', 'GET', [
+$filterRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/merchant/dashboard/finance/data', 'GET', [
     'page' => 1,
     'status' => 'credit',
     'search' => 'Симуляционное пополнение'

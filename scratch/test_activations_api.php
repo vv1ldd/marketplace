@@ -41,7 +41,7 @@ echo "💰 Available Balance: " . $legalEntity->available_balance . " RUB\n\n";
 echo "📋 Testing B2B Activations Listing...\n";
 $controller = new \App\Http\Controllers\PartnerDashboardController();
 
-$request = Illuminate\Http\Request::create('http://' . config('app.domain') . '/partner/dashboard/activations/data', 'GET', [
+$request = Illuminate\Http\Request::create('http://' . config('app.domain') . '/merchant/dashboard/activations/data', 'GET', [
     'page' => 1,
     'status' => 'all'
 ]);
@@ -100,7 +100,7 @@ echo "🎯 Targeting Warehouse: " . $warehouse->name . " (ID: " . $warehouse->id
 
 // 4. Test Balance Validation Rule (Create request with excessive count)
 echo "💸 Testing Balance Enforcement Validation (buying 999999 items)...\n";
-$exceedRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/partner/dashboard/activations/create', 'POST', [
+$exceedRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/merchant/dashboard/activations/create', 'POST', [
     'shop_id' => $shop->id,
     'product_id' => $product->id,
     'warehouse_id' => $warehouse->id,
@@ -119,7 +119,7 @@ if ($exceedResponse->getStatusCode() === 400 && str_contains($exceedData['error'
 
 // 5. Test Successful Creation of Pending Activation request
 echo "\n🚀 Creating Valid Activation Request (Count: 1)...\n";
-$createRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/partner/dashboard/activations/create', 'POST', [
+$createRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/merchant/dashboard/activations/create', 'POST', [
     'shop_id' => $shop->id,
     'product_id' => $product->id,
     'warehouse_id' => $warehouse->id,

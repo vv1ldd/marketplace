@@ -502,10 +502,10 @@ export function AskSearchBox({ initialQuery = '' }) {
             setQuery(event.target.value);
             setIsDismissed(false);
           }}
-          placeholder="Search products or ask Meanly"
+          placeholder="Search products, brands, regions, or values"
           value={query}
         />
-        <button type="submit">Ask</button>
+        <button type="submit">Find</button>
       </form>
       {showDropdown ? (
         <div className="ask-suggestions" onMouseDown={(event) => event.preventDefault()}>

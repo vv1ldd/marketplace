@@ -49,7 +49,7 @@ class PasswordlessLoginTest extends TestCase
     {
         $this->get('/login')
             ->assertOk()
-            ->assertSee('Продолжить через SL1E Identity')
+            ->assertSee('Продолжить через Meanly One')
             ->assertDontSee('Войти с помощью Passkey')
             ->assertDontSee('Войти по паролю');
     }
@@ -83,6 +83,22 @@ class PasswordlessLoginTest extends TestCase
 
         $this->assertGreaterThanOrEqual(2, SovereignLedger::where('event_type', 'AUTH_LOGOUT_INTENT')->where('entity_id', $user->id)->count());
         $this->assertGreaterThanOrEqual(1, SovereignLedger::where('event_type', 'AUTH_LOGOUT_INTENT')->where('entity_id', $partner->id)->count());
+    }
+
+    public function test_json_logout_returns_success_without_legacy_redirect(): void
+    {
+        $user = User::factory()->create();
+        \Spatie\LaravelPasskeys\Models\Passkey::factory()->create([
+            'authenticatable_id' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('logout', [], false))
+            ->assertOk()
+            ->assertJson(['ok' => true])
+            ->assertHeaderMissing('Location');
+
+        $this->assertGuest();
     }
 
     public function test_passkey_delete_records_remove_intent(): void
@@ -218,8 +234,7 @@ class PasswordlessLoginTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('partner.dashboard.finance.deposit'), ['amount' => 1000])
-            ->assertForbidden()
-            ->assertJsonPath('error', 'Forbidden: insufficient partner role for this action.');
+            ->assertStatus(410);
 
         $this->assertSame(100.0, (float) $entity->refresh()->available_balance);
     }
@@ -297,7 +312,7 @@ class PasswordlessLoginTest extends TestCase
             ->assertSee('Получить код')
             ->assertSee('ИНН организации')
             ->assertSee('Найдена организация')
-            ->assertSee('Подключить SL1E и продолжить')
+            ->assertSee('Meanly One')
             ->assertDontSee('Имя владельца профиля')
             ->assertDontSee('Телефон для связи')
             ->assertSee('name="registration_target"', false)

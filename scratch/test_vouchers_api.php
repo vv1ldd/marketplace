@@ -76,7 +76,7 @@ if (!$voucher) {
 echo "📋 Testing B2B Vouchers Listing...\n";
 $controller = new \App\Http\Controllers\PartnerDashboardController();
 
-$request = Illuminate\Http\Request::create('http://' . config('app.domain') . '/partner/dashboard/vouchers/data', 'GET', [
+$request = Illuminate\Http\Request::create('http://' . config('app.domain') . '/merchant/dashboard/vouchers/data', 'GET', [
     'page' => 1,
     'status' => 'all'
 ]);
@@ -106,7 +106,7 @@ if ($response->getStatusCode() === 200 && ($data['success'] ?? false)) {
 
 // 4. Test Search Filters API
 echo "\n🔍 Testing Search Filters...\n";
-$searchRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/partner/dashboard/vouchers/data', 'GET', [
+$searchRequest = Illuminate\Http\Request::create('http://' . config('app.domain') . '/merchant/dashboard/vouchers/data', 'GET', [
     'page' => 1,
     'status' => 'available',
     'search' => 'MOCK'

@@ -2587,7 +2587,7 @@
 
 @php
     $focusedSafeUuid = (string) request()->query('safe', '');
-    $simpleL1ManageUrl = rtrim((string) config('simple_l1.identity_provider_url', 'https://simplel1.online'), '/').'#wallet';
+    $simpleL1ManageUrl = rtrim((string) config('simple_l1.identity_provider_url', config('app.url', 'https://meanly.one')), '/').'#wallet';
 @endphp
 
 <main class="cabinet-container">

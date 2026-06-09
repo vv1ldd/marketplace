@@ -429,12 +429,38 @@ class WildflowService
                 throw new \RuntimeException("Partner [{$terminalId}] not found.");
             }
 
+            $balanceBefore = (float) $entity->available_balance;
             $entity->increment('available_balance', $amount);
+            $entity->refresh();
+
+            app(LedgerService::class)->record(
+                shop: null,
+                eventType: 'OPS_PARTNER_BALANCE_TOP_UP',
+                entity: $entity,
+                payload: [
+                    'amount' => $amount,
+                    'currency' => $entity->currency ?? 'RUB',
+                    'reference' => $reference,
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => (float) $entity->available_balance,
+                ],
+                legalEntity: $entity,
+                triggerSource: 'OPS_PARTNER_BALANCE_TOP_UP',
+                inputData: [
+                    'terminal_id' => $terminalId,
+                    'amount' => $amount,
+                    'reference' => $reference,
+                ],
+                outputState: [
+                    'available_balance' => (float) $entity->available_balance,
+                    'currency' => $entity->currency ?? 'RUB',
+                ],
+            );
 
             return [
                 'success' => true,
                 'partner_id' => $entity->id,
-                'balance' => (float) $entity->fresh()->available_balance,
+                'balance' => (float) $entity->available_balance,
                 'reference' => $reference,
             ];
         }

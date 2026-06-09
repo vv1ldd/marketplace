@@ -31,7 +31,7 @@ $controller = new PartnerDashboardController();
 
 // 2. Fetch all products (page 1)
 echo "📦 [TEST] Invoking getCatalogData (status: all, page: 1)...\n";
-$request = Request::create('/partner/dashboard/catalog/data', 'GET', [
+$request = Request::create('/merchant/dashboard/catalog/data', 'GET', [
     'page' => 1,
     'status' => 'all',
     'search' => ''
@@ -57,7 +57,7 @@ if (isset($data['success']) && $data['success']) {
 if (count($data['products']) > 0) {
     $searchTerm = substr($data['products'][0]['name'], 0, 8);
     echo "🔍 [TEST] Searching catalog products by term: '{$searchTerm}'...\n";
-    $searchRequest = Request::create('/partner/dashboard/catalog/data', 'GET', [
+    $searchRequest = Request::create('/merchant/dashboard/catalog/data', 'GET', [
         'page' => 1,
         'status' => 'all',
         'search' => $searchTerm

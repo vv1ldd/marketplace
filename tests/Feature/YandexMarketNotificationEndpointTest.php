@@ -249,7 +249,10 @@ class YandexMarketNotificationEndpointTest extends TestCase
 
     public function test_yandex_notification_reaches_ezpin_sandbox_and_activates_redeem_code(): void
     {
-        config(['queue.default' => 'sync']);
+        config([
+            'queue.default' => 'sync',
+            'services.wildflow.kernel_url' => 'https://wildflow.test/api/v1',
+        ]);
         Mail::fake();
         Http::fake([
             '*/partners/grant-credit' => Http::response(['success' => true, 'reservation_id' => 'YM-HOLD-1'], 200),

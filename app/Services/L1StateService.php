@@ -49,6 +49,8 @@ class L1StateService
                 case 'FINANCE_TOPUP':
                 case 'FINANCE_DEPOSIT':
                 case 'FINANCE_CREDIT_GRANTED':
+                case 'FINANCE_CREDITED':
+                case 'FINANCE_TRANSFER_CREDIT':
                     if ($asset === 'SL1') {
                         $sl1AvailableBalance += $this->sl1Amount($payload);
                     } else {
@@ -66,6 +68,14 @@ class L1StateService
                         $amount = $this->rubtAmount($payload);
                         $rubtAvailableBalance -= $amount;
                         $rubtReservedBalance += $amount;
+                    }
+                    break;
+
+                case 'FINANCE_TRANSFER_DEBIT':
+                    if ($asset === 'SL1') {
+                        $sl1AvailableBalance -= abs($this->sl1Amount($payload));
+                    } else {
+                        $rubtAvailableBalance -= abs($this->rubtAmount($payload));
                     }
                     break;
 

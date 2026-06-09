@@ -988,6 +988,8 @@ class PartnerDashboardController extends Controller
         $shops = $legalEntity->shops()->withCount(['products', 'orders', 'apiApplications'])->get();
         $channels = $this->workspaceSalesChannels($legalEntity, $shops);
         $capabilities = $this->workspaceCapabilities($legalEntity);
+        $signingPasskey = $this->resolveSimpleLayerOneSigningPasskey($user, $legalEntity);
+        $appIdentityReady = $this->hasActiveSimpleL1AppIdentity($request, $user);
 
         return response()->json([
             'success' => true,
@@ -1032,6 +1034,14 @@ class PartnerDashboardController extends Controller
                 'status' => (string) $legalEntity->status,
                 'is_active' => (bool) $legalEntity->is_active,
             ],
+            'identity_security' => [
+                'passkey_ready' => (bool) $signingPasskey,
+                'app_identity_ready' => $appIdentityReady,
+                'signing_ready' => (bool) $signingPasskey || $appIdentityReady,
+                'signing_method' => $signingPasskey ? 'passkey' : ($appIdentityReady ? 'simple_l1_app' : null),
+                'passkey_setup_url' => '/vault/register?return_to=/merchant/catalog',
+                'app_connect_url' => '/simple-l1/connect?mode=login&return_to=/merchant/catalog&intent_type=merchant.stock.sign&intent_title=Merchant%20stock%20purchase&intent_cta=Continue',
+            ],
             'capabilities' => $capabilities,
             'navigation' => $this->workspaceNavigation($capabilities),
             'shops' => $shops->map(fn (Shop $shop): array => [
@@ -1052,8 +1062,13 @@ class PartnerDashboardController extends Controller
                 'revenue_30_days' => (float) ($stats['revenue_30_days'] ?? 0),
             ],
             'catalog_summary' => [
-                'products' => \App\Models\Product::whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))->count(),
-                'active_products' => \App\Models\Product::whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))->where('is_active', true)->count(),
+                'catalog_available' => (clone $this->storefrontProductsQuery($legalEntity))->count(),
+                'supply_products' => \App\Models\Product::whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))->count(),
+                'active_supply_products' => \App\Models\Product::whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))->where('is_active', true)->count(),
+                'stock_units' => \App\Models\ProductInventory::whereHas('shop', fn ($query) => $query->where('legal_entity_id', $legalEntity->id))
+                    ->where('is_used', false)
+                    ->where('status', 'available')
+                    ->count(),
                 'market_errors' => (int) ($stats['market_errors_count'] ?? 0),
             ],
             'finance_summary' => [
@@ -1070,7 +1085,7 @@ class PartnerDashboardController extends Controller
             'alerts' => $this->workspaceAlerts($legalEntity, $stats, $channels),
             'module_endpoints' => $this->workspaceModuleEndpoints(),
             'actions' => $this->workspaceActionEndpoints(),
-            'legacy_url' => url('/partner/legacy'),
+            'legacy_url' => url('/merchant/legacy'),
             'generated_at' => now()->toIso8601String(),
         ]);
     }
@@ -1098,16 +1113,16 @@ class PartnerDashboardController extends Controller
     private function workspaceNavigation(array $capabilities): array
     {
         return collect([
-            ['key' => 'overview', 'label' => 'Overview', 'href' => '/partner'],
-            ['key' => 'sales_channels', 'label' => 'Sales Channels', 'href' => '/partner/channels'],
-            ['key' => 'orders', 'label' => 'Orders', 'href' => '/partner/orders'],
-            ['key' => 'catalog', 'label' => 'Catalog', 'href' => '/partner/catalog'],
-            ['key' => 'provider_storefront', 'label' => 'Supply', 'href' => '/partner/storefront'],
-            ['key' => 'warehouses', 'label' => 'Stock', 'href' => '/partner/warehouses'],
-            ['key' => 'vouchers', 'label' => 'Vouchers', 'href' => '/partner/vouchers'],
-            ['key' => 'finance', 'label' => 'Finance', 'href' => '/partner/finance'],
-            ['key' => 'support', 'label' => 'Support', 'href' => '/partner/support'],
-            ['key' => 'settings', 'label' => 'Settings', 'href' => '/partner/settings'],
+            ['key' => 'overview', 'label' => 'Overview', 'href' => '/merchant'],
+            ['key' => 'sales_channels', 'label' => 'Sales Channels', 'href' => '/merchant/channels'],
+            ['key' => 'orders', 'label' => 'Orders', 'href' => '/merchant/orders'],
+            ['key' => 'catalog', 'label' => 'Catalog', 'href' => '/merchant/catalog'],
+            ['key' => 'provider_storefront', 'label' => 'Supply', 'href' => '/merchant/storefront'],
+            ['key' => 'warehouses', 'label' => 'Stock', 'href' => '/merchant/warehouses'],
+            ['key' => 'vouchers', 'label' => 'Vouchers', 'href' => '/merchant/vouchers'],
+            ['key' => 'finance', 'label' => 'Finance', 'href' => '/merchant/finance'],
+            ['key' => 'support', 'label' => 'Support', 'href' => '/merchant/support'],
+            ['key' => 'settings', 'label' => 'Settings', 'href' => '/merchant/settings'],
         ])->map(fn (array $item): array => $item + [
             'enabled' => (bool) ($capabilities[$item['key']] ?? false),
             'disabled_reason' => (bool) ($capabilities[$item['key']] ?? false)
@@ -1221,26 +1236,28 @@ class PartnerDashboardController extends Controller
     private function workspaceModuleEndpoints(): array
     {
         return [
-            'orders' => url('/partner/dashboard/orders/data'),
-            'catalog' => url('/partner/dashboard/catalog/data'),
-            'shops' => url('/partner/dashboard/shops/data'),
-            'tickets' => url('/partner/dashboard/tickets/data'),
-            'provider_storefront' => url('/partner/dashboard/storefront/products'),
-            'warehouses' => url('/partner/dashboard/warehouses/data'),
-            'activations' => url('/partner/dashboard/activations/data'),
-            'vouchers' => url('/partner/dashboard/vouchers/data'),
-            'finance' => url('/partner/dashboard/finance/data'),
+            'orders' => '/api/partner/workspace/orders',
+            'catalog' => '/api/partner/workspace/catalog',
+            'shops' => '/api/partner/workspace/shops',
+            'tickets' => '/api/partner/workspace/tickets',
+            'provider_storefront' => '/api/partner/workspace/supply',
+            'warehouses' => '/api/partner/workspace/warehouses',
+            'activations' => '/api/partner/workspace/activations',
+            'vouchers' => '/api/partner/workspace/vouchers',
+            'finance' => '/api/partner/workspace/finance',
         ];
     }
 
     private function workspaceActionEndpoints(): array
     {
         return [
-            'orders_sync' => url('/partner/dashboard/orders/sync'),
-            'shop_create' => url('/partner/dashboard/shop/create'),
-            'ticket_create' => url('/partner/dashboard/tickets/create'),
-            'warehouse_create' => url('/partner/dashboard/warehouses/create'),
-            'storefront_add_to_catalog' => url('/partner/dashboard/storefront/add-to-catalog'),
+            'orders_sync' => '/api/partner/workspace/orders/sync',
+            'shop_create' => '/merchant/dashboard/shop/create',
+            'ticket_create' => '/merchant/dashboard/tickets/create',
+            'warehouse_create' => '/merchant/dashboard/warehouses/create',
+            'storefront_add_to_catalog' => '/api/partner/workspace/storefront/add-to-catalog',
+            'storefront_buy_once' => '/api/partner/workspace/storefront/buy-once',
+            'storefront_buy_options' => '/api/partner/workspace/storefront/buy-options',
         ];
     }
 
@@ -1761,12 +1778,12 @@ class PartnerDashboardController extends Controller
                 entity: $legalEntity,
                 payload: [
                     'intent_token' => $token,
-                    'asset' => 'RUBT',
+                    'asset' => 'RUB',
                     'amount' => $amount,
                     'amount_rub' => $amount,
                     'token_amount' => $amount,
                     'currency' => 'RUB',
-                    'token_currency' => 'RUBT',
+                    'token_currency' => 'RUB',
                     'backing_currency' => 'RUB',
                     'backing_ratio' => 1,
                     'clearing_type' => 'SBP_AUTOMATED',
@@ -2524,9 +2541,11 @@ class PartnerDashboardController extends Controller
             'balance' => $legalEntity->available_balance,
             'surface' => 'seller_provider_sourcing',
             'routes' => [
-                'provider_catalog_data' => route('partner.dashboard.provider_catalog.data'),
-                'add_to_catalog' => route('partner.dashboard.storefront.add_to_catalog'),
-                'check_availability' => route('partner.dashboard.storefront.check_availability'),
+                'provider_catalog_data' => '/merchant/dashboard/provider-catalog/data',
+                'add_to_catalog' => '/api/partner/workspace/storefront/add-to-catalog',
+                'buy_once' => '/api/partner/workspace/storefront/buy-once',
+                'buy_options' => '/api/partner/workspace/storefront/buy-options',
+                'check_availability' => '/api/partner/workspace/storefront/check-availability',
             ],
         ]);
     }
@@ -2583,7 +2602,7 @@ class PartnerDashboardController extends Controller
 
         $count = (int) $request->count;
         $amount = $request->amount ? (float) $request->amount : null;
-        $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method', 'rub_token'));
+        $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method', 'rub'));
 
         $limits = $payload;
         $minQuantity = (int) $limits['min_purchase_quantity'];
@@ -2606,7 +2625,9 @@ class PartnerDashboardController extends Controller
         ]);
         $signatureCredentialId = null;
         $transactionProof = null;
-        $signatureError = $this->requireStorefrontPasskeySignature($request, $user, $signedPayload, $signatureCredentialId, $transactionProof);
+        $signatureError = $request->boolean('simple_l1_sign')
+            ? $this->requireStorefrontSimpleL1AppSignature($request, $user, $legalEntity, $signedPayload, $transactionProof)
+            : $this->requireStorefrontPasskeySignature($request, $user, $signedPayload, $signatureCredentialId, $transactionProof);
         if ($signatureError) {
             return $signatureError;
         }
@@ -2628,7 +2649,7 @@ class PartnerDashboardController extends Controller
             return response()->json([
                 'success' => true,
                 'stock_count' => $count,
-                'currency' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+                'currency' => $paymentMethod === 'native_token' ? 'SL1' : 'RUB',
                 'payment_method' => $paymentMethod,
                 'sales_channels' => $selectedChannels,
                 'message' => $count > 0
@@ -2661,7 +2682,7 @@ class PartnerDashboardController extends Controller
             'shop_id' => $request->shop_id,
             'count' => max(1, (int) $request->input('count', 1)),
             'amount' => $request->amount,
-            'payment_method' => 'rub_token',
+            'payment_method' => 'rub',
             'sales_channels' => [],
         ]);
 
@@ -2695,6 +2716,19 @@ class PartnerDashboardController extends Controller
             ]);
 
             return response()->json(['error' => 'Не передан payload Simple Layer One транзакции.'], 422);
+        }
+
+        $intent = $this->normalizeStorefrontSigningPayload($transaction);
+        $record = \App\Models\ProviderProduct::query()
+            ->whereKey($intent['provider_product_id'])
+            ->where('is_active', true)
+            ->first();
+        $shop = $legalEntity->shops()->find($intent['shop_id']);
+        if (!$record || !$shop) {
+            return response()->json(['error' => 'Товар или магазин больше недоступны для закупки.'], 422);
+        }
+        if (!$this->resolveSimpleLayerOneSigningPasskey($user, $legalEntity)) {
+            return response()->json(['error' => 'Для закупки stock нужен Passkey в этой identity. Добавьте Passkey или выберите identity с Passkey.'], 422);
         }
 
         $txEnvelope = $this->buildStorefrontSimpleLayerOneTransaction($user, $legalEntity, $transaction);
@@ -2821,6 +2855,67 @@ class PartnerDashboardController extends Controller
         }
     }
 
+    private function hasActiveSimpleL1AppIdentity(\Illuminate\Http\Request $request, \App\Models\User $user): bool
+    {
+        $userAddress = strtolower((string) $user->sovereignIdentityAddress());
+        if ($userAddress === '') {
+            return false;
+        }
+
+        if (!$request->hasSession()) {
+            return true;
+        }
+
+        $identity = $request->session()->get('simple_l1_identity');
+        if (!is_array($identity)) {
+            return true;
+        }
+
+        $sessionAddress = strtolower((string) (data_get($identity, 'entity_l1_address') ?: data_get($identity, 'l1_address')));
+
+        return $sessionAddress !== ''
+            && hash_equals($userAddress, $sessionAddress);
+    }
+
+    private function requireStorefrontSimpleL1AppSignature(
+        \Illuminate\Http\Request $request,
+        \App\Models\User $user,
+        \App\Models\LegalEntity $legalEntity,
+        array $expectedTransaction,
+        ?array &$transactionProof = null
+    ): ?\Illuminate\Http\JsonResponse {
+        if (!$this->hasActiveSimpleL1AppIdentity($request, $user)) {
+            return response()->json([
+                'error' => 'Open Meanly.one on this device before buying stock or making a one-time purchase.',
+            ], 422);
+        }
+
+        $txEnvelope = $this->buildStorefrontSimpleLayerOneAppSessionTransaction($request, $user, $legalEntity, $expectedTransaction);
+        if (!$txEnvelope) {
+            return response()->json(['error' => 'Could not prepare a Meanly.one signed transaction for this purchase.'], 422);
+        }
+
+        if ($this->simpleLayerOneNonceUsed((string) data_get($txEnvelope, 'payload.nonce'))) {
+            return response()->json(['error' => 'Simple Layer One nonce was already used. Try again.'], 422);
+        }
+
+        $identity = $request->hasSession() ? $request->session()->get('simple_l1_identity', []) : [];
+        $transactionProof = [
+            'valid' => true,
+            'signature_method' => 'simple_l1_app_session',
+            'tx_hash' => $txEnvelope['tx_hash'],
+            'tx_nonce' => $txEnvelope['payload']['nonce'],
+            'l1_address' => $txEnvelope['payload']['buyer_l1_address'],
+            'key_l1_address' => (string) data_get($identity, 'key_l1_address'),
+            'proof_token_hash' => (string) data_get($identity, 'proof_token_hash'),
+            'canonical_payload' => $txEnvelope['payload'],
+            'canonical_json' => $txEnvelope['canonical_json'],
+            'connected_at' => (string) data_get($identity, 'connected_at'),
+        ];
+
+        return null;
+    }
+
     private function normalizeStorefrontSigningPayload(array $payload): array
     {
         $salesChannels = \App\Support\SalesChannels::normalizeSelection($payload['sales_channels'] ?? []);
@@ -2836,14 +2931,14 @@ class PartnerDashboardController extends Controller
             'shop_id' => (int) ($payload['shop_id'] ?? 0),
             'count' => (int) ($payload['count'] ?? $payload['quantity'] ?? 0),
             'amount' => $amount,
-            'payment_method' => $this->normalizePaymentMethod($payload['payment_method'] ?? 'rub_token'),
+            'payment_method' => $this->normalizePaymentMethod($payload['payment_method'] ?? 'rub'),
             'sales_channels' => $salesChannels,
         ];
     }
 
     private function normalizePaymentMethod(?string $paymentMethod): string
     {
-        return $paymentMethod === 'native_token' ? 'native_token' : 'rub_token';
+        return $paymentMethod === 'native_token' ? 'native_token' : 'rub';
     }
 
     private function storefrontSigningFingerprint(array $payload): string
@@ -2890,6 +2985,69 @@ class PartnerDashboardController extends Controller
             'buyer_legal_entity_id' => (int) $legalEntity->id,
             'buyer_l1_address' => app(\App\Services\L1IdentityService::class)->addressFromPasskey($signingPasskey),
             'signer_passkey_id' => (int) $signingPasskey->id,
+            'seller_provider_id' => (int) ($record->provider_id ?? 0),
+            'product' => [
+                'provider_product_id' => (int) $record->id,
+                'sku' => (string) ($record->market_sku ?? $record->sku ?? ''),
+                'service_sku' => (string) ($record->service_sku ?? ''),
+            ],
+            'shop_id' => (int) $shop->id,
+            'qty' => (int) $intent['count'],
+            'nominal_amount' => $intent['amount'],
+            'payment_method' => $intent['payment_method'],
+            'sales_channels' => $intent['sales_channels'],
+            'nonce' => (string) \Illuminate\Support\Str::uuid(),
+            'timestamp' => now()->toJSON(),
+        ];
+        $canonicalJson = $this->canonicalJson($payload);
+
+        return [
+            'intent' => $intent,
+            'intent_hash' => $this->storefrontSigningFingerprint($intent),
+            'payload' => $payload,
+            'canonical_json' => $canonicalJson,
+            'tx_hash' => hash('sha256', $canonicalJson),
+        ];
+    }
+
+    private function buildStorefrontSimpleLayerOneAppSessionTransaction(
+        \Illuminate\Http\Request $request,
+        \App\Models\User $user,
+        \App\Models\LegalEntity $legalEntity,
+        array $transaction
+    ): ?array {
+        $intent = $this->normalizeStorefrontSigningPayload($transaction);
+        $record = \App\Models\ProviderProduct::query()
+            ->whereKey($intent['provider_product_id'])
+            ->where('is_active', true)
+            ->first();
+        $shop = $legalEntity->shops()->find($intent['shop_id']);
+        $buyerAddress = strtolower((string) $user->sovereignIdentityAddress());
+
+        if (!$record || !$shop || $buyerAddress === '') {
+            return null;
+        }
+
+        $intent['sales_channels'] = \App\Support\SalesChannels::filterSelectionForShop(
+            $intent['sales_channels'],
+            $shop
+        );
+        sort($intent['sales_channels']);
+
+        $settlement = $this->storefrontSettlementForSignature($record, $shop, $intent);
+        $identity = $request->hasSession() ? $request->session()->get('simple_l1_identity', []) : [];
+        $payload = [
+            'network' => 'Simple Layer One',
+            'version' => 1,
+            'action' => $intent['action'],
+            'asset' => $settlement['asset'],
+            'amount' => $settlement['token_amount'],
+            'amount_rub' => $settlement['amount_rub'],
+            'gas_fee_sl1' => $settlement['gas_fee_sl1'],
+            'buyer_legal_entity_id' => (int) $legalEntity->id,
+            'buyer_l1_address' => $buyerAddress,
+            'buyer_key_l1_address' => (string) data_get($identity, 'key_l1_address'),
+            'signature_method' => 'simple_l1_app_session',
             'seller_provider_id' => (int) ($record->provider_id ?? 0),
             'product' => [
                 'provider_product_id' => (int) $record->id,
@@ -2967,14 +3125,14 @@ class PartnerDashboardController extends Controller
             $totalCostRub = $tariffPriceRub * $quantity;
         }
 
-        $paymentMethod = $this->normalizePaymentMethod($intent['payment_method'] ?? 'rub_token');
+        $paymentMethod = $this->normalizePaymentMethod($intent['payment_method'] ?? 'rub');
         $gasFeeSl1 = $paymentMethod === 'native_token' ? 0.0015 : 0.0;
         $assetAmount = $paymentMethod === 'native_token'
             ? round(($totalCostRub / 100.0) + $gasFeeSl1, 8)
             : round($totalCostRub, 4);
 
         return [
-            'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+            'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUB',
             'amount_rub' => round($totalCostRub, 4),
             'token_amount' => $assetAmount,
             'gas_fee_sl1' => $gasFeeSl1,
@@ -3063,9 +3221,25 @@ class PartnerDashboardController extends Controller
             return true;
         }
 
+        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite') {
+            return \App\Models\SovereignLedger::query()
+                ->whereNotNull('payload')
+                ->get(['payload'])
+                ->contains(function (\App\Models\SovereignLedger $entry) use ($nonce): bool {
+                    return (string) data_get($entry->payload, 'simple_layer_one.tx_nonce') === $nonce
+                        || (string) data_get($entry->payload, 'tx_nonce') === $nonce;
+                });
+        }
+
         return \App\Models\SovereignLedger::query()
-            ->where('payload->simple_layer_one->tx_nonce', $nonce)
-            ->orWhere('payload->tx_nonce', $nonce)
+            ->whereRaw(
+                "(CASE WHEN JSON_VALID(payload) THEN JSON_UNQUOTE(JSON_EXTRACT(payload, '$.\"simple_layer_one\".\"tx_nonce\"')) ELSE NULL END) = ?",
+                [$nonce]
+            )
+            ->orWhereRaw(
+                "(CASE WHEN JSON_VALID(payload) THEN JSON_UNQUOTE(JSON_EXTRACT(payload, '$.\"tx_nonce\"')) ELSE NULL END) = ?",
+                [$nonce]
+            )
             ->exists();
     }
 
@@ -3269,7 +3443,7 @@ class PartnerDashboardController extends Controller
             'assertion' => 'nullable|array',
         ]);
 
-        $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method', 'rub_token'));
+        $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method', 'rub'));
         $signatureCredentialId = null;
         $transactionProof = null;
 
@@ -3323,7 +3497,9 @@ class PartnerDashboardController extends Controller
             'payment_method' => $paymentMethod,
             'sales_channels' => [],
         ]);
-        $signatureError = $this->requireStorefrontPasskeySignature($request, $user, $signedPayload, $signatureCredentialId, $transactionProof);
+        $signatureError = $request->boolean('simple_l1_sign')
+            ? $this->requireStorefrontSimpleL1AppSignature($request, $user, $legalEntity, $signedPayload, $transactionProof)
+            : $this->requireStorefrontPasskeySignature($request, $user, $signedPayload, $signatureCredentialId, $transactionProof);
         if ($signatureError) {
             return $signatureError;
         }
@@ -3344,10 +3520,10 @@ class PartnerDashboardController extends Controller
             }
         } else {
             $balances = app(\App\Services\L1StateService::class)->reconstructBalance($legalEntity);
-            $availableRubt = $balances['rubt_available_balance'] ?? $balances['available_balance'] ?? 0.0;
-            if ($availableRubt < $totalCostRub) {
+            $availableRub = $balances['rub_available_balance'] ?? $balances['rubt_available_balance'] ?? $balances['available_balance'] ?? 0.0;
+            if ($availableRub < $totalCostRub) {
                 return response()->json([
-                    'error' => "Недостаточно RUBT. Требуется " . number_format($totalCostRub, 2) . " RUBT, доступно " . number_format($availableRubt, 2) . " RUBT."
+                    'error' => "Недостаточно RUB. Требуется " . number_format($totalCostRub, 2) . " RUB, доступно " . number_format($availableRub, 2) . " RUB."
                 ], 422);
             }
         }
@@ -3381,14 +3557,16 @@ class PartnerDashboardController extends Controller
                 $l1Clearing->processClearingQueue();
 
                 // 3. Verify success in the ledger stream
-                $replenishBlock = \App\Models\SovereignLedger::where('event_type', 'STOCK_REPLENISH')
-                    ->where('payload->reference_code', $orderReference)
-                    ->first();
+                $ledgerBlockForReference = static function (string $eventType) use ($orderReference) {
+                    return \App\Models\SovereignLedger::where('event_type', $eventType)
+                        ->latest('id')
+                        ->get()
+                        ->first(fn ($entry): bool => (string) data_get($entry->payload, 'reference_code') === $orderReference);
+                };
+                $replenishBlock = $ledgerBlockForReference('STOCK_REPLENISH');
 
                 if (!$replenishBlock) {
-                    $failBlock = \App\Models\SovereignLedger::where('event_type', 'FINANCE_RELEASE_HOLD')
-                        ->where('payload->reference_code', $orderReference)
-                        ->first();
+                    $failBlock = $ledgerBlockForReference('FINANCE_RELEASE_HOLD');
                     $reason = $failBlock ? data_get($failBlock->payload, 'reason', 'Clearing failed') : 'Clearing failed';
 
                     if ($reason === 'OUT_OF_STOCK') {
@@ -3421,13 +3599,13 @@ class PartnerDashboardController extends Controller
                 ]);
 
                 app(\App\Services\LedgerService::class)->record($shop, 'FINANCE_CAPTURE', $order, [
-                    'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+                    'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUB',
                     'amount_rub'  => $totalCostRub,
                     'token_amount' => $paymentMethod === 'native_token' ? $costSl1 : $totalCostRub,
                     'reference'   => $orderReference,
                     'description' => $paymentMethod === 'native_token'
                         ? 'Simple Layer One Ledger списание за суверенную закупку товара ×' . $quantity . ' в SL1'
-                        : 'Simple Layer One Ledger списание за суверенную закупку товара ×' . $quantity . ' в RUBT',
+                        : 'Simple Layer One Ledger списание за суверенную закупку товара ×' . $quantity . ' в RUB',
                     'payment_method' => $paymentMethod,
                     'assertion_id' => $signatureCredentialId,
                     'simple_layer_one' => $transactionProof,
@@ -3491,11 +3669,11 @@ class PartnerDashboardController extends Controller
                 return response()->json([
                     'success' => true,
                     'total_cost' => $paymentMethod === 'native_token' ? $totalCostSl1 : $totalCostRub,
-                    'currency' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+                    'currency' => $paymentMethod === 'native_token' ? 'SL1' : 'RUB',
                     'vouchers' => $voucherKeys,
                     'message' => $paymentMethod === 'native_token'
                         ? "Покупка успешно подтверждена в блоке Simple Layer One Ledger! Списано: " . number_format($totalCostSl1, 4) . " SL1 (включая 0.0015 SL1 комиссию сети)."
-                        : "Покупка успешно подтверждена в блоке Simple Layer One Ledger! Списано: " . number_format($totalCostRub, 2) . " RUBT."
+                        : "Покупка успешно подтверждена в блоке Simple Layer One Ledger! Списано: " . number_format($totalCostRub, 2) . " RUB."
                 ] + $this->simpleLayerOneReceiptPayload($transactionProof));
 
             } catch (\Exception $e) {
@@ -3507,14 +3685,11 @@ class PartnerDashboardController extends Controller
         }
 
         try {
-            $vault = app(\App\Services\VaultTransitService::class);
-            $serviceSku = $vault->decrypt($wf->service_sku);
-            
-            $wfService = new \App\Services\WildflowService();
-            $availability = $wfService->checkAvailability(
-                service_sku: (string)$serviceSku,
-                quantity: $quantity,
-                price: $isVariable ? (float)$nominalAmount : null
+            $availability = app(\App\Services\StorefrontStockAvailabilityService::class)->check(
+                $wf,
+                $quantity,
+                $isVariable ? (float)$nominalAmount : null,
+                (string) $legalEntity->id
             );
 
             if (!$availability['available']) {
@@ -3530,7 +3705,7 @@ class PartnerDashboardController extends Controller
                 return response()->json(['error' => 'Товара временно нет в наличии у поставщика.'], 422);
             }
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Не удалось связаться с поставщиком для проверки наличия товара: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Не удалось проверить наличие товара: ' . $e->getMessage()], 500);
         }
 
         try {
@@ -3564,13 +3739,13 @@ class PartnerDashboardController extends Controller
             ]);
 
             app(\App\Services\LedgerService::class)->record($shop, 'FINANCE_CAPTURE', $order, [
-                'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+                'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUB',
                 'amount_rub'  => $totalCostRub,
                 'token_amount' => $paymentMethod === 'native_token' ? $costSl1 : $totalCostRub,
                 'reference'   => $orderReference,
                 'description' => $paymentMethod === 'native_token'
                     ? 'Списание за разовую закупку товара ×' . $quantity . ' в SL1'
-                    : 'Списание за разовую закупку товара ×' . $quantity . ' в RUBT',
+                    : 'Списание за разовую закупку товара ×' . $quantity . ' в RUB',
                 'payment_method' => $paymentMethod,
                 'assertion_id' => $signatureCredentialId,
                 'simple_layer_one' => $transactionProof,
@@ -3629,11 +3804,11 @@ class PartnerDashboardController extends Controller
             return response()->json([
                 'success' => true,
                 'total_cost' => $paymentMethod === 'native_token' ? $totalCostSl1 : $totalCostRub,
-                'currency' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+                'currency' => $paymentMethod === 'native_token' ? 'SL1' : 'RUB',
                 'vouchers' => $voucherKeys,
                 'message' => $paymentMethod === 'native_token'
                     ? "Покупка успешно подтверждена! Списано: " . number_format($totalCostSl1, 4) . " SL1 (включая 0.0015 SL1 комиссию сети)."
-                    : "Покупка успешно подтверждена! Списано: " . number_format($totalCostRub, 2) . " RUBT."
+                    : "Покупка успешно подтверждена! Списано: " . number_format($totalCostRub, 2) . " RUB."
             ] + $this->simpleLayerOneReceiptPayload($transactionProof));
 
         } catch (\Exception $e) {
@@ -4103,7 +4278,7 @@ class PartnerDashboardController extends Controller
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
 
-        $legalEntity = $user->legalEntities()->first();
+        $legalEntity = $this->currentLegalEntity($user);
         if (!$legalEntity) {
             return response()->json(['error' => 'No legal entity configured'], 400);
         }
@@ -4937,7 +5112,7 @@ class PartnerDashboardController extends Controller
         $user = Auth::user();
         if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
 
-        $legalEntity = $user->legalEntities()->first();
+        $legalEntity = $this->currentLegalEntity($user);
         if (!$legalEntity) return response()->json(['error' => 'Legal Entity not found'], 404);
 
         $shops = $legalEntity->shops;
@@ -5128,6 +5303,14 @@ class PartnerDashboardController extends Controller
                 ];
             });
 
+        $depositIntents = \App\Models\MerchantDepositIntent::query()
+            ->with(['proofs' => fn ($query) => $query->with('authorityVerdicts')->latest('id')->limit(1), 'targetLegalEntity', 'authorityVerdicts'])
+            ->where('legal_entity_id', $legalEntity->id)
+            ->latest('id')
+            ->limit(20)
+            ->get()
+            ->map(fn (\App\Models\MerchantDepositIntent $intent): array => $this->formatMerchantDepositIntent($intent));
+
         return response()->json([
             'success' => true,
             'balances' => [
@@ -5139,11 +5322,160 @@ class PartnerDashboardController extends Controller
                 'total_formatted' => number_format($legalEntity->balance ?? 0.00, 2, '.', ' ') . ' ₽',
             ],
             'transactions' => $transactions,
+            'deposit_rails' => $this->merchantDepositRails(),
+            'deposit_intents' => $depositIntents,
             'sovereign_requests' => $sovereignRequests,
             'current_page' => $paginator->currentPage(),
             'last_page' => $paginator->lastPage(),
             'total' => $paginator->total(),
         ]);
+    }
+
+    public function createMerchantDepositIntent(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
+
+        $legalEntity = $this->currentLegalEntity($user);
+        if (!$legalEntity) return response()->json(['error' => 'Legal Entity not found'], 404);
+
+        $data = $request->validate([
+            'rail' => 'required|string|in:invoice_manual,crypto_usdt_usdc,payment_provider,merchant_transfer,ops_manual_credit',
+            'amount' => 'required|numeric|min:0.01|max:999999999',
+            'comment' => 'nullable|string|max:500',
+            'target_legal_entity_id' => 'nullable|integer|exists:legal_entities,id',
+            'idempotency_key' => 'nullable|string|max:160',
+        ]);
+
+        $intent = app(\App\Services\MerchantSettlementService::class)->issueIntent(
+            legalEntity: $legalEntity,
+            createdBy: $user,
+            rail: $data['rail'],
+            amount: (float) $data['amount'],
+            options: [
+                'comment' => $data['comment'] ?? '',
+                'target_legal_entity_id' => $data['target_legal_entity_id'] ?? null,
+                'idempotency_key' => $data['idempotency_key'] ?? null,
+            ],
+        );
+
+        return response()->json([
+            'success' => true,
+            'intent' => $this->formatMerchantDepositIntent($intent->loadMissing(['proofs.authorityVerdicts', 'targetLegalEntity', 'authorityVerdicts'])),
+            'balances' => [
+                'available' => (float) $legalEntity->refresh()->available_balance,
+                'reserved' => (float) $legalEntity->reserved_balance,
+                'total' => (float) $legalEntity->balance,
+            ],
+        ], $intent->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function showMerchantDepositIntent(Request $request, \App\Models\MerchantDepositIntent $merchantDepositIntent)
+    {
+        $user = Auth::user();
+        if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
+
+        $legalEntity = $this->currentLegalEntity($user);
+        if (!$legalEntity || (int) $merchantDepositIntent->legal_entity_id !== (int) $legalEntity->id) {
+            return response()->json(['error' => 'Deposit intent not found'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'intent' => $this->formatMerchantDepositIntent($merchantDepositIntent->loadMissing(['proofs.authorityVerdicts', 'targetLegalEntity', 'authorityVerdicts'])),
+        ]);
+    }
+
+    public function cancelMerchantDepositIntent(Request $request, \App\Models\MerchantDepositIntent $merchantDepositIntent)
+    {
+        $user = Auth::user();
+        if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
+
+        $legalEntity = $this->currentLegalEntity($user);
+        if (!$legalEntity || (int) $merchantDepositIntent->legal_entity_id !== (int) $legalEntity->id) {
+            return response()->json(['error' => 'Deposit intent not found'], 404);
+        }
+
+        $intent = app(\App\Services\MerchantSettlementService::class)->cancelIntent($merchantDepositIntent, $legalEntity);
+
+        return response()->json([
+            'success' => true,
+            'intent' => $this->formatMerchantDepositIntent($intent->loadMissing(['proofs.authorityVerdicts', 'targetLegalEntity', 'authorityVerdicts'])),
+        ]);
+    }
+
+    private function merchantDepositRails(): array
+    {
+        return [
+            ['key' => 'invoice_manual', 'title' => 'Invoice', 'description' => 'Create an invoice/reference and wait for Ops proof.'],
+            ['key' => 'crypto_usdt_usdc', 'title' => 'Crypto', 'description' => 'Stablecoin deposit placeholder for future watcher/webhook proof.'],
+            ['key' => 'payment_provider', 'title' => 'Payment link', 'description' => 'Checkout placeholder for future provider proof.'],
+            ['key' => 'merchant_transfer', 'title' => 'Merchant transfer', 'description' => 'Move RUB from one merchant legal entity to another.'],
+            ['key' => 'ops_manual_credit', 'title' => 'Ops review', 'description' => 'Request manual reviewed credit with attached proof.'],
+        ];
+    }
+
+    private function formatMerchantDepositIntent(\App\Models\MerchantDepositIntent $intent): array
+    {
+        $proofs = $intent->relationLoaded('proofs') ? $intent->proofs : collect();
+        $latestProof = $proofs->sortByDesc('id')->first();
+        $latestVerdict = ($intent->relationLoaded('authorityVerdicts') ? $intent->authorityVerdicts : collect())
+            ->merge($latestProof?->authorityVerdicts ?? collect())
+            ->sortByDesc('id')
+            ->first();
+        $rail = collect($this->merchantDepositRails())->firstWhere('key', $intent->rail);
+
+        return [
+            'id' => $intent->id,
+            'reference' => $intent->reference,
+            'rail' => $intent->rail,
+            'rail_title' => $rail['title'] ?? $intent->rail,
+            'status' => $intent->status,
+            'amount' => (float) $intent->amount,
+            'amount_formatted' => number_format((float) $intent->amount, 2, '.', ' ') . ' ₽',
+            'currency' => $intent->currency,
+            'invoice_payload' => $intent->invoice_payload ?? [],
+            'provider_payload' => $intent->provider_payload ?? [],
+            'metadata' => $intent->metadata ?? [],
+            'target_legal_entity' => $intent->targetLegalEntity ? [
+                'id' => $intent->targetLegalEntity->id,
+                'name' => $intent->targetLegalEntity->short_name ?: $intent->targetLegalEntity->name,
+            ] : null,
+            'proof' => $latestProof ? [
+                'id' => $latestProof->id,
+                'source' => $latestProof->source,
+                'status' => $latestProof->status,
+                'external_reference' => $latestProof->external_reference,
+                'confirmed_amount' => (float) $latestProof->confirmed_amount,
+                'credited_ledger_id' => $latestProof->credited_ledger_id,
+            ] : null,
+            'authority' => $latestVerdict ? [
+                'id' => $latestVerdict->id,
+                'policy_key' => $latestVerdict->policy_key,
+                'status' => $latestVerdict->status,
+                'decision' => $latestVerdict->decision,
+                'reason_code' => $latestVerdict->reason_code,
+                'required_quorum' => (int) $latestVerdict->required_quorum,
+                'accepted_attestations' => (int) $latestVerdict->accepted_attestations,
+                'credited_ledger_id' => $latestVerdict->credited_ledger_id,
+            ] : null,
+            'next_action' => match ($intent->status) {
+                'waiting_payment' => $intent->rail === 'merchant_transfer' ? 'Transfer pending.' : 'Pay or wait for external proof.',
+                'proof_received' => 'Ops review is in progress.',
+                'waiting_authority' => $latestVerdict
+                    ? "Authority {$latestVerdict->decision}: {$latestVerdict->accepted_attestations}/{$latestVerdict->required_quorum} attestations."
+                    : 'Waiting for validator attestation.',
+                'confirmed' => 'Authority policy is evaluating the proof.',
+                'credited' => 'Balance credited.',
+                'cancelled' => 'Intent cancelled.',
+                'rejected' => 'Proof rejected.',
+                default => 'Intent issued.',
+            },
+            'issued_at' => $intent->issued_at?->toJSON(),
+            'expires_at' => $intent->expires_at?->toJSON(),
+            'created_at' => $intent->created_at?->toJSON(),
+            'created_at_formatted' => $intent->created_at ? $intent->created_at->format('d.m.Y H:i') : '—',
+        ];
     }
 
     public function traceSimpleLayer1(Request $request)
@@ -5203,12 +5535,12 @@ class PartnerDashboardController extends Controller
                 'FINANCE_DEPOSIT',
                 $legalEntity,
                 [
-                    'asset' => 'RUBT',
+                    'asset' => 'RUB',
                     'amount' => $amount,
                     'amount_rub' => $amount,
                     'token_amount' => $amount,
                     'currency' => 'RUB',
-                    'token_currency' => 'RUBT',
+                    'token_currency' => 'RUB',
                     'backing_currency' => 'RUB',
                     'backing_ratio' => 1,
                     'description' => "Симуляционное пополнение баланса мерчанта на " . number_format($amount, 2, '.', ' ') . " ₽",

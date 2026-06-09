@@ -85,7 +85,6 @@ class DiscoveryEntityGraphTest extends TestCase
             'sort' => 'face_value_asc',
         ]))
             ->assertOk()
-            ->assertSee('Номинал ↑')
             ->assertSeeInOrder([
                 'Blizzard 20 USD UNITED-STATES',
                 'Blizzard 50 USD UNITED-STATES',

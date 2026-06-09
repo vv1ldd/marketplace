@@ -190,39 +190,13 @@
                     countdownTimer = null;
                 };
 
-                const launchWithFallback = (deepLinkUrl, redirectUrl, fallbackMs = 1800) => {
-                    if (!deepLinkUrl) {
-                        window.location.assign(redirectUrl);
-                        return;
-                    }
-
-                    let appOpened = false;
-                    const markOpened = () => {
-                        if (document.hidden) {
-                            appOpened = true;
-                        }
-                    };
-
-                    document.addEventListener('visibilitychange', markOpened, { once: true });
-                    window.addEventListener('pagehide', () => {
-                        appOpened = true;
-                    }, { once: true });
-
-                    window.location.assign(deepLinkUrl);
-                    window.setTimeout(() => {
-                        if (!appOpened) {
-                            window.location.assign(redirectUrl);
-                        }
-                    }, fallbackMs);
-                };
-
-                const showHandoff = (handoff, redirectUrl, deepLinkUrl = null, nativeAutoLaunch = false) => {
+                const showHandoff = (handoff, redirectUrl) => {
                     clearTimers();
                     const copy = window.meanlySimpleL1HandoffCopy || {};
                     titleNode.textContent = handoff?.title || copy.title || 'Meanly One is opening';
-                    bodyNode.textContent = handoff?.body || copy.body || 'Approve the identity request, then return to Meanly.';
+                    bodyNode.textContent = handoff?.body || copy.body || 'Approve in Meanly One, then return to Meanly.';
                     actionNode.textContent = handoff?.cta || copy.cta || 'Continue now';
-                    actionNode.href = nativeAutoLaunch && deepLinkUrl ? deepLinkUrl : redirectUrl;
+                    actionNode.href = redirectUrl;
                     factsNode.innerHTML = '';
                     (handoff?.facts || []).forEach((fact) => {
                         const item = document.createElement('div');
@@ -241,12 +215,6 @@
                             ? (copy.countdown || 'Redirecting in __SECONDS__ seconds...').replace('__SECONDS__', secondsLeft)
                             : (copy.redirecting || 'Redirecting...');
                     }, 1000);
-                    if (nativeAutoLaunch && deepLinkUrl) {
-                        window.setTimeout(() => {
-                            window.location.assign(deepLinkUrl);
-                        }, 250);
-                        return;
-                    }
                     redirectTimer = window.setTimeout(() => {
                         window.location.assign(redirectUrl);
                     }, 5000);
@@ -279,16 +247,11 @@
 
                         const payload = await response.json();
                         if (!payload.show_handoff) {
-                            if (payload.native_auto_launch) {
-                                window.location.assign(payload.deep_link_url || payload.redirect_url);
-                                return;
-                            }
-
                             window.location.assign(payload.redirect_url);
                             return;
                         }
 
-                        showHandoff(payload.handoff, payload.redirect_url, payload.deep_link_url, Boolean(payload.native_auto_launch));
+                        showHandoff(payload.handoff, payload.redirect_url);
                     } catch (error) {
                         window.location.assign(link.href);
                     }

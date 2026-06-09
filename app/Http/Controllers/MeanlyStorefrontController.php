@@ -672,9 +672,12 @@ class MeanlyStorefrontController extends Controller
     private function isRubtWalletPayment(?string $paymentMethod): bool
     {
         return in_array(strtolower(trim((string) $paymentMethod)), [
+            'rub',
+            'rub_balance',
             'rubt',
             'rubt_balance',
             'rub_token',
+            'buyer_wallet_rub',
             'buyer_wallet_rubt',
             'wallet',
         ], true);

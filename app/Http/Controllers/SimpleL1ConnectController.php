@@ -110,6 +110,9 @@ class SimpleL1ConnectController extends Controller
                     'redirect_url' => $authorizeUrl,
                     'deep_link_url' => $deepLinkUrl,
                     'native_auto_launch' => $nativeDeepLinkAutoLaunch,
+                    'handoff_state' => $state,
+                    'status_url' => $this->absoluteCurrentHostRoute($request, 'meanly.simple_l1.status', ['state' => $state]),
+                    'return_to' => $returnTo,
                 ]);
             }
 
@@ -124,6 +127,9 @@ class SimpleL1ConnectController extends Controller
                 'redirect_url' => $authorizeUrl,
                 'deep_link_url' => $deepLinkUrl,
                 'native_auto_launch' => $nativeDeepLinkAutoLaunch,
+                    'handoff_state' => $state,
+                    'status_url' => $this->absoluteCurrentHostRoute($request, 'meanly.simple_l1.status', ['state' => $state]),
+                    'return_to' => $returnTo,
                 'handoff' => $handoff,
             ]);
         }
@@ -135,6 +141,8 @@ class SimpleL1ConnectController extends Controller
             'mode' => $mode,
             'intentTitle' => $intent['intent_title'] ?: null,
             'returnTo' => $returnTo,
+            'handoffState' => $state,
+            'statusUrl' => $this->absoluteCurrentHostRoute($request, 'meanly.simple_l1.status', ['state' => $state]),
             'handoff' => $handoff,
         ]);
     }
@@ -188,7 +196,7 @@ class SimpleL1ConnectController extends Controller
                 $this->recordRejectedNativeVerificationResult($proofResponse, $exception->getMessage());
                 if ($this->shouldReturnNativeDirectProofToMarketplace($exception, $connectContext)) {
                     return redirect($this->safeReturnTo((string) data_get($connectContext, 'return_to', '/store')))
-                        ->with('status', 'Meanly app approval was not accepted for this marketplace yet. Continue online if you want to use browser passkey verification.');
+                        ->with('status', 'Meanly app approval was not accepted for this marketplace yet. Continue online if you want to use this browser.');
                 }
                 throw $exception;
             }
@@ -224,12 +232,15 @@ class SimpleL1ConnectController extends Controller
         $keyAddress = $identityProof->keyAddress;
         $alias = $this->simpleL1Alias($proofResponse);
         $displayAlias = $this->simpleL1DisplayAlias($proofResponse);
+        $this->releaseConflictingAuthenticatedAccountForConnectFlow($connectContext, $l1Address);
         $user = $this->resolveOrCreateUserFromProof($proofResponse, $l1Address, $keyAddress);
+        $username = $user?->username;
+        $publicUsername = $user?->publicUsername();
         if ($isNativeDirectProof && $user instanceof User) {
             app(SimpleL1IdentityRegistryService::class)->recordNativeDirectProof($proofResponse, $user, $verificationResult);
         }
 
-        if ($user && ! Auth::check()) {
+        if ($user && (int) Auth::id() !== (int) $user->id) {
             Auth::login($user);
             $request->session()->regenerate();
         }
@@ -243,27 +254,30 @@ class SimpleL1ConnectController extends Controller
             || str_starts_with($returnPath, '/cabinet');
         $handoff = $this->simpleL1HandoffContext($mode, $connectIntent, $returnTo);
 
-        session([
-            'simple_l1_identity' => [
-                'l1_address' => strtolower($l1Address),
-                'entity_l1_address' => strtolower($l1Address),
-                'key_l1_address' => $keyAddress,
-                'alias' => $alias,
-                'display_alias' => $displayAlias,
-                'proof_token_hash' => $identityProof->proofTokenHash,
-                'proof_handle' => $proofHandle,
-                'proof' => $identityProof->proof,
-                'mode' => $identityProof->mode,
-                'protocol' => 'simple-l1',
-                'connected_at' => now()->toIso8601String(),
-            ],
-            'sovereign_l1_address' => strtolower($l1Address),
-        ]);
-        if ($opensVault) {
-            session()->forget('cabinet_vault_manually_locked');
-            session()->put('cabinet_vault_unlocked_until', now()->addMinutes(15)->timestamp);
-        }
+        $sessionIdentity = [
+            'l1_address' => strtolower($l1Address),
+            'entity_l1_address' => strtolower($l1Address),
+            'key_l1_address' => $keyAddress,
+            'username' => $username,
+            'alias' => $alias,
+            'display_alias' => $publicUsername ?: $displayAlias,
+            'proof_token_hash' => $identityProof->proofTokenHash,
+            'proof_handle' => $proofHandle,
+            'proof' => $identityProof->proof,
+            'mode' => $identityProof->mode,
+            'protocol' => 'simple-l1',
+            'connected_at' => now()->toIso8601String(),
+        ];
+        $this->storeSimpleL1IdentityInSession($request, $sessionIdentity, strtolower($l1Address), $opensVault);
         $this->markSimpleL1HandoffSeen($request, $handoff['key'], $user);
+        Cache::put($this->browserHandoffCompletionCacheKey($expectedState), [
+            'user_id' => $user?->id,
+            'identity' => $sessionIdentity,
+            'sovereign_l1_address' => strtolower($l1Address),
+            'opens_vault' => $opensVault,
+            'return_to' => $returnTo,
+            'completed_at' => now()->toIso8601String(),
+        ], now()->addMinutes(10));
         session()->forget([
             'simple_l1_connect.state',
             'simple_l1_connect.nonce',
@@ -279,8 +293,9 @@ class SimpleL1ConnectController extends Controller
         $ledgerPayload = [
             'connected_entity_l1_address' => strtolower($l1Address),
             'connected_key_l1_address' => $keyAddress,
+            'username' => $username,
             'alias' => $alias,
-            'display_alias' => $displayAlias,
+            'display_alias' => $publicUsername ?: $displayAlias,
             'proof_token_hash' => $identityProof->proofTokenHash,
             'routing_decision_id' => data_get($identityProof->proof, 'routingDecisionId'),
             'policy_version' => data_get($identityProof->proof, 'policyVersion'),
@@ -307,17 +322,25 @@ class SimpleL1ConnectController extends Controller
         return redirect($returnTo)->with('status', 'Simple L1 wallet connected.');
     }
 
-    public function status(): array
+    public function status(Request $request): array
     {
+        $redirectUrl = null;
+        $state = (string) $request->query('state', '');
+        if ($state !== '') {
+            $redirectUrl = $this->completeBrowserBoundHandoff($request, $state);
+        }
+
         $identity = session('simple_l1_identity');
 
         return [
             'protocol' => 'simple-l1',
             'authenticated' => is_array($identity) && ! empty($identity['l1_address']),
+            'redirect_url' => $redirectUrl,
             'identity' => is_array($identity) ? [
                 'l1_address' => $identity['l1_address'] ?? null,
                 'entity_l1_address' => $identity['entity_l1_address'] ?? null,
                 'key_l1_address' => $identity['key_l1_address'] ?? null,
+                'username' => $identity['username'] ?? null,
                 'alias' => $identity['alias'] ?? null,
                 'display_alias' => $identity['display_alias'] ?? null,
                 'mode' => $identity['mode'] ?? null,
@@ -423,6 +446,79 @@ class SimpleL1ConnectController extends Controller
     private function connectStateCacheKey(string $state): string
     {
         return 'simple_l1:connect_state:'.hash('sha256', $state);
+    }
+
+    private function browserHandoffCompletionCacheKey(string $state): string
+    {
+        return 'simple_l1:browser_handoff_complete:'.hash('sha256', $state);
+    }
+
+    /**
+     * Native apps may open the HTTPS callback in the system default browser.
+     * Only the original browser tab has this session state, so it must be the
+     * one that applies the completed identity to its own cookies.
+     */
+    private function completeBrowserBoundHandoff(Request $request, string $state): ?string
+    {
+        $sessionState = (string) $request->session()->get('simple_l1_connect.state', '');
+        if ($sessionState === '' || ! hash_equals($sessionState, $state)) {
+            return null;
+        }
+
+        $completion = Cache::get($this->browserHandoffCompletionCacheKey($state));
+        if (! is_array($completion)) {
+            return null;
+        }
+
+        $userId = (int) data_get($completion, 'user_id', 0);
+        if ($userId > 0 && (int) Auth::id() !== $userId) {
+            $user = User::find($userId);
+            if ($user instanceof User) {
+                Auth::login($user);
+                $request->session()->regenerate();
+            }
+        }
+
+        $identity = (array) data_get($completion, 'identity', []);
+        $sovereignAddress = (string) data_get($completion, 'sovereign_l1_address', data_get($identity, 'entity_l1_address', ''));
+        if ($identity !== [] && $sovereignAddress !== '') {
+            $this->storeSimpleL1IdentityInSession(
+                $request,
+                $identity,
+                $sovereignAddress,
+                (bool) data_get($completion, 'opens_vault', false),
+            );
+        }
+
+        $request->session()->forget([
+            'simple_l1_connect.state',
+            'simple_l1_connect.nonce',
+            'simple_l1_connect.client_id',
+            'simple_l1_connect.redirect_uri',
+            'simple_l1_connect.return_to',
+            'simple_l1_connect.mode',
+            'simple_l1_connect.flow',
+            'simple_l1_connect.intent',
+        ]);
+        Cache::forget($this->browserHandoffCompletionCacheKey($state));
+
+        return $this->safeReturnTo((string) data_get($completion, 'return_to', '/store'));
+    }
+
+    /**
+     * @param array<string, mixed> $identity
+     */
+    private function storeSimpleL1IdentityInSession(Request $request, array $identity, string $sovereignAddress, bool $opensVault): void
+    {
+        $request->session()->put([
+            'simple_l1_identity' => $identity,
+            'sovereign_l1_address' => strtolower($sovereignAddress),
+        ]);
+
+        if ($opensVault) {
+            $request->session()->forget('cabinet_vault_manually_locked');
+            $request->session()->put('cabinet_vault_unlocked_until', now()->addMinutes(15)->timestamp);
+        }
     }
 
     private function cleanIntentParam(mixed $value, int $limit): string
@@ -897,6 +993,7 @@ class SimpleL1ConnectController extends Controller
     private function resolveOrCreateUserFromProof(array $proofResponse, string $entityAddress, ?string $keyAddress): ?User
     {
         $profileName = $this->simpleL1ProfileName($proofResponse, $entityAddress);
+        $usernameCandidate = $this->simpleL1UsernameCandidate($proofResponse, $entityAddress, $profileName);
         $current = Auth::user();
         if ($current instanceof User) {
             $existing = User::findByEntityL1Address($entityAddress);
@@ -905,7 +1002,7 @@ class SimpleL1ConnectController extends Controller
             $currentAddress = $current->sovereignIdentityAddress();
             abort_if($currentAddress !== null && ! hash_equals(strtolower($currentAddress), $entityAddress), 409, 'Current account is already connected to another Simple L1 identity.');
 
-            $this->attachIdentityToUser($current, $proofResponse, $entityAddress, $keyAddress, $profileName);
+            $this->attachIdentityToUser($current, $proofResponse, $entityAddress, $keyAddress, $profileName, $usernameCandidate);
 
             return $current->refresh();
         }
@@ -915,14 +1012,18 @@ class SimpleL1ConnectController extends Controller
         if (! $user) {
             $suffix = strtoupper(substr($entityAddress, -6));
             try {
+                $username = User::makeUniqueUsername($usernameCandidate);
                 $user = User::create([
                     'first_name' => $profileName,
                     'last_name' => 'Wallet',
+                    'username' => $username,
+                    'username_key' => $username,
                     'entity_l1_address' => $entityAddress,
                     'key_l1_address' => $keyAddress,
                     'identity_provider' => 'identity_wildflow',
                     'meta' => [
                         'registration_source' => 'identity_wildflow',
+                        'username' => $username,
                         'display_name' => $profileName,
                         'profile_suffix' => $suffix,
                     ],
@@ -934,9 +1035,34 @@ class SimpleL1ConnectController extends Controller
 
         abort_unless($user instanceof User, 409, 'Simple L1 identity user could not be resolved.');
 
-        $this->attachIdentityToUser($user, $proofResponse, $entityAddress, $keyAddress, $profileName);
+        $this->attachIdentityToUser($user, $proofResponse, $entityAddress, $keyAddress, $profileName, $usernameCandidate);
 
         return $user->refresh();
+    }
+
+    /**
+     * Connect/vault flows authenticate as the proof identity. If the browser
+     * still carries an older Laravel account, do not try to rebind that account.
+     *
+     * @param array<string, mixed> $connectContext
+     */
+    private function releaseConflictingAuthenticatedAccountForConnectFlow(array $connectContext, string $entityAddress): void
+    {
+        if (data_get($connectContext, 'flow') !== 'connect') {
+            return;
+        }
+
+        $current = Auth::user();
+        if (! $current instanceof User) {
+            return;
+        }
+
+        $currentAddress = $current->sovereignIdentityAddress();
+        if ($currentAddress === null || hash_equals(strtolower($currentAddress), strtolower($entityAddress))) {
+            return;
+        }
+
+        Auth::logout();
     }
 
     private function simpleL1Alias(array $proofResponse): ?string
@@ -990,6 +1116,27 @@ class SimpleL1ConnectController extends Controller
         return 'SL1E '.strtoupper(substr($entityAddress, -6));
     }
 
+    private function simpleL1UsernameCandidate(array $proofResponse, string $entityAddress, ?string $profileName = null): string
+    {
+        foreach ([
+            data_get($proofResponse, 'proof.username'),
+            data_get($proofResponse, 'identity.username'),
+            data_get($proofResponse, 'proof.alias'),
+            data_get($proofResponse, 'identity.alias'),
+            data_get($proofResponse, 'proof.displayAlias'),
+            data_get($proofResponse, 'proof.display_alias'),
+            data_get($proofResponse, 'identity.display_alias'),
+            $profileName,
+        ] as $candidate) {
+            $username = User::normalizeUsername($candidate);
+            if ($username !== null) {
+                return $username;
+            }
+        }
+
+        return 'user_'.strtolower(substr($entityAddress, -8));
+    }
+
     private function cleanSimpleL1ProfileName(mixed $value): string
     {
         $name = trim((string) $value);
@@ -1020,13 +1167,17 @@ class SimpleL1ConnectController extends Controller
                 && ($firstName === 'SL1E' || str_starts_with($displayName, 'SL1E ')));
     }
 
-    private function attachIdentityToUser(User $user, array $proofResponse, string $entityAddress, ?string $keyAddress, ?string $profileName = null): void
+    private function attachIdentityToUser(User $user, array $proofResponse, string $entityAddress, ?string $keyAddress, ?string $profileName = null, ?string $usernameCandidate = null): void
     {
         $meta = $user->meta ?? [];
         $alias = $this->simpleL1Alias($proofResponse);
+        $username = $user->username ?: User::makeUniqueUsername($usernameCandidate, $user->id);
         $meta['l1_address'] = $entityAddress;
         $meta['entity_l1_address'] = $entityAddress;
         $meta['key_l1_address'] = $keyAddress;
+        if ($username !== null) {
+            $meta['username'] = $username;
+        }
         $meta['simple_l1'] = array_merge($meta['simple_l1'] ?? [], [
             'protocol' => 'simple-l1',
             'address_version' => \App\Services\L1IdentityService::ADDRESS_VERSION_ENTITY_V1,
@@ -1041,6 +1192,9 @@ class SimpleL1ConnectController extends Controller
         $displayAlias = $this->simpleL1DisplayAlias($proofResponse);
         if ($displayAlias !== null) {
             $meta['simple_l1']['display_alias'] = $displayAlias;
+        }
+        if ($username !== null) {
+            $meta['simple_l1']['username'] = $username;
         }
         $meta['identity_wildflow'] = [
             'protocol' => data_get($proofResponse, 'proof.protocol', 'simple-layer-one'),
@@ -1063,6 +1217,11 @@ class SimpleL1ConnectController extends Controller
             'identity_provider' => 'identity_wildflow',
             'meta' => $meta,
         ];
+
+        if ($username !== null) {
+            $updates['username'] = $username;
+            $updates['username_key'] = $username;
+        }
 
         if ($profileName !== null && $profileName !== '' && $this->shouldAdoptSimpleL1ProfileName($user)) {
             $updates['first_name'] = $profileName;

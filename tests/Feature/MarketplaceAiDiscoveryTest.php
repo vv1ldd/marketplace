@@ -71,7 +71,7 @@ class MarketplaceAiDiscoveryTest extends TestCase
 
         $this->get(route('home', ['intent' => 'хочу купить Steam Турция на 1000 рублей']))
             ->assertOk()
-            ->assertSee('Результаты поиска', false)
+            ->assertSee('Search results', false)
             ->assertDontSee('Disabled Seller Steam Turkey', false);
 
         $this->get(route('meanly.storefront.products.show', $otherSeller->slug))
@@ -108,9 +108,9 @@ class MarketplaceAiDiscoveryTest extends TestCase
 
         $this->get(route('home'))
             ->assertOk()
-            ->assertSee('Популярные группы', false)
-            ->assertSee('Лучшие офферы сейчас', false)
-            ->assertSee('Категории каталога', false);
+            ->assertSee('Popular groups', false)
+            ->assertSee('Best offers now', false)
+            ->assertSee('Catalog categories', false);
     }
 
     public function test_best_offer_ranking_is_deterministic_from_price_stock_and_seller_reliability(): void
@@ -243,9 +243,8 @@ class MarketplaceAiDiscoveryTest extends TestCase
 
         $this->get(route('home', ['intent' => 'Steam Турция']))
             ->assertOk()
-            ->assertSee('Витрина пуста для этого запроса', false)
-            ->assertSee('Скоро в продаже', false)
-            ->assertSee('Игры', false)
+            ->assertSee('No storefront results for this query', false)
+            ->assertSee('Coming soon', false)
             ->assertDontSee('3D-очки', false);
     }
 

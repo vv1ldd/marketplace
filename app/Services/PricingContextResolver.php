@@ -14,7 +14,7 @@ class PricingContextResolver
         return new PricingContext(
             pricingScope: (string) ($config['pricing_scope'] ?? $market->pricingScope),
             displayCurrency: strtoupper((string) ($config['display_currency'] ?? $market->currency)),
-            settlementCurrency: strtoupper((string) ($config['settlement_currency'] ?? 'RUBT')),
+            settlementCurrency: strtoupper((string) ($config['settlement_currency'] ?? 'RUB')),
             storageCurrency: strtoupper((string) ($config['storage_currency'] ?? 'RUB')),
         );
     }

@@ -40,7 +40,7 @@ class EnsureUserHasPasskey
             $seller = $user instanceof \App\Models\User ? $user->primarySellerAccount() : null;
             session()->forget('redirect_to_b2b');
             if ($seller) {
-                $b2bUrl = '/partner';
+                $b2bUrl = '/merchant';
                 \Illuminate\Support\Facades\Log::info("EnsureUserHasPasskey: B2C Session contains redirect_to_b2b flag. Redirecting B2B Seller to console: {$b2bUrl}");
                 return redirect($b2bUrl);
             }

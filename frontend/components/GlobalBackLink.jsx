@@ -6,9 +6,18 @@ import { usePathname, useRouter } from 'next/navigation';
 
 const currentRouteKey = 'meanly:last-route';
 const previousRouteKey = 'meanly:previous-route';
+const primarySwitcherPaths = new Set(['/', '/catalog', '/vault', '/merchant', '/partner', '/ops']);
 
 function backTarget(pathname) {
-  if (pathname === '/' || pathname === '/catalog') {
+  if (
+    pathname === '/'
+    || pathname === '/catalog'
+    || pathname === '/vault'
+    || pathname.startsWith('/vault/')
+    || pathname === '/authorize'
+    || pathname === '/wallet'
+    || pathname === '/identity'
+  ) {
     return null;
   }
 
@@ -26,7 +35,7 @@ function backTarget(pathname) {
     return { href: '/', label: 'Back' };
   }
 
-  return { href: '/', label: 'Back' };
+  return null;
 }
 
 function labelForPrevious(href, fallback) {
@@ -57,6 +66,19 @@ function internalReturnTo() {
   }
 
   return returnTo;
+}
+
+function isPrimarySwitcherHref(href) {
+  if (!href) {
+    return false;
+  }
+
+  try {
+    const url = new URL(String(href), 'https://meanly.local');
+    return primarySwitcherPaths.has(url.pathname);
+  } catch {
+    return primarySwitcherPaths.has(String(href).split(/[?#]/, 1)[0] || href);
+  }
 }
 
 export function GlobalBackLink() {
@@ -93,6 +115,11 @@ export function GlobalBackLink() {
   const hasPreviousRoute = canUsePreviousRoute && previousHref && previousHref !== pathname;
   const href = hasPreviousRoute ? previousHref : target.href;
   const label = hasPreviousRoute ? labelForPrevious(previousHref, target.label) : target.label;
+
+  if (isPrimarySwitcherHref(href)) {
+    return null;
+  }
+
   const handleClick = (event) => {
     if (!hasPreviousRoute) {
       return;

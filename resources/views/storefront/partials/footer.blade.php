@@ -17,7 +17,7 @@
             @auth
                 <a href="/vault">{{ __('storefront.footer.vault') }}</a>
                 @if(auth()->user()->isMerchantNode())
-                    <a href="/partner">{{ __('storefront.footer.b2b_console') }}</a>
+                    <a href="/merchant">{{ __('storefront.footer.b2b_console') }}</a>
                 @endif
             @else
                 <a href="{{ route('login', [], false) }}">{{ __('storefront.footer.login_sl1e') }}</a>
@@ -29,6 +29,17 @@
             <a href="{{ route('business.services.index', [], false) }}">{{ __('storefront.footer.business_services') }}</a>
             <a href="{{ route('business.register', [], false) }}">{{ __('storefront.footer.become_seller') }}</a>
             <a href="{{ route('business.landing', [], false) }}">{{ __('storefront.footer.b2b_console') }}</a>
+        </div>
+
+        <div class="footer-links-block">
+            <span class="footer-title">{{ __('storefront.footer.documents') }}</span>
+            <a href="/company">{{ __('storefront.footer.company') }}</a>
+            <a href="/payment">{{ __('storefront.footer.payment') }}</a>
+            <a href="/delivery">{{ __('storefront.footer.delivery') }}</a>
+            <a href="/refund">{{ __('storefront.footer.refund') }}</a>
+            <a href="/offer">{{ __('storefront.footer.offer') }}</a>
+            <a href="/privacy">{{ __('storefront.footer.privacy') }}</a>
+            <a href="/terms">{{ __('storefront.footer.terms') }}</a>
         </div>
     </div>
 

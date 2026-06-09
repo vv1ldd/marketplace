@@ -86,8 +86,8 @@ export function BusinessRegistrationForm({ initialApplicationChecked = false }) 
       })
         .then((response) => response.ok ? response.json() : null)
         .then((payload) => {
-          if (payload?.redirect === '/partner') {
-            router.push('/partner');
+          if (payload?.redirect === '/partner' || payload?.redirect === '/merchant') {
+            router.push('/merchant');
             return;
           }
 
@@ -250,7 +250,7 @@ export function BusinessRegistrationForm({ initialApplicationChecked = false }) 
       });
 
       if (result.redirect) {
-        router.push(String(result.redirect).includes('/partner/register/offer')
+        router.push(String(result.redirect).includes('/partner/register/offer') || String(result.redirect).includes('/merchant/register/offer')
           ? '/business/register/offer'
           : result.redirect);
         return;

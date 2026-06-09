@@ -1,4 +1,5 @@
-import { redirect } from 'next/navigation';
+import { CatalogSurface } from '../../components/CatalogSurface';
+import { fetchStorefrontCatalog } from '../../lib/storefront-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,5 +10,11 @@ function searchQuery(searchParams = {}) {
 
 export default async function CatalogPage({ searchParams }) {
   const query = searchQuery(await searchParams);
-  redirect(query ? `/?q=${encodeURIComponent(query)}` : '/');
+  const initialCatalog = await fetchStorefrontCatalog(query).catch(() => null);
+
+  return (
+    <main className="page page--catalog">
+      <CatalogSurface initialCatalog={initialCatalog} query={query} surface="catalog" />
+    </main>
+  );
 }

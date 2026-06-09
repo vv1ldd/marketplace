@@ -27,7 +27,11 @@ use App\Models\TicketMessage;
 use App\Models\SovereignLedger;
 use App\Models\ApiApplication;
 use App\Models\MeanlyApiReservation;
+use App\Models\MerchantDepositIntent;
 use App\Models\MeanlyApiOrder;
+use App\Models\SettlementProof;
+use App\Models\WalletAccount;
+use App\Models\WalletLedgerEntry;
 use App\Models\Warehouse;
 use App\Models\WarehouseStock;
 use App\Models\ZeroLayerIntegration;
@@ -188,6 +192,38 @@ class OpsDashboardController extends Controller
             ->limit(12)
             ->get();
 
+        $walletAccounts = Schema::hasTable('wallet_accounts')
+            ? WalletAccount::query()
+                ->selectRaw('asset, COUNT(*) as accounts_count, SUM(available_minor) as available_minor, SUM(reserved_minor) as reserved_minor')
+                ->groupBy('asset')
+                ->orderBy('asset')
+                ->get()
+            : collect();
+
+        $recentWalletEvents = Schema::hasTable('wallet_ledger_entries')
+            ? WalletLedgerEntry::with('user')
+                ->latest()
+                ->limit(12)
+                ->get()
+            : collect();
+
+        $pendingDepositIntents = Schema::hasTable('merchant_deposit_intents')
+            ? MerchantDepositIntent::query()
+                ->with(['legalEntity', 'targetLegalEntity', 'proofs.authorityVerdicts', 'authorityVerdicts'])
+                ->whereIn('status', ['waiting_payment', 'proof_received', 'waiting_authority', 'confirmed'])
+                ->latest('id')
+                ->limit(20)
+                ->get()
+            : collect();
+
+        $recentSettlementProofs = Schema::hasTable('settlement_proofs')
+            ? SettlementProof::query()
+                ->with(['intent', 'legalEntity', 'reviewedBy', 'authorityVerdicts'])
+                ->latest('id')
+                ->limit(20)
+                ->get()
+            : collect();
+
         return response()->json([
             'summary' => [
                 'partners' => LegalEntity::count(),
@@ -197,7 +233,11 @@ class OpsDashboardController extends Controller
                 'native_reserved' => round((float) LegalEntity::sum('native_token_reserved'), 4),
                 'pending_requests' => $pendingRequests ? (clone $pendingRequests)->count() : 0,
                 'pending_amount' => $pendingRequests ? round((float) (clone $pendingRequests)->sum('amount'), 2) : 0.0,
+                'pending_deposit_intents' => $pendingDepositIntents->count(),
+                'pending_deposit_amount' => round((float) $pendingDepositIntents->sum('amount'), 2),
             ],
+            'deposit_intents' => $pendingDepositIntents->map(fn (MerchantDepositIntent $intent): array => $this->formatOpsDepositIntent($intent))->values(),
+            'settlement_proofs' => $recentSettlementProofs->map(fn (SettlementProof $proof): array => $this->formatOpsSettlementProof($proof))->values(),
             'requests' => $recentRequests->map(fn (SovereignBalanceRequest $request): array => [
                 'id' => $request->id,
                 'partner' => $request->legalEntity?->name ?? '—',
@@ -217,6 +257,25 @@ class OpsDashboardController extends Controller
                 'currency' => $event->currency ?? $event->base_currency ?? data_get($event->payload, 'currency', '—'),
                 'created_at' => optional($event->created_at)->format('d.m.Y H:i') ?: '—',
             ])->values(),
+            'wallet' => [
+                'summary' => $walletAccounts->map(fn ($account): array => [
+                    'asset' => $account->asset,
+                    'accounts_count' => (int) $account->accounts_count,
+                    'available_minor' => (int) $account->available_minor,
+                    'reserved_minor' => (int) $account->reserved_minor,
+                ])->values(),
+                'recent_events' => $recentWalletEvents->map(fn (WalletLedgerEntry $entry): array => [
+                    'id' => $entry->id,
+                    'asset' => $entry->asset,
+                    'direction' => $entry->direction,
+                    'entry_type' => $entry->entry_type,
+                    'amount_minor' => (int) $entry->amount_minor,
+                    'balance_after_minor' => (int) $entry->balance_after_minor,
+                    'user' => $entry->user?->name ?? ('user #'.$entry->user_id),
+                    'tx_hash' => $entry->tx_hash,
+                    'created_at' => optional($entry->created_at)->format('d.m.Y H:i') ?: '—',
+                ])->values(),
+            ],
         ]);
     }
 
@@ -974,17 +1033,40 @@ class OpsDashboardController extends Controller
             });
         }
 
-        $providers = $query->orderBy('type')->get();
+        $allProviders = $query->orderBy('type')->get();
+        $authorityProviders = $allProviders
+            ->filter(fn (Provider $provider): bool => $this->isSupplyAuthorityProvider($provider))
+            ->values();
+        $authorityProvidersByType = $authorityProviders
+            ->sortBy(fn (Provider $provider): int => in_array($provider->type, ['wildflow', 'wildflow-sandbox'], true) ? 0 : 1)
+            ->keyBy(fn (Provider $provider): string => $this->effectiveProviderType($provider));
+        $expectedAuthorityTypes = $this->expectedSupplyAuthorityTypes();
+        $authorityRows = collect($expectedAuthorityTypes)
+            ->map(fn (string $type): array => $authorityProvidersByType->has($type)
+                ? $this->providerOpsPayload($authorityProvidersByType->get($type))
+                : $this->missingSupplyAuthorityPayload($type))
+            ->merge(
+                $authorityProvidersByType
+                    ->reject(fn (Provider $provider, string $type): bool => in_array($type, $expectedAuthorityTypes, true))
+                    ->map(fn (Provider $provider): array => $this->providerOpsPayload($provider))
+                    ->values()
+            )
+            ->values();
+        $catalogSources = $allProviders
+            ->reject(fn (Provider $provider): bool => $this->isSupplyAuthorityProvider($provider))
+            ->values();
 
         return response()->json([
-            'data' => $providers->map(fn (Provider $provider): array => $this->providerOpsPayload($provider))->values(),
+            'data' => $authorityRows,
+            'catalog_sources' => $catalogSources->map(fn (Provider $provider): array => $this->providerCatalogSourcePayload($provider))->values(),
             'kernel' => [
-                'mode' => 'direct_ezpin',
+                'mode' => 'direct_supply_authority',
                 'authority' => 'meanly.one',
-                'upstream' => 'ezpin',
+                'upstream' => 'ezpin+fazercards',
+                'upstream_label' => 'EZPin + Fazer Cards',
                 'compatibility_host' => 'api.meanly.one',
                 'ezpin_env_configured' => filled(config('services.ezpin.client_id')) && filled(config('services.ezpin.secret_key')),
-                'legacy_aliases' => ['wildflow', 'wildflow-sandbox'],
+                'compatibility_aliases' => ['legacy provider records resolve to ezpin'],
                 'support_planes' => [
                     'docs' => [
                         'catalog' => '/api/v1/providers/{provider}/unified-catalog',
@@ -1097,25 +1179,123 @@ class OpsDashboardController extends Controller
             'reference' => 'required|string|max:160',
         ]);
 
-        DB::transaction(function () use ($legalEntity, $data): void {
-            $legalEntity->increment('available_balance', (float) $data['amount']);
-
-            app(\App\Services\LedgerService::class)->recordGlobal('OPS_PARTNER_BALANCE_TOP_UP', $legalEntity->fresh(), [
-                'amount' => (float) $data['amount'],
-                'reference' => $data['reference'],
-                'source' => 'ops_partner_settlement',
-            ]);
-        });
-
-        $legalEntity->refresh();
+        $intent = app(\App\Services\MerchantSettlementService::class)->issueIntent(
+            legalEntity: $legalEntity,
+            createdBy: $user,
+            rail: MerchantDepositIntent::RAIL_OPS_MANUAL_CREDIT,
+            amount: (float) $data['amount'],
+            options: [
+                'comment' => 'Ops manual credit',
+                'idempotency_key' => 'ops-top-up|'.$legalEntity->id.'|'.$data['reference'].'|'.number_format((float) $data['amount'], 4, '.', ''),
+            ],
+        );
+        $settlement = app(\App\Services\MerchantSettlementService::class);
+        $proof = $settlement->recordProof(
+            intent: $intent,
+            externalReference: $data['reference'],
+            confirmedAmount: (float) $data['amount'],
+            source: 'ops_manual_credit',
+            note: 'Ops submitted manual credit evidence.',
+        );
+        $settlement->attestProof(
+            proof: $proof,
+            signer: $user,
+            type: \App\Models\ValidatorAttestation::TYPE_PROOF_OBSERVED,
+            externalReference: $data['reference'],
+            note: 'Ops attested manual credit evidence.',
+        );
+        $verdict = $settlement->evaluateAndCreditIfAllowed($proof->refresh());
 
         return response()->json([
             'success' => true,
+            'intent' => $this->formatOpsDepositIntent($intent->refresh()->loadMissing(['legalEntity', 'targetLegalEntity', 'proofs'])),
+            'proof' => $this->formatOpsSettlementProof($proof->loadMissing(['intent', 'legalEntity', 'reviewedBy'])),
+            'authority_verdict' => $this->formatOpsAuthorityVerdict($verdict),
             'partner' => [
                 'id' => $legalEntity->id,
                 'name' => $legalEntity->name,
-                'available_balance' => round((float) $legalEntity->available_balance, 2),
+                'available_balance' => round((float) $legalEntity->refresh()->available_balance, 2),
             ],
+        ]);
+    }
+
+    public function approveDepositIntent(Request $request, MerchantDepositIntent $merchantDepositIntent)
+    {
+        $user = Auth::user();
+        if (! $this->canAccessOps($user)) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        $data = $request->validate([
+            'external_reference' => 'required|string|max:160',
+            'confirmed_amount' => 'nullable|numeric|min:0.01',
+            'source' => 'nullable|string|max:40',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $settlement = app(\App\Services\MerchantSettlementService::class);
+        $proof = $settlement->recordProof(
+            intent: $merchantDepositIntent,
+            externalReference: $data['external_reference'],
+            confirmedAmount: isset($data['confirmed_amount']) ? (float) $data['confirmed_amount'] : null,
+            source: $data['source'] ?? 'ops_manual_review',
+            note: $data['note'] ?? '',
+            rawPayload: [
+                'ops_user_id' => $user->id,
+                'source' => $data['source'] ?? 'ops_manual_review',
+                'note' => $data['note'] ?? '',
+            ],
+        );
+        $settlement->attestProof(
+            proof: $proof,
+            signer: $user,
+            type: \App\Models\ValidatorAttestation::TYPE_PROOF_OBSERVED,
+            externalReference: $data['external_reference'],
+            note: $data['note'] ?? '',
+        );
+        $verdict = $settlement->evaluateAndCreditIfAllowed($proof->refresh());
+
+        return response()->json([
+            'success' => true,
+            'intent' => $this->formatOpsDepositIntent($merchantDepositIntent->refresh()->loadMissing(['legalEntity', 'targetLegalEntity', 'proofs', 'authorityVerdicts'])),
+            'proof' => $this->formatOpsSettlementProof($proof->loadMissing(['intent', 'legalEntity', 'reviewedBy', 'authorityVerdicts'])),
+            'authority_verdict' => $this->formatOpsAuthorityVerdict($verdict),
+        ]);
+    }
+
+    public function rejectDepositIntent(Request $request, MerchantDepositIntent $merchantDepositIntent)
+    {
+        $user = Auth::user();
+        if (! $this->canAccessOps($user)) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        $data = $request->validate([
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $latestProof = $merchantDepositIntent->proofs()->latest('id')->first();
+        if ($latestProof) {
+            $settlement = app(\App\Services\MerchantSettlementService::class);
+            $settlement->attestProof(
+                proof: $latestProof,
+                signer: $user,
+                type: \App\Models\ValidatorAttestation::TYPE_EVIDENCE_REJECTED,
+                externalReference: $latestProof->external_reference,
+                note: $data['note'] ?? '',
+            );
+            app(\App\Services\AuthorityPolicyService::class)->evaluateProof($latestProof->refresh());
+        }
+
+        $intent = app(\App\Services\MerchantSettlementService::class)->rejectIntent(
+            intent: $merchantDepositIntent,
+            reviewer: $user,
+            note: $data['note'] ?? '',
+        );
+
+        return response()->json([
+            'success' => true,
+            'intent' => $this->formatOpsDepositIntent($intent->loadMissing(['legalEntity', 'targetLegalEntity', 'proofs'])),
         ]);
     }
 
@@ -1271,6 +1451,73 @@ class OpsDashboardController extends Controller
     private function canAccessOps(?\App\Models\User $user): bool
     {
         return $user?->hasOpsSovereignAccess() === true;
+    }
+
+    private function formatOpsDepositIntent(MerchantDepositIntent $intent): array
+    {
+        $latestProof = ($intent->relationLoaded('proofs') ? $intent->proofs : collect())->sortByDesc('id')->first();
+        $latestVerdict = ($intent->relationLoaded('authorityVerdicts') ? $intent->authorityVerdicts : collect())
+            ->merge($latestProof?->authorityVerdicts ?? collect())
+            ->sortByDesc('id')
+            ->first();
+
+        return [
+            'id' => $intent->id,
+            'reference' => $intent->reference,
+            'partner' => $intent->legalEntity?->name ?? '—',
+            'partner_id' => $intent->legal_entity_id,
+            'target_partner' => $intent->targetLegalEntity?->name,
+            'rail' => $intent->rail,
+            'status' => $intent->status,
+            'amount' => round((float) $intent->amount, 2),
+            'currency' => $intent->currency ?: 'RUB',
+            'proof_status' => $latestProof?->status,
+            'proof_reference' => $latestProof?->external_reference,
+            'authority' => $latestVerdict ? $this->formatOpsAuthorityVerdict($latestVerdict) : null,
+            'created_at' => optional($intent->created_at)->format('d.m.Y H:i') ?: '—',
+            'expires_at' => optional($intent->expires_at)->format('d.m.Y H:i') ?: '—',
+            'action_urls' => [
+                'approve' => route('ops.dashboard.deposit-intents.approve', ['merchantDepositIntent' => $intent->id]),
+                'reject' => route('ops.dashboard.deposit-intents.reject', ['merchantDepositIntent' => $intent->id]),
+            ],
+        ];
+    }
+
+    private function formatOpsSettlementProof(SettlementProof $proof): array
+    {
+        $latestVerdict = ($proof->relationLoaded('authorityVerdicts') ? $proof->authorityVerdicts : collect())->sortByDesc('id')->first();
+
+        return [
+            'id' => $proof->id,
+            'intent_id' => $proof->merchant_deposit_intent_id,
+            'intent_reference' => $proof->intent?->reference,
+            'partner' => $proof->legalEntity?->name ?? '—',
+            'source' => $proof->source,
+            'status' => $proof->status,
+            'external_reference' => $proof->external_reference,
+            'confirmed_amount' => round((float) $proof->confirmed_amount, 2),
+            'confirmed_currency' => $proof->confirmed_currency ?: 'RUB',
+            'reviewed_by' => $proof->reviewedBy?->name,
+            'credited_ledger_id' => $proof->credited_ledger_id,
+            'authority' => $latestVerdict ? $this->formatOpsAuthorityVerdict($latestVerdict) : null,
+            'created_at' => optional($proof->created_at)->format('d.m.Y H:i') ?: '—',
+        ];
+    }
+
+    private function formatOpsAuthorityVerdict(\App\Models\AuthorityVerdict $verdict): array
+    {
+        return [
+            'id' => $verdict->id,
+            'policy_key' => $verdict->policy_key,
+            'status' => $verdict->status,
+            'decision' => $verdict->decision,
+            'reason_code' => $verdict->reason_code,
+            'required_quorum' => (int) $verdict->required_quorum,
+            'accepted_attestations' => (int) $verdict->accepted_attestations,
+            'credited_ledger_id' => $verdict->credited_ledger_id,
+            'decided_at' => optional($verdict->decided_at)->format('d.m.Y H:i') ?: null,
+            'credited_at' => optional($verdict->credited_at)->format('d.m.Y H:i') ?: null,
+        ];
     }
 
     private function legalEntityStatusLabel(LegalEntity $entity): string
@@ -1877,15 +2124,17 @@ class OpsDashboardController extends Controller
         $rawCredentials = is_array($provider->credentials) ? $provider->credentials : [];
         $credentials = $this->providerAuthorityCredentials($provider, $rawCredentials);
         $settings = is_array($provider->settings) ? $provider->settings : [];
-        $supportsUpstreamPull = in_array($provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox'], true);
+        $supportsUpstreamPull = in_array($provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox', 'fazer'], true);
         $isLegacyAlias = in_array($provider->type, ['wildflow', 'wildflow-sandbox'], true);
+        $effectiveType = $this->effectiveProviderType($provider);
 
         return [
             'id' => $provider->id,
-            'name' => $provider->name,
-            'type' => $provider->type,
+            'name' => $this->providerDisplayName($provider),
+            'type' => $effectiveType,
             'authority' => 'meanly.one',
-            'upstream_provider' => $provider->type === 'ezpin-sandbox' || $provider->type === 'wildflow-sandbox' ? 'ezpin-sandbox' : 'ezpin',
+            'upstream_provider' => $this->upstreamProviderSlug($effectiveType),
+            'upstream_label' => $this->upstreamProviderLabel($effectiveType),
             'is_legacy_alias' => $isLegacyAlias,
             'is_active' => (bool) $provider->is_active,
             'sync_status' => $provider->sync_status ?: 'idle',
@@ -1914,6 +2163,115 @@ class OpsDashboardController extends Controller
                 'last_error' => data_get($settings, 'last_error'),
             ],
             'sync_url' => route('ops.dashboard.providers.sync', ['provider' => $provider->id]),
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function expectedSupplyAuthorityTypes(): array
+    {
+        return ['ezpin', 'fazer'];
+    }
+
+    private function missingSupplyAuthorityPayload(string $effectiveType): array
+    {
+        return [
+            'id' => null,
+            'name' => $this->providerDisplayNameForType($effectiveType),
+            'type' => $effectiveType,
+            'authority' => 'meanly.one',
+            'upstream_provider' => $this->upstreamProviderSlug($effectiveType),
+            'upstream_label' => $this->upstreamProviderLabel($effectiveType),
+            'is_legacy_alias' => false,
+            'is_active' => false,
+            'sync_status' => 'not_configured',
+            'last_sync_at' => '—',
+            'catalog_source' => 'http',
+            'provider_products_count' => 0,
+            'active_provider_products_count' => 0,
+            'credentials' => [
+                'api_key' => false,
+                'client_id' => false,
+                'secret_key' => false,
+                'terminal' => false,
+                'financial_secret' => false,
+            ],
+            'terminal' => [
+                'id_configured' => false,
+                'pin_configured' => false,
+                'id_masked' => 'not configured',
+            ],
+            'health' => [
+                'catalog_ready' => false,
+                'credentials_ready' => false,
+                'terminal_ready' => false,
+                'supports_upstream_pull' => false,
+                'last_error' => 'Provider record is not configured yet.',
+            ],
+            'sync_url' => null,
+        ];
+    }
+
+    private function isSupplyAuthorityProvider(Provider $provider): bool
+    {
+        return in_array((string) $provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox', 'fazer'], true);
+    }
+
+    private function effectiveProviderType(Provider $provider): string
+    {
+        return match ((string) $provider->type) {
+            'wildflow', 'ezpin' => 'ezpin',
+            'wildflow-sandbox', 'ezpin-sandbox' => 'ezpin-sandbox',
+            'fazer' => 'fazer',
+            default => (string) $provider->type,
+        };
+    }
+
+    private function upstreamProviderSlug(string $effectiveType): string
+    {
+        return match ($effectiveType) {
+            'ezpin-sandbox' => 'ezpin-sandbox',
+            'fazer' => 'fazer',
+            default => 'ezpin',
+        };
+    }
+
+    private function upstreamProviderLabel(string $effectiveType): string
+    {
+        return match ($effectiveType) {
+            'ezpin-sandbox' => 'EZPin Sandbox',
+            'fazer' => 'Fazer Cards',
+            default => 'EZPin',
+        };
+    }
+
+    private function providerDisplayName(Provider $provider): string
+    {
+        return $this->providerDisplayNameForType($this->effectiveProviderType($provider), (string) $provider->name);
+    }
+
+    private function providerDisplayNameForType(string $effectiveType, ?string $fallback = null): string
+    {
+        return match ($effectiveType) {
+            'ezpin-sandbox' => 'EZPin Sandbox',
+            'ezpin' => 'EZPin',
+            'fazer' => 'Fazer Cards',
+            default => (string) $fallback,
+        };
+    }
+
+    private function providerCatalogSourcePayload(Provider $provider): array
+    {
+        return [
+            'id' => $provider->id,
+            'name' => $provider->name,
+            'type' => $provider->type,
+            'source_kind' => 'parsed_catalog_source',
+            'is_active' => (bool) $provider->is_active,
+            'provider_products_count' => (int) ($provider->provider_products_count ?? 0),
+            'active_provider_products_count' => (int) ($provider->active_provider_products_count ?? 0),
+            'note' => 'Parsed catalog/source row, not a supply authority.',
         ];
     }
 

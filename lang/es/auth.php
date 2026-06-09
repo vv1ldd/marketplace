@@ -12,14 +12,14 @@ return [
         'countdown_suffix' => 'segundos...',
         'inline' => [
             'title' => 'Meanly One se abrirá ahora',
-            'body' => 'Aprueba la solicitud de identidad en Meanly One y luego volverás a Meanly.',
+            'body' => 'Aprueba en Meanly One y luego volverás a Meanly.',
             'cta' => 'Continuar ahora',
             'countdown' => 'Redirigiendo en :seconds segundos...',
             'redirecting' => 'Redirigiendo...',
         ],
         'vault_open' => [
             'title' => '¿Abrir tu caja segura?',
-            'body' => 'Meanly One se abrirá ahora. Aprueba la solicitud de identidad y volverás a la caja segura de tus compras.',
+            'body' => 'Meanly One se abrirá ahora. Aprueba tu Vault y volverás a la caja segura de tus compras.',
             'facts' => [
                 'owner_only' => 'Solo el dueño de la cuenta puede ver los códigos.',
                 'no_keys' => 'Meanly nunca recibe tus claves.',
@@ -37,19 +37,19 @@ return [
         ],
         'identity_create' => [
             'title' => '¿Continuar con Meanly One?',
-            'body' => 'Meanly One se abrirá ahora. Crea o confirma tu identidad SL1 allí y luego vuelve a Meanly.',
+            'body' => 'Meanly One se abrirá ahora. Crea o confirma tu cuenta de Meanly allí y luego vuelve a Meanly.',
             'facts' => [
-                'passkey_device' => 'Tu credencial permanece dentro de la capa de identidad.',
+                'passkey_device' => 'Tu clave segura permanece en tu dispositivo.',
                 'return_after' => 'Después de crear la cuenta, vuelves a Meanly.',
             ],
             'cta' => 'Continuar en Meanly One',
         ],
         'identity_confirm' => [
             'title' => '¿Entrar con Meanly One?',
-            'body' => 'Meanly One se abrirá ahora. Aprueba tu identidad SL1 y volverás a Meanly.',
+            'body' => 'Meanly One se abrirá ahora. Aprueba tu cuenta y volverás a Meanly.',
             'facts' => [
                 'no_password' => 'No necesitas contraseña.',
-                'passkey_device' => 'Meanly recibe solo un resultado de identidad verificado.',
+                'passkey_device' => 'Meanly recibe solo un resultado verificado.',
             ],
             'cta' => 'Entrar con Meanly One',
         ],

@@ -22,6 +22,7 @@ use App\Services\MeanlyFirstPartyStorefrontService;
 use App\Services\PartnerOperatorIntelligenceService;
 use App\Services\Provider\ProviderHub;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -478,11 +479,10 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             'channel' => 'meanly_storefront',
             'is_enabled' => true,
         ]);
-        $this->assertDatabaseHas('product_sales_channels', [
+        $this->assertDatabaseMissing('product_sales_channels', [
             'product_id' => $product->id,
             'shop_id' => $shop->id,
             'channel' => 'yandex_market',
-            'is_enabled' => true,
         ]);
         $this->assertDatabaseHas('sovereign_ledger', [
             'shop_id' => $shop->id,
@@ -1011,14 +1011,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $location = (string) $response->viewData('authorizeUrl');
         $deepLink = (string) $response->viewData('deepLinkUrl');
 
-        $this->assertStringStartsWith('https://simplel1.online/authorize?', $location);
+        $this->assertStringStartsWith('https://meanly.test/authorize?', $location);
         $this->assertStringContainsString('client_name=Meanly', $location);
         $this->assertStringContainsString('ui_theme=neobrutalism', $location);
         $this->assertStringContainsString('response_mode=code', $location);
-        $this->assertStringStartsWith('simplel1://authorize?', $deepLink);
-        $this->assertStringContainsString('client_name=Meanly', $deepLink);
-        $this->assertStringContainsString('ui_theme=neobrutalism', $deepLink);
-        $this->assertStringContainsString('response_mode=code', $deepLink);
+        $this->assertSame('', $deepLink);
         $response->assertSee(__('auth.simple_l1.identity_confirm.title'), false);
     }
 
@@ -1034,7 +1031,7 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $response->assertRedirect();
         $location = (string) $response->headers->get('Location');
 
-        $this->assertStringStartsWith('https://simplel1.online/authorize?', $location);
+        $this->assertStringStartsWith('https://meanly.test/authorize?', $location);
         $this->assertStringContainsString('client_name=Meanly', $location);
     }
 
@@ -1066,7 +1063,8 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertJsonPath('handoff.key', 'vault_open')
             ->assertJsonPath('handoff.title', __('auth.simple_l1.vault_open.title'));
 
-        $this->assertStringStartsWith('simplel1://authorize?', (string) $response->json('deep_link_url'));
+        $this->assertNull($response->json('deep_link_url'));
+        $this->assertStringStartsWith('https://meanly.test/authorize?', (string) $response->json('redirect_url'));
     }
 
     public function test_simple_l1_callback_verifies_proof_and_stores_marketplace_session_identity(): void
@@ -1074,11 +1072,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $l1Address = 'sl1e_'.str_repeat('d', 39);
 
         config([
-            'simple_l1.identity_provider_url' => 'https://simplel1.online',
+            'simple_l1.identity_provider_url' => 'https://meanly.test',
             'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
         ]);
         Http::fake([
-            'https://simplel1.online/api/sl1e/proofs/introspect' => Http::response([
+            'https://meanly.test/api/sl1e/proofs/introspect' => Http::response([
                 'protocol' => 'simple-l1',
                 'active' => true,
                 'proof' => [
@@ -1114,7 +1112,9 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
             ->assertSessionHas('simple_l1_identity.l1_address', $l1Address)
             ->assertSessionHas('simple_l1_identity.entity_l1_address', $l1Address)
             ->assertSessionHas('simple_l1_identity.key_l1_address', 'sl1_'.str_repeat('e', 40))
+            ->assertSessionHas('simple_l1_identity.username', 'identity_user')
             ->assertSessionHas('simple_l1_identity.alias', 'selimmmm@simplelayer.one')
+            ->assertSessionHas('simple_l1_identity.display_alias', '@identity_user')
             ->assertSessionMissing('simple_l1_identity.proof_token')
             ->assertSessionHas('simple_l1_identity.proof_token_hash', hash('sha256', 'proof-token'));
 
@@ -1122,12 +1122,15 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertSame($l1Address, data_get(auth()->user()?->meta, 'entity_l1_address'));
         $this->assertSame('external_identity_provider', data_get(auth()->user()?->meta, 'simple_l1.identity_rule'));
         $this->assertSame('selimmmm@simplelayer.one', data_get(auth()->user()?->meta, 'simple_l1.alias'));
+        $this->assertSame('identity_user', auth()->user()?->username);
+        $this->assertSame('identity_user', data_get(auth()->user()?->meta, 'simple_l1.username'));
         $this->assertSame('selimmmm', auth()->user()?->first_name);
         $this->assertSame('selimmmm', data_get(auth()->user()?->meta, 'display_name'));
 
         $connectEvent = SovereignLedger::where('event_type', 'IDENTITY_CONNECT_EXTERNAL_INTENT')->firstOrFail();
         $this->assertSame('identity.connect_external', data_get($connectEvent->payload, 'intent_type'));
         $this->assertSame($l1Address, data_get($connectEvent->payload, 'connected_entity_l1_address'));
+        $this->assertSame('identity_user', data_get($connectEvent->payload, 'username'));
         $this->assertSame(hash('sha256', 'proof-token'), data_get($connectEvent->payload, 'proof_token_hash'));
     }
 
@@ -1136,11 +1139,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $l1Address = 'sl1e_'.str_repeat('d', 39);
 
         config([
-            'simple_l1.identity_provider_url' => 'https://simplel1.online',
+            'simple_l1.identity_provider_url' => 'https://meanly.test',
             'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
         ]);
         Http::fake([
-            'https://simplel1.online/api/sl1e/authorization-code/exchange' => Http::response([
+            'https://meanly.test/api/sl1e/authorization-code/exchange' => Http::response([
                 'success' => true,
                 'active' => true,
                 'proof_token' => 'proof-token-from-code',
@@ -1231,6 +1234,62 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $this->assertSame('l1_policy_v0', data_get($connectEvent->payload, 'policy_version'));
         $this->assertSame('PROOF_ACCEPTED', data_get($connectEvent->payload, 'verification_result.decision'));
         $this->assertSame(data_get($identityKey->metadata, 'last_verification_result_id'), data_get($connectEvent->payload, 'verification_result_id'));
+    }
+
+    public function test_native_callback_can_complete_the_original_browser_session_by_polling_status(): void
+    {
+        config(['simple_l1.accept_native_direct_proof' => true]);
+
+        $connect = $this->getJson(route('meanly.simple_l1.connect', [
+            'return_to' => '/vault',
+            'mode' => 'connect',
+            'intent_type' => 'meanly.vault.open',
+        ]))->assertOk();
+
+        $state = (string) $connect->json('handoff_state');
+        $originalBrowserSession = [
+            'simple_l1_connect.state' => $state,
+            'simple_l1_connect.nonce' => session('simple_l1_connect.nonce'),
+            'simple_l1_connect.client_id' => session('simple_l1_connect.client_id'),
+            'simple_l1_connect.redirect_uri' => session('simple_l1_connect.redirect_uri'),
+            'simple_l1_connect.mode' => session('simple_l1_connect.mode'),
+            'simple_l1_connect.flow' => session('simple_l1_connect.flow'),
+            'simple_l1_connect.return_to' => session('simple_l1_connect.return_to'),
+            'simple_l1_connect.intent' => session('simple_l1_connect.intent'),
+        ];
+
+        $signed = $this->signedNativeProofResponse([
+            'type' => 'sl1e.login.proof.v1',
+            'clientId' => $originalBrowserSession['simple_l1_connect.client_id'],
+            'redirectUri' => $originalBrowserSession['simple_l1_connect.redirect_uri'],
+            'state' => $state,
+            'nonce' => $originalBrowserSession['simple_l1_connect.nonce'],
+            'mode' => 'login',
+            'displayName' => 'Browser Bound User',
+            'issuedAt' => now()->toIso8601String(),
+            'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+        ]);
+        $proofPayload = rtrim(strtr(base64_encode(json_encode($signed['proof_response'], JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
+
+        Http::fake();
+        Auth::logout();
+        session()->flush();
+
+        $this->get('/simple-l1/callback?state='.$state.'&proof_response='.$proofPayload)
+            ->assertRedirect('/vault');
+
+        Auth::logout();
+        session()->flush();
+
+        $this->withSession($originalBrowserSession)
+            ->getJson('/simple-l1/status?state='.$state)
+            ->assertOk()
+            ->assertJsonPath('authenticated', true)
+            ->assertJsonPath('redirect_url', '/vault')
+            ->assertJsonPath('identity.display_alias', '@browser_bound_user')
+            ->assertSessionHas('simple_l1_identity.display_alias', '@browser_bound_user');
+
+        Http::assertNothingSent();
     }
 
     public function test_simple_l1_callback_rejects_native_direct_proof_with_bad_signature(): void
@@ -1437,11 +1496,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $l1Address = 'sl1e_'.str_repeat('d', 39);
 
         config([
-            'simple_l1.identity_provider_url' => 'https://simplel1.online',
+            'simple_l1.identity_provider_url' => 'https://meanly.test',
             'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
         ]);
         Http::fake([
-            'https://simplel1.online/api/sl1e/proofs/introspect' => Http::response([
+            'https://meanly.test/api/sl1e/proofs/introspect' => Http::response([
                 'protocol' => 'simple-l1',
                 'active' => true,
                 'proof' => [
@@ -1488,11 +1547,11 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         ]);
 
         config([
-            'simple_l1.identity_provider_url' => 'https://simplel1.online',
+            'simple_l1.identity_provider_url' => 'https://meanly.test',
             'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
         ]);
         Http::fake([
-            'https://simplel1.online/api/sl1e/proofs/introspect' => Http::response([
+            'https://meanly.test/api/sl1e/proofs/introspect' => Http::response([
                 'protocol' => 'simple-l1',
                 'active' => true,
                 'proof' => [
@@ -1525,6 +1584,66 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
 
         $this->assertSame($l1Address, $owner->refresh()->sovereignIdentityAddress());
         $this->assertSame($currentAddress, $current->refresh()->sovereignIdentityAddress());
+    }
+
+    public function test_simple_l1_connect_flow_switches_from_stale_authenticated_account_to_proof_identity(): void
+    {
+        $currentAddress = 'sl1e_'.str_repeat('a', 39);
+        $proofAddress = 'sl1e_'.str_repeat('d', 39);
+        $current = User::factory()->create([
+            'entity_l1_address' => $currentAddress,
+            'meta' => ['entity_l1_address' => $currentAddress],
+        ]);
+        \Spatie\LaravelPasskeys\Models\Passkey::factory()->create([
+            'authenticatable_id' => $current->id,
+        ]);
+
+        config([
+            'simple_l1.identity_provider_url' => 'https://meanly.test',
+            'simple_l1.proof_introspection_path' => '/api/sl1e/proofs/introspect',
+        ]);
+        Http::fake([
+            'https://meanly.test/api/sl1e/proofs/introspect' => Http::response([
+                'protocol' => 'simple-l1',
+                'active' => true,
+                'proof' => [
+                    'type' => 'sl1e.login.proof.v1',
+                    'clientId' => config('simple_l1.client_id'),
+                    'redirectUri' => route('meanly.simple_l1.callback'),
+                    'state' => 'expected-state',
+                    'nonce' => 'expected-nonce',
+                    'mode' => 'login',
+                    'entityAddress' => $proofAddress,
+                    'keyAddress' => 'sl1_'.str_repeat('e', 40),
+                    'username' => 'new-identity@example.test',
+                    'displayName' => 'New Identity',
+                    'expiresAt' => now()->addMinutes(5)->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        $this->actingAs($current)
+            ->withSession([
+                'simple_l1_connect.state' => 'expected-state',
+                'simple_l1_connect.nonce' => 'expected-nonce',
+                'simple_l1_connect.client_id' => config('simple_l1.client_id'),
+                'simple_l1_connect.redirect_uri' => route('meanly.simple_l1.callback'),
+                'simple_l1_connect.mode' => 'login',
+                'simple_l1_connect.flow' => 'connect',
+                'simple_l1_connect.return_to' => '/vault',
+                'simple_l1_connect.intent' => [
+                    'intent_type' => 'meanly.vault.open',
+                ],
+            ])->post('/simple-l1/callback', [
+                'state' => 'expected-state',
+                'proof_token' => 'proof-token',
+            ])
+            ->assertRedirect('/vault')
+            ->assertSessionHas('simple_l1_identity.entity_l1_address', $proofAddress);
+
+        $this->assertSame($currentAddress, $current->refresh()->sovereignIdentityAddress());
+        $this->assertAuthenticated();
+        $this->assertSame($proofAddress, Auth::user()?->sovereignIdentityAddress());
     }
 
     public function test_simple_l1_status_hides_proof_token_and_raw_proof(): void
@@ -1568,7 +1687,10 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $l1Address = 'sl1e_'.str_repeat('f', 39);
         $keyAddress = 'sl1_'.str_repeat('a', 40);
 
-        config(['simple_l1.identity_provider_url' => 'https://api.wildflow.test']);
+        config([
+            'simple_l1.identity_provider_url' => 'https://api.wildflow.test',
+            'simple_l1.protocol_gateway_url' => 'https://api.wildflow.test',
+        ]);
         Http::fake([
             'https://api.wildflow.test/api/simple-l1/intents' => fn ($request) => Http::response([
                 'protocol' => 'simple-l1',
@@ -1626,7 +1748,10 @@ class MeanlyFirstPartyStorefrontTest extends TestCase
         $product = $this->seedStorefrontCheckoutProduct('MEANLY-SL1-REJECTED', 'MEAN-SL1-REJECT-ZZ');
         $l1Address = 'sl1e_'.str_repeat('8', 39);
 
-        config(['simple_l1.identity_provider_url' => 'https://api.wildflow.test']);
+        config([
+            'simple_l1.identity_provider_url' => 'https://api.wildflow.test',
+            'simple_l1.protocol_gateway_url' => 'https://api.wildflow.test',
+        ]);
         Http::fake([
             'https://api.wildflow.test/api/simple-l1/intents' => Http::response([
                 'protocol' => 'simple-l1',

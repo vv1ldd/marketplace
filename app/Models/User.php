@@ -33,6 +33,11 @@ class User extends Authenticatable implements HasPasskeys
 
     public function profileDisplayName(): string
     {
+        $username = $this->publicUsername();
+        if ($username !== null) {
+            return $username;
+        }
+
         $metadataName = trim((string) data_get($this->meta, 'display_name', ''));
         if ($metadataName !== '') {
             return $metadataName;
@@ -54,6 +59,13 @@ class User extends Authenticatable implements HasPasskeys
         ));
 
         return "Meanly Profile {$suffix}";
+    }
+
+    public function publicUsername(): ?string
+    {
+        $username = trim((string) $this->username);
+
+        return $username !== '' ? '@'.$username : null;
     }
 
     public function sovereignIdentityAddress(): ?string
@@ -135,6 +147,8 @@ class User extends Authenticatable implements HasPasskeys
         'middle_name',
         'phone',
         'ym_user_id',
+        'username',
+        'username_key',
         'meta',
         'source_site',
         'source_user_id',
@@ -284,6 +298,58 @@ class User extends Authenticatable implements HasPasskeys
         return static::where('entity_l1_address_bidx', $bidx)->first();
     }
 
+    public static function normalizeUsername(mixed $value): ?string
+    {
+        $username = Str::lower(trim((string) $value));
+        if ($username === '') {
+            return null;
+        }
+
+        $username = preg_replace('/^@+/', '', $username) ?: $username;
+        $username = preg_replace('/\.sl1\.one$/i', '', $username) ?: $username;
+        $username = preg_replace('/@(simplelayer\.one|sl1)$/i', '', $username) ?: $username;
+        if (str_contains($username, '@')) {
+            $username = explode('@', $username, 2)[0];
+        }
+
+        $username = Str::ascii($username);
+        $username = preg_replace('/[^a-z0-9._]+/', '_', $username) ?: '';
+        $username = preg_replace('/[._]{2,}/', '_', $username) ?: '';
+        $username = trim($username, '._');
+        $username = substr($username, 0, 32);
+
+        if (! preg_match('/^[a-z0-9][a-z0-9._]{2,31}$/', $username)) {
+            return null;
+        }
+
+        return $username;
+    }
+
+    public static function makeUniqueUsername(mixed $candidate, ?int $ignoreUserId = null): ?string
+    {
+        $base = static::normalizeUsername($candidate);
+        if ($base === null) {
+            return null;
+        }
+
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            $username = $attempt === 0
+                ? $base
+                : substr($base, 0, max(3, 32 - strlen((string) ($attempt + 1)) - 1)).'_'.($attempt + 1);
+
+            $query = static::where('username_key', $username);
+            if ($ignoreUserId !== null) {
+                $query->whereKeyNot($ignoreUserId);
+            }
+
+            if (! $query->exists()) {
+                return $username;
+            }
+        }
+
+        return null;
+    }
+
     public function shop(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Shop::class);
@@ -330,7 +396,7 @@ class User extends Authenticatable implements HasPasskeys
     public function getFullName(): string
     {
         // 🛍️ If we are in the B2C Customer context, prefer their original Nickname
-        if (isset($this->meta['nickname']) && !request()->is('partner*') && !request()->is('admin*')) {
+        if (isset($this->meta['nickname']) && !request()->is('merchant*') && !request()->is('partner*') && !request()->is('admin*')) {
             return $this->meta['nickname'];
         }
 

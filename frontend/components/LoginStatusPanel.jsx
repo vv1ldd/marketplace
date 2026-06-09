@@ -20,7 +20,11 @@ async function fetchSimpleL1Status() {
   return response.json().catch(() => null);
 }
 
-export function LoginStatusPanel({ connectUrl }) {
+function safePanelReturnTo(value) {
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/vault';
+}
+
+export function LoginStatusPanel({ connectUrl, returnTo = '/vault' }) {
   const [status, setStatus] = useState(null);
   const [checked, setChecked] = useState(false);
 
@@ -57,7 +61,10 @@ export function LoginStatusPanel({ connectUrl }) {
   }
 
   if (status?.authenticated) {
-    const label = status.identity?.display_alias || status.identity?.alias || status.identity?.entity_l1_address || 'Meanly identity';
+    const destination = safePanelReturnTo(returnTo);
+    const label = status.identity?.username
+      ? `@${status.identity.username}`
+      : status.identity?.display_alias || status.identity?.alias || status.identity?.entity_l1_address || 'Meanly identity';
 
     return (
       <section className="meanly-connect-panel meanly-session-panel">
@@ -67,9 +74,9 @@ export function LoginStatusPanel({ connectUrl }) {
           <p>{label} is already active in this browser.</p>
         </div>
         <div className="product-card__actions">
-          <Link href="/vault">Open Vault</Link>
+          <Link href={destination}>{destination.startsWith('/merchant') ? 'Open Merchant Center' : 'Continue'}</Link>
           <Link href="/">Browse marketplace</Link>
-          <Link href="/business">Merchant Center</Link>
+          {destination.startsWith('/merchant') ? null : <Link href="/merchant">Merchant Center</Link>}
         </div>
       </section>
     );
@@ -79,7 +86,7 @@ export function LoginStatusPanel({ connectUrl }) {
     <MeanlyConnectPanel
       href={connectUrl}
       title="Open Meanly to continue."
-      body="Approve sign-in in Meanly. If nothing opens, continue in the browser."
+      body="Approve sign-in in Meanly One. If the app cannot return here, continue in browser."
       secondaryHref="/vault"
       secondaryLabel="Open Vault"
     />

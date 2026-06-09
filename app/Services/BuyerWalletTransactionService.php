@@ -50,7 +50,7 @@ class BuyerWalletTransactionService
 
         if ($amountMinor <= 0) {
             throw ValidationException::withMessages([
-                'product' => 'Product has no RUBT checkout price.',
+                'product' => 'Product has no RUB checkout price.',
             ]);
         }
 
@@ -63,7 +63,7 @@ class BuyerWalletTransactionService
             'network' => 'Simple Layer One',
             'version' => 1,
             'intent' => 'BUYER_PURCHASE_DEBIT',
-            'asset' => BuyerWalletService::ASSET_RUBT,
+            'asset' => BuyerWalletService::ASSET_RUB,
             'amount_minor' => $amountMinor,
             'amount' => $this->wallets->minorToDecimalString($amountMinor),
             'buyer_user_id' => (int) $user->id,
@@ -84,7 +84,7 @@ class BuyerWalletTransactionService
             ],
             'qty' => $quantity,
             'unit_amount_minor' => $unitAmountMinor,
-            'payment_method' => 'rubt_balance',
+            'payment_method' => 'rub_balance',
             'fulfillment' => [
                 'mode' => $fulfillmentMode,
                 'pre_order' => $fulfillmentMode === 'preorder',
@@ -141,7 +141,7 @@ class BuyerWalletTransactionService
 
         if (count($allowCredentials) === 0) {
             throw ValidationException::withMessages([
-                'passkey' => 'Для оплаты RUBT сначала добавьте Passkey в профиль.',
+                'passkey' => 'Для оплаты RUB сначала добавьте Passkey в профиль.',
             ]);
         }
 
@@ -194,7 +194,7 @@ class BuyerWalletTransactionService
             ]);
 
             throw ValidationException::withMessages([
-                'assertion' => 'Недействительная или неавторизованная подпись RUBT-транзакции.',
+                'assertion' => 'Недействительная или неавторизованная подпись RUB-транзакции.',
             ]);
         }
 
@@ -226,7 +226,7 @@ class BuyerWalletTransactionService
         $passkeys = $user->passkeys()->oldest('id')->get();
         if ($passkeys->isEmpty()) {
             throw ValidationException::withMessages([
-                'passkey' => 'Для оплаты RUBT сначала добавьте Passkey в профиль.',
+                'passkey' => 'Для оплаты RUB сначала добавьте Passkey в профиль.',
             ]);
         }
 
@@ -268,7 +268,7 @@ class BuyerWalletTransactionService
     {
         $account = WalletAccount::query()
             ->where('user_id', $user->id)
-            ->where('asset', BuyerWalletService::ASSET_RUBT)
+            ->whereIn('asset', [BuyerWalletService::ASSET_RUB, 'RUBT'])
             ->first();
 
         if (! $account) {
@@ -283,7 +283,7 @@ class BuyerWalletTransactionService
 
         if (! hash_equals((string) $account->l1_address, $buyerL1Address)) {
             throw ValidationException::withMessages([
-                'wallet' => 'RUBT wallet is bound to a different L1 address.',
+                'wallet' => 'RUB wallet is bound to a different L1 address.',
             ]);
         }
     }
@@ -302,7 +302,7 @@ class BuyerWalletTransactionService
         if (! hash_equals($expectedAddress, $derivedAddress)) {
             return [
                 'valid' => false,
-                'error' => 'Passkey не соответствует L1-адресу покупателя в RUBT-транзакции.',
+                'error' => 'Passkey не соответствует L1-адресу покупателя в RUB-транзакции.',
             ];
         }
 
@@ -316,7 +316,7 @@ class BuyerWalletTransactionService
             if (! is_array($clientData) || ! hash_equals($expectedChallenge, $challenge)) {
                 return [
                     'valid' => false,
-                    'error' => 'WebAuthn challenge не совпадает с tx_hash RUBT-транзакции.',
+                    'error' => 'WebAuthn challenge не совпадает с tx_hash RUB-транзакции.',
                 ];
             }
         }
@@ -352,8 +352,14 @@ class BuyerWalletTransactionService
             ->where('nonce', $nonce)
             ->exists()
             || SovereignLedger::query()
-                ->where('payload->simple_layer_one->tx_nonce', (string) $nonce)
-                ->orWhere('payload->tx_nonce', (string) $nonce)
+                ->whereRaw(
+                    "(CASE WHEN JSON_VALID(payload) THEN JSON_UNQUOTE(JSON_EXTRACT(payload, '$.\"simple_layer_one\".\"tx_nonce\"')) ELSE NULL END) = ?",
+                    [(string) $nonce]
+                )
+                ->orWhereRaw(
+                    "(CASE WHEN JSON_VALID(payload) THEN JSON_UNQUOTE(JSON_EXTRACT(payload, '$.\"tx_nonce\"')) ELSE NULL END) = ?",
+                    [(string) $nonce]
+                )
                 ->exists();
     }
 

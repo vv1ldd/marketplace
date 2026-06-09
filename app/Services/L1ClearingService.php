@@ -107,8 +107,8 @@ class L1ClearingService
 
             // Statelessly verify if this hold has already been resolved in the ledger chain
             $alreadyResolved = SovereignLedger::whereIn('event_type', ['STOCK_REPLENISH', 'FINANCE_RELEASE_HOLD'])
-                ->where('payload->reference_code', $refCode)
-                ->exists();
+                ->get()
+                ->contains(fn (SovereignLedger $ledger): bool => (string) data_get($ledger->payload, 'reference_code') === (string) $refCode);
 
             if ($alreadyResolved) {
                 continue; // Skip already resolved requests

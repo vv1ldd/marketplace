@@ -29,7 +29,7 @@ class PricingContextTest extends TestCase
 
         $this->assertSame('global', pricing()->pricingScope);
         $this->assertSame('USD', pricing()->displayCurrency);
-        $this->assertSame('RUBT', pricing()->settlementCurrency);
+        $this->assertSame('RUB', pricing()->settlementCurrency);
         $this->assertSame('RUB', pricing()->storageCurrency);
     }
 
@@ -43,7 +43,7 @@ class PricingContextTest extends TestCase
 
         $this->assertSame('ru', pricing()->pricingScope);
         $this->assertSame('RUB', pricing()->displayCurrency);
-        $this->assertSame('RUBT', pricing()->settlementCurrency);
+        $this->assertSame('RUB', pricing()->settlementCurrency);
         $this->assertSame('RUB', pricing()->storageCurrency);
     }
 
@@ -55,11 +55,11 @@ class PricingContextTest extends TestCase
                 ->assertHeader('X-Market', 'global')
                 ->assertHeader('X-Pricing-Scope', 'global')
                 ->assertHeader('X-Display-Currency', 'USD')
-                ->assertHeader('Content-Language', $locale);
+                ->assertHeader('Content-Language', 'en');
 
             $this->assertSame('global', pricing()->pricingScope);
             $this->assertSame('USD', pricing()->displayCurrency);
-            $this->assertSame('RUBT', pricing()->settlementCurrency);
+            $this->assertSame('RUB', pricing()->settlementCurrency);
             $this->assertSame('RUB', pricing()->storageCurrency);
         }
     }
@@ -76,7 +76,7 @@ class PricingContextTest extends TestCase
 
             $this->assertSame('ru', pricing()->pricingScope);
             $this->assertSame('RUB', pricing()->displayCurrency);
-            $this->assertSame('RUBT', pricing()->settlementCurrency);
+            $this->assertSame('RUB', pricing()->settlementCurrency);
             $this->assertSame('RUB', pricing()->storageCurrency);
         }
     }

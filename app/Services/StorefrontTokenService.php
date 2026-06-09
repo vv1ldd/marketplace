@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -17,16 +18,21 @@ class StorefrontTokenService
         $token = 'sft_'.Str::random(64);
         $issuedAt = now();
         $expiresAt = $issuedAt->copy()->addSeconds($ttl);
+        $entityAddress = strtolower((string) data_get($identity, 'entity_l1_address'));
+        $user = User::findByEntityL1Address($entityAddress);
+        $username = User::normalizeUsername(data_get($identity, 'username')) ?: $user?->username;
+        $displayAlias = data_get($identity, 'display_alias') ?: $user?->publicUsername();
         $session = [
             'type' => 'storefront_token',
             'issuer' => config('storefront.token_issuer', 'meanly-storefront'),
             'audience' => config('storefront.token_audience', 'regional-frontends'),
             'identity' => [
                 'protocol' => 'simple-l1',
-                'entity_l1_address' => strtolower((string) data_get($identity, 'entity_l1_address')),
+                'entity_l1_address' => $entityAddress,
                 'key_l1_address' => data_get($identity, 'key_l1_address'),
+                'username' => $username,
                 'alias' => data_get($identity, 'alias'),
-                'display_alias' => data_get($identity, 'display_alias'),
+                'display_alias' => $displayAlias,
                 'proof_token_hash' => data_get($identity, 'proof_token_hash'),
             ],
             'scopes' => array_values(array_unique($scopes)),

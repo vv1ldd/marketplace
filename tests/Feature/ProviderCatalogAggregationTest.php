@@ -158,6 +158,95 @@ class ProviderCatalogAggregationTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_pull_upstream_sync_uses_direct_ezpin_api_not_legacy_wildflow_gateway(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.ezpaypin.com/vendors/v2/auth/token/' => Http::response([
+                'access' => 'ezpin-access-token',
+                'expire' => now()->addHour()->timestamp,
+            ]),
+            'https://api.ezpaypin.com/vendors/v2/catalogs/*' => Http::response([
+                'count' => 1,
+                'next' => null,
+                'previous' => null,
+                'results' => [[
+                    'sku' => 'EZPIN-CATALOG-10',
+                    'title' => 'EZPin Catalog 10',
+                    'min_price' => 10,
+                    'max_price' => 10,
+                    'percentage_of_buying_price' => 0,
+                    'currency' => ['code' => 'USD'],
+                    'categories' => [['name' => 'EZPin']],
+                    'regions' => [['code' => 'US']],
+                    'pre_order' => true,
+                ]],
+            ]),
+            'https://api.ezpaypin.com/vendors/v2/retailer_products/*' => Http::response([
+                'count' => 1,
+                'next' => null,
+                'previous' => null,
+                'results' => [[
+                    'product_code' => 'EZPIN-RETAILER-10',
+                    'price' => 10,
+                    'buying_price' => 9,
+                    'currency' => 'USD',
+                    'product' => [
+                        'sku' => 'EZPIN-CATALOG-10',
+                        'title' => 'EZPin Retailer 10',
+                        'categories' => [['name' => 'EZPin']],
+                        'regions' => [['code' => 'US']],
+                    ],
+                ]],
+            ]),
+            'https://api.bybit.com/v5/market/tickers*' => Http::response([
+                'result' => ['list' => [['lastPrice' => '90']]],
+            ]),
+        ]);
+
+        Currency::updateOrCreate(
+            ['code' => 'USD'],
+            [
+                'name' => 'US Dollar',
+                'rate_to_rub' => 90,
+                'manual_rate' => 90,
+                'is_auto_update' => false,
+            ],
+        );
+
+        Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Wildflow',
+                'is_active' => true,
+                'credentials' => [
+                    'client_id' => 'ezpin-client',
+                    'secret_key' => 'ezpin-secret',
+                ],
+            ],
+        );
+
+        $this->artisan('app:sync-catalogs', [
+            'provider' => 'wildflow',
+            '--pull-upstream' => true,
+            '--force' => true,
+        ])->assertExitCode(0);
+
+        $this->assertDatabaseHas('provider_products', [
+            'name' => 'EZPin Catalog 10',
+            'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('provider_products', [
+            'name' => 'EZPin Retailer 10',
+            'is_active' => true,
+        ]);
+
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.ezpaypin.com/vendors/v2/auth/token/'));
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.ezpaypin.com/vendors/v2/catalogs/'));
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.ezpaypin.com/vendors/v2/retailer_products/'));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.wildflow.'));
+    }
+
     public function test_provider_payload_normalizer_persists_catalog_and_retailer_items_into_provider_products(): void
     {
         $provider = Provider::updateOrCreate(

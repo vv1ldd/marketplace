@@ -11,6 +11,14 @@ function resolveBackendUrl(pathOrUrl, query = {}) {
       }
     });
 
+    if (
+      typeof window !== 'undefined'
+      && url.origin === window.location.origin
+      && !url.pathname.startsWith('/backend/')
+    ) {
+      return `/backend${url.pathname}${url.search}`;
+    }
+
     return url.toString();
   }
 
@@ -37,7 +45,7 @@ async function parseJson(response) {
   try {
     return JSON.parse(text);
   } catch {
-    return { message: text };
+    return { __nonJson: true, message: text };
   }
 }
 
@@ -98,6 +106,11 @@ export async function partnerFetch(pathOrUrl, options = {}) {
     credentials: 'include',
   });
   const payload = await parseJson(response);
+
+  if (payload.__nonJson) {
+    const message = String(payload.message || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    throw new Error(message ? `Partner API returned non-JSON: ${message.slice(0, 180)}` : 'Partner API returned non-JSON.');
+  }
 
   if (!response.ok) {
     const message = payload.message || payload.error || `Partner API failed: ${response.status}`;

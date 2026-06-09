@@ -5,6 +5,7 @@
     $forceDefaultTheme = true;
 
     if (
+        str_starts_with($path, '/merchant') ||
         str_starts_with($path, '/partner') || 
         str_starts_with($path, '/vault') ||
         str_starts_with($path, '/cabinet') || 

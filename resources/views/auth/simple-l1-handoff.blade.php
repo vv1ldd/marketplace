@@ -145,16 +145,38 @@
             @endforeach
         </div>
         <div class="actions">
-            <a class="primary" href="{{ $nativeDeepLinkAutoLaunch && $deepLinkUrl ? $deepLinkUrl : $authorizeUrl }}">{{ $handoff['cta'] }}</a>
+            <a class="primary" href="{{ $authorizeUrl }}">{{ $handoff['cta'] }}</a>
             <span class="small">{{ __('auth.simple_l1.countdown_prefix') }} <span data-handoff-countdown>5</span> {{ __('auth.simple_l1.countdown_suffix') }}</span>
         </div>
     </main>
     <script>
         const authorizeUrl = @json($authorizeUrl);
-        const deepLinkUrl = @json($deepLinkUrl);
-        const nativeDeepLinkAutoLaunch = @json($nativeDeepLinkAutoLaunch);
+        const statusUrl = @json($statusUrl);
+        const returnTo = @json($returnTo);
         let secondsLeft = 5;
         const countdownNode = document.querySelector('[data-handoff-countdown]');
+        let pollAttempts = 0;
+        const poll = window.setInterval(async () => {
+            pollAttempts += 1;
+            if (pollAttempts > 120) {
+                window.clearInterval(poll);
+                return;
+            }
+
+            try {
+                const response = await fetch(statusUrl, {
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/json' },
+                });
+                const payload = await response.json();
+                if (payload.authenticated) {
+                    window.clearInterval(poll);
+                    window.location.assign(payload.redirect_url || returnTo || '/vault');
+                }
+            } catch (error) {
+                // Keep the browser-bound tab alive while the native app is open.
+            }
+        }, 1000);
         const countdown = window.setInterval(() => {
             secondsLeft -= 1;
             if (countdownNode) {
@@ -164,15 +186,9 @@
                 window.clearInterval(countdown);
             }
         }, 1000);
-        if (nativeDeepLinkAutoLaunch && deepLinkUrl) {
-            window.setTimeout(() => {
-                window.location.assign(deepLinkUrl);
-            }, 250);
-        } else {
-            window.setTimeout(() => {
-                window.location.assign(authorizeUrl);
-            }, 5000);
-        }
+        window.setTimeout(() => {
+            window.location.assign(authorizeUrl);
+        }, 5000);
     </script>
 </body>
 </html>

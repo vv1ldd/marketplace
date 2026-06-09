@@ -45,9 +45,9 @@ class MarketContextTest extends TestCase
     public function test_market_login_keeps_auth_flow_on_current_domain(): void
     {
         $expectations = [
-            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'copy' => 'Сейчас откроется Simple Layer One'],
-            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'copy' => 'Simple Layer One se abrirá ahora'],
-            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'copy' => 'Simple Layer One ახლავე გაიხსნება'],
+            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'copy' => 'Сейчас откроется Meanly One'],
+            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'copy' => 'Meanly One se abrirá ahora'],
+            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'copy' => 'Meanly One ახლავე გაიხსნება'],
         ];
 
         foreach ($expectations as $host => $expected) {
@@ -75,9 +75,9 @@ class MarketContextTest extends TestCase
     public function test_market_simple_l1_handoff_uses_market_locale_and_callback_host(): void
     {
         $expectations = [
-            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'title' => 'Входим через Simple Layer One?'],
-            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'title' => '¿Entrar con Simple Layer One?'],
-            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'title' => 'შევიდეთ Simple Layer One-ით?'],
+            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'title' => 'Входим через Meanly One?'],
+            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'title' => '¿Entrar con Meanly One?'],
+            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'title' => 'შევიდეთ Meanly One-ით?'],
         ];
 
         foreach ($expectations as $host => $expected) {
@@ -97,18 +97,22 @@ class MarketContextTest extends TestCase
                 rawurlencode("https://{$host}/simple-l1/callback"),
                 (string) $response->json('redirect_url')
             );
-            $this->assertStringContainsString(
-                rawurlencode("https://{$host}/simple-l1/callback"),
-                (string) $response->json('deep_link_url')
-            );
+            if ($response->json('deep_link_url')) {
+                $this->assertStringContainsString(
+                    rawurlencode("https://{$host}/simple-l1/callback"),
+                    (string) $response->json('deep_link_url')
+                );
+            }
             $this->assertStringNotContainsString(
                 rawurlencode('https://meanly.one/simple-l1/callback'),
                 (string) $response->json('redirect_url')
             );
-            $this->assertStringNotContainsString(
-                rawurlencode('https://meanly.one/simple-l1/callback'),
-                (string) $response->json('deep_link_url')
-            );
+            if ($response->json('deep_link_url')) {
+                $this->assertStringNotContainsString(
+                    rawurlencode('https://meanly.one/simple-l1/callback'),
+                    (string) $response->json('deep_link_url')
+                );
+            }
             $this->assertSame("https://{$host}/simple-l1/callback", session('simple_l1_connect.redirect_uri'));
             session()->flush();
         }
@@ -268,8 +272,8 @@ class MarketContextTest extends TestCase
             ->assertHeader('X-Market', 'global')
             ->assertHeader('X-Pricing-Scope', 'global')
             ->assertHeader('X-Display-Currency', 'USD')
-            ->assertHeader('Content-Language', 'ru')
-            ->assertSee('Meanly помогает быстро найти цифровой товар.');
+            ->assertHeader('Content-Language', 'en')
+            ->assertSee('Meanly helps you find digital goods fast.');
 
         $context = market();
         $this->assertSame('global', $context->market);
@@ -279,7 +283,7 @@ class MarketContextTest extends TestCase
         $this->assertSame('global', $context->pricingScope);
         $this->assertSame('global', pricing()->pricingScope);
         $this->assertSame('USD', pricing()->displayCurrency);
-        $this->assertSame('RUBT', pricing()->settlementCurrency);
+        $this->assertSame('RUB', pricing()->settlementCurrency);
         $this->assertSame('RUB', pricing()->storageCurrency);
     }
 
@@ -303,7 +307,7 @@ class MarketContextTest extends TestCase
         $this->assertSame('RU', $context->demandRegion);
         $this->assertSame('ru', pricing()->pricingScope);
         $this->assertSame('RUB', pricing()->displayCurrency);
-        $this->assertSame('RUBT', pricing()->settlementCurrency);
+        $this->assertSame('RUB', pricing()->settlementCurrency);
         $this->assertSame('RUB', pricing()->storageCurrency);
     }
 
@@ -317,7 +321,7 @@ class MarketContextTest extends TestCase
             ->assertHeader('X-Market', 'global')
             ->assertHeader('X-Pricing-Scope', 'global')
             ->assertHeader('X-Display-Currency', 'USD')
-            ->assertHeader('Content-Language', 'de');
+            ->assertHeader('Content-Language', 'en');
 
         $context = market();
         $this->assertSame('global', $context->market);

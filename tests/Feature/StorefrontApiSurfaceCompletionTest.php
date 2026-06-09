@@ -130,7 +130,8 @@ class StorefrontApiSurfaceCompletionTest extends TestCase
         $this->withToken($this->storefrontToken($partnerAddress, ['storefront:read', 'storefront:vault']))
             ->getJson('/api/storefront/v1/vault')
             ->assertOk()
-            ->assertJsonPath('authority_surfaces.0.key', 'partner')
+            ->assertJsonPath('authority_surfaces.0.key', 'merchant')
+            ->assertJsonPath('authority_surfaces.0.grant', 'meanly.partner.workspace')
             ->assertJsonMissing(['grant' => 'meanly.ops']);
 
         Role::firstOrCreate(['name' => User::ROLE_SOVEREIGN_VALIDATOR, 'guard_name' => 'web']);
@@ -142,6 +143,32 @@ class StorefrontApiSurfaceCompletionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('authority_surfaces.0.key', 'ops')
             ->assertJsonPath('authority_surfaces.0.grant', 'meanly.ops');
+    }
+
+    public function test_premium_wallet_assets_are_protected_preview_contract(): void
+    {
+        $entityAddress = 'sl1e_walletpreview000000000000000000000001';
+
+        $this->getJson('/api/storefront/v1/wallet/assets')
+            ->assertUnauthorized();
+
+        $this->withToken($this->storefrontToken($entityAddress, ['storefront:read']))
+            ->getJson('/api/storefront/v1/wallet/assets')
+            ->assertForbidden();
+
+        $this->withToken($this->storefrontToken($entityAddress, ['storefront:read', 'storefront:vault']))
+            ->getJson('/api/storefront/v1/wallet/assets')
+            ->assertOk()
+            ->assertJsonPath('contract.name', 'storefront-vault-wallet-coins')
+            ->assertJsonPath('contract.network', 'simple-layer-1')
+            ->assertJsonPath('contract.mode', 'preview')
+            ->assertJsonPath('wallet.tier', 'premium-preview')
+            ->assertJsonPath('wallet.label', 'Vault Wallet')
+            ->assertJsonPath('coins.0.symbol', 'SL1')
+            ->assertJsonPath('coins.1.symbol', 'MCR')
+            ->assertJsonPath('coins.2.symbol', 'MLP')
+            ->assertJsonPath('coins.0.transferable', false)
+            ->assertJsonPath('capabilities.can_transfer_coins', false);
     }
 
     private function seedProduct(): Product

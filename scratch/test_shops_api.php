@@ -31,7 +31,7 @@ $controller = new PartnerDashboardController();
 
 // 2. Fetch all shops (page 1)
 echo "🏪 [TEST] Invoking getShopsData (status: all, page: 1)...\n";
-$request = Request::create('/partner/dashboard/shops/data', 'GET', [
+$request = Request::create('/merchant/dashboard/shops/data', 'GET', [
     'page' => 1,
     'status' => 'all',
     'search' => ''

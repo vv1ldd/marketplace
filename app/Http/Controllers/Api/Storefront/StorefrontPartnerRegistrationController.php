@@ -85,7 +85,7 @@ class StorefrontPartnerRegistrationController extends Controller
             'name' => $entity->name,
             'status' => $entity->status,
             'is_active' => (bool) $entity->is_active,
-            'next_href' => ($entity->status === 'active' && $entity->is_active) ? '/partner' : '/business/register/onboarding',
+            'next_href' => ($entity->status === 'active' && $entity->is_active) ? '/merchant' : '/business/register/onboarding',
         ];
     }
 

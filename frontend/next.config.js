@@ -19,6 +19,26 @@ const nextConfig = {
         source: '/simple-l1/:path*',
         destination: `${apiUrl}/simple-l1/:path*`,
       },
+      {
+        source: '/manifest.webmanifest',
+        destination: `${apiUrl}/manifest.webmanifest`,
+      },
+      {
+        source: '/identity-icon.svg',
+        destination: `${apiUrl}/identity-icon.svg`,
+      },
+      {
+        source: '/device-handoff/:path*',
+        destination: `${apiUrl}/device-handoff/:path*`,
+      },
+      {
+        source: '/device-pairing/:path*',
+        destination: `${apiUrl}/device-pairing/:path*`,
+      },
+      {
+        source: '/api/sl1e/:path*',
+        destination: `${apiUrl}/api/sl1e/:path*`,
+      },
     ];
   },
 };

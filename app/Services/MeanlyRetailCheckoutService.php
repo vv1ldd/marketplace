@@ -139,7 +139,7 @@ class MeanlyRetailCheckoutService
                     ]],
                 ],
                 'comment' => $paymentMethod === 'buyer_wallet_rubt'
-                    ? 'Retail checkout through Meanly marketplace storefront with passkey-signed RUBT wallet payment.'
+                    ? 'Retail checkout through Meanly marketplace storefront with passkey-signed RUB wallet payment.'
                     : 'Retail checkout through Meanly marketplace storefront pending verified payment.',
             ]);
 
@@ -245,7 +245,7 @@ class MeanlyRetailCheckoutService
 
             if ($trustedCapture) {
                 $this->ledger->record($shop, 'FINANCE_CAPTURE', $order, [
-                    'asset' => $paymentMethod === 'buyer_wallet_rubt' ? 'RUBT' : 'RUB',
+                    'asset' => 'RUB',
                     'amount_rub' => $totalRub,
                     'token_amount' => $paymentMethod === 'buyer_wallet_rubt' ? $totalRub : null,
                     'reference' => $orderReference,
@@ -255,7 +255,7 @@ class MeanlyRetailCheckoutService
                     'tx_hash' => $txHash,
                     'tx_nonce' => $txNonce,
                     'description' => $paymentMethod === 'buyer_wallet_rubt'
-                        ? 'Meanly storefront RUBT wallet checkout captured after Passkey verification.'
+                        ? 'Meanly storefront RUB wallet checkout captured after Passkey verification.'
                         : 'Meanly storefront retail checkout captured.',
                 ], $legalEntity);
 

@@ -12,14 +12,14 @@ return [
         'countdown_suffix' => 'წამში...',
         'inline' => [
             'title' => 'Meanly One ახლავე გაიხსნება',
-            'body' => 'დაადასტურეთ identity მოთხოვნა Meanly One-ში და შემდეგ Meanly-ში დაბრუნდებით.',
+            'body' => 'დაადასტურეთ Meanly One-ში და შემდეგ Meanly-ში დაბრუნდებით.',
             'cta' => 'გაგრძელება ახლა',
             'countdown' => 'გადამისამართება :seconds წამში...',
             'redirecting' => 'გადამისამართება...',
         ],
         'vault_open' => [
             'title' => 'გავხსნათ თქვენი სეიფი?',
-            'body' => 'ახლა გაიხსნება Meanly One. დაადასტურეთ identity მოთხოვნა და დაგაბრუნებთ თქვენი შენაძენების სეიფში.',
+            'body' => 'ახლა გაიხსნება Meanly One. დაადასტურეთ Vault და დაგაბრუნებთ თქვენი შენაძენების სეიფში.',
             'facts' => [
                 'owner_only' => 'კოდებს მხოლოდ ანგარიშის მფლობელი ნახავს.',
                 'no_keys' => 'Meanly თქვენს გასაღებებს არასოდეს იღებს.',
@@ -37,19 +37,19 @@ return [
         ],
         'identity_create' => [
             'title' => 'გავაგრძელოთ Meanly One-ით?',
-            'body' => 'ახლა გაიხსნება Meanly One. იქ შექმნით ან დაადასტურებთ SL1 identity-ს და შემდეგ Meanly-ში დაბრუნდებით.',
+            'body' => 'ახლა გაიხსნება Meanly One. იქ შექმნით ან დაადასტურებთ Meanly ანგარიშს და შემდეგ Meanly-ში დაბრუნდებით.',
             'facts' => [
-                'passkey_device' => 'თქვენი credential identity layer-ში რჩება.',
+                'passkey_device' => 'თქვენი დაცული გასაღები თქვენს მოწყობილობაზე რჩება.',
                 'return_after' => 'ანგარიშის შექმნის შემდეგ Meanly-ში დაბრუნდებით.',
             ],
             'cta' => 'გაგრძელება Meanly One-ში',
         ],
         'identity_confirm' => [
             'title' => 'შევიდეთ Meanly One-ით?',
-            'body' => 'ახლა გაიხსნება Meanly One. დაადასტურეთ SL1 identity და შემდეგ Meanly-ში დაბრუნდებით.',
+            'body' => 'ახლა გაიხსნება Meanly One. დაადასტურეთ ანგარიში და შემდეგ Meanly-ში დაბრუნდებით.',
             'facts' => [
                 'no_password' => 'პაროლი არ არის საჭირო.',
-                'passkey_device' => 'Meanly იღებს მხოლოდ დადასტურებულ identity შედეგს.',
+                'passkey_device' => 'Meanly იღებს მხოლოდ დადასტურებულ შედეგს.',
             ],
             'cta' => 'Meanly One-ით შესვლა',
         ],

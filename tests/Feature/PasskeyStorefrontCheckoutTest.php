@@ -373,10 +373,14 @@ class PasskeyStorefrontCheckoutTest extends TestCase
     {
         DB::table('api_wildflow_dev.local_vouchers')->where('service_sku', 'SOV-PIN-SERVICE')->delete();
 
-        $this->mock(\App\Services\WildflowService::class, function ($mock) {
-            $mock->shouldReceive('checkAvailability')
+        $this->mock(\App\Services\StorefrontStockAvailabilityService::class, function ($mock) {
+            $mock->shouldReceive('check')
                 ->once()
-                ->andReturn(['available' => false]);
+                ->andReturn([
+                    'available' => false,
+                    'source' => 'provider_product_sync',
+                    'local_available' => 0,
+                ]);
         });
 
         $response = $this->actingAs($this->user)
@@ -828,7 +832,7 @@ class PasskeyStorefrontCheckoutTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('currency', 'RUBT')
+            ->assertJsonPath('currency', 'RUB')
             ->assertJsonPath('tx_hash', $txHash)
             ->assertJsonPath('tx_nonce', $txNonce)
             ->assertJsonStructure(['explorer_url', 'explorer_reference']);
@@ -850,7 +854,7 @@ class PasskeyStorefrontCheckoutTest extends TestCase
         $this->assertSame($txHash, data_get($hold->payload, 'simple_layer_one.tx_hash'));
         $this->assertSame($txNonce, data_get($hold->payload, 'simple_layer_one.tx_nonce'));
         $this->assertSame('Simple Layer One', data_get($hold->payload, 'simple_layer_one.network'));
-        $this->assertSame('RUBT', data_get($hold->payload, 'simple_layer_one.canonical_payload.asset'));
+        $this->assertSame('RUB', data_get($hold->payload, 'simple_layer_one.canonical_payload.asset'));
         $this->assertNotEmpty(data_get($hold->payload, 'simple_layer_one.public_key'));
         $this->assertNotEmpty(data_get($hold->payload, 'simple_layer_one.clientDataJSON'));
         $this->assertSame($txHash, data_get($hold->payload, 'tx_hash'));

@@ -33,7 +33,7 @@ class AddCatalogItemToShop implements ShouldQueue
         public readonly int $count = 0,
         public readonly ?float $amount = null,
         public readonly ?string $passkeyCredentialId = null,
-        public readonly string $paymentMethod = 'rub_token',
+        public readonly string $paymentMethod = 'rub',
         public readonly ?array $simpleLayerOneProof = null,
     ) {}
 
@@ -297,10 +297,10 @@ class AddCatalogItemToShop implements ShouldQueue
                         $legalEntity->increment('native_token_reserved', $sl1Amount);
                     } else {
                         $balances = app(\App\Services\L1StateService::class)->reconstructBalance($legalEntity);
-                        $availableRubt = (float) ($balances['rubt_available_balance'] ?? $balances['available_balance'] ?? 0);
+                        $availableRub = (float) ($balances['rub_available_balance'] ?? $balances['rubt_available_balance'] ?? $balances['available_balance'] ?? 0);
 
-                        if ($availableRubt < $totalCostRub) {
-                            throw new \Exception('Недостаточно RUBT на балансе для резервирования стока (Требуется: '.number_format($totalCostRub, 2).' RUBT)');
+                        if ($availableRub < $totalCostRub) {
+                            throw new \Exception('Недостаточно RUB на балансе для резервирования стока (Требуется: '.number_format($totalCostRub, 2).' RUB)');
                         }
 
                         // Move tokenized RUB from Available to Reserved (The HOLD)
@@ -313,7 +313,7 @@ class AddCatalogItemToShop implements ShouldQueue
 
                     // ⛓️ Sovereign Ledger: Record the FINANCE_HOLD
                     app(\App\Services\LedgerService::class)->record($shop, 'FINANCE_HOLD', $product, [
-                        'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+                        'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUB',
                         'amount_rub' => $totalCostRub,
                         'token_amount' => $paymentMethod === 'native_token' ? $sl1Amount : $totalCostRub,
                         'sl1_amount' => $paymentMethod === 'native_token' ? $sl1Amount : 0.0,
@@ -327,7 +327,7 @@ class AddCatalogItemToShop implements ShouldQueue
                             : $legalEntity->available_balance,
                         'count' => $this->count,
                         'context' => 'stock_replenish',
-                        'signature_method' => 'passkey',
+                        'signature_method' => $this->simpleLayerOneProof['signature_method'] ?? 'passkey',
                         'assertion_id' => $this->passkeyCredentialId,
                         'simple_layer_one' => $this->simpleLayerOneProof,
                         'tx_hash' => $this->simpleLayerOneProof['tx_hash'] ?? null,
@@ -388,12 +388,12 @@ class AddCatalogItemToShop implements ShouldQueue
                     app(\App\Services\LedgerService::class)->record($shop, 'STOCK_REPLENISH', $procurement, [
                         'count' => $this->count,
                         'sku' => $product->sku,
-                        'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUBT',
+                        'asset' => $paymentMethod === 'native_token' ? 'SL1' : 'RUB',
                         'amount_rub' => $totalCostRub,
                         'token_amount' => $paymentMethod === 'native_token' ? $sl1Amount : $totalCostRub,
                         'sl1_amount' => $paymentMethod === 'native_token' ? $sl1Amount : 0.0,
                         'payment_method' => $paymentMethod,
-                        'signature_method' => 'passkey',
+                        'signature_method' => $this->simpleLayerOneProof['signature_method'] ?? 'passkey',
                         'assertion_id' => $this->passkeyCredentialId,
                         'simple_layer_one' => $this->simpleLayerOneProof,
                         'tx_hash' => $this->simpleLayerOneProof['tx_hash'] ?? null,
@@ -452,7 +452,7 @@ class AddCatalogItemToShop implements ShouldQueue
 
     private function normalizedPaymentMethod(): string
     {
-        return $this->paymentMethod === 'native_token' ? 'native_token' : 'rub_token';
+        return $this->paymentMethod === 'native_token' ? 'native_token' : 'rub';
     }
 
     private function resolveYandexMarketCategoryId(ProviderProduct $providerProduct, ?WildflowCatalog $catalogItem, int $defaultCategoryId, ?string $canonicalCategory = null): int

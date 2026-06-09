@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Storefront\StorefrontIdentityController;
 use App\Http\Controllers\Api\Storefront\StorefrontPartnerRegistrationController;
 use App\Http\Controllers\Api\Storefront\StorefrontPersonalizationController;
 use App\Http\Controllers\Api\Storefront\StorefrontVaultController;
+use App\Http\Controllers\Api\Storefront\StorefrontWalletController;
 use App\Http\Controllers\Api\UiProjectionController;
 use App\Http\Controllers\Ym\MainController as YmMainController;
 use Illuminate\Support\Facades\Route;
@@ -95,6 +96,8 @@ Route::prefix('storefront/v1')
         ->middleware('storefront.token:storefront:read');
     Route::get('vault', [StorefrontVaultController::class, 'index'])
         ->middleware('storefront.token:storefront:vault');
+    Route::get('wallet/assets', [StorefrontWalletController::class, 'assets'])
+        ->middleware('storefront.token:storefront:vault');
     Route::get('personalization/home', [StorefrontPersonalizationController::class, 'home'])
         ->middleware('storefront.token:storefront:read');
     Route::post('favorites/toggle', [StorefrontPersonalizationController::class, 'toggleFavorite'])
@@ -104,6 +107,9 @@ Route::prefix('storefront/v1')
     Route::get('identity/session', [StorefrontIdentityController::class, 'session'])
         ->middleware('storefront.token:storefront:read');
 });
+
+Route::any('sl1e/{path?}', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'sl1eApi'])
+    ->where('path', '.*');
 
 Route::prefix('ui/v1')->group(function () {
     Route::get('projections/{surface}/{path?}', [UiProjectionController::class, 'show'])

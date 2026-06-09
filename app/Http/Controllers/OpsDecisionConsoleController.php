@@ -15,7 +15,9 @@ class OpsDecisionConsoleController extends Controller
     {
         $this->ensureOpsAccess();
 
-        return redirect()->route('ops.dashboard', ['tab' => 'decision-console']);
+        return redirect()->away(
+            rtrim($request->getSchemeAndHttpHost(), '/').route('ops.dashboard', ['tab' => 'decision-console'], false)
+        );
     }
 
     public function approve(SearchDemandRecommendation $recommendation): RedirectResponse

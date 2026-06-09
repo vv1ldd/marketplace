@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   approveOpsPartner,
+  approveOpsDepositIntent,
   connectOpsZeroLayer,
   decideOpsRecommendation,
   fetchOpsCatalog,
@@ -21,6 +22,7 @@ import {
   fetchOpsTickets,
   fetchOpsTreasury,
   replyOpsTicket,
+  rejectOpsDepositIntent,
   runOpsAiAudit,
   runOpsSearchSignalAction,
   sendOpsAiMessage,
@@ -44,7 +46,7 @@ const MODULE_GROUPS = [
     label: 'Merchants',
     modules: [
       ['organizations', 'Organizations', 'Legal entity registry'],
-      ['finance', 'Finance & Liquidity', 'Treasury and corridors'],
+      ['finance', 'Financial Control', 'Treasury and settlement'],
       ['channels', 'Channels', 'Sales channel matrix'],
       ['shops', 'Shops', 'Storefront registry'],
     ],
@@ -55,7 +57,7 @@ const MODULE_GROUPS = [
       ['orders', 'Orders & Operations', 'Fulfillment history'],
       ['catalog', 'Catalog', 'Global product table'],
       ['inventory', 'Inventory', 'Warehouses and vouchers'],
-      ['providers', 'Providers', 'EZPin supply runtime'],
+      ['providers', 'Supply Authorities', 'EZPin and Fazer Cards'],
       ['search', 'Search Integrations', 'Zero Layer signals'],
     ],
   },
@@ -71,13 +73,13 @@ const MODULE_GROUPS = [
 const MODULE_COPY = {
   command: ['Operations command.', 'Global view of moderation, provider supply, liquidity, channel health, and ledger runtime.'],
   organizations: ['Company moderation.', 'Approve legal entities, inspect API authority, and settle partner balances.'],
-  finance: ['Finance and liquidity.', 'Treasury requests, settlement events, currency readiness, rails, and corridors.'],
+  finance: ['Financial control.', 'Treasury, settlement, buyer wallet, SL1 rewards, and liquidity authority in one plane.'],
   channels: ['Channel matrix.', 'Meanly Storefront, Yandex, offline, CMS, and adapter health across shops.'],
   shops: ['Shop registry.', 'All stores, partners, sandbox flags, regions, categories, and creation state.'],
   orders: ['Orders and operations.', 'Marketplace orders plus unified Meanly API, ledger, and fulfillment history.'],
   catalog: ['Global catalog.', 'All products, stock, shop ownership, status, and provider/catalog errors.'],
   inventory: ['Warehouses and vouchers.', 'Master warehouses, low-stock rows, and voucher code registry.'],
-  providers: ['Provider runtime.', 'EZPin/Meanly.one supply sync, provider credentials, terminals, and support plane.'],
+  providers: ['Supply authority.', 'Meanly.one direct supply sync for EZPin and Fazer Cards, plus parsed catalog sources.'],
   decisions: ['Decision Console.', 'Demand gaps, opportunity cases, search recommendations, and operational alerts.'],
   search: ['Search Integrations.', 'Zero Layer connectors, external demand signals, and search action pipelines.'],
   support: ['Support operations.', 'Ticket queue, details, admin replies, and incident closure.'],
@@ -96,15 +98,19 @@ const TAB_ALIASES = {
   tribunal: 'audit',
 };
 
+const DEFAULT_MODULE = 'command';
+const MODULE_KEYS = new Set(MODULE_GROUPS.flatMap((group) => group.modules.map(([key]) => key)));
+
 function moduleFromLocation() {
   if (typeof window === 'undefined') {
-    return 'command';
+    return DEFAULT_MODULE;
   }
 
   const queryTab = new URLSearchParams(window.location.search).get('tab');
   const saved = window.localStorage.getItem('meanly:ops-module');
-  const raw = queryTab || saved || 'command';
-  return TAB_ALIASES[raw] || raw;
+  const raw = queryTab || saved || DEFAULT_MODULE;
+  const normalized = TAB_ALIASES[raw] || raw;
+  return MODULE_KEYS.has(normalized) ? normalized : DEFAULT_MODULE;
 }
 
 function valueText(value) {
@@ -121,6 +127,15 @@ function valueText(value) {
     return JSON.stringify(value);
   }
   return String(value);
+}
+
+function walletAmount(minor, asset) {
+  const decimals = asset === 'SL' ? 4 : 2;
+  const amount = Number(minor || 0) / (10 ** decimals);
+  return `${amount.toLocaleString('en-US', {
+    maximumFractionDigits: decimals,
+    minimumFractionDigits: decimals,
+  })} ${asset || ''}`.trim();
 }
 
 function statusTone(status) {
@@ -224,34 +239,63 @@ function OpsState({ error, isLoading, empty, emptyText = 'No rows for this surfa
   return null;
 }
 
+function opsRowKey(row, index, scope = 'row') {
+  const identity = [
+    row.type,
+    row.provider_type,
+    row.provider,
+    row.reference,
+    row.sku,
+    row.query,
+    row.id,
+  ].filter((part) => part !== undefined && part !== null && part !== '').join(':');
+
+  return `${scope}:${identity || 'item'}:${index}`;
+}
+
 function OpsTable({ columns, rows, emptyText = 'No data.', actions }) {
   if (!rows?.length) {
     return <p className="ops-state-note">{emptyText}</p>;
   }
 
   return (
-    <div className="ops-table-wrap">
-      <table className="ops-table">
-        <thead>
-          <tr>
-            {columns.map((column) => <th key={column.label}>{column.label}</th>)}
-            {actions ? <th>Actions</th> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={row.id || row.reference || row.sku || row.query || `${index}`}>
-              {columns.map((column) => (
-                <td key={column.label}>
-                  {column.render ? column.render(row) : valueText(readColumn(row, column.key))}
-                </td>
-              ))}
-              {actions ? <td>{actions(row)}</td> : null}
+    <>
+      <div className="ops-table-wrap">
+        <table className="ops-table">
+          <thead>
+            <tr>
+              {columns.map((column) => <th key={column.label}>{column.label}</th>)}
+              {actions ? <th>Actions</th> : null}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={opsRowKey(row, index, 'table')}>
+                {columns.map((column) => (
+                  <td key={column.label}>
+                    {column.render ? column.render(row) : valueText(readColumn(row, column.key))}
+                  </td>
+                ))}
+                {actions ? <td>{actions(row)}</td> : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="ops-mobile-rows">
+        {rows.map((row, index) => (
+          <article className="ops-mobile-row" key={opsRowKey(row, index, 'mobile')}>
+            {columns.map((column) => (
+              <div key={column.label}>
+                <span>{column.label}</span>
+                <strong>{column.render ? column.render(row) : valueText(readColumn(row, column.key))}</strong>
+              </div>
+            ))}
+            {actions ? <div className="ops-mobile-row__actions">{actions(row)}</div> : null}
+          </article>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -310,7 +354,7 @@ function AccessPanel({ error }) {
         </p>
         <div className="product-card__actions">
           <Link href="/login">Check login</Link>
-          <Link href="/business">Merchant Center</Link>
+          <Link href="/merchant">Merchant Center</Link>
         </div>
       </section>
     </main>
@@ -384,6 +428,10 @@ function OrganizationsModule() {
   const [page, setPage] = useState(1);
   const [confirmId, setConfirmId] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [topUpTarget, setTopUpTarget] = useState(null);
+  const [topUpAmount, setTopUpAmount] = useState('10');
+  const [topUpReference, setTopUpReference] = useState('');
+  const [topUpOutput, setTopUpOutput] = useState('');
   const { payload, error, isLoading, refresh } = useOpsResource(
     () => fetchOpsPartners({ status: statusFilter, search, page }),
     [statusFilter, page],
@@ -407,16 +455,35 @@ function OrganizationsModule() {
     }
   }
 
-  async function topUp(partner) {
+  function openTopUp(partner) {
     const url = partner.action_urls?.top_up;
     if (!url) return;
-    const amount = window.prompt(`Top up amount for ${partner.name}:`, '10');
-    if (!amount) return;
-    const reference = window.prompt('Reference key:', `OPS-TOPUP-${partner.id}-${Date.now()}`);
-    if (!reference) return;
-    setBusyId(partner.id);
+    setTopUpTarget(partner);
+    setTopUpAmount('10');
+    setTopUpReference(`OPS-TOPUP-${partner.id}-${Date.now()}`);
+    setTopUpOutput('');
+  }
+
+  async function submitTopUp() {
+    if (!topUpTarget?.action_urls?.top_up) return;
+    const amount = Number(topUpAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setTopUpOutput('Enter a positive top-up amount.');
+      return;
+    }
+    if (!topUpReference.trim()) {
+      setTopUpOutput('Reference is required for ledger traceability.');
+      return;
+    }
+    setBusyId(topUpTarget.id);
+    setTopUpOutput(`Crediting ${amount} to ${topUpTarget.name}...`);
     try {
-      await topUpOpsPartner(url, { amount: Number(amount), reference });
+      const result = await topUpOpsPartner(topUpTarget.action_urls.top_up, {
+        amount,
+        reference: topUpReference.trim(),
+      });
+      setTopUpOutput(result);
+      setTopUpTarget(null);
       await refresh();
     } finally {
       setBusyId(null);
@@ -448,10 +515,34 @@ function OrganizationsModule() {
         actions={(row) => (
           <div className="ops-row-actions">
             {row.approve_url ? <ActionButton disabled={busyId === row.id} onClick={() => approve(row)}>{confirmId === row.id ? 'Confirm approve' : 'Approve'}</ActionButton> : null}
-            {row.action_urls?.top_up ? <ActionButton disabled={busyId === row.id} onClick={() => topUp(row)} tone="secondary">Top up</ActionButton> : null}
+            {row.action_urls?.top_up ? <ActionButton disabled={busyId === row.id} onClick={() => openTopUp(row)} tone="secondary">Top up</ActionButton> : null}
           </div>
         )}
       />
+      {topUpTarget ? (
+        <div className="ops-form-card ops-settlement-composer">
+          <div>
+            <p className="eyebrow">Settlement action</p>
+            <h3>Top up {topUpTarget.name}</h3>
+            <p>Creates an `OPS_PARTNER_BALANCE_TOP_UP` ledger event and increases available partner funds.</p>
+          </div>
+          <div className="ops-form-grid">
+            <label>
+              <span>Amount</span>
+              <input inputMode="decimal" onChange={(event) => setTopUpAmount(event.target.value)} value={topUpAmount} />
+            </label>
+            <label>
+              <span>Reference</span>
+              <input onChange={(event) => setTopUpReference(event.target.value)} value={topUpReference} />
+            </label>
+          </div>
+          <div className="ops-row-actions">
+            <ActionButton disabled={busyId === topUpTarget.id} onClick={submitTopUp}>{busyId === topUpTarget.id ? 'Crediting...' : 'Confirm top up'}</ActionButton>
+            <ActionButton disabled={busyId === topUpTarget.id} onClick={() => setTopUpTarget(null)} tone="secondary">Cancel</ActionButton>
+          </div>
+        </div>
+      ) : null}
+      <OpsOutput output={topUpOutput} />
       <OpsPagination isLoading={isLoading} lastPage={payload?.last_page || 1} onPage={setPage} page={page} />
     </OpsPanel>
   );
@@ -462,71 +553,251 @@ function FinanceLiquidityModule() {
     const [treasury, liquidity] = await Promise.all([fetchOpsTreasury(), fetchOpsLiquidity()]);
     return { treasury, liquidity };
   }, []);
+  const [busyId, setBusyId] = useState('');
+  const [reviewOutput, setReviewOutput] = useState(null);
+  const walletSummary = payload?.treasury?.wallet?.summary || [];
+  const walletEvents = payload?.treasury?.wallet?.recent_events || [];
+
+  async function reviewIntent(intent, decision) {
+    const url = intent.action_urls?.[decision];
+    if (!url) {
+      return;
+    }
+    const externalReference = decision === 'approve'
+      ? window.prompt('Proof reference / bank tx / crypto tx hash', intent.proof_reference || intent.reference)
+      : null;
+    if (decision === 'approve' && !externalReference) {
+      return;
+    }
+    const note = decision === 'reject'
+      ? window.prompt('Why reject this settlement intent?', 'Proof rejected by Ops.') || ''
+      : 'Validator attested observed proof.';
+
+    setBusyId(`${decision}:${intent.id}`);
+    try {
+      const result = decision === 'approve'
+        ? await approveOpsDepositIntent(url, {
+            external_reference: externalReference,
+            confirmed_amount: intent.amount,
+            source: 'ops_manual_review',
+            note,
+          })
+        : await rejectOpsDepositIntent(url, { note });
+      setReviewOutput(result);
+      await refresh();
+    } catch (caught) {
+      setReviewOutput({ success: false, error: caught.message || 'Settlement review failed.' });
+    } finally {
+      setBusyId('');
+    }
+  }
 
   return (
     <OpsPanel
-      actions={<ActionButton onClick={refresh}>Refresh finance</ActionButton>}
-      description="Partner balances, pending requests, settlement events, currency readiness, rails, and execution corridors."
-      eyebrow="Finance & Liquidity"
-      title="Treasury and liquidity"
+      actions={<ActionButton onClick={refresh}>Refresh financial plane</ActionButton>}
+      description="One authority surface for partner funds, signed requests, settlement ledger, buyer wallet, SL1 rewards, and execution readiness."
+      eyebrow="Financial Control"
+      title="Meanly Financial Control Plane"
     >
       <OpsMetrics metrics={[
-        { label: 'Partners', value: payload?.treasury?.summary?.partners ?? 0, detail: 'legal entities' },
-        { label: 'Available', value: payload?.treasury?.summary?.available_balance ?? 0, detail: 'partner balance' },
+        { label: 'Held funds', value: payload?.treasury?.summary?.available_balance ?? 0, detail: 'partner available RUB' },
         { label: 'Reserved', value: payload?.treasury?.summary?.reserved_balance ?? 0, detail: 'partner reserves' },
+        { label: 'Authority queue', value: payload?.treasury?.summary?.pending_requests ?? 0, detail: `${payload?.treasury?.summary?.pending_amount ?? 0} pending` },
         { label: 'Ready FX', value: payload?.liquidity?.summary?.execution_ready_currencies ?? 0, detail: 'execution currencies' },
       ]} />
       <OpsState error={error} isLoading={isLoading} />
+      <OpsOutput output={reviewOutput} />
+
+      <div className="ops-finance-flow" aria-label="Financial control plane model">
+        <article>
+          <span>Partner funds</span>
+          <strong>Balances and reserves</strong>
+          <small>{payload?.treasury?.summary?.partners ?? 0} legal entities</small>
+        </article>
+        <article>
+          <span>Authority queue</span>
+          <strong>Signed requests</strong>
+          <small>{payload?.treasury?.summary?.pending_requests ?? 0} pending validator actions</small>
+        </article>
+        <article>
+          <span>Settlement ledger</span>
+          <strong>Finance events</strong>
+          <small>{payload?.treasury?.settlement_events?.length ?? 0} recent records</small>
+        </article>
+        <article>
+          <span>Execution readiness</span>
+          <strong>Liquidity routes</strong>
+          <small>{payload?.liquidity?.summary?.liquidity_methods ?? 0} active rails</small>
+        </article>
+      </div>
+
+      <section className="ops-finance-section">
+        <div className="ops-finance-section__header">
+          <div>
+            <p className="eyebrow">Partner Funds</p>
+            <h3>Money held or reserved for merchants</h3>
+          </div>
+          <OpsStatusPill tone="active">{payload?.liquidity?.data?.length ?? 0} partners shown</OpsStatusPill>
+        </div>
+        <OpsTable columns={[
+          { label: 'Partner', key: 'partner' },
+          { label: 'Currency', key: 'currency' },
+          { label: 'Available', key: 'available_balance' },
+          { label: 'Reserved', key: 'reserved_balance' },
+          { label: 'Native SL1', key: (row) => `${row.native_available} / reserved ${row.native_reserved}` },
+          { label: 'API holds', key: 'api_active_reservations' },
+          { label: 'Status', key: 'status', render: (row) => <OpsStatusPill tone={statusTone(row.status)}>{row.status}</OpsStatusPill> },
+        ]} rows={payload?.liquidity?.data || []} />
+      </section>
+
       <div className="ops-grid-two">
-        <div>
-          <h3>Balance requests</h3>
+        <section className="ops-finance-section">
+          <div className="ops-finance-section__header">
+            <div>
+              <p className="eyebrow">Settlement Review</p>
+              <h3>Proofs waiting for authority</h3>
+            </div>
+            <OpsStatusPill tone={(payload?.treasury?.summary?.pending_deposit_intents ?? 0) > 0 ? 'warn' : 'active'}>
+              {payload?.treasury?.summary?.pending_deposit_intents ?? 0} pending
+            </OpsStatusPill>
+          </div>
+          <OpsTable columns={[
+            { label: 'Partner', key: 'partner' },
+            { label: 'Rail', key: 'rail' },
+            { label: 'Amount', key: (row) => `${row.amount} ${row.currency}` },
+            { label: 'Status', key: 'status', render: (row) => <OpsStatusPill tone={statusTone(row.status)}>{row.status}</OpsStatusPill> },
+            { label: 'Policy', key: (row) => row.authority?.decision || 'wait' },
+            { label: 'Quorum', key: (row) => row.authority ? `${row.authority.accepted_attestations}/${row.authority.required_quorum}` : '0/1' },
+            {
+              label: 'Actions',
+              key: 'id',
+              render: (row) => (
+                <div className="ops-row-actions">
+                  <ActionButton disabled={busyId === `approve:${row.id}`} onClick={() => reviewIntent(row, 'approve')}>
+                    {busyId === `approve:${row.id}` ? 'Attesting...' : 'Attest proof'}
+                  </ActionButton>
+                  <ActionButton disabled={busyId === `reject:${row.id}`} onClick={() => reviewIntent(row, 'reject')} tone="secondary">
+                    Reject evidence
+                  </ActionButton>
+                </div>
+              ),
+            },
+          ]} rows={payload?.treasury?.deposit_intents || []} emptyText="No settlement intents waiting for review." />
+        </section>
+        <section className="ops-finance-section">
+          <div className="ops-finance-section__header">
+            <div>
+              <p className="eyebrow">Authority Queue</p>
+              <h3>Signed top-up and credit requests</h3>
+            </div>
+            <OpsStatusPill tone={(payload?.treasury?.summary?.pending_requests ?? 0) > 0 ? 'warn' : 'active'}>{payload?.treasury?.summary?.pending_requests ?? 0} pending</OpsStatusPill>
+          </div>
           <OpsTable columns={[
             { label: 'Partner', key: 'partner' },
             { label: 'Type', key: 'type' },
             { label: 'Amount', key: (row) => `${row.amount} ${row.currency}` },
             { label: 'Status', key: 'status', render: (row) => <OpsStatusPill tone={statusTone(row.status)}>{row.status}</OpsStatusPill> },
+            { label: 'Created', key: 'created_at' },
           ]} rows={payload?.treasury?.requests || []} />
-        </div>
-        <div>
-          <h3>Settlement events</h3>
+        </section>
+        <section className="ops-finance-section">
+          <div className="ops-finance-section__header">
+            <div>
+              <p className="eyebrow">Settlement Ledger</p>
+              <h3>What actually happened</h3>
+            </div>
+            <OpsStatusPill>{payload?.treasury?.settlement_events?.length ?? 0} events</OpsStatusPill>
+          </div>
           <OpsTable columns={[
             { label: 'Event', key: 'event_type' },
             { label: 'Partner', key: 'partner' },
             { label: 'Amount', key: (row) => `${row.amount} ${row.currency}` },
             { label: 'Created', key: 'created_at' },
           ]} rows={payload?.treasury?.settlement_events || []} />
-        </div>
+        </section>
+        <section className="ops-finance-section">
+          <div className="ops-finance-section__header">
+            <div>
+              <p className="eyebrow">Settlement Proofs</p>
+              <h3>External confirmations and review results</h3>
+            </div>
+            <OpsStatusPill>{payload?.treasury?.settlement_proofs?.length ?? 0} proofs</OpsStatusPill>
+          </div>
+          <OpsTable columns={[
+            { label: 'Intent', key: 'intent_reference' },
+            { label: 'Partner', key: 'partner' },
+            { label: 'Source', key: 'source' },
+            { label: 'Amount', key: (row) => `${row.confirmed_amount} ${row.confirmed_currency}` },
+            { label: 'Status', key: 'status', render: (row) => <OpsStatusPill tone={statusTone(row.status)}>{row.status}</OpsStatusPill> },
+            { label: 'Authority', key: (row) => row.authority ? `${row.authority.decision} ${row.authority.accepted_attestations}/${row.authority.required_quorum}` : 'wait' },
+          ]} rows={payload?.treasury?.settlement_proofs || []} emptyText="No settlement proofs yet." />
+        </section>
       </div>
-      <h3>Liquidity readiness</h3>
-      <OpsTable columns={[
-        { label: 'Currency', key: 'code' },
-        { label: 'Route', key: (row) => `${row.base_asset || '—'} / ${row.quote_asset || '—'}` },
-        { label: 'Rate', key: 'rate_to_rub' },
-        { label: 'Ready', key: 'execution_ready', render: (row) => <OpsStatusPill tone={row.execution_ready ? 'active' : 'warn'}>{row.execution_ready ? 'ready' : 'watch'}</OpsStatusPill> },
-        { label: 'Capacity', key: 'max_executable_size' },
-      ]} rows={payload?.liquidity?.currencies || []} />
+
       <div className="ops-grid-two">
-        <OpsTable columns={[
-          { label: 'Method', key: 'name' },
-          { label: 'Type', key: 'type' },
-          { label: 'Currencies', key: 'currencies_count' },
-          { label: 'Active', key: 'is_active' },
-        ]} rows={payload?.liquidity?.methods || []} />
-        <OpsTable columns={[
-          { label: 'Intent', key: 'intent_key' },
-          { label: 'Corridor', key: 'corridor_key' },
-          { label: 'Score', key: 'route_score' },
-          { label: 'Friction', key: 'friction_score' },
-        ]} rows={payload?.liquidity?.intent_corridors || []} />
+        <section className="ops-finance-section">
+          <div className="ops-finance-section__header">
+            <div>
+              <p className="eyebrow">Buyer Wallet</p>
+              <h3>RUB, SL1 rewards, and wallet ledger</h3>
+            </div>
+            <OpsStatusPill>{walletSummary.length} assets</OpsStatusPill>
+          </div>
+          <OpsTable columns={[
+            { label: 'Asset', key: 'asset' },
+            { label: 'Accounts', key: 'accounts_count' },
+            { label: 'Available', key: (row) => walletAmount(row.available_minor, row.asset) },
+            { label: 'Reserved', key: (row) => walletAmount(row.reserved_minor, row.asset) },
+          ]} rows={walletSummary} />
+          <OpsTable columns={[
+            { label: 'Entry', key: 'entry_type', render: (row) => <OpsStatusPill tone={statusTone(row.entry_type)}>{row.entry_type}</OpsStatusPill> },
+            { label: 'User', key: 'user' },
+            { label: 'Amount', key: (row) => walletAmount(row.amount_minor, row.asset) },
+            { label: 'Created', key: 'created_at' },
+          ]} rows={walletEvents} emptyText="No wallet ledger events." />
+        </section>
+        <section className="ops-finance-section">
+          <div className="ops-finance-section__header">
+            <div>
+              <p className="eyebrow">Execution Readiness</p>
+              <h3>Can Meanly execute this route?</h3>
+            </div>
+            <OpsStatusPill tone="warn">{payload?.liquidity?.summary?.intent_corridors_ready ?? 0} ready corridors</OpsStatusPill>
+          </div>
+          <OpsTable columns={[
+            { label: 'Method', key: 'name' },
+            { label: 'Type', key: 'type' },
+            { label: 'Currencies', key: 'currencies_count' },
+            { label: 'Active', key: 'is_active', render: (row) => <OpsStatusPill tone={row.is_active ? 'active' : 'neutral'}>{row.is_active ? 'active' : 'inactive'}</OpsStatusPill> },
+          ]} rows={payload?.liquidity?.methods || []} />
+          <OpsTable columns={[
+            { label: 'Intent', key: 'intent_key' },
+            { label: 'Corridor', key: 'corridor_key' },
+            { label: 'Score', key: 'route_score' },
+            { label: 'Friction', key: 'friction_score' },
+            { label: 'Ready', key: 'execution_ready', render: (row) => <OpsStatusPill tone={row.execution_ready ? 'active' : 'warn'}>{row.execution_ready ? 'ready' : 'watch'}</OpsStatusPill> },
+          ]} rows={payload?.liquidity?.intent_corridors || []} />
+        </section>
       </div>
-      <h3>Partner balance liquidity</h3>
-      <OpsTable columns={[
-        { label: 'Partner', key: 'partner' },
-        { label: 'Currency', key: 'currency' },
-        { label: 'Available', key: 'available_balance' },
-        { label: 'Reserved', key: 'reserved_balance' },
-        { label: 'API holds', key: 'api_active_reservations' },
-      ]} rows={payload?.liquidity?.data || []} />
+
+      <section className="ops-finance-section">
+        <div className="ops-finance-section__header">
+          <div>
+            <p className="eyebrow">Currency Readiness</p>
+            <h3>Rates, stress, slippage, and capacity</h3>
+          </div>
+          <OpsStatusPill>{payload?.liquidity?.summary?.currencies ?? 0} currencies</OpsStatusPill>
+        </div>
+        <OpsTable columns={[
+          { label: 'Currency', key: 'code' },
+          { label: 'Route', key: (row) => `${row.base_asset || '—'} / ${row.quote_asset || '—'}` },
+          { label: 'Rate', key: 'rate_to_rub' },
+          { label: 'Ready', key: 'execution_ready', render: (row) => <OpsStatusPill tone={row.execution_ready ? 'active' : 'warn'}>{row.execution_ready ? 'ready' : 'watch'}</OpsStatusPill> },
+          { label: 'Stress', key: 'stress_index' },
+          { label: 'Slippage', key: 'estimated_slippage' },
+          { label: 'Capacity', key: 'max_executable_size' },
+        ]} rows={payload?.liquidity?.currencies || []} />
+      </section>
     </OpsPanel>
   );
 }
@@ -714,12 +985,15 @@ function ProvidersModule() {
   const [output, setOutput] = useState('');
   const [busyId, setBusyId] = useState(null);
   const providers = payload?.data || [];
+  const catalogSources = payload?.catalog_sources || [];
 
   async function syncProvider(provider, mode) {
     if (!provider.sync_url) return;
-    if (mode === 'pull-upstream' && !window.confirm('Pull EZPin will refresh Meanly.one supply from the upstream vendor. Continue?')) return;
+    const upstream = provider.upstream_label || provider.upstream_provider || provider.type || 'upstream';
+    const modeLabel = mode === 'pull-upstream' ? `${upstream} direct refresh` : 'embedded sync';
+    if (mode === 'pull-upstream' && !window.confirm(`Refresh ${upstream} directly from supplier servers. Continue?`)) return;
     setBusyId(provider.id);
-    setOutput(`Running ${mode} sync for ${provider.name}...`);
+    setOutput(`Running ${modeLabel} for ${provider.name}...`);
     try {
       const result = await syncOpsProvider(provider.sync_url, mode);
       setPayload((current) => ({
@@ -737,31 +1011,39 @@ function ProvidersModule() {
 
   return (
     <OpsPanel
-      actions={<ActionButton onClick={refresh}>Refresh providers</ActionButton>}
+      actions={<ActionButton onClick={refresh}>Refresh supply authorities</ActionButton>}
       badge={<OpsStatusPill tone="active">{payload?.kernel?.authority || 'meanly.one'}</OpsStatusPill>}
-      description="Meanly.one provider authority, EZPin supply synchronization, credentials, terminals, and support plane."
-      eyebrow="Providers"
-      title="Provider runtime"
+      description="Meanly.one talks directly to supply authorities such as EZPin and Fazer Cards. Parsed PlayStation rows are catalog sources, not provider authorities."
+      eyebrow="Supply Authorities"
+      title="Direct supply runtime"
     >
       <OpsMetrics metrics={[
-        { label: 'Providers', value: providers.length, detail: payload?.kernel?.authority || 'meanly.one' },
+        { label: 'Authority', value: providers.length, detail: payload?.kernel?.authority || 'meanly.one' },
         { label: 'Terminals', value: `${payload?.kernel?.support_planes?.devices?.terminals_active || 0}/${payload?.kernel?.support_planes?.devices?.terminals_total || 0}`, detail: 'active / total' },
         { label: 'Docs', value: Object.keys(payload?.kernel?.support_planes?.docs || {}).length, detail: 'support endpoints' },
-        { label: 'Upstream', value: payload?.kernel?.upstream || 'ezpin', detail: payload?.kernel?.ezpin_env_configured ? 'env ready' : 'provider credentials' },
+        { label: 'Upstreams', value: payload?.kernel?.upstream_label || payload?.kernel?.upstream || 'EZPin + Fazer Cards', detail: payload?.kernel?.ezpin_env_configured ? 'env ready' : 'provider credentials' },
       ]} />
       <OpsState error={error} isLoading={isLoading} />
       <OpsTable columns={[
-        { label: 'Provider', key: 'name', render: (row) => <strong>{row.name}<br /><small>{row.is_legacy_alias ? 'legacy alias -> ' : ''}{row.upstream_provider || row.type}</small></strong> },
+        { label: 'Authority', key: 'name', render: (row) => <strong>{row.name}<br /><small>{row.upstream_label || row.upstream_provider || row.type}</small></strong> },
         { label: 'Catalog', key: (row) => `${row.active_provider_products_count}/${row.provider_products_count}` },
         { label: 'Credentials', key: (row) => Object.entries(row.credentials || {}).filter(([, ok]) => ok).map(([key]) => key).join(', ') || 'missing' },
         { label: 'Terminal', key: (row) => row.terminal?.id_masked || 'not configured' },
         { label: 'Health', key: (row) => row.sync_status, render: (row) => <OpsStatusPill tone={statusTone(row.sync_status)}>{row.sync_status || 'idle'}</OpsStatusPill> },
       ]} rows={providers} actions={(row) => (
         <div className="ops-row-actions">
-          <ActionButton disabled={busyId === row.id} onClick={() => syncProvider(row, 'embedded')} tone="secondary">Embedded sync</ActionButton>
-          <ActionButton disabled={busyId === row.id || !row.health?.supports_upstream_pull} onClick={() => syncProvider(row, 'pull-upstream')}>Pull EZPin</ActionButton>
+          <ActionButton disabled={busyId === row.id || !row.sync_url} onClick={() => syncProvider(row, 'embedded')} tone="secondary">Embedded sync</ActionButton>
+          <ActionButton disabled={busyId === row.id || !row.sync_url || !row.health?.supports_upstream_pull} onClick={() => syncProvider(row, 'pull-upstream')}>Refresh {row.upstream_label || row.upstream_provider || row.name}</ActionButton>
         </div>
       )} />
+      <h3>Parsed catalog sources</h3>
+      <OpsTable columns={[
+        { label: 'Source', key: 'name' },
+        { label: 'Parsed type', key: 'type' },
+        { label: 'Kind', key: 'source_kind' },
+        { label: 'Catalog rows', key: (row) => `${row.active_provider_products_count}/${row.provider_products_count}` },
+        { label: 'Note', key: 'note' },
+      ]} rows={catalogSources} emptyText="No parsed catalog sources." />
       <OpsOutput output={output} />
     </OpsPanel>
   );
@@ -1059,18 +1341,26 @@ function AuditModule() {
 }
 
 export function OpsWorkspace() {
-  const [activeModule, setActiveModule] = useState(moduleFromLocation);
+  const [activeModule, setActiveModule] = useState(DEFAULT_MODULE);
+  const [hasMounted, setHasMounted] = useState(false);
   const selectedCopy = MODULE_COPY[activeModule] || MODULE_COPY.command;
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('meanly:ops-module', activeModule);
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', activeModule);
-      window.history.replaceState({}, '', url);
-      document.querySelector('.ops-command-main')?.scrollTo({ top: 0 });
+    setActiveModule(moduleFromLocation());
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasMounted || typeof window === 'undefined') {
+      return;
     }
-  }, [activeModule]);
+
+    window.localStorage.setItem('meanly:ops-module', activeModule);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeModule);
+    window.history.replaceState({}, '', url);
+    document.querySelector('.ops-command-main')?.scrollTo({ top: 0 });
+  }, [activeModule, hasMounted]);
 
   function renderModule() {
     switch (activeModule) {
@@ -1167,6 +1457,13 @@ export function OpsWorkspace() {
       </aside>
 
       <section className="ops-command-main">
+        <nav aria-label="Ops modules" className="ops-mobile-tabs">
+          {MODULE_GROUPS.flatMap((group) => group.modules).map(([key, title]) => (
+            <button className={key === activeModule ? 'is-active' : ''} key={key} onClick={() => setActiveModule(key)} type="button">
+              {title}
+            </button>
+          ))}
+        </nav>
         <section className="ops-hero">
           <div>
             <p className="eyebrow">Meanly Operations Command Center</p>

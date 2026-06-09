@@ -79,7 +79,7 @@ export function PartnerRegistrationPanel({
     || hasSessionApplication
     || state.next_action === 'VIEW_ONBOARDING_STATUS';
   const connectUrl = simpleL1ConnectUrl({
-    returnTo: frontendUrl('/partner/register', { sl1_handoff: 1 }),
+    returnTo: frontendUrl('/merchant/register', { sl1_handoff: 1 }),
     mode: 'connect',
     intentType: 'meanly.partner.onboarding',
     intentTitle: 'Start partner onboarding',
@@ -105,8 +105,8 @@ export function PartnerRegistrationPanel({
     })
       .then((response) => response.ok ? response.json() : null)
       .then((payload) => {
-        if (payload?.redirect === '/partner') {
-          router.push('/partner');
+        if (payload?.redirect === '/partner' || payload?.redirect === '/merchant') {
+          router.push('/merchant');
           return;
         }
 
@@ -137,7 +137,7 @@ export function PartnerRegistrationPanel({
       persistToken(issued.access_token);
       await loadStateWith(issued.access_token);
       setStatus('Meanly identity verified. Continue seller onboarding.');
-      window.history.replaceState(null, '', '/partner/register');
+      window.history.replaceState(null, '', '/merchant/register');
     } catch (exception) {
       if (exception.status === 410) {
         setStatus('Approval expired. Continue with Meanly again to start seller onboarding.');
@@ -196,14 +196,14 @@ export function PartnerRegistrationPanel({
         <MeanlyConnectPanel
           href={connectUrl}
           title="Connect to sell with Meanly."
-          body="The app opens first. If nothing opens, choose Continue online for SL1 provider verification."
+          body="Continue in browser now. The Meanly One app path is coming soon."
           secondaryHref="/"
           secondaryLabel="Browse marketplace"
         />
       ) : (
         <div className="product-card__actions">
           <Link href="/legal-entities/register">Add company by INN</Link>
-          <Link href="/partner">Open partner workspace</Link>
+          <Link href="/merchant">Open merchant workspace</Link>
           <span>{nextStepLabel(state.next_action)}</span>
         </div>
       )}

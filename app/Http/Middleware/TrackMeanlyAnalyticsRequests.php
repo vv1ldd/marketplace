@@ -106,7 +106,7 @@ class TrackMeanlyAnalyticsRequests
         return match (true) {
             str_starts_with($path, '/meanly-ai') || str_contains($routeName, 'chat') => 'ai',
             str_starts_with($path, '/store') || str_starts_with($path, '/catalog') || $path === '/' => 'storefront',
-            str_starts_with($path, '/partner') => 'b2b',
+            str_starts_with($path, '/merchant') || str_starts_with($path, '/partner') => 'b2b',
             str_starts_with($path, '/api') => 'api',
             str_starts_with($path, '/admin') || str_starts_with($path, '/ops') => 'ops',
             default => 'app',

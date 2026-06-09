@@ -22,7 +22,11 @@ class SandboxWildflowRedeemE2eTest extends TestCase
     public function test_meanly_sandbox_order_issues_voucher_redeems_real_sandbox_code_and_captures_deterministic_amounts(): void
     {
         Mail::fake();
-        config(['app.domain' => 'localhost', 'session.domain' => null]);
+        config([
+            'app.domain' => 'localhost',
+            'session.domain' => null,
+            'services.wildflow.kernel_url' => 'https://wildflow.test/api/v1',
+        ]);
 
         Http::fake([
             '*/partners/grant-credit' => Http::response(['success' => true, 'reservation_id' => 'SBX-HOLD-1'], 200),
@@ -86,7 +90,7 @@ class SandboxWildflowRedeemE2eTest extends TestCase
             'is_active' => true,
         ]);
 
-        $sandboxOrder = $this->actingAs($user)->postJson('http://meanly.test/partner/dashboard/sandbox', [
+        $sandboxOrder = $this->actingAs($user)->postJson('http://meanly.test/merchant/dashboard/sandbox', [
             'mode' => 'wildflow_sandbox',
             'sku' => 'WF-SBX-E2E-001',
             'service_sku' => 'EZPIN-SBX-001',

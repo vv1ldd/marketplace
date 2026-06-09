@@ -136,7 +136,7 @@ export function BusinessOnboardingStatus({ initialPayload = null }) {
 
         <div className="business-onboarding-actions">
           <Link className="button-primary" href="/">Вернуться на витрину</Link>
-          <Link href="/business">Merchant Center</Link>
+          <Link href="/merchant">Merchant Center</Link>
         </div>
       </div>
     </section>

@@ -2,16 +2,24 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { fetchStorefrontCatalog } from '../lib/storefront-api';
+import { fetchStorefrontCatalog, submitStorefrontChat } from '../lib/storefront-api';
+
+function localHref(href, fallback = '/') {
+  if (!href) {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(href);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return href;
+  }
+}
 
 function groupHref(group) {
   if (group.links?.self) {
-    try {
-      const url = new URL(group.links.self);
-      return `${url.pathname}${url.search}${url.hash}`;
-    } catch {
-      return group.links.self;
-    }
+    return localHref(group.links.self);
   }
 
   return group.slug ? `/products/${group.slug}` : '/';
@@ -29,11 +37,28 @@ function collectResults(catalog = {}) {
   ].slice(0, 3);
   const categories = (catalog.categories || []).slice(0, 3);
 
-  return { groups, products, categories };
+  return { offers: [], groups, products, categories };
+}
+
+function collectChatResults(payload = {}) {
+  const offers = (payload.products || []).slice(0, 6).map((product) => ({
+    key: `offer-${product.url || product.name}`,
+    href: localHref(product.url),
+    label: product.cta || (product.is_grouped ? 'Open group' : 'Open offer'),
+    title: product.name,
+    meta: [
+      product.brand,
+      product.region,
+      product.price,
+      product.is_grouped && product.variant_count ? `${product.variant_count} variants` : null,
+    ].filter(Boolean).join(' · '),
+  }));
+
+  return { offers, groups: [], products: [], categories: [] };
 }
 
 function resultCount(results) {
-  return results.groups.length + results.products.length + results.categories.length;
+  return results.offers.length + results.groups.length + results.products.length + results.categories.length;
 }
 
 function assistantCopy(question, results) {
@@ -50,6 +75,7 @@ function assistantCopy(question, results) {
 
 function ResultCards({ results }) {
   const cards = [
+    ...results.offers,
     ...results.groups.map((group) => ({
       key: `group-${group.id || group.name}`,
       href: groupHref(group),
@@ -83,13 +109,46 @@ function ResultCards({ results }) {
   return (
     <div className="ai-result-grid">
       {cards.map((card) => (
-        <Link className="ai-result-card" href={card.href} key={card.key}>
+        <Link className="ai-result-card" href={card.href || '/'} key={card.key}>
           <span>{card.label}</span>
           <strong>{card.title}</strong>
           {card.meta ? <p>{card.meta}</p> : null}
         </Link>
       ))}
     </div>
+  );
+}
+
+function MessageText({ text }) {
+  const lines = String(text || '').split('\n');
+
+  return (
+    <>
+      {lines.map((line, lineIndex) => {
+        const parts = [];
+        const pattern = /\[([^\]]+)\]\(([^)]+)\)/g;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = pattern.exec(line)) !== null) {
+          if (match.index > lastIndex) {
+            parts.push(line.slice(lastIndex, match.index));
+          }
+          parts.push(
+            <Link href={localHref(match[2])} key={`${lineIndex}-${match.index}`}>
+              {match[1]}
+            </Link>,
+          );
+          lastIndex = pattern.lastIndex;
+        }
+
+        if (lastIndex < line.length) {
+          parts.push(line.slice(lastIndex));
+        }
+
+        return <p key={`${lineIndex}-${line}`}>{parts.length ? parts : line}</p>;
+      })}
+    </>
   );
 }
 
@@ -142,26 +201,46 @@ export function MeanlyAiChat({ initialQuery = '' }) {
     setMessages((current) => [...current, userMessage]);
 
     try {
-      const catalog = await fetchStorefrontCatalog(trimmed);
-      const results = collectResults(catalog);
+      const history = messages
+        .filter((message) => message.role === 'user' || message.role === 'assistant')
+        .map((message) => ({
+          role: message.role,
+          content: message.text,
+        }));
+      const payload = await submitStorefrontChat(trimmed, history);
+      const results = collectChatResults(payload);
       const assistantMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        text: assistantCopy(trimmed, results),
+        text: payload.response || assistantCopy(trimmed, results),
         results,
       };
 
       setMessages((current) => [...current, assistantMessage]);
     } catch (error) {
-      setMessages((current) => [
-        ...current,
-        {
-          id: `assistant-error-${Date.now()}`,
-          role: 'assistant',
-          text: error.message || 'Meanly AI could not reach catalog retrieval right now.',
-          results: null,
-        },
-      ]);
+      try {
+        const catalog = await fetchStorefrontCatalog(trimmed);
+        const results = collectResults(catalog);
+        setMessages((current) => [
+          ...current,
+          {
+            id: `assistant-fallback-${Date.now()}`,
+            role: 'assistant',
+            text: assistantCopy(trimmed, results),
+            results,
+          },
+        ]);
+      } catch {
+        setMessages((current) => [
+          ...current,
+          {
+            id: `assistant-error-${Date.now()}`,
+            role: 'assistant',
+            text: error.message || 'Meanly AI could not reach catalog retrieval right now.',
+            results: null,
+          },
+        ]);
+      }
     } finally {
       setIsSending(false);
     }
@@ -187,7 +266,7 @@ export function MeanlyAiChat({ initialQuery = '' }) {
           {messages.map((message) => (
             <article className={`ai-message ai-message--${message.role}`} key={message.id}>
               <span>{message.role === 'assistant' ? 'Meanly AI' : 'You'}</span>
-              <p>{message.text}</p>
+              <MessageText text={message.text} />
               {message.results ? <ResultCards results={message.results} /> : null}
             </article>
           ))}

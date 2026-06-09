@@ -5,9 +5,9 @@ const SURFACE_PROFILES = {
   business: {
     eyebrow: 'Merchant Center',
     title: 'Meanly Merchant Center',
-    lead: 'Start seller onboarding, manage merchant access, and continue only when a protected step needs identity.',
+    lead: 'Merchant Center lives at /partner. Use this legacy business path only to connect or review company onboarding.',
     meta: 'Merchant',
-    cta: 'Continue',
+    cta: 'Open',
   },
   services: {
     eyebrow: 'Services',
@@ -145,7 +145,7 @@ export async function ProjectionSurface({ surface, path = '', searchParams = {} 
       </section>
 
       {sections.map((section) => (
-        <section className="catalog-section panel" key={section.title}>
+        <section className="catalog-section panel meanly-surface-section" key={section.title}>
           <div className="section-heading">
             <h2>{displaySectionTitle(section.title)}</h2>
             {section.description ? <p>{sanitizeText(section.description)}</p> : null}

@@ -3,15 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { frontendUrl, simpleL1ConnectUrl } from '../lib/storefront-api';
 
-function launchApp(deepLinkUrl) {
-  if (!deepLinkUrl) {
-    return false;
-  }
-
-  window.location.assign(deepLinkUrl);
-  return true;
-}
-
 async function jsonRequest(path, { body, method = 'GET', csrfToken } = {}) {
   const response = await fetch(`/backend${path}`, {
     method,
@@ -43,9 +34,15 @@ function localRedirect(path) {
   try {
     const url = new URL(path);
     const localPath = `${url.pathname}${url.search}${url.hash}`;
-    return localPath.startsWith('/partner/onboarding') ? '/business/register/onboarding' : localPath;
+    return localPath.startsWith('/partner/onboarding') || localPath.startsWith('/merchant/onboarding')
+      ? '/business/register/onboarding'
+      : localPath;
   } catch {
-    return String(path).startsWith('/partner/onboarding') ? '/business/register/onboarding' : path;
+    const rawPath = String(path);
+
+    return rawPath.startsWith('/partner/onboarding') || rawPath.startsWith('/merchant/onboarding')
+      ? '/business/register/onboarding'
+      : path;
   }
 }
 
@@ -109,7 +106,7 @@ export function BusinessOfferForm() {
     setError('');
 
     try {
-      const result = await jsonRequest('/partner/register/sign', {
+      const result = await jsonRequest('/merchant/register/sign', {
         method: 'POST',
         csrfToken,
         body: { simple_l1_sign: true },
@@ -117,7 +114,7 @@ export function BusinessOfferForm() {
 
       if (result.success) {
         setStatus('Offer signed. Opening onboarding...');
-        window.location.href = result.redirect ? localRedirect(result.redirect) : '/partner';
+        window.location.href = result.redirect ? localRedirect(result.redirect) : '/merchant';
         return;
       }
 
@@ -137,7 +134,7 @@ export function BusinessOfferForm() {
     }
 
     setIsBusy(true);
-    setStatus('Opening Meanly One to confirm the signature...');
+    setStatus('Opening Meanly Vault to confirm the signature...');
     setOnlineUrl('');
 
     fetch(signUrl, {
@@ -157,14 +154,11 @@ export function BusinessOfferForm() {
       .then((payload) => {
         const fallbackUrl = payload.redirect_url || signUrl;
         setOnlineUrl(fallbackUrl);
-
-        if (!launchApp(payload.deep_link_url)) {
-          setStatus('Meanly One app link is not available here. Continue online with the SL1 provider if needed.');
-        }
+        window.location.assign(fallbackUrl);
       })
       .catch(() => {
         setOnlineUrl(signUrl);
-        setStatus('Meanly One handoff is unavailable here. Continue online with the SL1 provider if needed.');
+        setStatus('Meanly Vault is unavailable here. Continue in browser if needed.');
       })
       .finally(() => {
         setIsBusy(false);

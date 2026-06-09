@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Services\SimpleL1ProtocolClient;
 use App\Services\StorefrontTokenService;
 use Illuminate\Support\Facades\Cache;
@@ -35,6 +36,7 @@ class StorefrontIdentityController extends Controller
         $issued = $tokens->issue([
             'entity_l1_address' => $entityAddress,
             'key_l1_address' => data_get($proof, 'key_l1_address') ?: data_get($proof, 'identity.key_l1_address'),
+            'username' => data_get($proof, 'username') ?: data_get($proof, 'identity.username'),
             'alias' => data_get($proof, 'alias') ?: data_get($proof, 'identity.alias'),
             'display_alias' => data_get($proof, 'display_alias') ?: data_get($proof, 'identity.display_alias'),
             'proof_token_hash' => hash('sha256', $proofToken),
@@ -52,6 +54,32 @@ class StorefrontIdentityController extends Controller
             'expires_in' => $issued['expires_in'],
             'session' => $issued['session'],
         ]);
+    }
+
+    public function navigationAuthority(Request $request): JsonResponse
+    {
+        $identity = $request->session()->get('simple_l1_identity');
+        $entityAddress = is_array($identity)
+            ? (string) (data_get($identity, 'entity_l1_address') ?: data_get($identity, 'l1_address'))
+            : '';
+        $user = ($entityAddress !== ''
+            ? User::findByEntityL1Address($entityAddress)
+            : null) ?: $request->user();
+
+        return response()->json([
+            'contract' => [
+                'name' => 'storefront-navigation-authority',
+                'version' => 'v1',
+                'authority' => 'marketplace-commerce',
+            ],
+            'authenticated' => $user instanceof User,
+            'can_access_ops' => $user?->hasOpsSovereignAccess() === true,
+            'can_access_partner' => $user instanceof User && (
+                $user->isMerchantNode()
+                || $user->legalEntities()->exists()
+                || $user->managedLegalEntities()->exists()
+            ),
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     public function session(Request $request): JsonResponse
@@ -91,6 +119,7 @@ class StorefrontIdentityController extends Controller
         $issued = $tokens->issue([
             'entity_l1_address' => $entityAddress,
             'key_l1_address' => data_get($identity, 'key_l1_address'),
+            'username' => data_get($identity, 'username'),
             'alias' => data_get($identity, 'alias'),
             'display_alias' => data_get($identity, 'display_alias'),
             'proof_token_hash' => $proofHash !== '' ? $proofHash : hash('sha256', (string) $proofToken),

@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { ProjectionSurface } from '../../../components/ProjectionSurface';
 import { BusinessOfferForm } from '../../../components/BusinessOfferForm';
 import { BusinessOnboardingStatus } from '../../../components/BusinessOnboardingStatus';
@@ -22,10 +21,6 @@ export default async function BusinessProjectionPage({ params, searchParams }) {
   const onboardingPayload = shouldCheckOnboarding
     ? await fetchBusinessOnboardingStatusWithCookie(cookieHeader(await cookies()))
     : null;
-
-  if (onboardingPayload?.redirect === '/partner') {
-    redirect('/partner');
-  }
 
   if (normalizedPath === 'register') {
     if (onboardingPayload?.legal_entity) {

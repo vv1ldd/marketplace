@@ -44,7 +44,7 @@ $controller = new PartnerDashboardController();
 
 // 2. Fetch Tickets list via dynamic AJAX handler
 echo "\n🎫 [TEST] Invoking getTicketsData (status: all, search: '')...\n";
-$request = Request::create('/partner/dashboard/tickets/data', 'GET', [
+$request = Request::create('/merchant/dashboard/tickets/data', 'GET', [
     'status' => 'all',
     'search' => ''
 ]);
@@ -64,7 +64,7 @@ if (isset($data['success']) && $data['success']) {
 
 // 3. Create a brand new ticket via dynamic creation handler
 echo "\n✨ [TEST] Spawning a brand new support ticket via createTicket endpoint...\n";
-$createReq = Request::create('/partner/dashboard/tickets/create', 'POST', [
+$createReq = Request::create('/merchant/dashboard/tickets/create', 'POST', [
     'subject' => 'Тестовое обращение B2B API',
     'priority' => 'medium',
     'message' => 'Добрый день! Это автоматический тест безопасности зашифрованных каналов связи.',
@@ -101,7 +101,7 @@ if (isset($detailsData['success']) && $detailsData['success']) {
 
 // 5. Reply to the ticket
 echo "\n✍️ [TEST] Appending a follow-up answer reply to the ticket...\n";
-$replyReq = Request::create("/partner/dashboard/tickets/{$newTicketId}/reply", 'POST', [
+$replyReq = Request::create("/merchant/dashboard/tickets/{$newTicketId}/reply", 'POST', [
     'message' => 'Второй тестовый ответ на зашифрованный тикет.'
 ]);
 $replyRes = $controller->replyToTicket($replyReq, $newTicketId);

@@ -12,14 +12,14 @@ return [
         'countdown_suffix' => 'секунд...',
         'inline' => [
             'title' => 'Сейчас откроется Meanly One',
-            'body' => 'Подтвердите identity-запрос в Meanly One, затем вернетесь обратно в Meanly.',
+            'body' => 'Подтвердите вход в Meanly One, затем вернетесь обратно в Meanly.',
             'cta' => 'Продолжить сейчас',
             'countdown' => 'Переходим через :seconds секунд...',
             'redirecting' => 'Переходим...',
         ],
         'vault_open' => [
             'title' => 'Открываете сейф?',
-            'body' => 'Сейчас откроется Meanly One. Подтвердите identity-запрос, и мы вернем вас обратно к сейфу с покупками.',
+            'body' => 'Сейчас откроется Meanly One. Подтвердите Vault, и мы вернем вас обратно к сейфу с покупками.',
             'facts' => [
                 'owner_only' => 'Так коды увидит только владелец аккаунта.',
                 'no_keys' => 'Meanly не получает ваши ключи и не видит лишнего.',
@@ -37,19 +37,19 @@ return [
         ],
         'identity_create' => [
             'title' => 'Продолжить через Meanly One?',
-            'body' => 'Сейчас откроется Meanly One. Там вы создадите или подтвердите SL1 identity, затем вернетесь в Meanly.',
+            'body' => 'Сейчас откроется Meanly One. Там вы создадите или подтвердите аккаунт Meanly, затем вернетесь в Meanly.',
             'facts' => [
-                'passkey_device' => 'Credential остается внутри identity layer.',
+                'passkey_device' => 'Защищенный ключ остается на вашем устройстве.',
                 'return_after' => 'После создания аккаунта вы вернетесь обратно в Meanly.',
             ],
             'cta' => 'Продолжить в Meanly One',
         ],
         'identity_confirm' => [
             'title' => 'Входим через Meanly One?',
-            'body' => 'Сейчас откроется Meanly One. Подтвердите SL1 identity, и после этого мы вернем вас в Meanly.',
+            'body' => 'Сейчас откроется Meanly One. Подтвердите аккаунт, и после этого мы вернем вас в Meanly.',
             'facts' => [
                 'no_password' => 'Пароль не нужен.',
-                'passkey_device' => 'Meanly получает только проверенный результат identity.',
+                'passkey_device' => 'Meanly получает только проверенный результат входа.',
             ],
             'cta' => 'Войти через Meanly One',
         ],

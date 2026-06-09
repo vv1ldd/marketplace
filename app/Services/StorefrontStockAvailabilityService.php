@@ -26,34 +26,23 @@ class StorefrontStockAvailabilityService
             ];
         }
 
-        $providerAvailability = app(WildflowService::class)->checkAvailability(
-            service_sku: $serviceSku,
-            quantity: $quantity,
-            price: $price,
-            terminalId: $terminalId
-        );
-
-        if ($providerAvailability['available'] ?? false) {
+        $syncedProduct = $this->syncedProviderProduct($serviceSku);
+        if ($syncedProduct?->is_active) {
             return [
                 'available' => true,
-                'source' => 'provider',
+                'source' => 'provider_product_sync',
                 'service_sku' => $serviceSku,
                 'local_available' => $localAvailable,
-                'provider' => $providerAvailability,
+                'provider_product_id' => $syncedProduct->id,
             ];
         }
 
-        $error = (string) ($providerAvailability['error'] ?? data_get($providerAvailability, 'raw.message') ?? '');
-
         return [
             'available' => false,
-            'source' => $this->looksLikeProviderAuthFailure($error) ? 'provider_auth_failed' : 'provider',
+            'source' => 'provider_product_sync',
             'service_sku' => $serviceSku,
             'local_available' => $localAvailable,
-            'provider' => $providerAvailability,
-            'error' => $this->looksLikeProviderAuthFailure($error)
-                ? 'Провайдер не подтвердил сток из-за ошибки авторизации upstream API. Это не означает, что товара нет в наличии.'
-                : 'Товар временно нет в наличии у поставщика или запрошенное количество недоступно.',
+            'error' => 'Товар не активен в синхронизированном каталоге поставщика.',
         ];
     }
 
@@ -74,13 +63,19 @@ class StorefrontStockAvailabilityService
         }
     }
 
-    private function looksLikeProviderAuthFailure(string $error): bool
+    private function syncedProviderProduct(string $serviceSku): ?\App\Models\ProviderProduct
     {
-        $error = strtolower($error);
+        $vault = app(VaultTransitService::class);
+        $skuBidx = $vault->computeBlindIndex($serviceSku);
+        $marketSkuBidx = $vault->computeBlindIndex('WFC-'.substr(hash('sha256', $serviceSku), 0, 16));
 
-        return str_contains($error, '401')
-            || str_contains($error, 'unauthorized')
-            || str_contains($error, 'token_not_valid')
-            || str_contains($error, 'signature has expi');
+        return \App\Models\ProviderProduct::query()
+            ->where(function ($query) use ($skuBidx, $marketSkuBidx): void {
+                $query->where('sku_bidx', $skuBidx)
+                    ->orWhere('market_sku_bidx', $skuBidx)
+                    ->orWhere('market_sku_bidx', $marketSkuBidx);
+            })
+            ->latest('updated_at')
+            ->first();
     }
 }

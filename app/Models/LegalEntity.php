@@ -211,6 +211,26 @@ class LegalEntity extends Model
         return $this->hasMany(SovereignBalanceRequest::class);
     }
 
+    public function merchantDepositIntents(): HasMany
+    {
+        return $this->hasMany(MerchantDepositIntent::class);
+    }
+
+    public function settlementProofs(): HasMany
+    {
+        return $this->hasMany(SettlementProof::class);
+    }
+
+    public function authorityVerdicts(): HasMany
+    {
+        return $this->hasMany(AuthorityVerdict::class);
+    }
+
+    public function validatorAttestations(): HasMany
+    {
+        return $this->hasMany(ValidatorAttestation::class);
+    }
+
     public function sellers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Seller::class, 'legal_entity_managers', 'legal_entity_id', 'seller_id')

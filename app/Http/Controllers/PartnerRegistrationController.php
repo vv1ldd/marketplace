@@ -829,7 +829,7 @@ class PartnerRegistrationController extends Controller
 
         if ($entity->status === 'active' && $entity->is_active) {
             return response()->json([
-                'redirect' => '/partner',
+                'redirect' => '/merchant',
                 'legal_entity' => [
                     'id' => $entity->id,
                     'name' => $entity->name,

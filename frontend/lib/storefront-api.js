@@ -68,6 +68,32 @@ async function storefrontFetch(path, options = {}) {
   return payload;
 }
 
+let csrfTokenPromise = null;
+
+async function fetchCsrfToken() {
+  if (!csrfTokenPromise) {
+    csrfTokenPromise = fetch(apiEndpoint('/csrf-token'), {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.message || payload.error || 'Could not prepare protected request.');
+        }
+
+        return payload.csrf_token || '';
+      })
+      .catch((error) => {
+        csrfTokenPromise = null;
+        throw error;
+      });
+  }
+
+  return csrfTokenPromise;
+}
+
 export function backendUrl(path, query = {}) {
   return apiEndpoint(path, query).toString();
 }
@@ -124,11 +150,22 @@ export function opsConnectUrl() {
 
 export function partnerConnectUrl() {
   return simpleL1ConnectUrl({
-    returnTo: frontendUrl('/partner/register', { sl1_handoff: 1 }),
+    returnTo: frontendUrl('/merchant/register', { sl1_handoff: 1 }),
     intentType: 'meanly.partner.onboarding',
     intentTitle: 'Start partner onboarding',
     intentDescription: 'Connect identity before Meanly opens seller onboarding.',
     intentCta: 'Open Merchant Center',
+  });
+}
+
+export function merchantConnectUrl(returnTo = frontendUrl('/merchant')) {
+  return simpleL1ConnectUrl({
+    returnTo,
+    mode: 'login',
+    intentType: 'meanly.merchant.open',
+    intentTitle: 'Open Merchant Center',
+    intentDescription: 'Approve sign-in in Meanly One and continue to Merchant Center.',
+    intentCta: 'Open Merchant',
   });
 }
 
@@ -147,6 +184,31 @@ export async function fetchStorefrontCatalog(query = '') {
   return payload.data;
 }
 
+export async function submitCatalogNeedRequest(formData) {
+  const csrfToken = await fetchCsrfToken();
+  const response = await fetch(apiEndpoint('/catalog/need-requests'), {
+    method: 'POST',
+    credentials: 'include',
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      'X-CSRF-TOKEN': csrfToken,
+    },
+    body: formData,
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = payload.message || payload.error || `Need request failed: ${response.status}`;
+    const error = new Error(message);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+
+  return payload;
+}
+
 export async function fetchStorefrontSuggestions(query = '') {
   const payload = await storefrontFetch('/api/storefront/v1/catalog/suggest', {
     query: { q: query },
@@ -154,6 +216,31 @@ export async function fetchStorefrontSuggestions(query = '') {
   });
 
   return payload.data;
+}
+
+export async function submitStorefrontChat(message, history = []) {
+  const csrfToken = await fetchCsrfToken();
+  const response = await fetch(apiEndpoint('/storefront/chat'), {
+    method: 'POST',
+    credentials: 'include',
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': csrfToken,
+    },
+    body: JSON.stringify({ message, history }),
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload.success === false) {
+    const error = new Error(payload.message || payload.error || `Meanly AI failed: ${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+
+  return payload;
 }
 
 export async function fetchStorefrontProduct(slug) {
@@ -239,6 +326,39 @@ export async function claimSimpleL1Handoff(scopes = ['storefront:read']) {
   });
 }
 
+export async function logoutStorefrontSession() {
+  const csrfToken = await fetchCsrfToken();
+  const postLogout = (token) => fetch(apiEndpoint('/logout'), {
+    method: 'POST',
+    credentials: 'include',
+    cache: 'no-store',
+    redirect: 'manual',
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-TOKEN': token,
+    },
+  });
+
+  let response = await postLogout(csrfToken);
+  csrfTokenPromise = null;
+
+  if (response.status === 419) {
+    response = await postLogout(await fetchCsrfToken());
+    csrfTokenPromise = null;
+  }
+
+  if (!response.ok && response.status !== 401) {
+    const payload = await response.json().catch(() => ({}));
+    const error = new Error(payload.message || payload.error || (response.status >= 300 && response.status < 400 ? 'Logout returned a legacy redirect.' : `Logout failed: ${response.status}`));
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+
+  return true;
+}
+
 export async function fetchStorefrontSession(token) {
   return storefrontFetch('/api/storefront/v1/identity/session', {
     token,
@@ -248,6 +368,13 @@ export async function fetchStorefrontSession(token) {
 export async function fetchVault(token) {
   return storefrontFetch('/api/storefront/v1/vault', {
     token,
+  });
+}
+
+export async function fetchPremiumWalletAssets(token) {
+  return storefrontFetch('/api/storefront/v1/wallet/assets', {
+    token,
+    cache: 'no-store',
   });
 }
 
