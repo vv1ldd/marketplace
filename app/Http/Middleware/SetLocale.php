@@ -18,15 +18,20 @@ class SetLocale
     {
         $resolved = app(LocaleResolver::class)->resolve($request);
 
-        App::setLocale($resolved['locale']);
-        session(['locale' => $resolved['locale']]);
+        $locale = $resolved['locale'];
+        if ($request->is('api*') || str_starts_with($request->getHost(), 'api.')) {
+            $locale = 'en';
+        }
 
-        View::share('currentLocale', $resolved['locale']);
+        App::setLocale($locale);
+        session(['locale' => $locale]);
+
+        View::share('currentLocale', $locale);
         View::share('currentLocaleSource', $resolved['source']);
         View::share('supportedLocales', app(LocaleResolver::class)->localeLabels());
 
         $response = $next($request);
-        $response->headers->set('Content-Language', $resolved['locale']);
+        $response->headers->set('Content-Language', $locale);
         $response->headers->set('Vary', trim($response->headers->get('Vary').' Accept-Language'));
 
         return $response;
