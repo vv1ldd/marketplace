@@ -5,6 +5,7 @@ import { GlobalBackLink } from '../components/GlobalBackLink';
 import { MarketplaceFooter } from '../components/MarketplaceFooter';
 import { MeanlyAppShell } from '../components/MeanlyAppShell';
 import { TopbarNav } from '../components/TopbarNav';
+import { LocaleProvider } from '../components/LocaleProvider';
 
 export const metadata = {
   title: 'Meanly',
@@ -16,7 +17,7 @@ async function storefrontContext() {
     return await fetchStorefrontContext();
   } catch (error) {
     return {
-      market: { key: process.env.NEXT_PUBLIC_MARKETPLACE_REGION || 'global' },
+      market: { key: process.env.NEXT_PUBLIC_MARKETPLACE_REGION || 'global', locale: 'en' },
       service_error: error.message,
     };
   }
@@ -75,19 +76,22 @@ export default async function RootLayout({ children }) {
     storefrontAuthority(cookieStore),
   ]);
   const year = new Date().getFullYear();
+  const locale = context?.market?.locale || 'en';
 
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body>
-        <header className="topbar">
-          <TopbarNav authority={authority} />
-        </header>
-        {context.service_error ? (
-          <div className="banner">Marketplace data is temporarily unavailable: {context.service_error}</div>
-        ) : null}
-        <GlobalBackLink />
-        <MeanlyAppShell authority={authority}>{children}</MeanlyAppShell>
-        <MarketplaceFooter year={year} />
+        <LocaleProvider locale={locale}>
+          <header className="topbar">
+            <TopbarNav authority={authority} />
+          </header>
+          {context.service_error ? (
+            <div className="banner">Marketplace data is temporarily unavailable: {context.service_error}</div>
+          ) : null}
+          <GlobalBackLink />
+          <MeanlyAppShell authority={authority}>{children}</MeanlyAppShell>
+          <MarketplaceFooter year={year} />
+        </LocaleProvider>
       </body>
     </html>
   );

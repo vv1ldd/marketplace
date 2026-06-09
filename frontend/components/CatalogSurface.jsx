@@ -6,6 +6,7 @@ import { AskSearchBox } from './AskSearchBox';
 import { GlossaryHint } from './GlossaryHint';
 import { WelcomeTourCard } from './WelcomeTourCard';
 import { fetchStorefrontCatalog, submitCatalogNeedRequest } from '../lib/storefront-api';
+import { useLocale } from './LocaleProvider';
 
 const DEFAULT_QUICK_CHIPS = [
   'Steam Turkey',
@@ -73,23 +74,33 @@ function categoryKey(category) {
   return category.slug || category.key || category.name || category.label || category.title || 'category';
 }
 
-function categoryTitle(category) {
+function categoryTitle(category, t) {
   const key = categoryKey(category);
-  return NEED_COPY_BY_CATEGORY[key]?.title || String(category.label || category.title || category.name || category.slug || 'Catalog option');
+  const translatedTitle = t(`category_${key}_title`);
+  if (translatedTitle !== `category_${key}_title`) {
+    return translatedTitle;
+  }
+  return NEED_COPY_BY_CATEGORY[key]?.title || String(category.label || category.title || category.name || category.slug || t('Catalog option'));
 }
 
-function categoryDescription(category) {
+function categoryDescription(category, t) {
   const key = categoryKey(category);
+  const translatedBody = t(`category_${key}_body`);
+  if (translatedBody !== `category_${key}_body`) {
+    return translatedBody;
+  }
   if (NEED_COPY_BY_CATEGORY[key]?.body) return NEED_COPY_BY_CATEGORY[key].body;
   if (category.description) return category.description;
 
-  return 'Open products, regions, values, and suppliers in this category.';
+  return t('category_fallback_body');
 }
 
-function categoryMeta(category) {
-  if (category.count) return `${category.count} products`;
+function categoryMeta(category, t) {
+  if (category.count) {
+    return `${category.count} ${t('category_products_count')}`;
+  }
   if (category.seller_offer_count || category.provider_count) {
-    return `${category.seller_offer_count || 0} offers · ${category.provider_count || 0} sources`;
+    return `${category.seller_offer_count || 0} ${t('category_offers')} · ${category.provider_count || 0} ${t('category_sources')}`;
   }
 
   return categoryKey(category).replaceAll('_', ' ');
@@ -146,6 +157,7 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
   const [needStatus, setNeedStatus] = useState('');
   const [isSubmittingNeed, setIsSubmittingNeed] = useState(false);
   const [isNeedRequestOpen, setIsNeedRequestOpen] = useState(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +179,7 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
       })
       .catch((exception) => {
         if (!cancelled) {
-          setError(exception.message || 'Catalog is temporarily unavailable.');
+          setError(exception.message || t('Catalog is temporarily unavailable.'));
         }
       });
 
@@ -180,13 +192,17 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
   const isHome = surface === 'home';
   const categoryNeeds = catalog?.categories?.length
     ? catalog.categories.map((category) => ({
-      body: categoryDescription(category),
+      body: categoryDescription(category, t),
       href: categoryHref(category),
       key: categoryKey(category),
-      meta: categoryMeta(category),
-      title: categoryTitle(category),
+      meta: categoryMeta(category, t),
+      title: categoryTitle(category, t),
     }))
-    : NEED_GROUPS;
+    : NEED_GROUPS.map((group) => ({
+      ...group,
+      title: t(`need_${group.key}`),
+      body: t(`need_${group.key}_body`),
+    }));
   const isUsingCatalogCategories = Boolean(catalog?.categories?.length);
 
   function selectNeed(need) {
@@ -208,7 +224,7 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
     event.preventDefault();
     const description = needRequest.description.trim();
     if (!description) {
-      setNeedStatus('Describe what you need first.');
+      setNeedStatus(t('demand_status_describe'));
       return;
     }
 
@@ -220,16 +236,16 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
     if (needScreenshot) formData.set('screenshot', needScreenshot);
 
     setIsSubmittingNeed(true);
-    setNeedStatus('Saving need request...');
+    setNeedStatus(t('demand_status_saving'));
     try {
       await submitCatalogNeedRequest(formData);
-      setNeedStatus('Need request saved. Ops will see it as a demand signal.');
+      setNeedStatus(t('demand_status_saved'));
       setNeedRequest({ description: '', contact: '', needKey: '', needTitle: '' });
       setNeedScreenshot(null);
       setIsNeedRequestOpen(false);
       event.currentTarget.reset();
     } catch (exception) {
-      setNeedStatus(exception.message || 'Could not save need request.');
+      setNeedStatus(exception.message || t('demand_status_failed'));
     } finally {
       setIsSubmittingNeed(false);
     }
@@ -241,7 +257,7 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
         <section className="hero hero--search-home">
           <div className="home-wordmark" aria-label="maestrooo">
             maestrooo
-            <GlossaryHint>A guided way to find the right product without knowing the catalog first.</GlossaryHint>
+            <GlossaryHint>{t('wordmark_hint')}</GlossaryHint>
           </div>
           <AskSearchBox initialQuery={query} />
           {error ? <p className="product-card__reason">{error}</p> : null}
@@ -262,11 +278,11 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
         <section className="need-graph-section" aria-labelledby="need-graph-title">
           <div className="need-graph-heading">
             <h2 id="need-graph-title">
-              Choose the outcome
-              <GlossaryHint>An outcome is the result you want, like topping up a game balance or buying travel credit.</GlossaryHint>
+              {t('outcome_title')}
+              <GlossaryHint>{t('outcome_hint')}</GlossaryHint>
             </h2>
             <p>
-              Meanly already grouped the catalog by buyer outcomes. Pick the result, then narrow by brand, region, value, and supplier.
+              {t('outcome_desc')}
             </p>
           </div>
           <div className="need-grid">
@@ -289,30 +305,30 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
           <form className={`need-request-card ${isNeedRequestOpen ? 'is-open' : ''}`} onSubmit={submitNeed}>
             <div className="need-request-summary">
               <span>
-                Demand signal
-                <GlossaryHint>A request that tells Meanly what buyers need next.</GlossaryHint>
+                {t('demand_title')}
+                <GlossaryHint>{t('demand_hint')}</GlossaryHint>
               </span>
-              <strong>Missing outcome?</strong>
-              <p>{isUsingCatalogCategories ? 'Request a result or product that is not in the catalog yet.' : 'Request an outcome with text or screenshot.'}</p>
+              <strong>{t('demand_missing')}</strong>
+              <p>{isUsingCatalogCategories ? t('demand_desc_categories') : t('demand_desc_screenshot')}</p>
             </div>
             {!isNeedRequestOpen ? (
               <button className="need-request-toggle" onClick={() => setIsNeedRequestOpen(true)} type="button">
-                Request
+                {t('demand_btn_request')}
               </button>
             ) : (
               <div className="need-request-form">
-                {needRequest.needTitle ? <small>Selected: {needRequest.needTitle}</small> : <small>Selected: general need</small>}
+                {needRequest.needTitle ? <small>{t('selected_need', { title: needRequest.needTitle })}</small> : <small>{t('selected_general')}</small>}
                 <textarea
                   disabled={isSubmittingNeed}
                   onChange={(event) => setNeedRequest((current) => ({ ...current, description: event.target.value }))}
-                  placeholder="Example: hotel booking in Istanbul for crypto/prepaid payment, or a Turkey SIM top-up provider."
+                  placeholder={t('demand_textarea_placeholder')}
                   value={needRequest.description}
                 />
                 <div className="need-request-row">
                   <input
                     disabled={isSubmittingNeed}
                     onChange={(event) => setNeedRequest((current) => ({ ...current, contact: event.target.value }))}
-                    placeholder="@username or email optional"
+                    placeholder={t('demand_input_contact')}
                     value={needRequest.contact}
                   />
                   <input
@@ -324,10 +340,10 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
                 </div>
                 <div className="need-request-actions">
                   <button disabled={isSubmittingNeed || !needRequest.description.trim()} type="submit">
-                    {isSubmittingNeed ? 'Saving...' : 'Send request'}
+                    {isSubmittingNeed ? t('demand_btn_sending') : t('demand_btn_send')}
                   </button>
                   <button disabled={isSubmittingNeed} onClick={() => setIsNeedRequestOpen(false)} type="button">
-                    Close
+                    {t('demand_btn_close')}
                   </button>
                 </div>
                 {needStatus ? <p className="need-request-status">{needStatus}</p> : null}

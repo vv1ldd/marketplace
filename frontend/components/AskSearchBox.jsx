@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { fetchStorefrontCatalog, fetchStorefrontSuggestions } from '../lib/storefront-api';
+import { useLocale } from './LocaleProvider';
 
 const CURRENCY_TERMS = new Set([
   'usd',
@@ -434,6 +435,7 @@ export function AskSearchBox({ initialQuery = '' }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const requestId = useRef(0);
+  const { t } = useLocale();
 
   useEffect(() => {
     setQuery(initialQuery);
@@ -502,16 +504,16 @@ export function AskSearchBox({ initialQuery = '' }) {
             setQuery(event.target.value);
             setIsDismissed(false);
           }}
-          placeholder="Search products, brands, regions, or values"
+          placeholder={t('search_placeholder')}
           value={query}
         />
-        <button type="submit">Find</button>
+        <button type="submit">{t('search_button')}</button>
       </form>
       {showDropdown ? (
         <div className="ask-suggestions" onMouseDown={(event) => event.preventDefault()}>
-          {isLoading ? <p className="ask-suggestions__status">Looking through catalog...</p> : null}
+          {isLoading ? <p className="ask-suggestions__status">{t('status_searching')}</p> : null}
           {!isLoading && suggestions.length === 0 ? (
-            <p className="ask-suggestions__status">No direct match yet. Press Enter to ask Meanly.</p>
+            <p className="ask-suggestions__status">{t('status_no_match')}</p>
           ) : null}
           {suggestions.map((suggestion) => (
             <Link

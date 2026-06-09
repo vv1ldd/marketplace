@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { GlossaryHint } from './GlossaryHint';
 import { fetchVault, simpleL1ConnectUrl, vaultHandoffUrl } from '../lib/storefront-api';
 import { clearVaultAuthorityState, readStoredVaultToken, writeCachedVault } from '../lib/vault-authority';
+import { useLocale } from './LocaleProvider';
 
 function isActive(pathname, target) {
   if (target === '/') {
@@ -44,11 +45,13 @@ function sameOriginPath(url) {
 export function TopbarNav({ authority = {} }) {
   const pathname = usePathname() || '/';
   const router = useRouter();
+  const { t } = useLocale();
+
   const vaultHref = simpleL1ConnectUrl({
     returnTo: vaultHandoffUrl(),
-    intentTitle: 'Open Meanly Vault',
-    intentCta: 'Open Vault',
-    intentDescription: 'Open your Vault.',
+    intentTitle: t('intent_title'),
+    intentCta: t('intent_cta'),
+    intentDescription: t('intent_description'),
   });
   const canAccessPartner = Boolean(authority.canAccessPartner);
   const canAccessOps = Boolean(authority.canAccessOps);
@@ -87,9 +90,9 @@ export function TopbarNav({ authority = {} }) {
     });
     const connectUrl = simpleL1ConnectUrl({
       returnTo,
-      intentTitle: 'Open Meanly Vault',
-      intentCta: 'Open Vault',
-      intentDescription: 'Open your Vault.',
+      intentTitle: t('intent_title'),
+      intentCta: t('intent_cta'),
+      intentDescription: t('intent_description'),
     });
 
     try {
@@ -119,17 +122,17 @@ export function TopbarNav({ authority = {} }) {
 
   return (
     <nav aria-label="Primary">
-      <Link className={navClass(pathname, '/')} href="/">Shop</Link>
+      <Link className={navClass(pathname, '/')} href="/">{t('nav_shop')}</Link>
       <Link className={navClass(pathname, '/catalog')} href="/catalog">
-        Categories
-        <GlossaryHint>Grouped by what you want to buy or do.</GlossaryHint>
+        {t('nav_categories')}
+        <GlossaryHint>{t('categories_hint')}</GlossaryHint>
       </Link>
       <Link className={navClass(pathname, '/vault', 'nav-primary')} href={vaultHref} onClick={handleVaultClick}>
-        Vault
-        <GlossaryHint>Your protected place for saved items, orders, and account access.</GlossaryHint>
+        {t('nav_vault')}
+        <GlossaryHint>{t('vault_hint')}</GlossaryHint>
       </Link>
-      {canAccessPartner ? <Link className={navClass(pathname, '/merchant')} href="/merchant">Merchant</Link> : null}
-      {canAccessOps ? <Link className={navClass(pathname, '/ops')} href="/ops">Ops</Link> : null}
+      {canAccessPartner ? <Link className={navClass(pathname, '/merchant')} href="/merchant">{t('nav_merchant')}</Link> : null}
+      {canAccessOps ? <Link className={navClass(pathname, '/ops')} href="/ops">{t('nav_ops')}</Link> : null}
     </nav>
   );
 }

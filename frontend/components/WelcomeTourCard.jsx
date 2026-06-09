@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { GlossaryHint } from './GlossaryHint';
+import { useLocale } from './LocaleProvider';
 
 const STORAGE_KEY = 'meanly:welcome-tour-dismissed';
 
@@ -42,6 +43,7 @@ function persistDismissed() {
 
 export function WelcomeTourCard() {
   const [isDismissed, setIsDismissed] = useState(true);
+  const { t } = useLocale();
 
   useEffect(() => {
     setIsDismissed(dismissedByBrowser());
@@ -52,13 +54,19 @@ export function WelcomeTourCard() {
     setIsDismissed(true);
   }
 
+  const steps = TOUR_STEPS.map((step) => ({
+    ...step,
+    label: t(`tour_step_${step.key}_label`),
+    body: t(`tour_step_${step.key}_body`),
+  }));
+
   if (isDismissed) {
     return (
       <div className="welcome-tour-compact">
         <button className="welcome-tour-reopen" type="button" onClick={() => setIsDismissed(false)}>
-          Tour
+          {t('btn_tour')}
         </button>
-        <Link className="welcome-tour-reopen" href="/wallet">Vault Wallet</Link>
+        <Link className="welcome-tour-reopen" href="/wallet">{t('cta_vault_wallet')}</Link>
       </div>
     );
   }
@@ -67,17 +75,17 @@ export function WelcomeTourCard() {
     <section className="welcome-tour-card" aria-label="Meanly welcome tour">
       <div className="welcome-tour-card__heading">
         <span>
-          Welcome to maestrooo
-          <GlossaryHint>maestrooo is the guided front door for finding the right product or outcome.</GlossaryHint>
+          {t('tour_title')}
+          <GlossaryHint>{t('tour_hint')}</GlossaryHint>
         </span>
-        <strong>We start from your intent, then connect the right Meanly surface.</strong>
+        <strong>{t('tour_subtitle')}</strong>
         <p>
-          Meanly is a commerce and identity layer for digital outcomes: catalog search, protected Vault, Vault Wallet coins, and merchant tools.
+          {t('tour_desc')}
         </p>
       </div>
 
       <div className="welcome-tour-card__steps">
-        {TOUR_STEPS.map((step) => (
+        {steps.map((step) => (
           <article key={step.key}>
             <span>{step.label}</span>
             <p>{step.body}</p>
@@ -87,10 +95,10 @@ export function WelcomeTourCard() {
 
       <div className="welcome-tour-card__actions">
         <Link href="/wallet">
-          Open Vault Wallet
-          <GlossaryHint>Preview SL1, MCR, and MLP coins bound to your Vault identity.</GlossaryHint>
+          {t('cta_open_wallet')}
+          <GlossaryHint>{t('cta_open_wallet_hint')}</GlossaryHint>
         </Link>
-        <button type="button" onClick={dismissTour}>Got it</button>
+        <button type="button" onClick={dismissTour}>{t('btn_got_it')}</button>
       </div>
     </section>
   );

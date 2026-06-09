@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useLocale } from './LocaleProvider';
 
 const BASE_SURFACES = [
   { key: 'shop', label: 'Shop', href: '/', match: (pathname) => pathname === '/' },
@@ -31,6 +32,7 @@ export function MeanlyAppShell({ authority = {}, children }) {
   const surface = surfaceFor(pathname);
   const hasMerchantAccess = Boolean(authority.canAccessPartner);
   const hasOpsAccess = Boolean(authority.canAccessOps);
+  const { t } = useLocale();
 
   return (
     <div className={`meanly-app-shell meanly-app-shell--${surface}`}>
@@ -38,7 +40,7 @@ export function MeanlyAppShell({ authority = {}, children }) {
       <nav aria-label="Mobile primary" className="meanly-mobile-nav">
         {navItems({ canAccessOps: hasOpsAccess }).filter((item) => item.key !== 'merchant' || hasMerchantAccess).map((item) => (
           <Link className={item.match(pathname) ? 'is-active' : ''} href={item.href} key={item.key}>
-            <span>{item.label}</span>
+            <span>{t(`nav_${item.key}`)}</span>
           </Link>
         ))}
       </nav>
