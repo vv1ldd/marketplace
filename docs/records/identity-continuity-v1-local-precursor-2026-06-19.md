@@ -1,20 +1,39 @@
 # Identity Continuity v1 — Local precursor run
 
-**Status**
+**Status** (do not read as production sign-off)
 
 ```text
 Identity Continuity v1
-  Local precursor:     PASSED
-  Production readiness: PENDING staging soak
+Local precursor:        PASSED
+Production readiness:   PENDING
+Certificate:            NOT ISSUED
 ```
 
-**Not** a filled certificate. Structural + local restore drill before staging 24h soak.
+Implementation (local/dev only):
+
+```text
+  ✅ stream append contract (event_id idempotency, commit 9b88741)
+  ✅ replay reconstruction
+  ✅ authorize continuity
+  ✅ local restore drill
+```
+
+Production (staging — not started):
+
+```text
+  ⏳ staging durability
+  ⏳ destructive restore
+  ⏳ 24h soak
+  ⏳ certificate
+```
+
+**Not** a filled certificate. This record documents a **local precursor run** only.
 
 | Field | Value |
 |-------|-------|
 | **Run type** | Local precursor (CI gates + MySQL restore drill) |
 | **Date** | 2026-06-19 |
-| **Commit** | `d5bd0d80526283c147994c9c0e2b1492c06477ec` |
+| **Commit** | `9b88741` (event_id contract; pushed) · precursor run on `d5bd0d8` |
 | **Environment** | local (`marketplace` MySQL 127.0.0.1) |
 | **Migration batch** | identity_governance tables batch 2; event_id widen batch 3 |
 | **Owner** | local dev run |
