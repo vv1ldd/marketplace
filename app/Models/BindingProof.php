@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * Legacy execution proof storage. Canonical execution object is {@see VaultSettlementProof}.
+ */
 class BindingProof extends Model
 {
     public const TYPE_USDC_TRANSFER = 'usdc_transfer';

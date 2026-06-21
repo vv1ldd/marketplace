@@ -51,6 +51,11 @@ class VaultIdentity extends Model
         return $this->hasMany(BindingProof::class, 'vault_id');
     }
 
+    public function settlementProofs(): HasMany
+    {
+        return $this->hasMany(VaultSettlementProof::class, 'vault_id');
+    }
+
     public function verificationEvents(): HasMany
     {
         return $this->hasMany(VerificationEvent::class, 'vault_id');
