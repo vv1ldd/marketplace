@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BindingProof;
+use App\Models\VaultSettlementProof;
 use App\Models\VerificationEvent;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -13,6 +14,7 @@ class VerificationEventRecorder
         return $this->record(
             vaultId: (string) $proof->vault_id,
             bindingProofId: (int) $proof->id,
+            vaultSettlementProofId: null,
             proofType: (string) $proof->proof_type,
             bindingKey: (string) $proof->binding_key,
             eventType: VerificationEvent::TYPE_PROOF_VERIFIED,
@@ -21,6 +23,25 @@ class VerificationEventRecorder
                 'verification_state' => $proof->verification_state,
                 'proof_payload' => $proof->proof_payload ?? [],
                 'verified_at' => $proof->verified_at?->toJSON(),
+            ]),
+        );
+    }
+
+    public function recordSettlementProofVerified(VaultSettlementProof $proof, array $context = []): VerificationEvent
+    {
+        return $this->record(
+            vaultId: (string) $proof->vault_id,
+            bindingProofId: null,
+            vaultSettlementProofId: (int) $proof->id,
+            proofType: (string) $proof->proof_kind,
+            bindingKey: (string) $proof->rail,
+            eventType: VerificationEvent::TYPE_PROOF_VERIFIED,
+            payload: array_merge($context, [
+                'external_reference' => $proof->external_reference,
+                'status' => $proof->status,
+                'evidence' => $proof->evidence ?? [],
+                'verified_at' => $proof->verified_at?->toJSON(),
+                'observed_at' => $proof->observed_at?->toJSON(),
             ]),
         );
     }
@@ -39,6 +60,9 @@ class VerificationEventRecorder
         return $this->record(
             vaultId: $vaultId,
             bindingProofId: null,
+            vaultSettlementProofId: isset($context['vault_settlement_proof_id'])
+                ? (int) $context['vault_settlement_proof_id']
+                : null,
             proofType: $proofType,
             bindingKey: $bindingKey,
             eventType: VerificationEvent::TYPE_PROOF_VERIFICATION_FAILED,
@@ -48,6 +72,24 @@ class VerificationEventRecorder
                     'message' => $message,
                 ],
             ]),
+        );
+    }
+
+    public function recordSettlementProofVerificationFailed(
+        string $vaultId,
+        string $proofKind,
+        string $bindingKey,
+        string $code,
+        string $message,
+        array $context = [],
+    ): VerificationEvent {
+        return $this->recordProofVerificationFailed(
+            vaultId: $vaultId,
+            proofType: $proofKind,
+            bindingKey: $bindingKey,
+            code: $code,
+            message: $message,
+            context: $context,
         );
     }
 
@@ -78,6 +120,7 @@ class VerificationEventRecorder
             'id' => $event->id,
             'vault_id' => $event->vault_id,
             'binding_proof_id' => $event->binding_proof_id,
+            'vault_settlement_proof_id' => $event->vault_settlement_proof_id,
             'proof_type' => $event->proof_type,
             'binding_key' => $event->binding_key,
             'event_type' => $event->event_type,
@@ -92,6 +135,7 @@ class VerificationEventRecorder
     private function record(
         string $vaultId,
         ?int $bindingProofId,
+        ?int $vaultSettlementProofId,
         string $proofType,
         string $bindingKey,
         string $eventType,
@@ -100,6 +144,7 @@ class VerificationEventRecorder
         return VerificationEvent::query()->create([
             'vault_id' => $vaultId,
             'binding_proof_id' => $bindingProofId,
+            'vault_settlement_proof_id' => $vaultSettlementProofId,
             'proof_type' => $proofType,
             'binding_key' => $bindingKey,
             'event_type' => $eventType,

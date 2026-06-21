@@ -4,8 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\BindingProof;
 use App\Models\User;
-use App\Models\VerificationEvent;
 use App\Models\VaultIdentity;
+use App\Models\VaultSettlementProof;
+use App\Models\VerificationEvent;
 use App\Services\StorefrontTokenService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -47,38 +48,46 @@ class StorefrontWalletUsdcTransferProofTest extends TestCase
                 'sender' => self::SENDER,
             ])
             ->assertOk()
-            ->assertJsonPath('proof.proof_type', BindingProof::TYPE_USDC_TRANSFER)
-            ->assertJsonPath('proof.binding_key', 'polygon')
-            ->assertJsonPath('proof.verification_state', BindingProof::STATE_VERIFIED)
-            ->assertJsonPath('proof.proof_payload.chain_id', 137)
-            ->assertJsonPath('proof.proof_payload.token_contract', strtolower(self::USDC_CONTRACT))
-            ->assertJsonPath('proof.proof_payload.transaction_hash', $txHash)
-            ->assertJsonPath('proof.proof_payload.sender', self::SENDER)
-            ->assertJsonPath('proof.proof_payload.recipient', self::RECIPIENT)
-            ->assertJsonPath('proof.proof_payload.amount', '10000000')
-            ->assertJsonPath('proof.proof_payload.block_number', 16)
-            ->assertJsonPath('proof.transaction_hash', $txHash);
+            ->assertJsonPath('settlement_proof.proof_kind', VaultSettlementProof::KIND_USDC_TRANSFER)
+            ->assertJsonPath('settlement_proof.rail', 'polygon')
+            ->assertJsonPath('settlement_proof.status', VaultSettlementProof::STATUS_VERIFIED)
+            ->assertJsonPath('settlement_proof.evidence.chain_id', 137)
+            ->assertJsonPath('settlement_proof.evidence.token_contract', strtolower(self::USDC_CONTRACT))
+            ->assertJsonPath('settlement_proof.evidence.transaction_hash', $txHash)
+            ->assertJsonPath('settlement_proof.evidence.sender', self::SENDER)
+            ->assertJsonPath('settlement_proof.evidence.recipient', self::RECIPIENT)
+            ->assertJsonPath('settlement_proof.evidence.amount', '10000000')
+            ->assertJsonPath('settlement_proof.evidence.block_number', 16)
+            ->assertJsonPath('settlement_proof.transaction_hash', $txHash)
+            ->assertJsonPath('proof.status', VaultSettlementProof::STATUS_VERIFIED);
 
         $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
 
-        $this->assertDatabaseHas('binding_proofs', [
+        $this->assertDatabaseHas('vault_settlement_proofs', [
             'vault_id' => $vaultId,
-            'proof_type' => BindingProof::TYPE_USDC_TRANSFER,
-            'proof_reference' => BindingProof::referenceFor(BindingProof::TYPE_USDC_TRANSFER, $txHash),
-            'verification_state' => BindingProof::STATE_VERIFIED,
+            'proof_kind' => VaultSettlementProof::KIND_USDC_TRANSFER,
+            'external_reference' => VaultSettlementProof::externalReferenceFor(
+                VaultSettlementProof::KIND_USDC_TRANSFER,
+                $txHash,
+            ),
+            'status' => VaultSettlementProof::STATUS_VERIFIED,
         ]);
+
+        $this->assertDatabaseCount('vault_settlement_proofs', 1);
+        $this->assertDatabaseCount('binding_proofs', 0);
 
         $this->assertDatabaseHas('verification_events', [
             'vault_id' => $vaultId,
-            'proof_type' => BindingProof::TYPE_USDC_TRANSFER,
+            'proof_type' => VaultSettlementProof::KIND_USDC_TRANSFER,
             'binding_key' => 'polygon',
             'event_type' => VerificationEvent::TYPE_PROOF_VERIFIED,
         ]);
 
-        $proofId = (int) $response->json('proof.id');
+        $proofId = (int) $response->json('settlement_proof.id');
         $event = VerificationEvent::query()->where('event_type', VerificationEvent::TYPE_PROOF_VERIFIED)->first();
-        $this->assertSame($proofId, (int) $event?->binding_proof_id);
-        $this->assertSame($txHash, data_get($event?->payload, 'proof_payload.transaction_hash'));
+        $this->assertSame($proofId, (int) $event?->vault_settlement_proof_id);
+        $this->assertNull($event?->binding_proof_id);
+        $this->assertSame($txHash, data_get($event?->payload, 'evidence.transaction_hash'));
     }
 
     public function test_usdc_transfer_proof_rejects_recipient_mismatch(): void
@@ -116,6 +125,10 @@ class StorefrontWalletUsdcTransferProofTest extends TestCase
 
         $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
 
+        $this->assertDatabaseHas('vault_settlement_proofs', [
+            'vault_id' => $vaultId,
+            'status' => VaultSettlementProof::STATUS_FAILED,
+        ]);
         $this->assertDatabaseCount('binding_proofs', 0);
         $this->assertDatabaseHas('verification_events', [
             'vault_id' => $vaultId,
@@ -154,6 +167,12 @@ class StorefrontWalletUsdcTransferProofTest extends TestCase
             ])
             ->assertUnprocessable();
 
+        $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
+
+        $this->assertDatabaseHas('vault_settlement_proofs', [
+            'vault_id' => $vaultId,
+            'status' => VaultSettlementProof::STATUS_FAILED,
+        ]);
         $this->assertDatabaseCount('binding_proofs', 0);
     }
 
@@ -232,7 +251,8 @@ class StorefrontWalletUsdcTransferProofTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['transaction_hash']);
 
-        $this->assertSame(1, BindingProof::query()->count());
+        $this->assertSame(1, VaultSettlementProof::query()->count());
+        $this->assertSame(0, BindingProof::query()->count());
         $this->assertSame(1, VerificationEvent::query()
             ->where('event_type', VerificationEvent::TYPE_PROOF_VERIFIED)
             ->count());

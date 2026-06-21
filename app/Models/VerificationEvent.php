@@ -13,6 +13,7 @@ class VerificationEvent extends Model
     protected $fillable = [
         'vault_id',
         'binding_proof_id',
+        'vault_settlement_proof_id',
         'proof_type',
         'binding_key',
         'event_type',
@@ -33,5 +34,10 @@ class VerificationEvent extends Model
     public function bindingProof(): BelongsTo
     {
         return $this->belongsTo(BindingProof::class, 'binding_proof_id');
+    }
+
+    public function vaultSettlementProof(): BelongsTo
+    {
+        return $this->belongsTo(VaultSettlementProof::class, 'vault_settlement_proof_id');
     }
 }

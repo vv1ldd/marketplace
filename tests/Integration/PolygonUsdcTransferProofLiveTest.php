@@ -2,8 +2,8 @@
 
 namespace Tests\Integration;
 
-use App\Models\BindingProof;
 use App\Models\User;
+use App\Models\VaultSettlementProof;
 use App\Models\VerificationEvent;
 use App\Models\VaultIdentity;
 use App\Services\StorefrontTokenService;
@@ -81,16 +81,16 @@ class PolygonUsdcTransferProofLiveTest extends TestCase
         $response = $this->withToken($token)
             ->postJson('/api/storefront/v1/wallet/proofs/usdc-transfer', $payload)
             ->assertOk()
-            ->assertJsonPath('proof.proof_type', BindingProof::TYPE_USDC_TRANSFER)
-            ->assertJsonPath('proof.verification_state', BindingProof::STATE_VERIFIED)
-            ->assertJsonPath('proof.proof_payload.transaction_hash', $txHash);
+            ->assertJsonPath('settlement_proof.proof_kind', VaultSettlementProof::KIND_USDC_TRANSFER)
+            ->assertJsonPath('settlement_proof.status', VaultSettlementProof::STATUS_VERIFIED)
+            ->assertJsonPath('settlement_proof.evidence.transaction_hash', $txHash);
 
         $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
 
-        $this->assertDatabaseHas('binding_proofs', [
+        $this->assertDatabaseHas('vault_settlement_proofs', [
             'vault_id' => $vaultId,
-            'proof_reference' => BindingProof::referenceFor(BindingProof::TYPE_USDC_TRANSFER, $txHash),
-            'verification_state' => BindingProof::STATE_VERIFIED,
+            'external_reference' => VaultSettlementProof::externalReferenceFor(VaultSettlementProof::KIND_USDC_TRANSFER, $txHash),
+            'status' => VaultSettlementProof::STATUS_VERIFIED,
         ]);
 
         $this->assertDatabaseHas('verification_events', [
@@ -98,13 +98,13 @@ class PolygonUsdcTransferProofLiveTest extends TestCase
             'event_type' => VerificationEvent::TYPE_PROOF_VERIFIED,
         ]);
 
-        $proofId = (int) $response->json('proof.id');
+        $proofId = (int) $response->json('settlement_proof.id');
         $event = VerificationEvent::query()
             ->where('event_type', VerificationEvent::TYPE_PROOF_VERIFIED)
-            ->where('binding_proof_id', $proofId)
+            ->where('vault_settlement_proof_id', $proofId)
             ->first();
 
         $this->assertNotNull($event);
-        $this->assertSame($txHash, data_get($event->payload, 'proof_payload.transaction_hash'));
+        $this->assertSame($txHash, data_get($event->payload, 'evidence.transaction_hash'));
     }
 }

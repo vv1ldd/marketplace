@@ -4,6 +4,7 @@ namespace App\Contracts;
 
 use App\Models\IdentityBinding;
 use App\Models\VaultIdentity;
+use App\Models\VaultSettlementProof;
 
 interface SettlementAdapter
 {
@@ -34,4 +35,11 @@ interface SettlementAdapter
      * @return array{status: string, healthy: bool, adapter: string, mode: string, failures: list<string>, checks: array<string, mixed>}
      */
     public function healthCheck(): array;
+
+    /**
+     * Materialize a verified settlement proof for an external rail event.
+     *
+     * @param array<string, mixed> $input
+     */
+    public function verifyProof(VaultIdentity $vault, array $input): VaultSettlementProof;
 }

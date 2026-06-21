@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\BindingProof;
 use App\Models\User;
+use App\Models\VaultSettlementProof;
 use App\Models\VerificationEvent;
 use App\Services\BindingProofVerificationService;
 use App\Services\VaultIdentityService;
@@ -57,7 +57,7 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
         $expectedChainId = (int) ($tokenConfig['chain_id'] ?? 137);
         $expectedTokenContract = strtolower((string) ($tokenConfig['token_contract'] ?? ''));
         $minimumAmountRaw = $this->toTokenBaseUnits($minimumAmount, (int) ($tokenConfig['decimals'] ?? 6));
-        $proofReference = BindingProof::referenceFor(BindingProof::TYPE_USDC_TRANSFER, $txHash);
+        $proofReference = VaultSettlementProof::externalReferenceFor(VaultSettlementProof::KIND_USDC_TRANSFER, $txHash);
         $artifactDir = $this->resolveArtifactDirectory($txHash);
 
         $this->info('Polygon USDC transfer proof live gate');
@@ -123,7 +123,7 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
         string $artifactDir,
         bool $writeArtifacts = true,
     ): int {
-        $proofCountBefore = BindingProof::query()->count();
+        $proofCountBefore = VaultSettlementProof::query()->count();
         $verifiedEventCountBefore = VerificationEvent::query()
             ->where('event_type', VerificationEvent::TYPE_PROOF_VERIFIED)
             ->count();
@@ -153,9 +153,9 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
                 ['USDC contract matches', false],
                 ['Recipient matches', false],
                 ['Amount >= minimum', false],
-                ['proof_created = NO', BindingProof::query()->count() === $proofCountBefore],
+                ['proof_created = NO', VaultSettlementProof::query()->count() === $proofCountBefore],
                 ['proof_verified = NO', VerificationEvent::query()->where('event_type', VerificationEvent::TYPE_PROOF_VERIFIED)->count() === $verifiedEventCountBefore],
-                ['DB writes = NO', BindingProof::query()->count() === $proofCountBefore && VerificationEvent::query()->count() === $eventCountBefore],
+                ['DB writes = NO', VaultSettlementProof::query()->count() === $proofCountBefore && VerificationEvent::query()->count() === $eventCountBefore],
             ]);
             $this->error('Dry run gate failed: '.$exception->getMessage());
 
@@ -173,7 +173,7 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
         ]);
 
         $proofData = (array) ($result['proof'] ?? []);
-        $proofCountAfter = BindingProof::query()->count();
+        $proofCountAfter = VaultSettlementProof::query()->count();
         $verifiedEventCountAfter = VerificationEvent::query()
             ->where('event_type', VerificationEvent::TYPE_PROOF_VERIFIED)
             ->count();
@@ -221,7 +221,7 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
                     'persisted' => false,
                     'reason' => 'dry_run_gate',
                     'expected_relation' => 'owns(Address)',
-                    'expected_evidence_type' => BindingProof::TYPE_USDC_TRANSFER,
+                    'expected_evidence_type' => VaultSettlementProof::KIND_USDC_TRANSFER,
                 ],
                 events: [
                     'recorded' => false,
@@ -305,12 +305,12 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
             $input['sender'] = $sender;
         }
 
-        $existingProof = BindingProof::query()
+        $existingProof = VaultSettlementProof::query()
             ->where('vault_id', $vault->id)
-            ->where('proof_reference', $proofReference)
+            ->where('external_reference', $proofReference)
             ->first();
 
-        if ($existingProof instanceof BindingProof) {
+        if ($existingProof instanceof VaultSettlementProof) {
             $proof = $existingProof;
             $this->warn('Proof already exists for this vault/reference; validating counts only.');
         } else {
@@ -332,22 +332,22 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
             // Expected for current API semantics.
         }
 
-        $proofCount = BindingProof::query()
+        $proofCount = VaultSettlementProof::query()
             ->where('vault_id', $vault->id)
-            ->where('proof_reference', $proofReference)
+            ->where('external_reference', $proofReference)
             ->count();
         $verifiedEvent = VerificationEvent::query()
             ->where('vault_id', $vault->id)
             ->where('event_type', VerificationEvent::TYPE_PROOF_VERIFIED)
-            ->whereHas('bindingProof', fn ($query) => $query
+            ->whereHas('vaultSettlementProof', fn ($query) => $query
                 ->where('vault_id', $vault->id)
-                ->where('proof_reference', $proofReference))
+                ->where('external_reference', $proofReference))
             ->first();
 
         $checks = [
-            ['binding_proofs count = 1', $proofCount === 1],
+            ['vault_settlement_proofs count = 1', $proofCount === 1],
             ['proof_verified count = 1', $verifiedEvent instanceof VerificationEvent],
-            ['proof_payload populated', is_array($proof->proof_payload) && $proof->proof_payload !== []],
+            ['evidence populated', is_array($proof->evidence) && $proof->evidence !== []],
             ['duplicate request rejected', true],
         ];
 
@@ -471,7 +471,7 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
             'valid' => ($verificationResult['valid'] ?? false) === true,
             'error_code' => $verificationResult['error_code'] ?? null,
             'error' => $verificationResult['error'] ?? null,
-            'evidence_type' => BindingProof::TYPE_USDC_TRANSFER,
+            'evidence_type' => VaultSettlementProof::KIND_USDC_TRANSFER,
             'decoded' => $proofData,
             'captured_at' => now()->toIso8601String(),
         ]);
@@ -518,7 +518,7 @@ class ValidatePolygonUsdcTransferProofCommand extends Command
             'gate' => $gate,
             'relation' => 'owns',
             'relation_subject' => 'Address',
-            'evidence_type' => BindingProof::TYPE_USDC_TRANSFER,
+            'evidence_type' => VaultSettlementProof::KIND_USDC_TRANSFER,
             'network' => 'polygon',
             'chain_id' => $chainId,
             'core_changes_required' => false,
