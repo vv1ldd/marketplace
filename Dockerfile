@@ -48,3 +48,6 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts --ignore-platfo
 RUN npm ci && \
     npm run build && \
     rm -rf node_modules
+
+# Runtime dependency for Bitcoin binding signature verification (BIP-322).
+RUN cd scripts && npm ci --omit=dev

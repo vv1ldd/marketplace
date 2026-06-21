@@ -219,6 +219,79 @@ class MerchantSettlementRailsTest extends TestCase
         $this->assertTrue(SovereignLedger::where('event_type', 'STOCK_REPLENISH')->where('legal_entity_id', $entity->id)->exists());
     }
 
+    public function test_crypto_deposit_intent_issues_polygon_deposit_address(): void
+    {
+        $this->withCommerceCryptoRailsEnabled();
+
+        [$user, $entity] = $this->merchantEntity();
+
+        $intent = app(MerchantSettlementService::class)->issueIntent(
+            legalEntity: $entity,
+            createdBy: $user,
+            rail: MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC,
+            amount: 420.00,
+            options: ['idempotency_key' => 'crypto-deposit-address'],
+        );
+
+        $this->assertSame(MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC, $intent->rail);
+        $this->assertSame('polygon', data_get($intent->provider_payload, 'settlement_network'));
+        $this->assertSame('issued', data_get($intent->provider_payload, 'deposit_address_status'));
+        $this->assertMatchesRegularExpression(
+            '/^0x[a-f0-9]{40}$/',
+            (string) data_get($intent->provider_payload, 'deposit_address'),
+        );
+    }
+
+    public function test_crypto_deposit_proof_verification_accepts_structural_evm_payload(): void
+    {
+        $this->withCommerceCryptoRailsEnabled();
+
+        [$user, $entity] = $this->merchantEntity();
+        $service = app(MerchantSettlementService::class);
+        $intent = $service->issueIntent(
+            legalEntity: $entity,
+            createdBy: $user,
+            rail: MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC,
+            amount: 250.00,
+            options: ['idempotency_key' => 'crypto-proof-structural'],
+        );
+
+        $depositAddress = (string) data_get($intent->provider_payload, 'deposit_address');
+        $txHash = '0x'.str_repeat('a', 64);
+
+        $proof = $service->recordVerifiedCryptoProof($intent, $user, [
+            'tx_hash' => $txHash,
+            'asset' => 'USDT',
+            'amount' => '250.00',
+            'deposit_address' => $depositAddress,
+        ]);
+
+        $this->assertSame($txHash, $proof->external_reference);
+        $this->assertSame('evm_deposit_proof', $proof->source);
+        $this->assertSame(250.00, (float) $entity->refresh()->available_balance);
+    }
+
+    public function test_crypto_deposit_proof_rejects_invalid_tx_hash(): void
+    {
+        $this->withCommerceCryptoRailsEnabled();
+
+        [$user, $entity] = $this->merchantEntity();
+        $service = app(MerchantSettlementService::class);
+        $intent = $service->issueIntent(
+            legalEntity: $entity,
+            createdBy: $user,
+            rail: MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC,
+            amount: 100.00,
+            options: ['idempotency_key' => 'crypto-proof-invalid'],
+        );
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $service->recordVerifiedCryptoProof($intent, $user, [
+            'tx_hash' => 'not-a-hash',
+            'asset' => 'USDC',
+        ]);
+    }
+
     /**
      * @return array{0: User, 1: LegalEntity}
      */

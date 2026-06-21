@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AskSearchBox } from './AskSearchBox';
 import { GlossaryHint } from './GlossaryHint';
-import { WelcomeTourCard } from './WelcomeTourCard';
 import { fetchStorefrontCatalog, submitCatalogNeedRequest } from '../lib/storefront-api';
 import { useLocale } from './LocaleProvider';
 
@@ -270,7 +269,6 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
               ))}
             </div>
           ) : null}
-          <WelcomeTourCard />
         </section>
       ) : null}
 

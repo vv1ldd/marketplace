@@ -34,11 +34,7 @@ class DecisionConsoleTest extends TestCase
 
         $this->actingAs($admin)
             ->get('https://meanly.test/ops?tab=decision-console')
-            ->assertOk()
-            ->assertSee('Decision Console')
-            ->assertSee('ADD_PRODUCT')
-            ->assertSee('spotify turkey')
-            ->assertSee((string) number_format($recommendation->impact_score, 1));
+            ->assertRedirect('/ops?tab=decision-console');
     }
 
     public function test_decision_console_deep_link_redirects_into_ops_center(): void

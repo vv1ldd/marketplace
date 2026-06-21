@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simplelayer.one/schemas/recovery-policy-v1.schema.json",
+  "title": "Simple L1 Recovery Policy Model v1",
+  "description": "Policy governs identity; factors satisfy policy; verified factors produce evidence. Do not model credentials as boolean flags on the entity.",
+  "type": "object",
+  "$defs": {
+    "rootAuthorityMode": {
+      "type": "string",
+      "enum": ["provider", "hybrid", "user_root"]
+    },
+    "factorClass": {
+      "type": "string",
+      "enum": ["knowledge", "possession", "social", "root"]
+    },
+    "factorType": {
+      "type": "string",
+      "enum": [
+        "recovery_code",
+        "passkey",
+        "hardware_key",
+        "guardian",
+        "root_key"
+      ],
+      "description": "Implementation type within a class. Extensible without policy migration."
+    },
+    "factorPurpose": {
+      "type": "string",
+      "enum": ["daily", "recovery"]
+    },
+    "factorStatus": {
+      "type": "string",
+      "enum": ["pending", "active", "revoked", "consumed"]
+    },
+    "strengthLabel": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "custody": {
+      "type": "string",
+      "enum": ["self", "delegated", "provider"]
+    },
+    "ecosystem": {
+      "type": "string",
+      "description": "Platform or sync boundary, e.g. apple, google, android, microsoft, hardware, offline"
+    },
+    "protectionTier": {
+      "type": "string",
+      "enum": ["bronze", "silver", "gold"],
+      "description": "Derived projection: bronze = recovery unavailable; silver = single factor; gold = multi-factor policy satisfied."
+    },
+    "recoveryState": {
+      "type": "string",
+      "enum": ["unavailable", "incomplete", "ready"]
+    },
+    "policyRule": {
+      "type": "string",
+      "enum": ["all", "any", "min_count", "min_strength"],
+      "description": "all = every required class/constraint; any = one of; min_count = N-of-M classes; min_strength = sum of verified factor weights."
+    },
+    "independenceDimension": {
+      "type": "string",
+      "enum": ["device", "ecosystem", "custody"]
+    },
+    "RecoveryPolicy": {
+      "type": "object",
+      "description": "What is required to re-establish control. Never encode specific credential booleans here.",
+      "required": ["version", "rule"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "const": 1
+        },
+        "rule": {
+          "$ref": "#/$defs/policyRule"
+        },
+        "required_factor_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/factorClass" },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "When rule=all, every listed class must be satisfied by distinct active factors."
+        },
+        "min_factor_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Used when rule=min_count (N-of-M over classes or factors)."
+        },
+        "minimum_independent_dimensions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3,
+          "description": "Gold-style policies: contributing factors must span at least this many independence dimensions."
+        },
+        "independence_dimensions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/independenceDimension" },
+          "uniqueItems": true,
+          "default": ["device", "ecosystem", "custody"]
+        },
+        "minimum_strength": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Future: require verified factors whose strength_weight sum meets this threshold."
+        },
+        "declared_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "rule": { "const": "all" } } },
+          "then": { "required": ["required_factor_classes"] }
+        },
+        {
+          "if": { "properties": { "rule": { "const": "min_count" } } },
+          "then": { "required": ["min_factor_count"] }
+        },
+        {
+          "if": { "properties": { "rule": { "const": "min_strength" } } },
+          "then": { "required": ["minimum_strength"] }
+        }
+      ]
+    },
+    "FactorMetadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "device_id": { "type": "string" },
+        "ecosystem": { "$ref": "#/$defs/ecosystem" },
+        "custody": { "$ref": "#/$defs/custody" },
+        "label": {
+          "type": "string",
+          "description": "Human-facing label, e.g. Meanly Recovery · @username"
+        },
+        "public_reference": {
+          "type": "string",
+          "description": "Opaque handle: passkey credential id, guardian id, root key fingerprint, etc."
+        }
+      }
+    },
+    "Factor": {
+      "type": "object",
+      "description": "What exists on the entity. Registered via credential.bound / recovery_code.issued; not session evidence.",
+      "required": ["id", "class", "type", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Stable factor_id referenced by evidence and events."
+        },
+        "class": { "$ref": "#/$defs/factorClass" },
+        "type": { "$ref": "#/$defs/factorType" },
+        "purpose": { "$ref": "#/$defs/factorPurpose" },
+        "status": { "$ref": "#/$defs/factorStatus" },
+        "strength": { "$ref": "#/$defs/strengthLabel" },
+        "strength_weight": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Numeric weight for min_strength policies. Suggested defaults: recovery_code=30, passkey=40, hardware_key=50, guardian=35, root_key=100."
+        },
+        "metadata": { "$ref": "#/$defs/FactorMetadata" },
+        "bound_at": { "type": "string", "format": "date-time" },
+        "revoked_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "RecoveryEvidence": {
+      "type": "object",
+      "description": "What was presented and verified in a specific recovery session. Created by recovery.factor.verified; does not mutate policy.",
+      "required": ["id", "session_id", "factor_id", "verified_at"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "session_id": { "type": "string", "format": "uuid" },
+        "factor_id": { "type": "string", "format": "uuid" },
+        "factor_class": { "$ref": "#/$defs/factorClass" },
+        "verified_at": { "type": "string", "format": "date-time" },
+        "verification_method": {
+          "type": "string",
+          "enum": ["code_hash", "webauthn", "signature", "guardian_attestation"]
+        },
+        "strength_weight": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Weight counted toward min_strength at verification time."
+        }
+      }
+    },
+    "RecoverySession": {
+      "type": "object",
+      "required": ["id", "entity_l1_address", "started_at", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "entity_l1_address": {
+          "type": "string",
+          "pattern": "^sl1e_"
+        },
+        "policy_snapshot": { "$ref": "#/$defs/RecoveryPolicy" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": "string", "format": "date-time" },
+        "status": {
+          "type": "string",
+          "enum": ["open", "completed", "failed", "expired"]
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RecoveryEvidence" }
+        }
+      }
+    },
+    "GovernanceMaterializedView": {
+      "type": "object",
+      "description": "Recomputable read projection from event log + policy engine. Safe to cache and discard. Never write protection_tier or recovery_state to domain entity rows.",
+      "required": ["entity", "computed_at", "engine_version"],
+      "additionalProperties": false,
+      "properties": {
+        "entity": {
+          "type": "string",
+          "pattern": "^sl1e_"
+        },
+        "root_authority_mode": { "$ref": "#/$defs/rootAuthorityMode" },
+        "protection_tier": { "$ref": "#/$defs/protectionTier" },
+        "recovery_state": { "$ref": "#/$defs/recoveryState" },
+        "fulfilled_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/factorClass" },
+          "uniqueItems": true
+        },
+        "independent_dimensions_met": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "active_factor_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "computed_at": { "type": "string", "format": "date-time" },
+        "engine_version": {
+          "type": "string",
+          "description": "Policy reducer version used for this projection, e.g. policy-v1"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/RecoveryPolicy" },
+    { "$ref": "#/$defs/Factor" },
+    { "$ref": "#/$defs/RecoveryEvidence" },
+    { "$ref": "#/$defs/RecoverySession" },
+    { "$ref": "#/$defs/GovernanceMaterializedView" }
+  ]
+}

@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { isPrimaryMobileDevice, supportsCrossDeviceHandoff } from '../lib/device-context';
+import { ensureHandoffQrDataUrl } from '../lib/handoff-qr';
+import { useLocale } from './LocaleProvider';
+import { IdentityStateStage, IdentityStatusSlot } from './IdentityStateStage';
+import { VaultKeyIcon, VaultPhoneIcon, VaultShieldIcon } from './IdentityVaultIcons';
+import { buildAuthorizeParams } from '../lib/vault-authorize-params';
+import { VaultUsernameField } from './VaultUsernameField';
 
 const SCRIPT_SRC = 'https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js';
-
-function hasIdentityHint(query) {
-  return query.has('identity_hint') || query.has('login_hint') || query.has('entity_l1_address');
-}
 
 function loadWebAuthnBrowser() {
   if (typeof window === 'undefined') {
@@ -35,63 +38,38 @@ function loadWebAuthnBrowser() {
   });
 }
 
-function rememberIdentity(identity, payload = {}) {
-  const identityHint = identity?.entity_l1_address || identity?.entityAddress || identity;
-  if (!identityHint) {
-    return;
-  }
-
+function readVaultHint() {
   try {
-    window.localStorage?.setItem('sl1e.identity_hint', identityHint);
-    if (payload.identity_capsule) {
-      window.localStorage?.setItem('sl1e.identity_capsule', JSON.stringify(payload.identity_capsule));
-    }
-    if (payload.portability_contract) {
-      window.localStorage?.setItem('sl1e.portability_contract', JSON.stringify(payload.portability_contract));
-    }
-  } catch {
-    // Storage only improves continuity between product surfaces.
-  }
-}
-
-function rememberedIdentity() {
-  try {
-    return window.localStorage?.getItem('sl1e.identity_hint') || '';
+    return window.localStorage?.getItem('vault_identity_hint')
+      || window.localStorage?.getItem('sl1e.identity_hint')
+      || '';
   } catch {
     return '';
   }
 }
 
-function forgetRememberedIdentity() {
+function rememberVaultHint(entityAddress) {
+  if (!entityAddress) {
+    return;
+  }
+
   try {
+    window.localStorage?.setItem('vault_identity_hint', entityAddress);
+    window.localStorage?.setItem('sl1e.identity_hint', entityAddress);
+  } catch {
+    // Storage only improves continuity between product surfaces.
+  }
+}
+
+function forgetVaultHint() {
+  try {
+    window.localStorage?.removeItem('vault_identity_hint');
     window.localStorage?.removeItem('sl1e.identity_hint');
     window.localStorage?.removeItem('sl1e.identity_capsule');
     window.localStorage?.removeItem('sl1e.portability_contract');
   } catch {
     // Forgetting only changes which local flow the browser suggests next.
   }
-}
-
-function queryWithBrowserHint(searchParams) {
-  const query = new URLSearchParams(searchParams.toString());
-  if (!hasIdentityHint(query)) {
-    const remembered = rememberedIdentity();
-    if (remembered) {
-      query.set('browser_identity_hint', remembered);
-    }
-  }
-
-  return query;
-}
-
-function normalizedAlias(value) {
-  return String(value || '')
-    .trim()
-    .replace(/^@+/, '')
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .slice(0, 24);
 }
 
 function vaultErrorLabel(exception, fallback = 'Could not open Vault.') {
@@ -115,273 +93,752 @@ function vaultErrorLabel(exception, fallback = 'Could not open Vault.') {
     return 'Vault unlock was cancelled. Try again when you are ready.';
   }
 
-  if (lower.includes('credential_not_bound_to_identity')) {
-    return 'This key is not connected to this Vault. Choose another account or create a new Vault.';
+  if (lower.includes('sl1e identity or key is not registered')) {
+    return 'Saved Vault was not found. Starting discovery instead.';
   }
 
-  if (lower.includes('authorization_challenge_not_found')) {
+  if (lower.includes('authorization flow not found')) {
     return 'This unlock request expired. Open Vault again.';
-  }
-
-  if (lower.includes('credential_public_key_not_available')) {
-    return 'This Vault key is not available on this device.';
   }
 
   return message;
 }
 
-function sameOriginPath(url) {
-  try {
-    const parsed = new URL(url, window.location.origin);
-    if (parsed.origin !== window.location.origin) {
-      return null;
-    }
+async function postSl1eJson(path, body) {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+  const payload = await response.json().catch(() => ({}));
 
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-  } catch {
-    return null;
+  if (!response.ok || payload.success === false) {
+    const error = new Error(payload.message || payload.error || 'Request failed');
+    error.status = response.status;
+    throw error;
   }
+
+  return payload;
 }
 
-function assertSl1eIdentityPayload(payload) {
-  const identity = payload?.identity || {};
-  const entityAddress = identity.entity_l1_address || identity.entityAddress;
-  const keyAddress = identity.key_l1_address || identity.keyAddress;
-
-  if (!String(entityAddress || '').startsWith('sl1e_') || !String(keyAddress || '').startsWith('sl1_')) {
-    throw new Error('Vault did not return a valid identity key.');
+function followRedirect(redirectUrl) {
+  if (!redirectUrl) {
+    throw new Error('Vault did not return a destination.');
   }
+
+  window.location.href = redirectUrl;
 }
 
-export function WalletAuthorizePanel() {
-  const router = useRouter();
+function shortVaultAddress(address) {
+  if (!address || address.length <= 18) {
+    return address;
+  }
+
+  return `${address.slice(0, 10)}…${address.slice(-6)}`;
+}
+
+function IdentityHero({ icon, title, body, showTitle = true }) {
+  return (
+    <header className="identity-center-hero">
+      <div className="identity-center-hero__icon" aria-hidden="true">
+        {icon}
+      </div>
+      <div className="identity-center-hero__copy">
+        <div className={`identity-center-hero__heading${showTitle && title.main ? '' : ' identity-center-hero__heading--compact'}`}>
+          <p className="identity-center-hero__kicker">{title.kicker}</p>
+          {showTitle && title.main ? <h1 className="identity-center-surface__title">{title.main}</h1> : null}
+        </div>
+        {body ? <p className="identity-center-surface__body">{body}</p> : null}
+      </div>
+    </header>
+  );
+}
+
+function IdentityOrDivider() {
+  const { t } = useLocale();
+
+  return (
+    <div className="identity-center-divider" role="separator">
+      <span>{t('vault_authorize_or')}</span>
+    </div>
+  );
+}
+
+export function WalletAuthorizePanel({
+  authorizeParams: authorizeParamsProp = null,
+} = {}) {
   const searchParams = useSearchParams();
-  const [bootstrap, setBootstrap] = useState(null);
-  const [alias, setAlias] = useState('');
+  const { t } = useLocale();
+  const authorizeParams = useMemo(
+    () => authorizeParamsProp || buildAuthorizeParams(searchParams),
+    [authorizeParamsProp, searchParams],
+  );
+  const paramsKey = useMemo(() => JSON.stringify(authorizeParams), [authorizeParams]);
+  const [hintAddress, setHintAddress] = useState('');
+  const [forceRegister, setForceRegister] = useState(false);
+  const [registerStep, setRegisterStep] = useState('username');
+  const [registerUsername, setRegisterUsername] = useState('');
+  const [usernameValidity, setUsernameValidity] = useState({ status: 'idle', normalized: null });
+  const [showHandoff, setShowHandoff] = useState(false);
+  const [handoff, setHandoff] = useState(null);
   const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  const [forceCreateIdentity, setForceCreateIdentity] = useState(false);
+  const [webauthnReady, setWebauthnReady] = useState(false);
+  const [hasPasskeyDriver, setHasPasskeyDriver] = useState(false);
+  const [handoffDismissed, setHandoffDismissed] = useState(false);
+  const [canUseCrossDeviceHandoff, setCanUseCrossDeviceHandoff] = useState(false);
+  const [isMobileSurface, setIsMobileSurface] = useState(false);
 
-  const queryKey = searchParams.toString();
+  const isRegister = forceRegister || authorizeParams.mode === 'register';
+  const usernameReady = usernameValidity.status === 'available' && Boolean(usernameValidity.normalized);
+  const registerParams = useMemo(
+    () => ({
+      ...authorizeParams,
+      mode: 'register',
+      ...(usernameReady ? { username: usernameValidity.normalized } : {}),
+    }),
+    [authorizeParams, usernameReady, usernameValidity.normalized],
+  );
+  const loginParams = useMemo(
+    () => ({ ...authorizeParams, mode: 'login' }),
+    [authorizeParams],
+  );
+  const viewKey = showHandoff && handoff
+    ? 'handoff'
+    : isRegister && registerStep === 'username'
+      ? 'register-username'
+      : isRegister
+        ? 'register'
+        : 'connect';
+  const screenTitle = t('header_connect_title');
+  const panelAriaLabel = viewKey === 'connect' ? t('vault_authorize_intro') : screenTitle;
+  const primaryCta = hintAddress ? t('header_connect_safe') : t('vault_authorize_open_cta');
+  const mobilePasskeyOnly = isMobileSurface && hasPasskeyDriver;
+  const registerCtaLabel = t(mobilePasskeyOnly ? 'vault_authorize_create_cta_mobile' : 'vault_authorize_create_cta');
+  const registerDescLabel = t(mobilePasskeyOnly ? 'vault_authorize_register_desc_mobile' : 'vault_authorize_register_desc');
+  const createSafeLinkLabel = t(mobilePasskeyOnly ? 'vault_authorize_create_cta_mobile' : 'vault_authorize_create');
 
   useEffect(() => {
+    setHintAddress(readVaultHint());
+    setForceRegister(false);
+    setRegisterStep('username');
+    setRegisterUsername('');
+    setUsernameValidity({ status: 'idle', normalized: null });
+    setShowHandoff(false);
+    setHandoff(null);
+    setError('');
+    setStatus('');
+    setBusy(false);
+    setHandoffDismissed(false);
+    setHasPasskeyDriver(Boolean(window.PublicKeyCredential));
+    setIsMobileSurface(isPrimaryMobileDevice());
+    setCanUseCrossDeviceHandoff(supportsCrossDeviceHandoff({
+      handoffId: authorizeParams.handoffId,
+    }));
+
+    loadWebAuthnBrowser()
+      .then(() => setWebauthnReady(true))
+      .catch((exception) => setError(vaultErrorLabel(exception)));
+  }, [paramsKey, authorizeParams.handoffId]);
+
+  useEffect(() => {
+    const resetBusyState = () => setBusy(false);
+
+    window.addEventListener('pageshow', resetBusyState);
+    return () => window.removeEventListener('pageshow', resetBusyState);
+  }, []);
+
+  useEffect(() => {
+    if (!webauthnReady || hasPasskeyDriver || showHandoff || handoffDismissed || !canUseCrossDeviceHandoff || isRegister) {
+      return undefined;
+    }
+
     let cancelled = false;
 
-    async function loadBootstrap() {
+    async function autoHandoff() {
+      setBusy(true);
       setError('');
 
       try {
-        const query = queryWithBrowserHint(searchParams);
-        const response = await fetch(`/api/sl1e/authorize/bootstrap?${query.toString()}`, {
+        const payload = await postSl1eJson('/api/sl1e/authorize/handoff', { ...loginParams });
+        if (cancelled) {
+          return;
+        }
+
+        setHandoff(await ensureHandoffQrDataUrl(payload));
+        setShowHandoff(true);
+        setStatus(t('vault_authorize_handoff_waiting'));
+      } catch (exception) {
+        if (!cancelled) {
+          setError(vaultErrorLabel(exception));
+        }
+      } finally {
+        if (!cancelled) {
+          setBusy(false);
+        }
+      }
+    }
+
+    autoHandoff();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canUseCrossDeviceHandoff, handoffDismissed, hasPasskeyDriver, isRegister, loginParams, showHandoff, t, webauthnReady]);
+
+  useEffect(() => {
+    if (showHandoff && handoff && !error) {
+      setStatus(t('vault_authorize_handoff_waiting'));
+    }
+  }, [error, handoff, showHandoff, t]);
+
+  useEffect(() => {
+    if (!showHandoff || !handoff?.handoffId) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const response = await fetch(`/api/sl1e/authorize/handoff/${encodeURIComponent(handoff.handoffId)}`, {
           headers: { Accept: 'application/json' },
           cache: 'no-store',
         });
         const payload = await response.json();
 
-        if (!response.ok) {
-          throw new Error(vaultErrorLabel(payload.error, 'Could not open Vault.'));
-        }
-
         if (cancelled) {
           return;
         }
 
-        setBootstrap(payload);
-        if (!forceCreateIdentity) {
-          setAlias(normalizedAlias(payload.selected_identity?.display_alias || payload.selected_identity?.alias || ''));
+        if (payload.status === 'completed' && payload.redirectUrl) {
+          if (payload.entityAddress) {
+            rememberVaultHint(payload.entityAddress);
+          }
+          setStatus(t('vault_authorize_returning'));
+          followRedirect(payload.redirectUrl);
+          return;
         }
-        if (!forceCreateIdentity && payload.selected_identity?.entity_l1_address) {
-          rememberIdentity(payload.selected_identity.entity_l1_address);
+
+        if (payload.status === 'expired') {
+          setError(t('vault_authorize_handoff_expired'));
+          return;
         }
-      } catch (exception) {
-        if (!cancelled) {
-          setError(vaultErrorLabel(exception));
-        }
+      } catch {
+        // Polling is best-effort; the user can refresh to restart handoff.
+      }
+
+      if (!cancelled) {
+        window.setTimeout(poll, 1500);
       }
     }
 
-    loadBootstrap();
+    poll();
 
     return () => {
       cancelled = true;
     };
-  }, [forceCreateIdentity, queryKey, searchParams]);
+  }, [handoff, showHandoff, t]);
 
-  const isRegister = forceCreateIdentity || (Boolean(bootstrap) && !bootstrap?.selected_identity);
-  const primaryActionLabel = !bootstrap || isRegister ? 'Create identity' : 'Open Vault';
-
-  const activeQuery = useMemo(() => queryWithBrowserHint(searchParams), [queryKey, searchParams]);
-
-  async function approveAuthorize() {
+  async function triggerAuthentication({ directHint = false } = {}) {
     setBusy(true);
     setError('');
+    setStatus(t('vault_authorize_searching'));
 
     try {
-      if (!window.PublicKeyCredential) {
+      if (!hasPasskeyDriver || !webauthnReady) {
         throw new Error('Vault sign-in is not available in this browser.');
       }
 
       const webauthn = await loadWebAuthnBrowser();
-      const query = new URLSearchParams(activeQuery.toString());
-      query.delete('browser_identity_hint');
-      query.delete('identity_hint');
-      query.delete('login_hint');
-      query.delete('entity_l1_address');
+      const body = { ...loginParams };
 
-      const capsule = window.localStorage?.getItem('sl1e.identity_capsule');
-      if (capsule && !query.has('identity_capsule')) {
-        query.set('identity_capsule', capsule);
+      if (directHint && hintAddress) {
+        body.entityAddress = hintAddress;
       }
 
-      const optionsResponse = await fetch(`/api/sl1e/authentication/options?${query.toString()}`, {
-        headers: { Accept: 'application/json' },
+      let prepared;
+      try {
+        prepared = await postSl1eJson('/api/sl1e/authorize/options', body);
+      } catch (exception) {
+        if (exception.status === 404 && directHint && hintAddress) {
+          forgetVaultHint();
+          setHintAddress('');
+          setStatus('');
+          setBusy(false);
+          return triggerAuthentication({ directHint: false });
+        }
+
+        throw exception;
+      }
+
+      setStatus(t('vault_authorize_open_passkey'));
+
+      let credentialResponse;
+      try {
+        credentialResponse = await webauthn.startAuthentication(prepared.options);
+      } catch (exception) {
+        if (exception?.name === 'NotFoundError') {
+          if (directHint && hintAddress) {
+            forgetVaultHint();
+            setHintAddress('');
+            setStatus(t('vault_authorize_passkey_not_found'));
+            setBusy(false);
+            return;
+          }
+
+          setStatus(t('vault_authorize_passkey_not_found'));
+          setBusy(false);
+          startIdentityCreation();
+          return;
+        }
+
+        throw exception;
+      }
+
+      setStatus(t('vault_authorize_returning'));
+      const verified = await postSl1eJson('/api/sl1e/authorize/verify', {
+        flowId: prepared.flowId,
+        authenticationResponse: credentialResponse,
+        handoffId: loginParams.handoffId,
+        handoffToken: loginParams.handoffToken,
       });
-      const optionsPayload = await optionsResponse.json();
-      if (!optionsResponse.ok) {
-        throw new Error(vaultErrorLabel(optionsPayload.error, 'Could not prepare Vault sign-in.'));
+
+      if (verified.entityAddress) {
+        rememberVaultHint(verified.entityAddress);
       }
 
-      const assertion = await webauthn.startAuthentication({ optionsJSON: optionsPayload.publicKey });
-
-      const completeResponse = await fetch('/api/sl1e/authorize/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          authorization_request_id: optionsPayload.authorization_request_id,
-          assertion,
-        }),
-      });
-      const completePayload = await completeResponse.json();
-      if (!completeResponse.ok) {
-        throw new Error(vaultErrorLabel(completePayload.error, 'Could not open Vault.'));
-      }
-
-      assertSl1eIdentityPayload(completePayload);
-      rememberIdentity(completePayload.identity, completePayload);
-      if (!completePayload.redirect_url) {
-        throw new Error('Vault did not return a destination.');
-      }
-
-      const localRedirect = sameOriginPath(completePayload.redirect_url);
-      if (localRedirect) {
-        router.push(localRedirect);
+      if (verified.handoffCompleted) {
+        setStatus(t('vault_authorize_handoff_complete'));
+        setBusy(false);
         return;
       }
 
-      window.location.href = completePayload.redirect_url;
+      followRedirect(verified.redirectUrl);
     } catch (exception) {
       setError(vaultErrorLabel(exception));
+      setStatus('');
       setBusy(false);
     }
   }
 
-  async function createAccount() {
-    const username = normalizedAlias(alias);
-    if (username.length < 3) {
-      setError('Username must be at least 3 characters.');
+  async function triggerRegistration() {
+    if (!usernameReady) {
+      setError(t('vault_authorize_nickname_invalid'));
+      return;
+    }
+
+    if (!hasPasskeyDriver || !webauthnReady) {
+      if (canUseCrossDeviceHandoff) {
+        await openHandoff({ register: true });
+      }
       return;
     }
 
     setBusy(true);
     setError('');
+    setStatus(t('vault_authorize_creating'));
 
     try {
-      if (!window.PublicKeyCredential) {
-        throw new Error('Vault sign-in is not available in this browser.');
-      }
-
       const webauthn = await loadWebAuthnBrowser();
-      const query = new URLSearchParams(searchParams.toString());
-      query.delete('browser_identity_hint');
-      query.delete('identity_hint');
-      query.delete('login_hint');
-      query.delete('entity_l1_address');
-      query.delete('identity_capsule');
-      query.set('alias', username);
-      query.set('display_alias', username);
+      const prepared = await postSl1eJson('/api/sl1e/authorize/register/options', { ...registerParams });
 
-      const optionsResponse = await fetch(`/api/sl1e/registration/options?${query.toString()}`, {
-        headers: { Accept: 'application/json' },
+      setStatus(t('vault_authorize_open_passkey'));
+
+      let credentialResponse;
+      try {
+        credentialResponse = await webauthn.startRegistration(prepared.options);
+      } catch (exception) {
+        if (exception?.name === 'NotAllowedError') {
+          setError(t('vault_authorize_registration_cancelled'));
+          setStatus('');
+          setBusy(false);
+          return;
+        }
+
+        throw exception;
+      }
+
+      setStatus(t('vault_authorize_returning'));
+      const verified = await postSl1eJson('/api/sl1e/authorize/register/verify', {
+        flowId: prepared.flowId,
+        attestationResponse: credentialResponse,
+        handoffId: registerParams.handoffId,
+        handoffToken: registerParams.handoffToken,
       });
-      const optionsPayload = await optionsResponse.json();
-      if (!optionsResponse.ok) {
-        throw new Error(optionsPayload.message || optionsPayload.error || 'Could not prepare account.');
+
+      if (verified.entityAddress) {
+        rememberVaultHint(verified.entityAddress);
       }
 
-      const attestation = await webauthn.startRegistration({ optionsJSON: optionsPayload.publicKey });
-      const completeResponse = await fetch('/api/sl1e/registration/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          registration_request_id: optionsPayload.registration_request_id,
-          attestation,
-        }),
-      });
-      const completePayload = await completeResponse.json();
-      if (!completeResponse.ok) {
-        throw new Error(vaultErrorLabel(completePayload.detail || completePayload.error, 'Could not create account.'));
+      if (verified.handoffCompleted) {
+        setStatus(t('vault_authorize_handoff_complete'));
+        setBusy(false);
+        return;
       }
 
-      assertSl1eIdentityPayload(completePayload);
-      rememberIdentity(completePayload.identity, completePayload);
-      if (!completePayload.redirect_url) {
-        throw new Error('Vault did not return a destination.');
-      }
-
-      window.location.href = completePayload.redirect_url;
+      followRedirect(verified.redirectUrl);
     } catch (exception) {
       setError(vaultErrorLabel(exception, 'Could not create account.'));
+      setStatus('');
+      setBusy(false);
+    }
+  }
+
+  async function openHandoff({ register = false } = {}) {
+    if (register && !usernameReady) {
+      setError(t('vault_authorize_nickname_invalid'));
+      return;
+    }
+
+    setHandoffDismissed(false);
+    setBusy(true);
+    setError('');
+    setStatus('');
+
+    try {
+      const payload = await postSl1eJson('/api/sl1e/authorize/handoff', register ? { ...registerParams } : { ...loginParams });
+      setHandoff(await ensureHandoffQrDataUrl(payload));
+      setShowHandoff(true);
+      setStatus(t('vault_authorize_handoff_waiting'));
+    } catch (exception) {
+      setError(vaultErrorLabel(exception));
+    } finally {
       setBusy(false);
     }
   }
 
   function startIdentityCreation() {
-    forgetRememberedIdentity();
+    forgetVaultHint();
+    setHintAddress('');
     setError('');
-    setForceCreateIdentity(true);
-    setAlias('');
+    setStatus('');
+    setShowHandoff(false);
+    setRegisterStep('username');
+    setRegisterUsername('');
+    setUsernameValidity({ status: 'idle', normalized: null });
+    setForceRegister(true);
+  }
+
+  function launchRegistration() {
+    startIdentityCreation();
+  }
+
+  function forgetSavedIdentityHint() {
+    forgetVaultHint();
+    setHintAddress('');
+    setError('');
+    setStatus('');
+    setShowHandoff(false);
+    setHandoff(null);
+    setHandoffDismissed(false);
+  }
+
+  async function signInWithoutSavedHint() {
+    forgetSavedIdentityHint();
+    await triggerAuthentication({ directHint: false });
+  }
+
+  async function continueRegistrationWithUsername() {
+    if (!usernameReady) {
+      setError(t('vault_authorize_nickname_invalid'));
+      return;
+    }
+
+    setError('');
+    setRegisterStep('passkey');
+    await triggerRegistration();
+  }
+
+  function cancelRegistration() {
+    setForceRegister(false);
+    setRegisterStep('username');
+    setRegisterUsername('');
+    setUsernameValidity({ status: 'idle', normalized: null });
+    setError('');
+    setStatus('');
+  }
+
+  function connectOnThisDevice() {
+    setShowHandoff(false);
+    setForceRegister(false);
+    setRegisterStep('username');
+    setHandoffDismissed(true);
+    setStatus('');
   }
 
   return (
-    <main className="page page--vault-authorize">
-      <section className="vault-authorize-panel vault-authorize-panel--standalone">
-        {isRegister ? (
-          <label className="vault-authorize-field">
-            <span>Username</span>
-            <input
-              autoComplete="username"
-              maxLength={25}
-              onChange={(event) => setAlias(event.target.value)}
-              placeholder="@username"
-              value={alias}
+    <section
+      className={`identity-center-surface identity-center-surface--native identity-center-surface--animated ${busy ? 'is-busy' : ''}`}
+      aria-label={panelAriaLabel}
+      aria-busy={busy}
+    >
+      <IdentityStateStage stageKey={viewKey} busy={busy}>
+        {viewKey === 'handoff' ? (
+          <>
+            <IdentityHero
+              icon={<VaultPhoneIcon />}
+              title={{
+                kicker: t('vault_authorize_badge'),
+                main: isRegister ? t('vault_authorize_register_on_phone') : t('vault_authorize_handoff_title'),
+              }}
+              body={isRegister ? t('vault_authorize_register_phone_desc') : t('vault_authorize_handoff_body')}
             />
-            <small>Create identity first. Vault opens after this identity exists.</small>
-          </label>
+
+            {handoff?.qrDataUrl ? (
+              <div className="identity-center-qr-frame">
+                <img className="identity-center-handoff-qr" src={handoff.qrDataUrl} alt={t('vault_authorize_handoff_title')} />
+              </div>
+            ) : null}
+
+            <div className="identity-center-foot identity-center-foot--pill">
+              <button type="button" className="meanly-pill-button" disabled={busy} onClick={connectOnThisDevice}>
+                <span className="meanly-pill-button__mark" aria-hidden="true" />
+                {t('vault_authorize_handoff_back')}
+              </button>
+            </div>
+          </>
         ) : null}
 
-        <div className="vault-authorize-primary-action">
-          <button
-            type="button"
-            aria-label={primaryActionLabel}
-            disabled={busy || !bootstrap}
-            onClick={isRegister ? createAccount : approveAuthorize}
-          >
-            <span>{primaryActionLabel}</span>
-          </button>
-        </div>
+        {viewKey !== 'handoff' ? (
+          <>
+            <IdentityHero
+              icon={<VaultShieldIcon />}
+              showTitle={viewKey !== 'connect' && viewKey !== 'register-username'}
+              title={{
+                kicker: t('vault_authorize_badge'),
+                main: viewKey === 'register-username'
+                  ? t('vault_authorize_nickname_title')
+                  : viewKey === 'register'
+                    ? t('vault_authorize_create_title')
+                    : screenTitle,
+              }}
+              body={
+                viewKey === 'register-username'
+                  ? t('vault_authorize_nickname_desc')
+                  : viewKey === 'register'
+                    ? (hasPasskeyDriver
+                      ? registerDescLabel
+                      : (canUseCrossDeviceHandoff
+                        ? t('vault_authorize_register_phone_desc')
+                        : t('vault_authorize_no_passkey')))
+                    : t('vault_authorize_intro')
+              }
+            />
 
-        <div className="vault-authorize-secondary-actions">
-          {!isRegister && bootstrap ? (
-            <button type="button" disabled={busy} onClick={startIdentityCreation}>
-              Create a new identity
-            </button>
-          ) : null}
-        </div>
+            {viewKey === 'register-username' ? (
+              <VaultUsernameField
+                value={registerUsername}
+                onChange={setRegisterUsername}
+                onValidityChange={setUsernameValidity}
+                disabled={busy}
+              />
+            ) : null}
 
-        <div className={`vault-authorize-message-slot ${error ? 'is-visible' : ''}`} aria-live="polite">
-          {error ? <p className="product-card__reason">{error}</p> : <p className="checkout-note" aria-hidden="true">{'\u00a0'}</p>}
-        </div>
-      </section>
-    </main>
+            <div className="identity-center-actions">
+              {viewKey === 'connect' && hasPasskeyDriver ? (
+                <>
+                  <button
+                    type="button"
+                    className="identity-center-primary"
+                    disabled={busy || !webauthnReady}
+                    onClick={() => triggerAuthentication({ directHint: Boolean(hintAddress) })}
+                  >
+                    <span className="identity-center-primary__icon" aria-hidden="true">
+                      <VaultKeyIcon />
+                    </span>
+                    <span className="identity-center-primary__copy">
+                      {hintAddress || !mobilePasskeyOnly ? (
+                        <span className="identity-center-primary__eyebrow">
+                          {hintAddress ? t('vault_authorize_detected') : t('vault_authorize_passkey_eyebrow')}
+                        </span>
+                      ) : null}
+                      <strong className="identity-center-primary__title">{primaryCta}</strong>
+                      {hintAddress ? (
+                        <span className="identity-center-primary__hint">{shortVaultAddress(hintAddress)}</span>
+                      ) : (
+                        <span className="identity-center-primary__hint">{t('vault_authorize_passkey_hint')}</span>
+                      )}
+                    </span>
+                  </button>
+
+                  {canUseCrossDeviceHandoff ? (
+                    <>
+                      <IdentityOrDivider />
+
+                      <button
+                        type="button"
+                        className="identity-center-secondary"
+                        disabled={busy}
+                        onClick={() => openHandoff()}
+                      >
+                        <span className="identity-center-secondary__icon" aria-hidden="true">
+                          <VaultPhoneIcon />
+                        </span>
+                        <span className="identity-center-secondary__copy">
+                          <span className="identity-center-secondary__eyebrow">{t('vault_authorize_connect_phone_eyebrow')}</span>
+                          <strong className="identity-center-secondary__title">{t('vault_authorize_connect_on_phone')}</strong>
+                          <span className="identity-center-secondary__hint">{t('vault_authorize_connect_phone_hint')}</span>
+                        </span>
+                      </button>
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+
+              {viewKey === 'connect' && !hasPasskeyDriver && !isMobileSurface ? (
+                canUseCrossDeviceHandoff ? (
+                  <button type="button" className="identity-center-primary" disabled={busy} onClick={() => openHandoff()}>
+                    <span className="identity-center-primary__icon" aria-hidden="true">
+                      <VaultPhoneIcon />
+                    </span>
+                    <span className="identity-center-primary__copy">
+                      <span className="identity-center-primary__eyebrow">{t('vault_authorize_connect_phone_eyebrow')}</span>
+                      <strong className="identity-center-primary__title">{t('vault_authorize_handoff_title')}</strong>
+                      <span className="identity-center-primary__hint">{t('vault_authorize_no_passkey')}</span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="identity-center-secondary identity-center-secondary--static">
+                    <span className="identity-center-secondary__copy">
+                      <strong className="identity-center-secondary__title">{t('vault_authorize_open_cta')}</strong>
+                      <span className="identity-center-secondary__hint">{t('vault_authorize_no_passkey')}</span>
+                    </span>
+                  </div>
+                )
+              ) : null}
+
+              {viewKey === 'connect' && !hasPasskeyDriver && isMobileSurface ? (
+                <div className="identity-center-secondary identity-center-secondary--static">
+                  <span className="identity-center-secondary__copy">
+                    <strong className="identity-center-secondary__title">{t('vault_authorize_open_cta')}</strong>
+                    <span className="identity-center-secondary__hint">{t('vault_authorize_passkey_hint')}</span>
+                  </span>
+                </div>
+              ) : null}
+
+              {viewKey === 'register-username' ? (
+                <button
+                  type="button"
+                  className="identity-center-primary"
+                  disabled={busy || !usernameReady}
+                  onClick={continueRegistrationWithUsername}
+                >
+                  <span className="identity-center-primary__icon" aria-hidden="true">
+                    <VaultShieldIcon />
+                  </span>
+                  <span className="identity-center-primary__copy">
+                    <strong className="identity-center-primary__title">
+                      {t('vault_authorize_nickname_continue')}
+                    </strong>
+                    {usernameReady ? (
+                      <span className="identity-center-primary__hint">@{usernameValidity.normalized}</span>
+                    ) : null}
+                  </span>
+                </button>
+              ) : null}
+
+              {viewKey === 'register' ? (
+                <>
+                  <button
+                    type="button"
+                    className="identity-center-primary"
+                    disabled={busy || !usernameReady || (hasPasskeyDriver && !webauthnReady) || (!hasPasskeyDriver && !canUseCrossDeviceHandoff)}
+                    onClick={triggerRegistration}
+                  >
+                    <span className="identity-center-primary__icon" aria-hidden="true">
+                      {hasPasskeyDriver ? <VaultShieldIcon /> : <VaultPhoneIcon />}
+                    </span>
+                    <span className="identity-center-primary__copy">
+                      <strong className="identity-center-primary__title">
+                        {hasPasskeyDriver ? registerCtaLabel : t('vault_authorize_handoff_title')}
+                      </strong>
+                      <span className="identity-center-primary__hint">
+                        {usernameReady ? `@${usernameValidity.normalized} · ` : ''}
+                        {hasPasskeyDriver
+                          ? registerDescLabel
+                          : (canUseCrossDeviceHandoff
+                            ? t('vault_authorize_no_passkey')
+                            : t('vault_authorize_no_passkey'))}
+                      </span>
+                    </span>
+                  </button>
+
+                  {canUseCrossDeviceHandoff ? (
+                    <>
+                      <IdentityOrDivider />
+                      <button type="button" className="identity-center-secondary" disabled={busy || !usernameReady} onClick={() => openHandoff({ register: true })}>
+                        <span className="identity-center-secondary__icon" aria-hidden="true">
+                          <VaultPhoneIcon />
+                        </span>
+                        <span className="identity-center-secondary__copy">
+                          <strong className="identity-center-secondary__title">{t('vault_authorize_register_on_phone')}</strong>
+                        </span>
+                      </button>
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+
+            {viewKey === 'connect' && hasPasskeyDriver ? (
+              <div className="identity-center-foot identity-center-foot--pill">
+                {hintAddress ? (
+                  <button
+                    type="button"
+                    className="meanly-pill-button"
+                    disabled={busy}
+                    onClick={() => signInWithoutSavedHint()}
+                  >
+                    <span className="meanly-pill-button__mark" aria-hidden="true" />
+                    {t('vault_authorize_not_this_safe')}
+                  </button>
+                ) : null}
+                <button type="button" className="meanly-pill-button" disabled={busy} onClick={launchRegistration}>
+                  <span className="meanly-pill-button__mark" aria-hidden="true" />
+                  {createSafeLinkLabel}
+                </button>
+              </div>
+            ) : null}
+
+            {viewKey === 'register-username' ? (
+              <div className="identity-center-foot identity-center-foot--pill">
+                <button
+                  type="button"
+                  className="meanly-pill-button"
+                  disabled={busy}
+                  onClick={cancelRegistration}
+                >
+                  <span className="meanly-pill-button__mark" aria-hidden="true" />
+                  {t('vault_authorize_back_to_connect')}
+                </button>
+              </div>
+            ) : null}
+
+            {viewKey === 'register' ? (
+              <div className="identity-center-foot identity-center-foot--pill">
+                <button
+                  type="button"
+                  className="meanly-pill-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setRegisterStep('username');
+                    setError('');
+                    setStatus('');
+                  }}
+                >
+                  <span className="meanly-pill-button__mark" aria-hidden="true" />
+                  {t('vault_authorize_nickname_back')}
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </IdentityStateStage>
+
+      <IdentityStatusSlot error={error} status={status} />
+    </section>
   );
 }

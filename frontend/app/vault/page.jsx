@@ -1,13 +1,6 @@
 import { StorefrontSessionPanel } from '../../components/StorefrontSessionPanel';
-import { apiUrl } from '../../lib/storefront-api';
+import { apiUrl, fetchWalletBundle, VAULT_STOREFRONT_SCOPES } from '../../lib/storefront-api';
 import { cookies } from 'next/headers';
-
-const VAULT_SCOPES = [
-  'storefront:read',
-  'storefront:checkout',
-  'storefront:vault',
-  'storefront:partner-registration',
-];
 
 function cookieHeader(cookieStore) {
   return cookieStore
@@ -16,10 +9,10 @@ function cookieHeader(cookieStore) {
     .join('; ');
 }
 
-async function initialVaultFromSession(cookieStore) {
+async function initialVaultSession(cookieStore) {
   const cookie = cookieHeader(cookieStore);
   if (!cookie) {
-    return null;
+    return { vault: null, wallet: null, accessToken: null };
   }
 
   try {
@@ -30,18 +23,18 @@ async function initialVaultFromSession(cookieStore) {
         'Content-Type': 'application/json',
         Cookie: cookie,
       },
-      body: JSON.stringify({ scopes: VAULT_SCOPES }),
+      body: JSON.stringify({ scopes: VAULT_STOREFRONT_SCOPES }),
       cache: 'no-store',
     });
 
     if (!issuedResponse.ok) {
-      return null;
+      return { vault: null, wallet: null, accessToken: null };
     }
 
     const issued = await issuedResponse.json();
     const token = issued?.access_token;
     if (!token) {
-      return null;
+      return { vault: null, wallet: null, accessToken: null };
     }
 
     const vaultResponse = await fetch(`${apiUrl}/api/storefront/v1/vault`, {
@@ -53,12 +46,21 @@ async function initialVaultFromSession(cookieStore) {
     });
 
     if (!vaultResponse.ok) {
-      return null;
+      return { vault: null, wallet: null, accessToken: null };
     }
 
-    return vaultResponse.json();
+    const vault = await vaultResponse.json();
+    let wallet = null;
+
+    try {
+      wallet = await fetchWalletBundle(token);
+    } catch {
+      wallet = null;
+    }
+
+    return { vault, wallet, accessToken: token };
   } catch {
-    return null;
+    return { vault: null, wallet: null, accessToken: null };
   }
 }
 
@@ -66,7 +68,12 @@ export default async function VaultPage({ searchParams }) {
   const params = await searchParams;
   const claimHandoff = params?.sl1_handoff === '1';
   const cookieStore = await cookies();
-  const initialVault = claimHandoff ? null : await initialVaultFromSession(cookieStore);
+  const initialSession = claimHandoff
+    ? { vault: null, wallet: null, accessToken: null }
+    : await initialVaultSession(cookieStore);
+  const initialVault = initialSession.vault;
+  const initialWallet = initialSession.wallet;
+  const initialAccessToken = initialSession.accessToken;
   const initialVaultAccessState = initialVault
     ? 'open'
     : claimHandoff
@@ -77,7 +84,9 @@ export default async function VaultPage({ searchParams }) {
     <main className="page page--vault">
       <StorefrontSessionPanel
         claimHandoff={claimHandoff}
+        initialAccessToken={initialAccessToken}
         initialVault={initialVault}
+        initialWallet={initialWallet}
         initialVaultAccessState={initialVaultAccessState}
       />
     </main>

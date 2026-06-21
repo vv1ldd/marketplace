@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\WalletLedgerEntry;
 use App\Services\IntentLedgerService;
 use App\Services\OrderSupportTicketService;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Http\Request;
@@ -25,77 +26,7 @@ class CabinetController extends Controller
 {
     public function index(Request $request)
     {
-        /** @var User $user */
-        $user = $request->user();
-        $vaultUnlocked = $this->vaultUnlocked($request);
-        $hasLocalPasskey = $user->passkeys()->exists();
-        $hasSovereignIdentity = $user->hasSovereignIdentity();
-        $hasVaultAuthenticator = $hasSovereignIdentity;
-        $simpleL1Alias = $this->simpleL1Alias($request, $user);
-        $vaultUnlockUrl = route('meanly.simple_l1.connect', [
-            'return_to' => $request->getRequestUri(),
-            'mode' => 'login',
-            'intent_type' => 'meanly.vault.open',
-            'intent_title' => 'Открыть сейф Meanly',
-            'intent_description' => 'Meanly получит свежий identity proof, чтобы показать ваши покупки и коды. Доступ к ключам SL1 не передается.',
-            'intent_cta' => 'Открыть сейф',
-            'intent_resource' => 'meanly:cabinet:vault',
-        ], false);
-
-        $orders = collect();
-        $safeOrders = collect();
-
-        if ($vaultUnlocked) {
-            $orders = $this->buyerOrders($user);
-            $itemIds = $orders
-                ->flatMap(fn (Order $order) => $order->items->pluck('id'))
-                ->filter()
-                ->values();
-
-            $inventoryCountsByItem = $itemIds->isEmpty()
-                ? collect()
-                : ProductInventory::query()
-                    ->selectRaw('order_item_id, count(*) as codes_count')
-                    ->whereIn('order_item_id', $itemIds)
-                    ->where('is_used', true)
-                    ->where('status', 'sold')
-                    ->groupBy('order_item_id')
-                    ->pluck('codes_count', 'order_item_id');
-
-            $safeOrders = $orders
-                ->map(fn (Order $order) => $this->safeCard($order, $inventoryCountsByItem))
-                ->filter(fn (array $safe) => $safe['paid'] || $safe['codes_count'] > 0)
-                ->values();
-        }
-
-        $totalOrders = $vaultUnlocked ? $orders->count() : null;
-        $activeKeysCount = $vaultUnlocked
-            ? $safeOrders->where('ready', true)->sum('codes_count')
-            : null;
-
-        $transactions = collect();
-
-        if ($vaultUnlocked) {
-            $transactions = WalletLedgerEntry::query()
-                ->where('user_id', $user->id)
-                ->latest()
-                ->take(12)
-                ->get();
-        }
-
-        return view('cabinet', compact(
-            'user',
-            'totalOrders',
-            'activeKeysCount',
-            'safeOrders',
-            'transactions',
-            'vaultUnlocked',
-            'hasLocalPasskey',
-            'hasSovereignIdentity',
-            'hasVaultAuthenticator',
-            'simpleL1Alias',
-            'vaultUnlockUrl',
-        ));
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     private function simpleL1Alias(Request $request, User $user): ?string

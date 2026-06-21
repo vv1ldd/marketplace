@@ -1,8 +1,7 @@
 import Link from 'next/link';
+import { CatalogGroupPanel } from '../../../components/CatalogGroupPanel';
 import { ProjectionSurface } from '../../../components/ProjectionSurface';
-import { GroupVariantConfigurator } from '../../../components/GroupVariantConfigurator';
 import { ProductCard } from '../../../components/ProductCard';
-import { VariantPreviewList } from '../../../components/VariantPreviewList';
 import { fetchStorefrontCategory, fetchStorefrontGroup } from '../../../lib/storefront-api';
 
 export const dynamic = 'force-dynamic';
@@ -178,37 +177,6 @@ function CatalogResults({ answer, products = [], pagination }) {
   );
 }
 
-function GroupSelector({ group }) {
-  const info = group.group || {};
-  const products = group.products || [];
-
-  return (
-    <main className="page">
-      <section className="product-panel">
-        <div className="buyer-product-hero">
-          <div className="buyer-product-image" aria-hidden="true">
-            {(info.brand || 'M').slice(0, 2)}
-          </div>
-          <div className="buyer-product-summary">
-            <p className="eyebrow">Product group</p>
-            <h1>{info.title || 'Product group'}</h1>
-            <p>{info.description || group.meta?.description_ru}</p>
-            <div className="buyer-seller-line">
-              <span>{info.category_label}</span>
-              <strong>{info.price_range?.label || `${info.variant_count || products.length} variants`}</strong>
-              <span>{info.region_count || 0} regions</span>
-              <span>{info.nominal_count || 0} nominals</span>
-            </div>
-          </div>
-        </div>
-
-        <GroupVariantConfigurator group={group} />
-      </section>
-
-      <VariantPreviewList products={products} total={group.pagination?.total} />
-    </main>
-  );
-}
 
 export async function generateMetadata({ params, searchParams }) {
   const { path = [] } = await params;
@@ -255,7 +223,7 @@ export default async function CatalogProjectionPage({ params, searchParams }) {
   if (path[0] === 'groups' && path.length >= 4) {
     const group = await fetchStorefrontGroup(path[1], path[2], path[3], normalizeGroupQuery(query));
 
-    return <GroupSelector group={group} />;
+    return <CatalogGroupPanel group={group} />;
   }
 
   if (path.length === 1) {

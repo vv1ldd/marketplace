@@ -549,6 +549,57 @@ class Product extends Model
     }
 
     /**
+     * Локальные пути/URL картинок для выгрузки на Яндекс.Маркет.
+     * Приоритет: product.pictures → сгенерированные CardImageService → image → каталог Wildflow.
+     *
+     * @return array<string, string>
+     */
+    public function resolveYmRawPictures(?int $shopId = null): array
+    {
+        $stored = is_array($this->pictures) ? $this->pictures : (json_decode((string) $this->pictures, true) ?: []);
+        $stored = array_filter($stored, fn (mixed $path): bool => is_string($path) && trim($path) !== '');
+
+        if ($stored !== []) {
+            return $stored;
+        }
+
+        if ($shopId) {
+            $catalogSku = trim((string) ($this->wildflow_catalog_sku ?: $this->wildflowCatalog()?->sku ?: ''));
+            if ($catalogSku !== '') {
+                $paths = [];
+                foreach (['', '_dark', '_info', '_origin', '_white', '_blend', '_nft'] as $suffix) {
+                    $relative = "img/card/sh_{$shopId}/{$catalogSku}{$suffix}_v3.jpg";
+                    if (is_file(public_path($relative))) {
+                        $paths[] = $relative;
+                    }
+                }
+
+                if ($paths !== []) {
+                    return $paths;
+                }
+            }
+        }
+
+        if (filled($this->image)) {
+            return ['main' => (string) $this->image];
+        }
+
+        $wfCatalog = $this->wildflowCatalog();
+        if ($wfCatalog) {
+            $wfImg = data_get($wfCatalog->data, 'data.product.image')
+                ?? data_get($wfCatalog->data, 'product.image')
+                ?? data_get($wfCatalog->data, 'image')
+                ?? data_get($wfCatalog->data, 'data.image');
+
+            if (is_string($wfImg) && $wfImg !== '') {
+                return ['main' => $wfImg];
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * Для redeem, когда нет связанного Product (например dev:issue-sample-voucher): каталог Wildflow или SVG.
      */
     public static function redeemDisplayImageForSku(string $sku): string
@@ -642,27 +693,12 @@ class Product extends Model
         $data = $this->data;
         $name = $this->name;
         $richDescription = json_decode($this->rich_description ?? '', true);
-        $pictures = [];
         $params = [];
         $vendor = 'Нет бренда';
-
-        if ($shopId) {
-            $brandedPath = "img/card/sh_{$shopId}/{$this->sku}.png";
-            if (file_exists(public_path($brandedPath))) {
-                $pictures = [config('app.url').'/'.$brandedPath];
-            }
-        }
 
         // Wildflow specific logic
         $wfItem = $this->data;
         $wfProduct = $wfItem['data']['product'] ?? $wfItem;
-
-        if (empty($pictures)) {
-            $pictures = [$wfProduct['image'] ?? ''];
-            if ($this->image) {
-                $pictures = [config('app.url').'/'.$this->image];
-            }
-        }
 
         // --- Canonical brand & region from WildflowCatalog (normalized at parse time) ---
         $wfCatalog = $this->wildflowCatalog()?->loadMissing(['brand', 'region']);
@@ -803,26 +839,7 @@ class Product extends Model
         $richDescription .= "⚠️ Внимание: Перед покупкой убедитесь, что регион вашего аккаунта соответствует региону карты.\n";
         $richDescription .= 'Желаем приятных покупок и ярких впечатлений!';
 
-        $rawPictures = is_array($this->pictures) ? $this->pictures : (json_decode((string) $this->pictures, true) ?: []);
-        if (empty($rawPictures) && $this->image) {
-            $rawPictures = ['main' => $this->image];
-        }
-
-        // Final fallback: check WildflowCatalog if still empty
-        if (empty($rawPictures)) {
-            $wfCatalog = $this->wildflowCatalog();
-
-            if ($wfCatalog) {
-                $wfImg = data_get($wfCatalog->data, 'data.product.image')
-                    ?? data_get($wfCatalog->data, 'product.image')
-                    ?? data_get($wfCatalog->data, 'image')
-                    ?? data_get($wfCatalog->data, 'data.image');
-
-                if ($wfImg) {
-                    $rawPictures = ['main' => $wfImg];
-                }
-            }
-        }
+        $rawPictures = $this->resolveYmRawPictures($shopId);
 
         $imageService = app(\App\Services\CardImageService::class);
         $publicPictures = [];

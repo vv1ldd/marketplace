@@ -4,11 +4,12 @@ namespace App\Http\Controllers\Api\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\MarketplaceIdentityResolver;
 use App\Services\SimpleL1ProtocolClient;
 use App\Services\StorefrontTokenService;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class StorefrontIdentityController extends Controller
 {
@@ -59,12 +60,7 @@ class StorefrontIdentityController extends Controller
     public function navigationAuthority(Request $request): JsonResponse
     {
         $identity = $request->session()->get('simple_l1_identity');
-        $entityAddress = is_array($identity)
-            ? (string) (data_get($identity, 'entity_l1_address') ?: data_get($identity, 'l1_address'))
-            : '';
-        $user = ($entityAddress !== ''
-            ? User::findByEntityL1Address($entityAddress)
-            : null) ?: $request->user();
+        $user = app(MarketplaceIdentityResolver::class)->resolveFromRequest($request);
 
         return response()->json([
             'contract' => [
@@ -79,7 +75,67 @@ class StorefrontIdentityController extends Controller
                 || $user->legalEntities()->exists()
                 || $user->managedLegalEntities()->exists()
             ),
+            'vault_label' => $this->navigationVaultLabel($user, $identity),
         ])->header('Cache-Control', 'private, no-store');
+    }
+
+    private function navigationVaultLabel(?User $user, mixed $identity): ?string
+    {
+        if ($user instanceof User) {
+            $username = $user->publicUsername();
+            if ($username !== null) {
+                return $username;
+            }
+        }
+
+        if (! is_array($identity)) {
+            return null;
+        }
+
+        $username = trim((string) (data_get($identity, 'username') ?: ''));
+        if ($username !== '') {
+            return str_starts_with($username, '@') ? $username : '@'.$username;
+        }
+
+        $alias = trim((string) (
+            data_get($identity, 'display_alias')
+            ?: data_get($identity, 'alias')
+            ?: ''
+        ));
+
+        return $alias !== '' ? $alias : null;
+    }
+
+    public function checkUsername(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'username' => 'required|string|max:64',
+        ]);
+
+        $username = User::normalizeUsername($data['username']);
+
+        if ($username === null) {
+            return response()->json([
+                'available' => false,
+                'username' => null,
+                'reason' => 'invalid',
+                'message' => 'Username must be 3–32 characters: letters, numbers, dots, underscores.',
+            ]);
+        }
+
+        if (User::where('username_key', $username)->exists()) {
+            return response()->json([
+                'available' => false,
+                'username' => $username,
+                'reason' => 'taken',
+                'message' => 'This username is already taken.',
+            ]);
+        }
+
+        return response()->json([
+            'available' => true,
+            'username' => $username,
+        ]);
     }
 
     public function session(Request $request): JsonResponse

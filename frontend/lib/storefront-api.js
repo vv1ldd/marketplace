@@ -1,6 +1,12 @@
 export const apiUrl = (process.env.NEXT_PUBLIC_MARKETPLACE_API_URL || 'https://api.meanly.test').replace(/\/+$/, '');
 export const storefrontUrl = (process.env.NEXT_PUBLIC_STOREFRONT_URL || 'https://meanly.test').replace(/\/+$/, '');
 export const storefrontTokenStorageKey = 'meanly:storefront-token';
+export const VAULT_STOREFRONT_SCOPES = [
+  'storefront:read',
+  'storefront:checkout',
+  'storefront:vault',
+  'storefront:partner-registration',
+];
 
 function apiEndpoint(path, query = {}) {
   if (typeof window !== 'undefined') {
@@ -24,6 +30,22 @@ function apiEndpoint(path, query = {}) {
   return url;
 }
 
+function storefrontBrowserHost(forwardedHost) {
+  if (forwardedHost) {
+    return String(forwardedHost).split(':')[0].toLowerCase();
+  }
+
+  if (typeof window !== 'undefined') {
+    return window.location.hostname.toLowerCase();
+  }
+
+  try {
+    return new URL(storefrontUrl).hostname.toLowerCase();
+  } catch {
+    return 'meanly.test';
+  }
+}
+
 async function storefrontFetch(path, options = {}) {
   const {
     token,
@@ -34,9 +56,11 @@ async function storefrontFetch(path, options = {}) {
     method = body === undefined ? 'GET' : 'POST',
     headers = {},
     credentials,
+    forwardedHost,
   } = options;
   const requestHeaders = {
     Accept: 'application/json',
+    'X-Forwarded-Host': storefrontBrowserHost(forwardedHost),
     ...headers,
   };
 
@@ -126,7 +150,7 @@ export function simpleL1ConnectUrl({
   intentNonce,
   intentResource,
 } = {}) {
-  return frontendUrl('/simple-l1/connect', {
+  const query = {
     return_to: returnTo,
     mode,
     intent_type: intentType,
@@ -135,7 +159,24 @@ export function simpleL1ConnectUrl({
     intent_cta: intentCta,
     intent_nonce: intentNonce,
     intent_resource: intentResource,
+  };
+
+  return storefrontPath('/vault/connect', query);
+}
+
+function storefrontPath(path, query = {}) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const params = new URLSearchParams();
+
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      params.set(key, String(value));
+    }
   });
+
+  const search = params.toString();
+
+  return search ? `${normalizedPath}?${search}` : normalizedPath;
 }
 
 export function opsConnectUrl() {
@@ -169,9 +210,10 @@ export function merchantConnectUrl(returnTo = frontendUrl('/merchant')) {
   });
 }
 
-export async function fetchStorefrontContext() {
+export async function fetchStorefrontContext(options = {}) {
   return storefrontFetch('/api/storefront/v1/context', {
     next: { revalidate: 60 },
+    ...options,
   });
 }
 
@@ -326,6 +368,22 @@ export async function claimSimpleL1Handoff(scopes = ['storefront:read']) {
   });
 }
 
+export async function refreshStorefrontVaultToken(scopes = VAULT_STOREFRONT_SCOPES) {
+  const issued = await claimSimpleL1Handoff(scopes);
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(storefrontTokenStorageKey, issued.access_token);
+      window.localStorage.setItem('meanly:vault-preferred-method', 'web');
+      document.cookie = 'meanly_vault_access=open; Path=/; Max-Age=2592000; SameSite=Lax';
+    } catch {
+      // Browser storage is only a convenience; backend session remains authority.
+    }
+  }
+
+  return issued.access_token;
+}
+
 export async function logoutStorefrontSession() {
   const csrfToken = await fetchCsrfToken();
   const postLogout = (token) => fetch(apiEndpoint('/logout'), {
@@ -376,6 +434,60 @@ export async function fetchPremiumWalletAssets(token) {
     token,
     cache: 'no-store',
   });
+}
+
+export async function fetchWalletSummary(token) {
+  return storefrontFetch('/api/storefront/v1/wallet', {
+    token,
+    cache: 'no-store',
+  });
+}
+
+export async function fetchWalletBindings(token) {
+  return storefrontFetch('/api/storefront/v1/wallet/bindings', {
+    token,
+    cache: 'no-store',
+  });
+}
+
+export async function requestWalletBindingChallenge(token, body) {
+  return storefrontFetch('/api/storefront/v1/wallet/bindings/challenge', {
+    token,
+    body,
+    cache: 'no-store',
+  });
+}
+
+export async function verifyWalletBindingChallenge(token, body) {
+  return storefrontFetch('/api/storefront/v1/wallet/bindings/verify', {
+    token,
+    body,
+    cache: 'no-store',
+  });
+}
+
+export async function fetchWalletBundle(token) {
+  const [summary, bindings, assets] = await Promise.all([
+    fetchWalletSummary(token),
+    fetchWalletBindings(token),
+    fetchPremiumWalletAssets(token),
+  ]);
+
+  return mergeWalletBundle(summary, bindings, assets);
+}
+
+export function mergeWalletBundle(summary, bindings, assets) {
+  return {
+    ...(assets || {}),
+    identity: summary?.identity || null,
+    settlement_networks: summary?.settlement_networks || null,
+    vault: summary?.vault || null,
+    wallet_summary: summary || null,
+    capabilities: summary?.capabilities || null,
+    wallet_bindings: bindings?.items || [],
+    bindings_contract: bindings?.contract || null,
+    bindings_vault_id: bindings?.vault_id || summary?.vault?.id || null,
+  };
 }
 
 export async function fetchPersonalizedHome(token) {

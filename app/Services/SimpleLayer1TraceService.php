@@ -12,7 +12,8 @@ use Illuminate\Support\Collection;
 class SimpleLayer1TraceService
 {
     public function __construct(
-        private readonly SimpleLayer1TransactionReferenceService $references
+        private readonly SimpleLayer1TransactionReferenceService $references,
+        private readonly SettlementNetworkRegistry $settlementNetworks,
     ) {}
 
     /**
@@ -31,7 +32,7 @@ class SimpleLayer1TraceService
         $proofWindow = $this->proofWindow($target, $legalEntityId);
 
         return [
-            'network' => 'Simple Layer One',
+            'network' => $this->settlementNetworks->traceLabel('simple-layer-1'),
             'query_ref' => $reference,
             'canonical_ref' => $target->transactionReference(),
             'target' => $this->formatEntry($target),

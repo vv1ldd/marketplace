@@ -227,12 +227,9 @@ class AddCatalogItemToShop implements ShouldQueue
                 $catalogItem?->id,
                 $shop->id,
                 $isVariable,
-                $name
+                $name,
+                in_array('yandex_market', $selectedChannels, true),
             )->afterResponse();
-
-            if (in_array('yandex_market', $selectedChannels, true)) {
-                PushProductToYandex::dispatch($product->id, $shop->id);
-            }
 
             // --- 5.5 🛡️ Pre-Flight Stock Check (SafeGuard) ---
             if ($this->count > 0 && $catalogItem) {

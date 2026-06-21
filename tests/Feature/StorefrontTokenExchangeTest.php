@@ -169,6 +169,32 @@ class StorefrontTokenExchangeTest extends TestCase
 
         $this->get('https://api.meanly.test/vault/register?ref=legacy')
             ->assertRedirect('https://meanly.test/vault/register?ref=legacy');
+
+        $this->get('https://api.meanly.test/store')
+            ->assertRedirect('https://meanly.test/store');
+
+        $this->get('https://api.meanly.test/')
+            ->assertRedirect('https://meanly.test');
+    }
+
+    public function test_api_host_connect_uses_storefront_callback_and_authorize_urls(): void
+    {
+        config([
+            'storefront.frontend_url' => 'https://meanly.test',
+            'storefront.api_hosts' => ['api.meanly.test'],
+            'simple_l1.identity_provider_url' => 'https://meanly.test',
+        ]);
+
+        $response = $this->get('https://api.meanly.test/simple-l1/connect?return_to=/store&popup=1');
+
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+
+        $this->assertStringStartsWith('https://meanly.test/authorize?', $location);
+        $this->assertStringContainsString(
+            'redirect_uri='.urlencode('https://meanly.test/simple-l1/callback?popup=1'),
+            $location
+        );
     }
 
     public function test_inactive_sl1_proof_is_rejected(): void

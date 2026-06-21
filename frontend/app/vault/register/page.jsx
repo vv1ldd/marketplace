@@ -5,11 +5,11 @@ export const dynamic = 'force-dynamic';
 
 export default function VaultRegisterPage() {
   const connectUrl = simpleL1ConnectUrl({
-    mode: 'connect',
+    mode: 'register',
     intentType: 'meanly.vault.setup',
     intentTitle: 'Create Meanly identity',
     intentCta: 'Create identity',
-    intentDescription: 'Create your Meanly identity first. Vault opens after identity exists.',
+    intentDescription: 'Choose your username, then create your Meanly Safe.',
   });
 
   return (

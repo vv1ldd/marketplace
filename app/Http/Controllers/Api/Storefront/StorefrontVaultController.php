@@ -16,7 +16,8 @@ class StorefrontVaultController extends Controller
         $identity = (array) $request->attributes->get('storefront_identity', []);
         $address = strtolower((string) data_get($identity, 'entity_l1_address'));
         abort_if($address === '', 403);
-        $user = User::findByEntityL1Address($address);
+        $user = app(\App\Services\MarketplaceIdentityResolver::class)
+            ->resolveFromIdentity($identity);
         if ($user instanceof User) {
             $identity['username'] = $user->username;
             $identity['display_alias'] = $user->publicUsername() ?: ($identity['display_alias'] ?? null);
@@ -47,6 +48,7 @@ class StorefrontVaultController extends Controller
                 'type' => 'storefront_vault_item',
                 'order_id' => $order->order_id,
                 'order_uuid' => $order->uuid,
+                'created_at' => $order->created_at?->toIso8601String(),
                 'decision' => $decisions->orderSafeDecision($order),
             ])->values(),
             'actions' => [
@@ -61,7 +63,8 @@ class StorefrontVaultController extends Controller
 
     private function authoritySurfacesFor(string $entityL1Address, ?User $user = null): array
     {
-        $user ??= User::findByEntityL1Address($entityL1Address);
+        $user ??= app(\App\Services\MarketplaceIdentityResolver::class)
+            ->resolveFromEntityAddress($entityL1Address);
         if (! $user) {
             return [];
         }

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\SimpleL1IdentityHost;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use SimpleLayer\Sl1e\AuthorizeRequest;
@@ -51,6 +52,36 @@ class SimpleL1ProtocolClient
     }
 
     /**
+     * Build an authorization URL using the per-host Sl1e client config.
+     * Maestrooo requests will get client_id=maestrooo.test and ui_theme=dark.
+     *
+     * @param array<string, string|null> $intent
+     */
+    public function authorizationUrlForHost(
+        string $host,
+        string $redirectUri,
+        string $state,
+        string $nonce,
+        string $mode = 'login',
+        string $scope = 'openid sl1e marketplace',
+        array $intent = [],
+        ?string $flow = null,
+        ?string $identityHint = null,
+        ?string $uiLocale = null,
+    ): string {
+        $url = $this->sl1eForHost($host)->authorizationUrl($this->authorizeRequest(
+            redirectUri: $redirectUri,
+            state: $state,
+            nonce: $nonce,
+            mode: $mode,
+            scope: $scope,
+            intent: $intent,
+        ));
+
+        return $this->appendOptionalAuthorizeParams($url, $flow, $identityHint, $uiLocale);
+    }
+
+    /**
      * @param array<string, string|null> $intent
      */
     public function authorizationDeepLinkUrl(
@@ -81,17 +112,53 @@ class SimpleL1ProtocolClient
     }
 
     /**
+     * Same as authorizationDeepLinkUrl() but uses the per-host Sl1e client.
+     *
+     * @param array<string, string|null> $intent
+     */
+    public function authorizationDeepLinkUrlForHost(
+        string $host,
+        string $redirectUri,
+        string $state,
+        string $nonce,
+        string $mode = 'login',
+        string $scope = 'openid sl1e marketplace',
+        array $intent = [],
+        ?string $flow = null,
+        ?string $identityHint = null,
+        ?string $uiLocale = null,
+    ): ?string {
+        if (! config('simple_l1.prefer_native_deep_link', true)) {
+            return null;
+        }
+
+        $url = $this->sl1eForHost($host)->authorizationDeepLink($this->authorizeRequest(
+            redirectUri: $redirectUri,
+            state: $state,
+            nonce: $nonce,
+            mode: $mode,
+            scope: $scope,
+            intent: $intent,
+        ));
+
+        return $this->appendOptionalAuthorizeParams($url, $flow, $identityHint, $uiLocale);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function introspectProof(string $proofToken): array
     {
-        $response = $this->client($this->identityUrl)
+        $response = $this->client($this->protocolApiBaseUrl())
             ->post((string) config('simple_l1.proof_introspection_path', '/api/sl1e/proofs/introspect'), [
                 'proof_token' => $proofToken,
             ]);
 
         if (! $response->ok()) {
-            throw new \RuntimeException('Simple L1 proof could not be verified.');
+            $message = (string) data_get($response->json(), 'message', '');
+            throw new \RuntimeException($message !== ''
+                ? "Simple L1 proof could not be verified. {$message}"
+                : 'Simple L1 proof could not be verified.');
         }
 
         return $response->json();
@@ -102,7 +169,7 @@ class SimpleL1ProtocolClient
      */
     public function exchangeAuthorizationCode(string $code, string $clientId, string $redirectUri): array
     {
-        return $this->sl1e()->exchangeAuthorizationCode($code, $redirectUri, $clientId);
+        return $this->postAuthorizationCodeExchange($code, $clientId, $redirectUri);
     }
 
     /**
@@ -178,20 +245,98 @@ class SimpleL1ProtocolClient
             ->acceptJson()
             ->timeout(10);
 
-        if (! config('simple_l1.verify_tls', true)) {
+        if (! config('simple_l1.verify_tls', true) || str_starts_with(strtolower($baseUrl), 'http://')) {
             $client = $client->withoutVerifying();
         }
 
         return $client;
     }
 
+    /**
+     * Browser-facing authorize URLs use the public identity host. Server-side
+     * protocol calls should reach the SL1 runtime directly when configured.
+     */
+    private function protocolApiBaseUrl(): string
+    {
+        $runtimeUrl = trim((string) config('simple_l1.runtime_url', ''));
+
+        return $runtimeUrl !== '' ? rtrim($runtimeUrl, '/') : $this->identityUrl;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function postAuthorizationCodeExchange(string $code, string $clientId, string $redirectUri): array
+    {
+        $response = $this->client($this->protocolApiBaseUrl())
+            ->post('/api/sl1e/authorization-code/exchange', [
+                'code' => $code,
+                'client_id' => $clientId,
+                'redirect_uri' => $redirectUri,
+            ]);
+
+        if (! $response->ok()) {
+            $message = (string) data_get($response->json(), 'message', '');
+            throw new \RuntimeException($message !== ''
+                ? "Simple L1 authorization code could not be exchanged. {$message}"
+                : 'Simple L1 authorization code could not be exchanged.');
+        }
+
+        $payload = $response->json();
+        if (! is_array($payload) || data_get($payload, 'active') !== true) {
+            throw new \RuntimeException('Simple L1 authorization code could not be exchanged.');
+        }
+
+        return $payload;
+    }
+
     private function sl1e(): Sl1eClient
     {
+        return $this->sl1eForClient(
+            clientId: config('simple_l1.client_id'),
+            clientName: config('simple_l1.client_name', 'Meanly'),
+            uiTheme: config('simple_l1.ui_theme', 'neobrutalism'),
+            appHost: request()?->getHost(),
+        );
+    }
+
+    public function sl1eForHost(string $host): Sl1eClient
+    {
+        // Per-host client configuration. Each entry maps one or more host
+        // patterns to a specific OAuth client identity registered with the
+        // Simple Layer identity provider.
+        $hostClients = array_merge(
+            (array) config('simple_l1.host_clients', []),
+            [
+                // Maestrooo uses the registered meanly.test client_id so the
+                // SL1E identity provider accepts the request (maestrooo.test is
+                // not a separately registered client). The client_name and
+                // ui_theme are sent as display params and control what the
+                // auth page looks like — Maestrooo branding, dark theme.
+                'maestrooo.test'     => ['client_id' => config('simple_l1.client_id'), 'client_name' => 'Maestrooo', 'ui_theme' => 'dark'],
+                'api.maestrooo.test' => ['client_id' => config('simple_l1.client_id'), 'client_name' => 'Maestrooo', 'ui_theme' => 'dark'],
+                'maestrooo.one'      => ['client_id' => config('simple_l1.client_id'), 'client_name' => 'Maestrooo', 'ui_theme' => 'dark'],
+                'api.maestrooo.one'  => ['client_id' => config('simple_l1.client_id'), 'client_name' => 'Maestrooo', 'ui_theme' => 'dark'],
+            ],
+        );
+
+        $overrides = $hostClients[$host] ?? [];
+
+        return $this->sl1eForClient(
+            clientId: $overrides['client_id'] ?? config('simple_l1.client_id'),
+            clientName: $overrides['client_name'] ?? config('simple_l1.client_name', 'Meanly'),
+            uiTheme: $overrides['ui_theme'] ?? config('simple_l1.ui_theme', 'neobrutalism'),
+            appHost: $host,
+        );
+    }
+
+    private function sl1eForClient(string $clientId, string $clientName, string $uiTheme, ?string $appHost = null): Sl1eClient
+    {
         return new Sl1eClient(Sl1eConfig::fromArray([
-            'identity_provider_url' => $this->identityUrl,
-            'client_id' => config('simple_l1.client_id'),
-            'client_name' => config('simple_l1.client_name', 'Meanly'),
-            'ui_theme' => config('simple_l1.ui_theme', 'neobrutalism'),
+            'identity_provider_url' => SimpleL1IdentityHost::browserProviderUrl($appHost),
+            'client_id' => $clientId,
+            'client_name' => $clientName,
+            'ui_theme' => $uiTheme,
             'verify_tls' => config('simple_l1.verify_tls', true),
             'native_deep_link_scheme' => config('simple_l1.native_deep_link_scheme', 'simplel1'),
         ]), new LaravelSl1eHttpClient());
@@ -214,7 +359,7 @@ class SimpleL1ProtocolClient
             nonce: $nonce,
             mode: $mode,
             scope: $scope,
-            responseMode: 'code',
+            responseMode: (string) config('simple_l1.authorize_response_mode', 'query'),
             intent: new Intent(
                 type: $intent['intent_type'] ?? null,
                 title: $intent['intent_title'] ?? null,

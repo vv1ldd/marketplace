@@ -88,11 +88,14 @@ class AppStoreLookupService
             'app store',
             'appstore',
             'itunes',
+            'apple id',
             'айфон',
             'айфона',
             'айос',
             'эпл стор',
             'апп стор',
+            'эпл id',
+            'apple account',
         ]);
         $hasAppLanguage = Str::contains($normalized, [
             'app',

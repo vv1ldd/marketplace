@@ -19,7 +19,9 @@ use App\Services\SimpleL1ProtocolClient;
 use App\Services\StorefrontFulfillmentService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -36,9 +38,7 @@ class MeanlyStorefrontController extends Controller
             $logService->log($query, 'storefront', $products->total());
         }
 
-        $catalogJsonLd = $homepage->itemListJsonLd($products, 'Meanly canonical provider network marketplace');
-
-        return view('storefront.index', compact('shop', 'products', 'query', 'catalogJsonLd') + ['homepage' => $data]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function search(Request $request, CanonicalStorefrontHomepageService $homepage): JsonResponse
@@ -51,7 +51,6 @@ class MeanlyStorefrontController extends Controller
         return response()->json([
             'query' => $query,
             'total' => $products->total(),
-            'html' => view('storefront.partials.search-results', compact('query', 'products'))->render(),
         ]);
     }
 
@@ -82,7 +81,7 @@ class MeanlyStorefrontController extends Controller
             // Ignore telemetry exceptions
         }
 
-        return view('storefront.show', compact('shop', 'product', 'productFacts', 'productJsonLd', 'productDisplayPrice', 'productDisplayPriceLabel', 'checkoutAvailability'));
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
 
@@ -199,13 +198,7 @@ class MeanlyStorefrontController extends Controller
             return response()->json($payload);
         }
 
-        return view('storefront.checkout-success', [
-            'shop' => $shop,
-            'order' => $result['order'],
-            'vouchers' => $result['vouchers'],
-            'totalRub' => $result['total_rub'],
-            'safeUrl' => $safeUrl,
-        ]);
+        return StorefrontFrontendRedirect::toFrontend($request, 'orders/'.$result['order']->uuid.'/safe');
     }
 
     public function checkoutAvailability(
@@ -268,12 +261,7 @@ class MeanlyStorefrontController extends Controller
     {
         $this->authorizeOrderSafe($request, $order);
 
-        return view('storefront.order-safe', [
-            'order' => $order->loadMissing(['shop', 'items']),
-            'safe' => $this->orderSafeStatus($order),
-            'statusUrl' => URL::signedRoute('meanly.storefront.orders.safe.status', ['order' => $order->uuid]),
-            'openUrl' => URL::signedRoute('meanly.storefront.orders.safe.open', ['order' => $order->uuid]),
-        ]);
+        return StorefrontFrontendRedirect::toFrontend($request, 'orders/'.$order->uuid.'/safe');
     }
 
     public function orderSafeStatusJson(Request $request, Order $order)
@@ -422,20 +410,7 @@ class MeanlyStorefrontController extends Controller
         $ticket = $supportTickets->ticketForProblemSafe($order);
         abort_unless($ticket, 404);
 
-        return view('storefront.order-support-ticket', [
-            'order' => $order->loadMissing(['shop', 'items.game']),
-            'safe' => $safe,
-            'ticket' => $ticket->loadMissing(['messages.user', 'messages.seller']),
-            'replyUrl' => URL::signedRoute('meanly.storefront.orders.safe.support-ticket.reply', [
-                'order' => $order->uuid,
-            ]),
-            'messagesUrl' => URL::signedRoute('meanly.storefront.orders.safe.support-ticket.messages', [
-                'order' => $order->uuid,
-            ]),
-            'safeUrl' => URL::signedRoute('meanly.storefront.orders.safe.show', [
-                'order' => $order->uuid,
-            ]),
-        ]);
+        return StorefrontFrontendRedirect::toFrontend($request, 'orders/'.$order->uuid.'/safe');
     }
 
     public function orderSafeSupportTicketMessages(Request $request, Order $order, OrderSupportTicketService $supportTickets)

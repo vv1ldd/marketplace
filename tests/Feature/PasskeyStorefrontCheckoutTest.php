@@ -443,13 +443,7 @@ class PasskeyStorefrontCheckoutTest extends TestCase
         $response = $this->actingAs($this->user)
             ->get(route('partner.dashboard'));
 
-        $response->assertOk()
-            ->assertSee('Meanly Vault', false)
-            ->assertDontSee('Operator Workspace', false)
-            ->assertSee('Подарочные карты', false)
-            ->assertSee('MS-', false)
-            ->assertDontSee('Sovereign Provider')
-            ->assertDontSee('SL1-SOV-PROD-01');
+        $response->assertRedirect('/merchant');
     }
 
     public function test_operator_workspace_route_hands_off_to_ops(): void

@@ -2,6 +2,22 @@ import { apiUrl, backendUrl } from './storefront-api';
 
 let csrfTokenPromise;
 
+function partnerBrowserHost(forwardedHost) {
+  if (forwardedHost) {
+    return String(forwardedHost).split(':')[0].toLowerCase();
+  }
+
+  if (typeof window !== 'undefined') {
+    return window.location.hostname.toLowerCase();
+  }
+
+  try {
+    return new URL(process.env.NEXT_PUBLIC_STOREFRONT_URL || 'https://meanly.test').hostname.toLowerCase();
+  } catch {
+    return 'meanly.test';
+  }
+}
+
 function resolveBackendUrl(pathOrUrl, query = {}) {
   if (/^https?:\/\//i.test(pathOrUrl)) {
     const url = new URL(pathOrUrl);
@@ -88,6 +104,7 @@ export async function partnerFetch(pathOrUrl, options = {}) {
   } = options;
   const requestHeaders = {
     Accept: 'application/json',
+    'X-Forwarded-Host': partnerBrowserHost(options.forwardedHost),
     ...headers,
   };
 
@@ -123,15 +140,16 @@ export async function partnerFetch(pathOrUrl, options = {}) {
   return payload;
 }
 
-export function fetchPartnerWorkspace() {
-  return partnerFetch('/api/partner/workspace/summary');
+export function fetchPartnerWorkspace(options = {}) {
+  return partnerFetch('/api/partner/workspace/summary', options);
 }
 
-export function fetchPartnerWorkspaceWithCookie(cookieHeader = '') {
+export function fetchPartnerWorkspaceWithCookie(cookieHeader = '', forwardedHost = '') {
   return fetch(new URL('/api/partner/workspace/summary', apiUrl), {
     headers: {
       Accept: 'application/json',
       Cookie: cookieHeader,
+      'X-Forwarded-Host': partnerBrowserHost(forwardedHost),
     },
     cache: 'no-store',
   }).then(async (response) => {

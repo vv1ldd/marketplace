@@ -30,11 +30,14 @@ class HolidayContextMiddleware
             }
         }
         $holiday = SovereignCalendar::resolve($date);
+        $manualCookie = strtolower(trim((string) $request->cookie('holiday', '')));
 
         // Allow manual override via query param for testing: ?holiday=valentine
         if ($request->has('holiday')) {
             $override = $request->query('holiday');
-            $holiday = ($override && $override !== 'none') ? strtolower($override) : null;
+            $holiday = ($override && $override !== 'none') ? strtolower((string) $override) : null;
+        } elseif (! $holiday && $manualCookie !== '' && ! in_array($manualCookie, ['auto', 'none'], true)) {
+            $holiday = $manualCookie;
         }
 
         // Inject resolved holiday into current request's cookies so that blade/controllers see it instantly
@@ -49,8 +52,8 @@ class HolidayContextMiddleware
         // Set cookie for 1 day (1440 minutes), path=/, no encryption needed (it's not sensitive)
         if ($holiday) {
             $response->cookie('holiday', $holiday, 1440, '/', config('session.domain'), false, false);
-        } else {
-            // Clear any stale holiday cookie when no event is active
+        } elseif (in_array($manualCookie, ['auto', 'none', ''], true)) {
+            // Clear only when there is no manual storefront preview cookie to preserve.
             $response->cookie('holiday', '', -1, '/', config('session.domain'), false, false);
         }
 

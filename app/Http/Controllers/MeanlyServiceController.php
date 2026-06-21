@@ -3,28 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Services\LlmServiceFactsService;
-use Illuminate\View\View;
+use App\Support\StorefrontFrontendRedirect;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class MeanlyServiceController extends Controller
 {
-    public function index(LlmServiceFactsService $facts): View
+    public function index(Request $request, LlmServiceFactsService $facts): RedirectResponse
     {
-        $services = $facts->services();
-
-        return view('services.index', [
-            'services' => $services,
-            'serviceJsonLd' => $facts->serviceListJsonLd(),
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
-    public function show(string $slug, LlmServiceFactsService $facts): View
+    public function show(string $slug, Request $request, LlmServiceFactsService $facts): RedirectResponse
     {
-        $service = $facts->find($slug);
-        abort_unless($service !== null, 404);
+        abort_unless($facts->find($slug) !== null, 404);
 
-        return view('services.show', [
-            'service' => $service,
-            'serviceJsonLd' => $facts->serviceJsonLd($service),
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 }

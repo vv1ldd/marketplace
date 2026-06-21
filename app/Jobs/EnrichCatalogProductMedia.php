@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Product;
+use App\Models\ProductSalesChannel;
 use App\Models\ProviderProduct;
 use App\Models\Shop;
 use App\Models\WildflowCatalog;
@@ -25,6 +26,7 @@ class EnrichCatalogProductMedia implements ShouldQueue
         public readonly int $shopId,
         public readonly bool $isVariablePrice = false,
         public readonly ?string $fallbackName = null,
+        public readonly bool $pushToYandex = false,
     ) {}
 
     public function handle(): void
@@ -68,6 +70,21 @@ class EnrichCatalogProductMedia implements ShouldQueue
                 'product_id' => $this->productId,
                 'error' => $e->getMessage(),
             ]);
+        }
+
+        if (! $this->pushToYandex) {
+            return;
+        }
+
+        $yandexChannel = ProductSalesChannel::query()
+            ->where('product_id', $this->productId)
+            ->where('shop_id', $this->shopId)
+            ->where('channel', 'yandex_market')
+            ->where('is_enabled', true)
+            ->exists();
+
+        if ($yandexChannel) {
+            PushProductToYandex::dispatch($this->productId, $this->shopId);
         }
     }
 }

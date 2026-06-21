@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
   claimSimpleL1Handoff,
-  fetchPremiumWalletAssets,
+  fetchWalletBundle,
   fetchVault,
   logoutStorefrontSession,
-  simpleL1ConnectUrl,
   vaultHandoffUrl,
+  VAULT_STOREFRONT_SCOPES,
 } from '../lib/storefront-api';
+import { navigateToVaultEntry } from '../lib/vault-entry';
 import {
   clearVaultAuthorityState,
   rememberVaultBrowserPreference,
@@ -20,15 +21,11 @@ import {
   writeStoredVaultToken,
 } from '../lib/vault-authority';
 import { GlossaryHint } from './GlossaryHint';
-import { MeanlyConnectLink } from './MeanlyConnectLink';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
+import { useLocale } from './LocaleProvider';
 import { VaultWalletContent } from './PremiumWalletPanel';
 
-const DEFAULT_SCOPES = [
-  'storefront:read',
-  'storefront:checkout',
-  'storefront:vault',
-  'storefront:partner-registration',
-];
+const DEFAULT_SCOPES = VAULT_STOREFRONT_SCOPES;
 
 function markVaultOpen() {
   try {
@@ -48,8 +45,15 @@ function clearStoredToken() {
   clearVaultAuthorityState();
 }
 
-export function StorefrontSessionPanel({ claimHandoff = false, initialVault = null, initialVaultAccessState = 'checking' }) {
+export function StorefrontSessionPanel({
+  claimHandoff = false,
+  initialAccessToken = null,
+  initialVault = null,
+  initialWallet = null,
+  initialVaultAccessState = 'checking',
+}) {
   const router = useRouter();
+  const { t } = useLocale();
   const [vault, setVault] = useState(() => (
     initialVault
       || (initialVaultAccessState === 'open' && typeof window !== 'undefined'
@@ -58,9 +62,10 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
   ));
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
-  const [wallet, setWallet] = useState(null);
+  const [wallet, setWallet] = useState(() => initialWallet);
   const [walletStatus, setWalletStatus] = useState('');
   const [walletError, setWalletError] = useState('');
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [vaultAccessState, setVaultAccessState] = useState(() => (
     initialVault
       ? 'open'
@@ -68,32 +73,55 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
   ));
 
   useEffect(() => {
+    if (initialAccessToken) {
+      persistToken(initialAccessToken);
+    }
+
     if (initialVault) {
       writeCachedVault(initialVault);
       markVaultOpen();
     }
-  }, [initialVault]);
+  }, [initialAccessToken, initialVault]);
 
   /*
    * Keep hooks below the initial cache hydration. This lets logged-in users
    * see the completed Vault shell on first paint when SSR already resolved it.
    */
   const handoffClaimed = useRef(false);
-  const browserConnectUrl = simpleL1ConnectUrl({
-    returnTo: vaultHandoffUrl(),
-    intentTitle: 'Open Meanly Vault',
-    intentCta: 'Open Vault',
-    intentDescription: 'Open your Vault.',
-  });
+  const vaultRedirectStarted = useRef(false);
+  const signOutStarted = useRef(false);
 
   useEffect(() => {
-    let isCancelled = false;
-
     if (claimHandoff) {
+      return () => {};
+    }
+
+    if (initialVault) {
+      let isCancelled = false;
+
+      async function hydrateInitialVault() {
+        if (initialAccessToken) {
+          persistToken(initialAccessToken);
+        } else {
+          await restoreVaultFromLaravelSession({ silent: true });
+        }
+
+        if (!isCancelled && !initialWallet) {
+          const activeToken = readStoredVaultToken();
+          if (activeToken) {
+            await loadWalletWith(activeToken, { silent: true });
+          }
+        }
+      }
+
+      hydrateInitialVault();
+
       return () => {
         isCancelled = true;
       };
     }
+
+    let isCancelled = false;
 
     async function resolveExistingVault() {
       const existingToken = readStoredVaultToken();
@@ -119,7 +147,7 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
     return () => {
       isCancelled = true;
     };
-  }, [claimHandoff]);
+  }, [claimHandoff, initialAccessToken, initialVault, initialWallet]);
 
   useEffect(() => {
     if (!claimHandoff || handoffClaimed.current) {
@@ -129,6 +157,24 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
     handoffClaimed.current = true;
     claimBackendHandoff();
   }, [claimHandoff]);
+
+  useEffect(() => {
+    if (claimHandoff || signOutStarted.current || vaultAccessState !== 'closed' || error || vaultRedirectStarted.current) {
+      return;
+    }
+
+    vaultRedirectStarted.current = true;
+    navigateToVaultEntry(router, {
+      returnTo: vaultHandoffUrl({ return_to: '/vault' }),
+      intentTitle: t('header_connect_title'),
+      intentCta: t('header_connect_safe'),
+      intentDescription: t('header_connect_description'),
+    }).catch(() => {
+      vaultRedirectStarted.current = false;
+      setVaultAccessState('closed');
+      setError(t('sl1_connect_load_error'));
+    });
+  }, [claimHandoff, error, router, t, vaultAccessState]);
 
   async function claimBackendHandoff() {
     setError('');
@@ -188,7 +234,7 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
     }
   }
 
-  async function loadVaultWith(activeToken, { allowSessionRefresh = true } = {}) {
+  async function loadVaultWith(activeToken, { allowSessionRefresh = true, refreshWallet = true } = {}) {
     if (!activeToken) {
       setVault(null);
       setWallet(null);
@@ -198,13 +244,14 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
 
     try {
       setWalletError('');
-      setWalletStatus('Loading Vault Wallet...');
       const payload = await fetchVault(activeToken);
       setVault(payload);
       writeCachedVault(payload);
       markVaultOpen();
       setVaultAccessState('open');
-      loadWalletWith(activeToken);
+      if (refreshWallet) {
+        loadWalletWith(activeToken, { silent: true });
+      }
       return true;
     } catch (exception) {
       if (exception.status === 403 && allowSessionRefresh) {
@@ -231,9 +278,12 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
     }
   }
 
-  async function loadWalletWith(activeToken) {
+  async function loadWalletWith(activeToken, { silent = false } = {}) {
     try {
-      const payload = await fetchPremiumWalletAssets(activeToken);
+      if (!silent) {
+        setWalletStatus('Loading Vault Wallet...');
+      }
+      const payload = await fetchWalletBundle(activeToken);
       setWallet(payload);
       setWalletStatus('');
       setWalletError('');
@@ -245,86 +295,98 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
   }
 
   async function closeVaultAndSignOut() {
+    if (signOutStarted.current) {
+      return;
+    }
+
+    signOutStarted.current = true;
+    vaultRedirectStarted.current = true;
+    setIsSigningOut(true);
     setError('');
     setStatus('');
+
     clearStoredToken();
-    setVault(null);
-    setWallet(null);
-    setWalletStatus('');
-    setWalletError('');
-    setVaultAccessState('closed');
 
     try {
       await logoutStorefrontSession();
-      router.push('/');
     } catch (exception) {
-      setError(
-        exception.message === 'Load failed'
-          ? 'Vault was closed locally, but Meanly could not reach logout.'
-          : exception.message,
-      );
+      if (exception.message !== 'Load failed') {
+        console.warn(exception.message);
+      }
     }
+
+    window.location.assign('/');
   }
 
-  const isCheckingVault = vaultAccessState === 'checking' && !vault && !error;
+  const isHydratingVault = vaultAccessState === 'checking' && !vault && !error;
+  const isCheckingVault = isHydratingVault;
   const isOpenVault = vaultAccessState === 'open' && vault;
   const isClosedVault = vaultAccessState === 'closed' && !isCheckingVault && !isOpenVault && !error;
-  const shellStateClass = isOpenVault
-    ? 'vault-shell--open'
-    : isCheckingVault
-      ? 'vault-shell--loading'
-      : 'vault-shell--error';
-  const statusLabel = isOpenVault ? 'Open' : isCheckingVault ? 'Vault' : 'Issue';
-  const statusClassName = isOpenVault
-    ? 'vault-status vault-status--open'
-    : isCheckingVault
-      ? 'vault-status vault-status--loading'
-      : 'vault-status vault-status--locked';
+  const showVaultWorkspace = Boolean(vault) && !error && (isOpenVault || vaultAccessState === 'checking');
+  const isWalletBootstrapping = showVaultWorkspace && !wallet && !walletError && !walletStatus;
+  const shellStateClass = 'vault-shell--error';
+  const statusLabel = 'Issue';
+  const statusClassName = 'vault-status vault-status--locked';
 
-  const shouldShowSignoutSignal = isOpenVault;
+  const shouldShowSignoutSignal = isOpenVault || Boolean(initialVault);
+  const vaultStatusNote = isHydratingVault
+    ? (status || t('wallet_shell_loading'))
+    : walletStatus || (isWalletBootstrapping ? t('wallet_shell_loading') : '');
 
   return (
     <>
-      {isClosedVault ? (
-        <section className="vault-closed-action-panel">
-          <div className="vault-authorize-primary-action">
-            <MeanlyConnectLink
-              href={browserConnectUrl}
-              className="vault-closed-action-link"
-              statusLabel="Opening Vault..."
-              failureLabel="Could not open Vault. Try again."
-            >
-              <span className="vault-transition-logo" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </span>
-              <span>Open Vault</span>
-            </MeanlyConnectLink>
+      {isHydratingVault ? (
+        <section className="vault-transition-state vault-transition-state--panel" aria-live="polite">
+          <MeanlyLoadingMark label={vaultStatusNote} size="lg" />
+        </section>
+      ) : isClosedVault ? (
+        <section className="vault-transition-state" aria-live="polite">
+          <MeanlyLoadingMark label={t('header_connect_title')} size="md" />
+        </section>
+      ) : showVaultWorkspace ? (
+        <>
+          <div className="vault-workspace">
+            <section className={`premium-wallet-shell premium-wallet-shell--vault premium-wallet-shell--compact ${isWalletBootstrapping ? 'is-bootstrapping' : ''}`}>
+              <VaultWalletContent
+                error={walletError}
+                isLoading={isWalletBootstrapping}
+                isVaultOpen
+                onRefreshWallet={async () => {
+                  const activeToken = readStoredVaultToken();
+                  if (activeToken) {
+                    await loadWalletWith(activeToken);
+                  }
+                }}
+                showOpenAction={false}
+                status={vaultStatusNote}
+                variant="vault"
+                vaultIdentity={vault?.identity ?? null}
+                wallet={wallet}
+              />
+            </section>
           </div>
 
-          {status ? <p className="checkout-note">{status}</p> : null}
-          {error ? <p className="product-card__reason">{error}</p> : null}
-        </section>
-      ) : isOpenVault ? (
-        <section className="premium-wallet-shell premium-wallet-shell--vault">
-          <VaultWalletContent
-            wallet={wallet}
-            status={walletStatus}
-            error={walletError}
-            isVaultOpen
-            showOpenAction={false}
-          />
-        </section>
+          <div className={`vault-signout-shell ${shouldShowSignoutSignal ? 'is-visible' : ''}`}>
+            {shouldShowSignoutSignal ? (
+              <button
+                className="meanly-pill-button"
+                disabled={isSigningOut}
+                type="button"
+                onClick={closeVaultAndSignOut}
+              >
+                <span className="meanly-pill-button__mark" aria-hidden="true" />
+                {t('vault_sign_out')}
+              </button>
+            ) : null}
+          </div>
+        </>
       ) : (
         <section className={`vault-shell ${shellStateClass}`}>
           <div className="vault-shell__header vault-shell__header--stable">
             <div className="vault-status-slot">
               <span className={statusClassName}>
                 {statusLabel}
-                {!isOpenVault ? (
-                  <GlossaryHint>Your protected place for saved items, orders, and account access.</GlossaryHint>
-                ) : null}
+                <GlossaryHint>Your protected place for saved items, orders, and account access.</GlossaryHint>
               </span>
             </div>
             <div className="vault-identity-card vault-identity-card--placeholder" aria-hidden="true">
@@ -334,22 +396,11 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
           </div>
 
           <div className="vault-content-slot">
-            {isCheckingVault ? (
-              <section className="vault-transition-state" aria-live="polite">
-                <span className="vault-transition-logo vault-transition-logo--large" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <strong>Opening Vault</strong>
-              </section>
-            ) : (
-              <section className="vault-empty-state vault-empty-state--error">
-                <span>Vault</span>
-                <strong>Could not open Vault.</strong>
-                <p>Try opening Vault again.</p>
-              </section>
-            )}
+            <section className="vault-empty-state vault-empty-state--error">
+              <span>Vault</span>
+              <strong>Could not open Vault.</strong>
+              <p>Try opening Vault again.</p>
+            </section>
           </div>
 
           <div className={`vault-message-slot ${status || error ? 'is-visible' : ''}`}>
@@ -357,18 +408,6 @@ export function StorefrontSessionPanel({ claimHandoff = false, initialVault = nu
           </div>
         </section>
       )}
-
-      {!isClosedVault ? (
-        <div className={`vault-signout-link-row ${shouldShowSignoutSignal ? 'is-visible' : ''}`}>
-          {shouldShowSignoutSignal ? (
-            <button className="vault-signout-signal__action" type="button" onClick={closeVaultAndSignOut}>
-              Sign out
-            </button>
-          ) : (
-            <span aria-hidden="true">Sign out</span>
-          )}
-        </div>
-      ) : null}
 
     </>
   );

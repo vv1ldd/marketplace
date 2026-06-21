@@ -50,25 +50,13 @@ class DiscoveryEntityGraphTest extends TestCase
         $this->seedCanonicalIdentity('xbox-turkey-50-try', 'Xbox', 'turkey', 'gaming');
 
         $this->get(route('meanly.catalog.brands.show', 'steam'))
-            ->assertOk()
-            ->assertSee('Steam в Meanly')
-            ->assertSee('Steam 100 TRY TURKEY')
-            ->assertSee('Steam 100 ARS ARGENTINA')
-            ->assertDontSee('Xbox 50 TRY TURKEY');
+            ->assertRedirect('/catalog/brands/steam');
 
         $this->get(route('meanly.catalog.regions.show', 'turkey'))
-            ->assertOk()
-            ->assertSee('Цифровые товары TURKEY')
-            ->assertSee('Steam 100 TRY TURKEY')
-            ->assertSee('Xbox 50 TRY TURKEY')
-            ->assertDontSee('Steam 100 ARS ARGENTINA');
+            ->assertRedirect('/catalog/regions/turkey');
 
         $this->get(route('meanly.catalog.brand-regions.show', ['brandSlug' => 'steam', 'regionSlug' => 'turkey']))
-            ->assertOk()
-            ->assertSee('Steam TURKEY')
-            ->assertSee('Steam 100 TRY TURKEY')
-            ->assertDontSee('Steam 100 ARS ARGENTINA')
-            ->assertDontSee('Xbox 50 TRY TURKEY');
+            ->assertRedirect('/catalog/brands/steam/regions/turkey');
 
         $this->get('/catalog/brands/not-a-brand')->assertNotFound();
         $this->get('/catalog/regions/not-a-region')->assertNotFound();
@@ -84,12 +72,7 @@ class DiscoveryEntityGraphTest extends TestCase
             'brandSlug' => 'blizzard',
             'sort' => 'face_value_asc',
         ]))
-            ->assertOk()
-            ->assertSeeInOrder([
-                'Blizzard 20 USD UNITED-STATES',
-                'Blizzard 50 USD UNITED-STATES',
-                'Blizzard 60 CAD CANADA',
-            ]);
+            ->assertRedirect('/catalog/brands/blizzard?sort=face_value_asc');
     }
 
     public function test_discovery_sitemaps_are_generated_from_graph(): void

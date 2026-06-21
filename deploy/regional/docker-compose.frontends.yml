@@ -1,0 +1,41 @@
+# Two regional Next builds from the same repo.
+# Backend stays in docker-compose.yml (app service) or a separate Coolify API app.
+#
+# Usage:
+#   docker compose -f deploy/regional/docker-compose.frontends.yml build
+#   docker compose -f deploy/regional/docker-compose.frontends.yml up -d
+
+services:
+  storefront-global:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_MARKETPLACE_API_URL: ${GLOBAL_NEXT_PUBLIC_MARKETPLACE_API_URL:-https://api.meanly.one}
+        NEXT_PUBLIC_STOREFRONT_URL: ${GLOBAL_NEXT_PUBLIC_STOREFRONT_URL:-https://meanly.one}
+        NEXT_PUBLIC_SIMPLE_L1_URL: ${GLOBAL_NEXT_PUBLIC_SIMPLE_L1_URL:-https://meanly.one}
+        NEXT_PUBLIC_MARKETPLACE_REGION: global
+        NEXT_PUBLIC_ACQUIRING_COMPANY_COUNTRY: ${GLOBAL_NEXT_PUBLIC_ACQUIRING_COMPANY_COUNTRY:-United States}
+        NEXT_PUBLIC_ACQUIRING_COMPANY_EMAIL: ${GLOBAL_NEXT_PUBLIC_ACQUIRING_COMPANY_EMAIL:-support@meanly.one}
+        NEXT_PUBLIC_ACQUIRING_PAYMENT_SYSTEMS: ${GLOBAL_NEXT_PUBLIC_ACQUIRING_PAYMENT_SYSTEMS:-Visa,Mastercard,American Express}
+    image: meanly/storefront-global:latest
+    ports:
+      - "${GLOBAL_STOREFRONT_PORT:-3101}:3000"
+    restart: unless-stopped
+
+  storefront-ru:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_MARKETPLACE_API_URL: ${RU_NEXT_PUBLIC_MARKETPLACE_API_URL:-https://api.meanly.one}
+        NEXT_PUBLIC_STOREFRONT_URL: ${RU_NEXT_PUBLIC_STOREFRONT_URL:-https://meanly.ru}
+        NEXT_PUBLIC_SIMPLE_L1_URL: ${RU_NEXT_PUBLIC_SIMPLE_L1_URL:-https://meanly.ru}
+        NEXT_PUBLIC_MARKETPLACE_REGION: ru
+        NEXT_PUBLIC_ACQUIRING_COMPANY_COUNTRY: ${RU_NEXT_PUBLIC_ACQUIRING_COMPANY_COUNTRY:-Российская Федерация}
+        NEXT_PUBLIC_ACQUIRING_COMPANY_EMAIL: ${RU_NEXT_PUBLIC_ACQUIRING_COMPANY_EMAIL:-support@meanly.ru}
+        NEXT_PUBLIC_ACQUIRING_PAYMENT_SYSTEMS: ${RU_NEXT_PUBLIC_ACQUIRING_PAYMENT_SYSTEMS:-МИР,Visa,Mastercard}
+    image: meanly/storefront-ru:latest
+    ports:
+      - "${RU_STOREFRONT_PORT:-3102}:3000"
+    restart: unless-stopped

@@ -96,7 +96,21 @@ Route::prefix('storefront/v1')
         ->middleware('storefront.token:storefront:read');
     Route::get('vault', [StorefrontVaultController::class, 'index'])
         ->middleware('storefront.token:storefront:vault');
+    Route::get('wallet', [StorefrontWalletController::class, 'show'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::get('wallet/bindings', [StorefrontWalletController::class, 'bindings'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('wallet/bindings/challenge', [StorefrontWalletController::class, 'issueBindingChallenge'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('wallet/bindings/verify', [StorefrontWalletController::class, 'verifyBindingChallenge'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('wallet/bindings', [StorefrontWalletController::class, 'storeBinding'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::delete('wallet/bindings/{identityBinding}', [StorefrontWalletController::class, 'destroyBinding'])
+        ->middleware('storefront.token:storefront:vault');
     Route::get('wallet/assets', [StorefrontWalletController::class, 'assets'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('wallet/proofs/usdc-transfer', [StorefrontWalletController::class, 'verifyUsdcTransferProof'])
         ->middleware('storefront.token:storefront:vault');
     Route::get('personalization/home', [StorefrontPersonalizationController::class, 'home'])
         ->middleware('storefront.token:storefront:read');
@@ -107,6 +121,11 @@ Route::prefix('storefront/v1')
     Route::get('identity/session', [StorefrontIdentityController::class, 'session'])
         ->middleware('storefront.token:storefront:read');
 });
+
+if (config('identity_governance.stream_authorize_enabled')) {
+    Route::post('sl1e/authorize/options', [\App\Http\Controllers\IdentityGovernanceStreamAuthorizeController::class, 'options']);
+    Route::post('sl1e/authorize/verify', [\App\Http\Controllers\IdentityGovernanceStreamAuthorizeController::class, 'verify']);
+}
 
 Route::any('sl1e/{path?}', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'sl1eApi'])
     ->where('path', '.*');

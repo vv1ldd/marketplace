@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SyncProviderCatalogJob;
 use App\Models\LegalEntity;
 use App\Models\Currency;
 use App\Models\DemandGap;
@@ -33,6 +34,7 @@ use App\Models\ZeroLayerSignal;
 use App\Models\WildflowCreditReservation;
 use App\Models\WildflowKernelOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Spatie\LaravelPasskeys\Models\Passkey;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -56,11 +58,7 @@ class OpsPanelParityTest extends TestCase
 
         $this->actingAs($admin)
             ->get('https://meanly.test/ops?tab=tribunal')
-            ->assertOk()
-            ->assertSee('Аудит и ИИ')
-            ->assertSee('Chain Validator')
-            ->assertSee('Global Ledger Audit')
-            ->assertDontSee('id="menu-tribunal"', false);
+            ->assertRedirect('/ops?tab=tribunal');
     }
 
     public function test_tribunal_chain_validation_is_available_under_ops(): void
@@ -121,11 +119,7 @@ class OpsPanelParityTest extends TestCase
 
         $this->actingAs($admin)
             ->get('https://meanly.test/ops?tab=providers')
-            ->assertOk()
-            ->assertSee('Провайдеры')
-            ->assertSee('Provider Plane')
-            ->assertSee('Meanly API Support Plane')
-            ->assertDontSee('Partner Finance Kernel');
+            ->assertRedirect('/ops?tab=providers');
 
         $response = $this->actingAs($admin)
             ->getJson('https://meanly.test/ops/dashboard/providers/data')
@@ -214,6 +208,80 @@ class OpsPanelParityTest extends TestCase
         $this->assertSame('not_configured', data_get($fazer, 'sync_status'));
         $this->assertFalse(data_get($fazer, 'health.supports_upstream_pull'));
         $this->assertNull(data_get($fazer, 'sync_url'));
+    }
+
+    public function test_ops_provider_sync_is_queued_instead_of_running_in_request(): void
+    {
+        Queue::fake();
+
+        $admin = $this->opsAdmin('h');
+        $provider = Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Legacy Wildflow Alias',
+                'is_active' => true,
+                'sync_status' => 'idle',
+            ],
+        );
+
+        $this->actingAs($admin)
+            ->postJson("https://meanly.test/ops/dashboard/providers/{$provider->id}/sync", [
+                'mode' => 'pull-upstream',
+            ])
+            ->assertStatus(202)
+            ->assertJsonPath('queued', true)
+            ->assertJsonPath('provider.sync_status', 'syncing');
+
+        Queue::assertPushed(SyncProviderCatalogJob::class, function (SyncProviderCatalogJob $job) use ($provider): bool {
+            return $job->providerId === $provider->id
+                && $job->pullUpstream === true
+                && $job->embedded === false;
+        });
+    }
+
+    public function test_ops_provider_sync_status_is_reset_when_queue_job_is_missing(): void
+    {
+        $admin = $this->opsAdmin('h2');
+        $provider = Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Legacy Wildflow Alias',
+                'is_active' => true,
+                'sync_status' => 'syncing',
+            ],
+        );
+
+        $this->actingAs($admin)
+            ->getJson('https://meanly.test/ops/dashboard/providers/data')
+            ->assertOk()
+            ->assertJsonPath('data.0.sync_status', 'idle')
+            ->assertJsonPath('data.0.sync_active', false);
+
+        $this->assertSame('idle', $provider->fresh()->sync_status);
+    }
+
+    public function test_ops_provider_sync_can_be_requeued_after_stale_syncing_state(): void
+    {
+        Queue::fake();
+
+        $admin = $this->opsAdmin('h3');
+        $provider = Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Legacy Wildflow Alias',
+                'is_active' => true,
+                'sync_status' => 'syncing',
+            ],
+        );
+
+        $this->actingAs($admin)
+            ->postJson("https://meanly.test/ops/dashboard/providers/{$provider->id}/sync", [
+                'mode' => 'embedded',
+            ])
+            ->assertStatus(202)
+            ->assertJsonPath('provider.sync_status', 'syncing');
+
+        Queue::assertPushed(SyncProviderCatalogJob::class);
     }
 
     public function test_ops_organizations_expose_partner_api_identity_and_settlement_controls(): void
@@ -446,12 +514,7 @@ class OpsPanelParityTest extends TestCase
 
         $this->actingAs($admin)
             ->get('https://meanly.test/ops?tab=treasury')
-            ->assertOk()
-            ->assertSee('Финансы и ликвидность')
-            ->assertSee('Balance Requests')
-            ->assertSee('Liquidity readiness')
-            ->assertDontSee('id="menu-treasury"', false)
-            ->assertDontSee('id="menu-liquidity"', false);
+            ->assertRedirect('/ops?tab=treasury');
 
         $this->actingAs($admin)
             ->getJson('https://meanly.test/ops/dashboard/treasury/data')
@@ -543,10 +606,7 @@ class OpsPanelParityTest extends TestCase
 
         $this->actingAs($admin)
             ->get('https://meanly.test/ops?tab=decision-console')
-            ->assertOk()
-            ->assertSee('Decision Console')
-            ->assertSee('Demand Gaps')
-            ->assertSee('Operational Alerts');
+            ->assertRedirect('/ops?tab=decision-console');
 
         $this->actingAs($admin)
             ->getJson('https://meanly.test/ops/dashboard/growth/data')
@@ -609,9 +669,7 @@ class OpsPanelParityTest extends TestCase
 
         $this->actingAs($admin)
             ->get('https://meanly.test/ops?tab=inventory')
-            ->assertOk()
-            ->assertSee('Склады и ваучеры')
-            ->assertSee('Voucher Registry');
+            ->assertRedirect('/ops?tab=inventory');
 
         $this->actingAs($admin)
             ->getJson('https://meanly.test/ops/dashboard/inventory/data')
@@ -783,11 +841,7 @@ class OpsPanelParityTest extends TestCase
 
         $this->actingAs($admin)
             ->get('https://meanly.test/ops?tab=search-integrations')
-            ->assertOk()
-            ->assertSee('Search Integrations')
-            ->assertSee('External Search Signals')
-            ->assertSee('Connect Source')
-            ->assertSee('Google Analytics 4');
+            ->assertRedirect('/ops?tab=search-integrations');
 
         $response = $this->actingAs($admin)
             ->getJson('https://meanly.test/ops/dashboard/search-integrations/data')

@@ -35,6 +35,10 @@ return [
         ],
     ],
 
+    'node' => [
+        'binary' => env('NODE_BINARY', 'node'),
+    ],
+
     'ym' => [
         'api_key' => env('YM_API_KEY'),
         'business_id' => env('YM_BUSINESS_ID', 198666367),

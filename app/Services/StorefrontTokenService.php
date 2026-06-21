@@ -19,9 +19,15 @@ class StorefrontTokenService
         $issuedAt = now();
         $expiresAt = $issuedAt->copy()->addSeconds($ttl);
         $entityAddress = strtolower((string) data_get($identity, 'entity_l1_address'));
-        $user = User::findByEntityL1Address($entityAddress);
-        $username = User::normalizeUsername(data_get($identity, 'username')) ?: $user?->username;
+        $resolvedUser = app(MarketplaceIdentityResolver::class)->resolveFromIdentity($identity);
+        $user = $resolvedUser instanceof User ? $resolvedUser : User::findByEntityL1Address($entityAddress);
+        $username = User::normalizeUsername(data_get($identity, 'username'))
+            ?: $user?->username
+            ?: ($resolvedUser instanceof User ? $resolvedUser->username : null);
         $displayAlias = data_get($identity, 'display_alias') ?: $user?->publicUsername();
+        if ($resolvedUser instanceof User) {
+            $entityAddress = strtolower((string) ($resolvedUser->sovereignIdentityAddress() ?: $entityAddress));
+        }
         $session = [
             'type' => 'storefront_token',
             'issuer' => config('storefront.token_issuer', 'meanly-storefront'),
@@ -29,7 +35,7 @@ class StorefrontTokenService
             'identity' => [
                 'protocol' => 'simple-l1',
                 'entity_l1_address' => $entityAddress,
-                'key_l1_address' => data_get($identity, 'key_l1_address'),
+                'key_l1_address' => data_get($identity, 'key_l1_address') ?: $user?->key_l1_address,
                 'username' => $username,
                 'alias' => data_get($identity, 'alias'),
                 'display_alias' => $displayAlias,

@@ -118,4 +118,43 @@ class QueryNormalizationTest extends TestCase
         $this->assertEquals('Steam', $filters['brand'] ?? null);
         $this->assertEquals('turkey', $filters['region'] ?? null);
     }
+
+    public function test_query_understanding_handles_russian_playstation_austria(): void
+    {
+        /** @var CatalogQueryUnderstandingService $understandingService */
+        $understandingService = app(CatalogQueryUnderstandingService::class);
+
+        $result = $understandingService->understand('мне нужен плейстейшн австрия');
+
+        $filters = (array) $result['filters'];
+        $this->assertSame('PlayStation', $filters['brand'] ?? null);
+        $this->assertSame('austria', $filters['region'] ?? null);
+        $this->assertStringContainsString('playstation', mb_strtolower((string) $result['rewritten_query']));
+        $this->assertStringContainsString('austria', mb_strtolower((string) $result['rewritten_query']));
+    }
+
+    public function test_query_understanding_handles_spanish_playstation_austria(): void
+    {
+        /** @var CatalogQueryUnderstandingService $understandingService */
+        $understandingService = app(CatalogQueryUnderstandingService::class);
+
+        $result = $understandingService->understand('necesito playstation austria');
+
+        $filters = (array) $result['filters'];
+        $this->assertSame('PlayStation', $filters['brand'] ?? null);
+        $this->assertSame('austria', $filters['region'] ?? null);
+    }
+
+    public function test_query_understanding_treats_apple_id_turkey_as_turkey_not_indonesia(): void
+    {
+        /** @var CatalogQueryUnderstandingService $understandingService */
+        $understandingService = app(CatalogQueryUnderstandingService::class);
+
+        $result = $understandingService->understand('мне нужен apple id турция');
+
+        $filters = (array) $result['filters'];
+        $this->assertSame('Apple', $filters['brand'] ?? null);
+        $this->assertSame('turkey', $filters['region'] ?? null);
+        $this->assertStringNotContainsString('indonesia', mb_strtolower((string) $result['rewritten_query']));
+    }
 }

@@ -28,7 +28,11 @@ final readonly class AuthorizeQueryParameters
             'state' => $request->state,
             'nonce' => $request->nonce,
             'mode' => $request->mode === 'register' ? 'register' : 'login',
-            'response_mode' => $request->responseMode === 'form_post' ? 'form_post' : 'code',
+            'response_mode' => match ($request->responseMode) {
+                'form_post' => 'form_post',
+                'query' => 'query',
+                default => 'code',
+            },
             ...($request->intent?->toQueryParams() ?? []),
         ], static fn ($value): bool => $value !== null && $value !== '');
     }

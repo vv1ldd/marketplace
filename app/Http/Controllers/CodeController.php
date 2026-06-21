@@ -9,6 +9,7 @@ use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\Settings;
 use App\Models\WildflowCatalog;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -67,7 +68,7 @@ class CodeController extends Controller
         ]);
     }
 
-    public function getViewForm(Request $request): Factory|View
+    public function getViewForm(Request $request): RedirectResponse
     {
         $intentToken = $request->query('intent') ?? $request->input('intent') ?? session('order_item_info.intent_token');
         $intent = $intentToken ? \Illuminate\Support\Facades\Cache::get("activation_intent:{$intentToken}") : null;
@@ -95,7 +96,7 @@ class CodeController extends Controller
             
             if (! $uuid && ! session()->has('order_item_info')) {
                  // Fallback to step 1 if everything is lost
-                 return view('redeem.step1', ['prefix' => '', 'redeemShop' => null]); 
+                 return StorefrontFrontendRedirect::fromRequest($request);
             }
 
             $order_item_info = session('order_item_info') ?? ['uuid' => $uuid];
@@ -111,7 +112,7 @@ class CodeController extends Controller
                 ?->redeemCollectsExtendedProfile() ?? false;
         }
 
-        return view('redeem.step3', compact('client_info', 'client_email', 'redeemCollectExtendedProfile'));
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function resendCode(Request $request): RedirectResponse
@@ -176,7 +177,7 @@ class CodeController extends Controller
         $order_item = OrderItems::where('uuid', $uuid)->first();
         $order = $order_item?->order;
 
-        return view('redeem.step2', compact('order'));
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function getFinishView(Request $request): Factory|View|RedirectResponse
@@ -226,7 +227,7 @@ class CodeController extends Controller
             ]);
         }
 
-        return view('redeem.finish', compact('order_item', 'standardized', 'redeemFinishPollUrl'));
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function redeemFinishStatus(Request $request): JsonResponse
@@ -721,9 +722,6 @@ class CodeController extends Controller
             $prefix .= '-';
         }
 
-        return view('redeem.step1', [
-            'prefix' => $prefix,
-            'redeemShop' => $current_shop,
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 }

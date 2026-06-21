@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Services\Identity\Governance\IdentityGovernanceVaultStreamProducer;
+use App\Services\Identity\Governance\IdentityGovernanceWebAuthnPayload;
 use InvalidArgumentException;
 use Spatie\LaravelPasskeys\Models\Passkey;
 
@@ -67,6 +69,7 @@ class L1IdentityService
         $publicKey = $passkey->data->credentialPublicKey ?? null;
         $keyAddress = $this->keyAddressFromPublicKey($publicKey);
         $meta = $user->meta ?? [];
+        $hadEntityBeforeBind = $this->userHadEntity($user, $meta);
         $entityAddress = $user->entity_l1_address
             ?? $meta['entity_l1_address']
             ?? $meta['l1_address']
@@ -97,10 +100,81 @@ class L1IdentityService
             'meta' => $meta,
         ])->save();
 
+        $this->ensureSl1eUsername($user->refresh(), strtolower($entityAddress));
+
+        if (config('identity_governance.stream_enabled') && ! $hadEntityBeforeBind) {
+            $factorId = IdentityGovernanceVaultStreamProducer::deterministicFactorId('passkey', (string) $passkey->id);
+            $webauthn = IdentityGovernanceWebAuthnPayload::fromPasskey($passkey);
+
+            app(IdentityGovernanceVaultStreamProducer::class)->recordVaultCreation(
+                streamId: strtolower($entityAddress),
+                creationId: 'vault-create:user:'.$user->id,
+                username: (string) ($user->username ?? ''),
+                credentialPayload: IdentityGovernanceWebAuthnPayload::boundPayload(
+                    factorId: $factorId,
+                    webauthn: $webauthn,
+                    extra: [
+                        'metadata' => [
+                            'public_reference' => strtolower($keyAddress),
+                            'passkey_id' => $passkey->id,
+                            'label' => $user->profileDisplayName(),
+                        ],
+                    ],
+                ),
+            );
+        }
+
         return [
             'entity_l1_address' => strtolower($entityAddress),
             'key_l1_address' => strtolower($keyAddress),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $metaBeforeBind
+     */
+    private function userHadEntity(User $user, array $metaBeforeBind): bool
+    {
+        foreach ([$user->entity_l1_address, $metaBeforeBind['entity_l1_address'] ?? null, $metaBeforeBind['l1_address'] ?? null] as $candidate) {
+            if (is_string($candidate) && preg_match('/^sl1e_[a-f0-9]{39}$/i', $candidate) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function ensureSl1eUsername(User $user, string $entityAddress): void
+    {
+        if ($user->username) {
+            return;
+        }
+
+        $username = User::makeUniqueUsername(
+            User::usernameCandidateFromEntityAddress($entityAddress),
+            $user->id,
+        );
+
+        if ($username === null) {
+            return;
+        }
+
+        $meta = $user->meta ?? [];
+        $meta['username'] = $username;
+        $meta['display_name'] = $username;
+        $meta['simple_l1'] = array_merge($meta['simple_l1'] ?? [], [
+            'username' => $username,
+            'display_name' => $username,
+        ]);
+
+        $user->forceFill([
+            'username' => $username,
+            'username_key' => $username,
+            'first_name' => $user->first_name && ! in_array($user->first_name, ['SL1E', 'Wallet'], true)
+                ? $user->first_name
+                : $username,
+            'meta' => $meta,
+        ])->save();
     }
 
     private function canonicalPublicKey(?string $publicKey): string

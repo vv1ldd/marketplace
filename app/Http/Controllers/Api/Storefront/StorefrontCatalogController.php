@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Storefront\StorefrontCatalogResource;
 use App\Http\Resources\Storefront\StorefrontProductResource;
 use App\Models\Product;
+use App\Services\CanonicalCategoryResolver;
 use App\Services\CanonicalProductSearchSuggestService;
 use App\Services\CanonicalStorefrontHomepageService;
 use App\Services\MeanlyFirstPartyStorefrontService;
@@ -41,14 +42,21 @@ class StorefrontCatalogController extends Controller
         abort_unless(array_key_exists($category, (array) config('catalog_taxonomy.categories', [])), 404);
 
         $meta = (array) config("catalog_taxonomy.categories.{$category}", []);
+        $descriptionKey = "catalog.taxonomy.{$category}.description";
+        $categoryDescription = __($descriptionKey);
+        if ($categoryDescription === $descriptionKey) {
+            $categoryDescription = app()->getLocale() === 'ru'
+                ? ($meta['description_ru'] ?? null)
+                : null;
+        }
         $products = $homepage->categoryPage($category, $request);
 
         return StorefrontCatalogResource::make([
             'surface' => [
                 'type' => 'storefront_catalog_category',
                 'category' => $category,
-                'title' => $meta['label_en'] ?? $meta['label_ru'] ?? $category,
-                'description' => $meta['description_ru'] ?? null,
+                'title' => app(CanonicalCategoryResolver::class)->label($category),
+                'description' => $categoryDescription,
             ],
             'query' => '',
             'quick_chips' => [],

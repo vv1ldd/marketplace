@@ -15,6 +15,69 @@ use Illuminate\Validation\ValidationException;
 
 class MerchantSettlementService
 {
+    public function __construct(
+        private readonly SettlementNetworkRegistry $settlementNetworks,
+    ) {}
+
+    /**
+     * @param array<string, mixed> $proofPayload
+     * @return array{valid: bool, error?: string, proof?: array<string, mixed>, verification?: string}
+     */
+    public function verifyCryptoDepositProof(array $proofPayload): array
+    {
+        return $this->settlementNetworks->merchantDepositAdapter()->verifyDepositProof($proofPayload);
+    }
+
+    /**
+     * @param array<string, mixed> $proofPayload
+     */
+    public function recordVerifiedCryptoProof(
+        MerchantDepositIntent $intent,
+        User $reviewer,
+        array $proofPayload,
+        string $note = '',
+    ): SettlementProof {
+        $verification = $this->verifyCryptoDepositProof($proofPayload);
+        if ($verification['valid'] !== true) {
+            throw ValidationException::withMessages([
+                'proof' => (string) ($verification['error'] ?? 'Invalid crypto deposit proof.'),
+            ]);
+        }
+
+        $proof = (array) ($verification['proof'] ?? []);
+        if (isset($verification['verification'])) {
+            $proof['verification'] = $verification['verification'];
+        }
+        $externalReference = (string) ($proof['tx_hash'] ?? '');
+
+        return $this->approveProofAndCredit(
+            intent: $intent,
+            reviewer: $reviewer,
+            externalReference: $externalReference,
+            confirmedAmount: null,
+            source: 'evm_deposit_proof',
+            note: $note,
+            rawPayload: $proof,
+        );
+    }
+
+    private function hydrateCryptoDepositPayload(
+        MerchantDepositIntent $intent,
+        LegalEntity $legalEntity,
+        float $amountRub,
+    ): MerchantDepositIntent {
+        $providerPayload = array_merge(
+            (array) $intent->provider_payload,
+            $this->settlementNetworks->merchantDepositAdapter()->merchantDepositPayload($legalEntity, $amountRub, [
+                'intent_id' => (int) $intent->id,
+            ]),
+        );
+
+        $intent->forceFill(['provider_payload' => $providerPayload])->save();
+
+        return $intent->refresh();
+    }
+
     /**
      * @param array<string, mixed> $options
      */
@@ -94,6 +157,10 @@ class MerchantSettlementService
                     'amount' => $amount,
                 ],
             );
+
+            if ($rail === MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC) {
+                $intent = $this->hydrateCryptoDepositPayload($intent->refresh(), $legalEntity, $amount);
+            }
 
             return $intent->refresh();
         });
@@ -628,7 +695,36 @@ class MerchantSettlementService
             throw ValidationException::withMessages(['rail' => 'Unsupported balance rail.']);
         }
 
+        if ($rail === MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC && ! $this->settlementNetworks->cryptoRailsEnabled()) {
+            throw ValidationException::withMessages([
+                'rail' => 'Crypto settlement rails are disabled. Simple commerce mode is active.',
+            ]);
+        }
+
         return $rail;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function allowedDepositRails(): array
+    {
+        $rails = [
+            MerchantDepositIntent::RAIL_INVOICE_MANUAL,
+            MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC,
+            MerchantDepositIntent::RAIL_PAYMENT_PROVIDER,
+            MerchantDepositIntent::RAIL_MERCHANT_TRANSFER,
+            MerchantDepositIntent::RAIL_OPS_MANUAL_CREDIT,
+        ];
+
+        if (! $this->settlementNetworks->cryptoRailsEnabled()) {
+            $rails = array_values(array_filter(
+                $rails,
+                static fn (string $rail): bool => $rail !== MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC,
+            ));
+        }
+
+        return $rails;
     }
 
     private function nextReference(string $prefix): string
@@ -672,9 +768,10 @@ class MerchantSettlementService
     {
         return match ($rail) {
             MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC => [
+                'settlement_network' => $this->settlementNetworks->merchantCryptoNetworkKey(),
                 'network' => 'evm',
-                'assets' => ['USDT', 'USDC'],
-                'deposit_address_status' => 'pending_adapter',
+                'assets' => $this->settlementNetworks->network($this->settlementNetworks->merchantCryptoNetworkKey())->assets,
+                'deposit_address_status' => 'pending_intent',
                 'expected_amount_rub' => $amount,
             ],
             MerchantDepositIntent::RAIL_PAYMENT_PROVIDER => [

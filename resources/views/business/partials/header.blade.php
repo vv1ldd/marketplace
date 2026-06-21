@@ -1,1 +1,0 @@
-@include('storefront.partials.header')

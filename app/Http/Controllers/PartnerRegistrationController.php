@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LegalEntity;
 use App\Models\User;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -82,23 +83,7 @@ class PartnerRegistrationController extends Controller
 
         $businessVerifiedEmail = session('business_registration_verified_email');
 
-        return view('partner.register', [
-            'brand' => $brand,
-            'registrationTarget' => $registrationTarget,
-            'registrationSubmitRoute' => route('business.register.submit'),
-            'registrationOptionsRoute' => route('business.register.options'),
-            'businessEmailSendRoute' => route('business.register.email.send'),
-            'businessEmailVerifyRoute' => route('business.register.email.verify'),
-            'businessVerifiedEmail' => $businessVerifiedEmail,
-            'detectedCountry' => $detectedCountry,
-            'detectedCountryName' => $detectedCountryName,
-            'supportedJurisdictions' => $brand && $brand->compliance_config ? array_keys($brand->compliance_config) : null,
-            'complianceConfig' => $brand ? $brand->compliance_config : null,
-            'agreementText' => $agreementText,
-            'signingOptions' => $signingOptions,
-            'inviteIntent' => null,
-            'inviteToken' => null,
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function sendBusinessEmailCode(Request $request)
@@ -271,7 +256,7 @@ class PartnerRegistrationController extends Controller
                         $request->input('passkey_attestation'),
                         $optionsJson,
                         $request->getHost(),
-                        ['name' => 'Primary Sovereign Identity']
+                        ['name' => $user->fresh()->profileDisplayName()]
                     );
 
                     // 2. Anchor stable Simple L1 entity identity independent of this device key.
@@ -502,7 +487,7 @@ class PartnerRegistrationController extends Controller
                         $request->input('passkey_attestation'),
                         $optionsJson,
                         $request->getHost(),
-                        ['name' => 'Primary Sovereign Identity']
+                        ['name' => $user->fresh()->profileDisplayName()]
                     );
 
                     // 2. Anchor stable Simple L1 entity identity.
@@ -597,7 +582,7 @@ class PartnerRegistrationController extends Controller
     /**
      * STEP 2: Show Offer
      */
-    public function showOffer()
+    public function showOffer(Request $request)
     {
         $reg = session('partner_registration');
         $user = Auth::user();
@@ -668,14 +653,7 @@ class PartnerRegistrationController extends Controller
         ];
         session(['agreement_signing_contexts' => array_slice($agreementSigningContexts, -5, null, true)]);
 
-        return view('partner.register_step3', [
-            'registration' => $reg,
-            'agreementType' => $type,
-            'agreementTitle' => $this->agreementTitle($type),
-            'agreementText' => $agreementText,
-            'agreementSigningNonce' => $agreementSigningNonce,
-            'agreementSigningResource' => $agreementSigningResource,
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function offerPayload(Request $request)
@@ -799,11 +777,7 @@ class PartnerRegistrationController extends Controller
             return redirect()->route('partner.dashboard');
         }
 
-        return view('partner.onboarding', [
-            'user' => $user,
-            'legalEntity' => $entity,
-            'submittedAt' => $entity?->agreement_signed_at,
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function onboardingPayload(Request $request)
@@ -824,6 +798,7 @@ class PartnerRegistrationController extends Controller
             return response()->json([
                 'error' => 'Business registration was not found.',
                 'redirect' => '/business/register',
+                'verified_email' => session('business_registration_verified_email'),
             ], 404);
         }
 
@@ -1515,6 +1490,8 @@ class PartnerRegistrationController extends Controller
         $existingEntity = data_get($user->meta ?? [], 'entity_l1_address', data_get($user->meta ?? [], 'l1_address'));
         $hadEntity = is_string($existingEntity) && preg_match('/^sl1e_[a-f0-9]{39}$/i', $existingEntity) === 1;
         $identity = app(\App\Services\L1IdentityService::class)->bindUserToEntityIdentity($user, $passkey);
+        $user->refresh();
+        $passkey->forceFill(['name' => $user->profileDisplayName()])->save();
         $intentLedger = app(\App\Services\IntentLedgerService::class);
 
         if (! $hadEntity) {

@@ -63,7 +63,7 @@ class MeanlyFirstPartyStorefrontService
             'is_global_catalog_enabled' => true,
             'allow_all_brands' => true,
             'auto_purchase_enabled' => true,
-            'shop_region' => 'RU',
+            'shop_region' => strtoupper((string) (config('markets.markets.global.demand_region') ?: 'GLOBAL')),
         ], fn ($value) => $value !== null && $value !== '');
         $payload = array_filter(
             $payload,

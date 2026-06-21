@@ -19,7 +19,11 @@ class SyncProviderCatalogJob implements ShouldQueue
     public int $timeout = 1200; // Increased for large source catalogs
     public int $tries = 1;
 
-    public function __construct(public int $providerId) {}
+    public function __construct(
+        public int $providerId,
+        public bool $embedded = false,
+        public bool $pullUpstream = false,
+    ) {}
 
     public function middleware(): array
     {
@@ -32,6 +36,8 @@ class SyncProviderCatalogJob implements ShouldQueue
         
         if (!$provider || !$provider->is_active) {
             Log::warning("SyncProviderCatalogJob: Provider not found or inactive", ['id' => $this->providerId]);
+            Provider::query()->whereKey($this->providerId)->update(['sync_status' => 'idle']);
+
             return;
         }
 
@@ -39,6 +45,8 @@ class SyncProviderCatalogJob implements ShouldQueue
 
         try {
             $this->runSync($provider);
+            $this->publishToGlobalCatalog($provider);
+            Artisan::call('marketplace:rebuild-catalog-search');
             $provider->update([
                 'sync_status' => 'idle',
                 'last_sync_at' => now(),
@@ -56,11 +64,39 @@ class SyncProviderCatalogJob implements ShouldQueue
         } elseif ($provider->type === 'playstation_us') {
             Artisan::call('ps:sync-region');
         } else {
-            // Digital Goods Source and embedded projections are handled by the unified aggregator sync.
-            Artisan::call('app:sync-catalogs', [
+            $args = [
                 'provider' => $provider->id,
-                '--force' => true
-            ]);
+                '--force' => true,
+            ];
+
+            if ($this->embedded) {
+                $args['--embedded'] = true;
+            }
+
+            if ($this->pullUpstream) {
+                $args['--pull-upstream'] = true;
+            }
+
+            $exitCode = Artisan::call('app:sync-catalogs', $args);
+            if ($exitCode !== 0) {
+                throw new \RuntimeException('app:sync-catalogs exited with code '.$exitCode);
+            }
+        }
+    }
+
+    protected function publishToGlobalCatalog(Provider $provider): void
+    {
+        if (! in_array($provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox', 'fazer'], true)) {
+            return;
+        }
+
+        $exitCode = Artisan::call('meanly:publish-provider-catalog', [
+            '--provider' => $provider->type,
+            '--rebuild-identities' => true,
+        ]);
+
+        if ($exitCode !== 0) {
+            throw new \RuntimeException('meanly:publish-provider-catalog exited with code '.$exitCode);
         }
     }
 

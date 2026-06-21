@@ -98,6 +98,9 @@ class SovereignPlaneGuard
             'partner.dashboard.clear_deposit_intent',
             'partner.dashboard.finance.sovereign_request.options',
             'partner.dashboard.finance.sovereign_request.create',
+            'partner.workspace.finance.deposit_intents.create',
+            'partner.workspace.finance.deposit_intents.cancel',
+            'partner.workspace.finance.deposit_intents.crypto_proof',
         ];
 
         if (in_array($routeName, $financeRoutes, true)) {

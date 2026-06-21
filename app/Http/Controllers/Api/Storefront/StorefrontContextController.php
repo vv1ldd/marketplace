@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Api\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Services\MarketContextResolver;
+use App\Services\SettlementNetworkRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StorefrontContextController extends Controller
 {
-    public function show(Request $request, MarketContextResolver $markets): JsonResponse
+    public function show(Request $request, MarketContextResolver $markets, SettlementNetworkRegistry $settlementNetworks): JsonResponse
     {
         $market = $markets->resolve($request);
 
@@ -33,6 +34,7 @@ class StorefrontContextController extends Controller
                 'matched_domain' => $market->matchedDomain,
             ],
             'region' => config('mutation.region', env('MARKETPLACE_REGION', 'local')),
+            'settlement_networks' => $settlementNetworks->storefrontCatalog(),
             'simple_l1' => [
                 'identity_provider_url' => config('simple_l1.identity_provider_url'),
                 'client_id' => config('simple_l1.client_id'),

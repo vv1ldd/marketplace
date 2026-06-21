@@ -1,13 +1,15 @@
 import { LegalPage } from '../../components/LegalPage';
-import { legalPage } from '../../lib/legal-pages';
+import { loadLegalPage } from '../../lib/legal-page-server';
 
-const page = legalPage('terms');
+export async function generateMetadata() {
+  const { page } = await loadLegalPage('terms');
+  return {
+    title: `${page.title} | Meanly`,
+    description: page.description,
+  };
+}
 
-export const metadata = {
-  title: `${page.title} | Meanly`,
-  description: page.description,
-};
-
-export default function TermsPage() {
-  return <LegalPage pageKey="terms" page={page} />;
+export default async function TermsPage() {
+  const { page, marketKey } = await loadLegalPage('terms');
+  return <LegalPage pageKey="terms" page={page} marketKey={marketKey} />;
 }

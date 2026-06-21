@@ -4,7 +4,9 @@ namespace App\Console\Commands;
 
 use App\Http\Services\YmService;
 use App\Models\Product;
+use App\Models\Settings;
 use App\Models\Shop;
+use App\Services\CanonicalCategoryResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -32,9 +34,7 @@ class YmPushCatalog extends Command
         foreach ($shops as $shop) {
             $this->info("Processing shop: {$shop->name} (ID: {$shop->id})");
             
-            $query = Product::whereHas('shops', function($q) use ($shop) {
-                $q->where('shops.id', $shop->id);
-            });
+            $query = Product::query()->where('shop_id', $shop->id);
 
             if (!$this->option('force')) {
                 $query->where(function($q) {
@@ -53,16 +53,33 @@ class YmPushCatalog extends Command
             $this->info("Found {$products->count()} products to push.");
             
             $service = new YmService($shop);
-            $categoryId = (int)($shop->ym_category_id ?? \App\Models\Settings::get('YM_CATEGORY_ID', 70301474));
+            $resolver = app(CanonicalCategoryResolver::class);
+            $fallbackCategoryId = (int) ($shop->ym_category_id ?: Settings::get('YM_CATEGORY_ID', 989939));
 
             // Chunk by 500 as per Yandex API limits
             $chunks = $products->chunk(500);
 
             foreach ($chunks as $chunk) {
                 try {
-                    $offers = $chunk->map(fn($p) => ["offer" => $p->toYmOffer($categoryId, $shop->id)])->toArray();
-                    
-                    $service->offerMappingsUpdate($offers);
+                    $offers = $chunk->map(function (Product $product) use ($resolver, $fallbackCategoryId, $shop) {
+                        $categoryId = $resolver->yandexCategoryId($resolver->forProduct($product), $fallbackCategoryId);
+                        if ((int) $product->market_category_id !== $categoryId) {
+                            $product->market_category_id = $categoryId;
+                            $product->save();
+                        }
+
+                        return ['offer' => $product->toYmOffer($categoryId, $shop->id)];
+                    })->toArray();
+
+                    $response = $service->offerMappingsUpdate($offers);
+                    $errors = collect(data_get($response, 'results', []))
+                        ->flatMap(fn (array $result): array => $result['errors'] ?? [])
+                        ->count();
+
+                    if (data_get($response, 'status') === 'ERROR' || $errors > 0) {
+                        $this->warn('Yandex returned mapping errors for this chunk.');
+                        $this->line(json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                    }
 
                     // Update timestamp
                     Product::whereIn('id', $chunk->pluck('id'))->update(['send_to_ym_at' => now()]);

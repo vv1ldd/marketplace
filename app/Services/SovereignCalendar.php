@@ -238,15 +238,15 @@ class SovereignCalendar
             ],
         ],
 
-        // ─── Q4: October ──────────────────────────────────────────────────────
+        // ─── Q2: June ─────────────────────────────────────────────────────────
         [
             'key'         => 'little-prince',
-            'name'        => 'Asteroid B-612 Solitude',
-            'title_ru'    => 'День Маленького Принца',
-            'description' => 'Drifting golden stars and cosmic rose petals in silent space.',
-            'month'       => 10,
-            'day_from'    => 17,
-            'day_to'      => 17,
+            'name'         => 'Beloved\'s Birthday',
+            'title_ru'    => 'День рождения любимой 🌹',
+            'description' => 'Drifting golden stars and cosmic rose petals for my beloved.',
+            'month'       => 6,
+            'day_from'    => 15,
+            'day_to'      => 16,
             'aesthetics'  => [
                 'brand_primary'   => '#e11d48',
                 'brand_secondary' => '#fbbf24',

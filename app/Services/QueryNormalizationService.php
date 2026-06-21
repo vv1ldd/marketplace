@@ -121,9 +121,9 @@ class QueryNormalizationService
     }
 
     /**
-     * Helper to transliterate Russian Cyrillic characters to English Latin.
+     * Transliterate Cyrillic and common phonetic variants to Latin ASCII.
      */
-    private function transliterate(string $text): string
+    public function transliterate(string $text): string
     {
         $chars = [
             'а'=>'a', 'б'=>'b', 'в'=>'v', 'г'=>'g', 'д'=>'d', 'е'=>'e', 'ё'=>'yo', 'ж'=>'zh', 'з'=>'z',

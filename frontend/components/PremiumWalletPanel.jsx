@@ -1,68 +1,700 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { fetchPremiumWalletAssets } from '../lib/storefront-api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  resolveIdentityWalletModel,
+  shortenAddress,
+  vaultBalanceObservationState,
+  visibleWalletBindings,
+  WALLET_BINDING_STATE,
+  walletCoins,
+} from '../lib/identity-wallets';
+import { buildBitcoinReceiveQrDataUrl, buildPolygonUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
+import { fetchWalletBundle, refreshStorefrontVaultToken } from '../lib/storefront-api';
 import { clearVaultAuthorityState, readStoredVaultToken } from '../lib/vault-authority';
+import { connectWalletBinding, WalletConnectError } from '../lib/wallet-connect';
 import { GlossaryHint } from './GlossaryHint';
+import { VaultQrIcon, VaultShieldIcon } from './IdentityVaultIcons';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
+import { useLocale } from './LocaleProvider';
 
 function identityLabel(identity = {}) {
   if (identity.username) return `@${identity.username}`;
   return identity.display_alias || identity.alias || identity.entity_l1_address || 'Vault identity';
 }
 
-export function VaultWalletContent({ wallet, status = '', error = '', isVaultOpen = false, showOpenAction = true }) {
-  const coins = Array.isArray(wallet?.coins) ? wallet.coins : Array.isArray(wallet?.assets) ? wallet.assets : [];
-  const hasWallet = Boolean(wallet);
+function bindingStateLabel(state, t) {
+  switch (state) {
+    case WALLET_BINDING_STATE.CONNECTED:
+      return t('wallet_binding_connected');
+    case WALLET_BINDING_STATE.CONNECT:
+      return t('wallet_binding_connect');
+    case WALLET_BINDING_STATE.PENDING:
+      return t('wallet_binding_pending');
+    default:
+      return t('wallet_binding_coming_soon');
+  }
+}
+
+function WalletBindingStatus({ state, label }) {
+  return (
+    <span className={`premium-wallet-binding__status premium-wallet-binding__status--${state}`}>
+      {label}
+    </span>
+  );
+}
+
+function WalletBindingDetail({ walletBinding, t, compact = false, showAssets = true, showReceiveQr = false }) {
+  const preview = walletBinding.preview;
+  const coins = walletCoins(preview);
+
+  return (
+    <div className={`premium-wallet-binding__detail ${compact ? 'premium-wallet-binding__detail--compact' : ''}`}>
+      <div className="premium-wallet-binding__detail-row">
+        <span>{t('wallet_binding_address')}</span>
+        <strong>{walletBinding.address ? shortenAddress(walletBinding.address, 10, 8) : t('wallet_binding_no_address')}</strong>
+      </div>
+      {walletBinding.address ? <code className="premium-wallet-binding__address">{walletBinding.address}</code> : null}
+
+      {showReceiveQr && walletBinding.key === 'polygon' && walletBinding.address ? (
+        <VaultReceiveQr
+          address={walletBinding.address}
+          altKey="wallet_identity_qr_alt"
+          buildQrDataUrl={buildPolygonUsdcReceiveQrDataUrl}
+          hintKey="wallet_identity_qr_hint"
+          labelKey="wallet_identity_qr"
+        />
+      ) : null}
+
+      {showReceiveQr && walletBinding.key === 'bitcoin' && walletBinding.address ? (
+        <VaultReceiveQr
+          address={walletBinding.address}
+          altKey="wallet_bitcoin_qr_alt"
+          buildQrDataUrl={buildBitcoinReceiveQrDataUrl}
+          hintKey="wallet_bitcoin_qr_hint"
+          labelKey="wallet_bitcoin_qr"
+        />
+      ) : null}
+
+      {showAssets && coins.length ? (
+        <div className="premium-wallet-asset-list">
+          <span className="premium-wallet-binding__detail-label">{t('wallet_binding_assets')}</span>
+          {coins.map((coin) => (
+            <div className="premium-wallet-asset-row" key={coin.key || coin.symbol}>
+              <span>{coin.symbol}</span>
+              <strong>{coin.display_amount}</strong>
+              {!compact && coin.name ? <small>{coin.name}</small> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {preview?.capabilities ? (
+        <p className="premium-wallet-capability-note">
+          {preview.capabilities.next_action || 'PREVIEW'}
+          {' · '}
+          {t('wallet_binding_capabilities_note')}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function WalletBindingRow({
+  walletBinding,
+  isActive,
+  onSelect,
+  onConnect,
+  connectingKey,
+  connectError,
+  connectNotice,
+  suppressAssets = false,
+  showReceiveQr = false,
+  t,
+}) {
+  const state = walletBinding.bindingState;
+  const statusLabel = bindingStateLabel(state, t);
+  const canExpand = state === WALLET_BINDING_STATE.CONNECTED && Boolean(walletBinding.preview);
+  const showConnectPanel = walletBinding.canConnect || state === WALLET_BINDING_STATE.PENDING;
+  const isInteractive = canExpand || showConnectPanel;
+  const isConnecting = connectingKey === walletBinding.key;
+  const rowError = connectError?.key === walletBinding.key ? connectError.message : '';
+  const rowNotice = connectNotice?.key === walletBinding.key ? connectNotice.message : '';
+
+  return (
+    <article className={`premium-wallet-binding ${isActive ? 'is-active' : ''} ${isConnecting ? 'is-connecting' : ''}`}>
+      <button
+        className="premium-wallet-binding__row"
+        disabled={(!isInteractive && !canExpand) || isConnecting}
+        onClick={() => {
+          if (isInteractive || canExpand) {
+            onSelect(isActive ? null : walletBinding.key);
+          }
+        }}
+        type="button"
+      >
+        <span className="premium-wallet-binding__label">{walletBinding.label}</span>
+        <WalletBindingStatus label={statusLabel} state={state} />
+      </button>
+
+      {isActive && canExpand ? (
+        <WalletBindingDetail
+          compact
+          showAssets={!suppressAssets}
+          showReceiveQr={showReceiveQr}
+          walletBinding={walletBinding}
+          t={t}
+        />
+      ) : null}
+
+      {showConnectPanel ? (
+        <div className="premium-wallet-binding__connect">
+          <p>{t('wallet_connect_intro')}</p>
+          {walletBinding.canConnect ? (
+            <button
+              disabled={isConnecting}
+              onClick={() => onConnect(walletBinding.key)}
+              type="button"
+            >
+              {isConnecting ? t('wallet_connect_opening') : t('wallet_connect_cta')}
+            </button>
+          ) : (
+            <button disabled type="button">{t('wallet_binding_coming_soon')}</button>
+          )}
+          {rowNotice ? <small className="premium-wallet-binding__notice">{rowNotice}</small> : null}
+          {rowError ? <small className="premium-wallet-binding__error">{rowError}</small> : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function coinAmount(coin = {}) {
+  const amount = Number(coin.amount ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function hasPositiveBalances(coins = []) {
+  return coins.some((coin) => coinAmount(coin) > 0);
+}
+
+function VaultReceiveQr({
+  address,
+  buildQrDataUrl,
+  labelKey,
+  altKey,
+  hintKey,
+}) {
+  const { t } = useLocale();
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [qrLoading, setQrLoading] = useState(false);
+
+  const toggleQr = useCallback(async () => {
+    if (qrOpen) {
+      setQrOpen(false);
+      return;
+    }
+
+    setQrLoading(true);
+
+    try {
+      const dataUrl = qrDataUrl || await buildQrDataUrl(address);
+      if (dataUrl) {
+        setQrDataUrl(dataUrl);
+        setQrOpen(true);
+      }
+    } catch {
+      setQrOpen(false);
+    } finally {
+      setQrLoading(false);
+    }
+  }, [address, buildQrDataUrl, qrDataUrl, qrOpen]);
+
+  if (!address) {
+    return null;
+  }
+
+  return (
+    <div className="vault-identity-qr-slot">
+      <div className="vault-identity-qr-slot__anchor">
+        <button
+          aria-expanded={qrOpen}
+          aria-label={t(labelKey)}
+          className={`vault-identity-address__action vault-identity-address__action--qr${qrOpen ? ' is-active' : ''}`}
+          disabled={qrLoading}
+          onClick={toggleQr}
+          title={t(labelKey)}
+          type="button"
+        >
+          <VaultQrIcon />
+        </button>
+        {qrOpen && qrDataUrl ? (
+          <div className="vault-identity-address__qr-popover" role="dialog">
+            <img alt={t(altKey)} src={qrDataUrl} />
+            <p>{t(hintKey)}</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function VaultHeroHeader({
+  kicker,
+  title = '',
+  showTitle = true,
+  identityLine = '',
+  address = '',
+  copyableAddress = false,
+  placeholder = false,
+  showIdentityLine = true,
+  settlementSlot = null,
+  useVaultSettlementLayout = false,
+}) {
+  const showIdentitySection = showIdentityLine || Boolean(address) || placeholder;
+  const isVaultSettlementLayout = useVaultSettlementLayout || (copyableAddress && Boolean(settlementSlot));
+
+  return (
+    <header className={`premium-wallet-hero${placeholder ? ' premium-wallet-hero--placeholder' : ''}${isVaultSettlementLayout ? ' premium-wallet-hero--identity-compact' : ''}`.trim()}>
+      <div className="premium-wallet-hero__icon" aria-hidden="true">
+        <VaultShieldIcon />
+      </div>
+      <div className="premium-wallet-hero__copy">
+        <div className={`premium-wallet-hero__heading${showTitle ? '' : ' premium-wallet-hero__heading--compact'}`}>
+          <span>{kicker}</span>
+          {showTitle && title ? <strong>{title}</strong> : null}
+        </div>
+        {isVaultSettlementLayout ? (
+          settlementSlot
+        ) : showIdentitySection ? (
+          <div className="premium-wallet-hero__identity">
+            {placeholder ? (
+              <>
+                {showIdentityLine ? (
+                  <strong className="premium-wallet-placeholder-line premium-wallet-placeholder-line--md" />
+                ) : null}
+                <span className="premium-wallet-placeholder-line premium-wallet-placeholder-line--sm" />
+              </>
+            ) : (
+              <>
+                {showIdentityLine && identityLine ? <strong>{identityLine}</strong> : null}
+                {address ? <code>{address}</code> : null}
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+function vaultBalancesEmptyCopy(t, observationState = 'none') {
+  if (observationState === 'unavailable') {
+    return {
+      message: t('wallet_vault_balances_unavailable'),
+      hint: t('wallet_vault_balances_unavailable_hint'),
+    };
+  }
+
+  if (observationState === 'zero') {
+    return {
+      message: t('wallet_vault_balances_zero'),
+      hint: t('wallet_vault_balances_zero_hint'),
+    };
+  }
+
+  return {
+    message: t('wallet_vault_balances_empty'),
+    hint: null,
+  };
+}
+
+function WalletBalancesSection({
+  coins,
+  t,
+  variant = 'wallet',
+  skipEmptyState = false,
+  onRefresh = null,
+  refreshing = false,
+  observationState = 'none',
+}) {
+  const isVault = variant === 'vault';
+
+  if (!isVault) {
+    if (!coins.length || !hasPositiveBalances(coins)) {
+      return null;
+    }
+  } else if (!coins.length || !hasPositiveBalances(coins)) {
+    if (skipEmptyState) {
+      return null;
+    }
+
+    const emptyCopy = vaultBalancesEmptyCopy(t, observationState);
+
+    return (
+      <div className="premium-wallet-body premium-wallet-body--vault-balances">
+        <p className="premium-wallet-balances-empty">{emptyCopy.message}</p>
+        {emptyCopy.hint ? <p className="premium-wallet-balances-empty-hint">{emptyCopy.hint}</p> : null}
+        {onRefresh ? (
+          <button
+            className="vault-balances-refresh"
+            disabled={refreshing}
+            onClick={onRefresh}
+            type="button"
+          >
+            {refreshing ? t('wallet_balances_refreshing') : t('wallet_balances_refresh')}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="premium-wallet-body premium-wallet-body--vault-balances">
+      <div aria-label={t('wallet_summary_balances')} className="premium-wallet-balance-strip" role="list">
+        {coins.map((coin) => (
+          <div className="premium-wallet-balance-chip" key={coin.key || coin.symbol} role="listitem">
+            <span>{coin.symbol}</span>
+            <strong>{coin.display_amount}</strong>
+          </div>
+        ))}
+      </div>
+      {isVault && onRefresh ? (
+        <button
+          className="vault-balances-refresh"
+          disabled={refreshing}
+          onClick={onRefresh}
+          type="button"
+        >
+          {refreshing ? t('wallet_balances_refreshing') : t('wallet_balances_refresh')}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function walletPanelCopy(t, variant = 'wallet') {
+  const isVault = variant === 'vault';
+
+  return {
+    kicker: isVault ? t('wallet_vault_kicker') : t('wallet_shell_title'),
+    hint: isVault ? t('wallet_identity_hint') : t('wallet_shell_hint'),
+    showTitle: !isVault,
+    title: t('wallet_identity_name'),
+  };
+}
+
+function WalletHero({
+  model,
+  t,
+  variant = 'wallet',
+  onRefreshWallet,
+  refreshingWallet = false,
+}) {
+  const copy = walletPanelCopy(t, variant);
+  const isVault = variant === 'vault';
 
   return (
     <>
-      <div className="premium-wallet-shell__header">
-        <span>
-          Vault wallet
-          <GlossaryHint>A protected coin surface for SL1, MCR, and MLP.</GlossaryHint>
-        </span>
-        <strong>{hasWallet ? wallet.wallet?.label || 'Vault Wallet' : isVaultOpen ? 'Vault Wallet' : 'Open Vault to preview wallet.'}</strong>
-        <p>
-          {hasWallet
-            ? wallet.wallet?.custody_note || 'SL1, MCR, and MLP stay bound to your Vault identity.'
-            : isVaultOpen
-              ? 'Loading Vault Wallet coins bound to this Vault.'
-            : 'Wallet preview uses your Vault identity. Open Vault first, then return here.'}
-        </p>
-      </div>
+      <VaultHeroHeader
+        identityLine={identityLabel(model.identity)}
+        kicker={(
+          <>
+            {copy.kicker}
+            <GlossaryHint>{copy.hint}</GlossaryHint>
+          </>
+        )}
+        showIdentityLine
+        showTitle={copy.showTitle}
+        title={copy.title}
+      />
 
+      <WalletBalancesSection
+        coins={model.summaryCoins}
+        observationState={isVault ? vaultBalanceObservationState(model.wallets) : 'none'}
+        onRefresh={isVault ? onRefreshWallet : null}
+        refreshing={refreshingWallet}
+        t={t}
+        variant={variant}
+      />
+    </>
+  );
+}
+
+function WalletHeroFromIdentity({ identity, t, variant = 'wallet' }) {
+  const address = identity?.entity_l1_address || '';
+  const copy = walletPanelCopy(t, variant);
+  const isVault = variant === 'vault';
+
+  return (
+    <VaultHeroHeader
+      address={isVault ? '' : (address || '')}
+      copyableAddress={isVault}
+      identityLine={identityLabel(identity)}
+      kicker={(
+        <>
+          {copy.kicker}
+          <GlossaryHint>{copy.hint}</GlossaryHint>
+        </>
+      )}
+      showIdentityLine
+      showTitle={copy.showTitle}
+      title={copy.title}
+    />
+  );
+}
+
+function WalletHeroPlaceholder({ t, variant = 'wallet' }) {
+  const copy = walletPanelCopy(t, variant);
+
+  return (
+    <VaultHeroHeader
+      kicker={copy.kicker}
+      showIdentityLine={false}
+      showTitle={copy.showTitle}
+      title={copy.title}
+    />
+  );
+}
+
+function VaultWalletLoadingShell({ identity, status = '', t, variant = 'wallet' }) {
+  const hasIdentity = Boolean(
+    identity?.username
+    || identity?.display_alias
+    || identity?.entity_l1_address,
+  );
+  const isVault = variant === 'vault';
+  const loadingLabel = status || t('wallet_shell_loading');
+
+  return (
+    <>
+      {hasIdentity
+        ? <WalletHeroFromIdentity identity={identity} t={t} variant={variant} />
+        : <WalletHeroPlaceholder t={t} variant={variant} />}
+      {isVault && hasIdentity ? (
+        <div className="premium-wallet-body premium-wallet-body--stable">
+          <p className="premium-wallet-balances-empty">{t('wallet_vault_balances_empty')}</p>
+        </div>
+      ) : (
+        <div className="premium-wallet-body premium-wallet-body--loading">
+          <MeanlyLoadingMark label={loadingLabel} size="sm" />
+        </div>
+      )}
+    </>
+  );
+}
+
+export function VaultWalletContent({
+  wallet,
+  vaultIdentity = null,
+  status = '',
+  error = '',
+  isVaultOpen = false,
+  isLoading = false,
+  showOpenAction = true,
+  onRefreshWallet,
+  variant = 'wallet',
+}) {
+  const { t } = useLocale();
+  const model = useMemo(() => (wallet ? resolveIdentityWalletModel(wallet) : null), [wallet]);
+  const [activeWalletKey, setActiveWalletKey] = useState(null);
+  const [showFutureNetworks, setShowFutureNetworks] = useState(false);
+  const [connectingKey, setConnectingKey] = useState(null);
+  const [connectError, setConnectError] = useState(null);
+  const [connectNotice, setConnectNotice] = useState(null);
+  const [connectPhase, setConnectPhase] = useState('');
+  const [refreshingWallet, setRefreshingWallet] = useState(false);
+
+  useEffect(() => {
+    if (!model) {
+      setActiveWalletKey(null);
+      setShowFutureNetworks(false);
+    }
+  }, [model]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    import('../lib/metamask-multichain-bootstrap').then(({ ensureMetaMaskMultichainRegistered }) => {
+      if (!cancelled) {
+        ensureMetaMaskMultichainRegistered();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleConnect = useCallback(async (bindingKey) => {
+    let token = readStoredVaultToken();
+    if (!token) {
+      try {
+        token = await refreshStorefrontVaultToken();
+      } catch {
+        setConnectError({ key: bindingKey, message: t('wallet_connect_session_expired') });
+        return;
+      }
+    }
+
+    setConnectingKey(bindingKey);
+    setConnectError(null);
+    setConnectNotice(null);
+    setConnectPhase(t('wallet_connect_opening'));
+    setActiveWalletKey(bindingKey);
+
+    const runConnect = async (activeToken) => {
+      setConnectPhase(t('wallet_connect_signing'));
+      await connectWalletBinding({ token: activeToken, bindingKey });
+      setConnectPhase(t('wallet_connect_finishing'));
+      if (onRefreshWallet) {
+        await onRefreshWallet();
+      }
+      setConnectNotice({ key: bindingKey, message: t('wallet_connect_success') });
+      setActiveWalletKey(bindingKey);
+    };
+
+    try {
+      await runConnect(token);
+    } catch (exception) {
+      const status = exception?.cause?.status ?? exception?.status;
+      if (status === 401 || status === 403) {
+        try {
+          const freshToken = await refreshStorefrontVaultToken();
+          await runConnect(freshToken);
+          return;
+        } catch (retryException) {
+          const message = retryException instanceof WalletConnectError
+            ? retryException.userMessage
+            : retryException?.message || t('wallet_connect_session_expired');
+          setConnectError({ key: bindingKey, message });
+          return;
+        }
+      }
+
+      const message = exception instanceof WalletConnectError
+        ? exception.userMessage
+        : exception?.message || t('wallet_shell_error');
+      setConnectError({ key: bindingKey, message });
+    } finally {
+      setConnectingKey(null);
+      setConnectPhase('');
+    }
+  }, [onRefreshWallet, t]);
+
+  const handleRefreshWallet = useCallback(async () => {
+    if (!onRefreshWallet) {
+      return;
+    }
+
+    setRefreshingWallet(true);
+    try {
+      await onRefreshWallet();
+    } finally {
+      setRefreshingWallet(false);
+    }
+  }, [onRefreshWallet]);
+
+  const hasWallet = Boolean(wallet && model);
+  const showLoadingShell = isLoading || (isVaultOpen && !hasWallet && !error);
+  const visibleWallets = model ? visibleWalletBindings(model.wallets) : [];
+  const showBindingsSection = hasWallet && (visibleWallets.length > 0 || model.futureWallets.length > 0);
+  const suppressBindingAssets = variant === 'vault' && model?.summaryCoins?.length > 0;
+  const showBindingReceiveQr = variant === 'vault';
+
+  return (
+    <>
       {hasWallet ? (
         <>
-          <div className="premium-wallet-identity">
-            <span>Identity</span>
-            <strong>{identityLabel(wallet.identity)}</strong>
-            <small>{wallet.contract?.network || 'simple-layer-1'} · {wallet.contract?.mode || 'preview'}</small>
-          </div>
+          <WalletHero
+            model={model}
+            onRefreshWallet={handleRefreshWallet}
+            refreshingWallet={refreshingWallet}
+            t={t}
+            variant={variant}
+          />
 
-          <div className="premium-wallet-assets">
-            {coins.map((coin) => (
-              <article className="premium-wallet-asset" key={coin.key}>
-                <span>{coin.symbol}</span>
-                <strong>{coin.display_amount}</strong>
-                <p>{coin.name}</p>
-                <small>{coin.note}</small>
-              </article>
-            ))}
-          </div>
+          {showBindingsSection ? (
+            <div className="premium-wallet-body premium-wallet-body--bindings">
+              <div className="premium-wallet-bindings">
+              <div className="premium-wallet-bindings__header">
+                <span>
+                  {t('wallet_bindings_title')}
+                  <GlossaryHint>{t('wallet_bindings_hint')}</GlossaryHint>
+                </span>
+                {connectPhase ? <small className="premium-wallet-bindings__phase">{connectPhase}</small> : null}
+              </div>
 
-          <div className="premium-wallet-capabilities">
-            <span>Capabilities</span>
-            <strong>{wallet.capabilities?.next_action || 'PREVIEW_COINS'}</strong>
-            <p>Coin redemption, transfer, and conversion stay disabled until wallet authority is connected.</p>
-          </div>
+              {visibleWallets.length ? (
+                <div className="premium-wallet-bindings__list">
+                  {visibleWallets.map((walletBinding) => (
+                    <WalletBindingRow
+                      connectError={connectError}
+                      connectNotice={connectNotice}
+                      connectingKey={connectingKey}
+                      isActive={activeWalletKey === walletBinding.key}
+                      key={walletBinding.key}
+                      onConnect={handleConnect}
+                      onSelect={setActiveWalletKey}
+                      showReceiveQr={showBindingReceiveQr}
+                      suppressAssets={suppressBindingAssets}
+                      t={t}
+                      walletBinding={walletBinding}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {model.futureWallets.length ? (
+                <div className="premium-wallet-future">
+                  <button
+                    className="premium-wallet-future__toggle"
+                    onClick={() => setShowFutureNetworks((current) => !current)}
+                    type="button"
+                  >
+                    {showFutureNetworks ? t('wallet_future_networks_hide') : t('wallet_future_networks_show')}
+                  </button>
+                  {showFutureNetworks ? (
+                    <div className="premium-wallet-bindings__list premium-wallet-bindings__list--future">
+                      {model.futureWallets.map((walletBinding) => (
+                        <WalletBindingRow
+                          connectError={connectError}
+                          connectNotice={connectNotice}
+                          connectingKey={connectingKey}
+                          isActive={activeWalletKey === walletBinding.key}
+                          key={walletBinding.key}
+                          onConnect={handleConnect}
+                          onSelect={setActiveWalletKey}
+                          showReceiveQr={showBindingReceiveQr}
+                          suppressAssets={suppressBindingAssets}
+                          t={t}
+                          walletBinding={walletBinding}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : showLoadingShell ? (
+        <>
+          <VaultWalletLoadingShell identity={vaultIdentity} status={status} t={t} variant={variant} />
         </>
       ) : (
         <div className="premium-wallet-empty">
-          <span>Vault wallet preview</span>
-          <strong>{error || status || 'Vault is not open yet.'}</strong>
-          <p>{isVaultOpen ? 'SL1, MCR, and MLP will appear here.' : 'Open Vault to bind SL1, MCR, and MLP to your trusted identity.'}</p>
-          {showOpenAction ? <Link href="/vault">Open Vault</Link> : null}
+          <span>{t('wallet_shell_title')}</span>
+          <strong>{error || status || t('wallet_shell_empty')}</strong>
+          <p>{isVaultOpen ? t('wallet_shell_loading') : t('wallet_shell_empty')}</p>
+          {showOpenAction ? <Link href="/vault">{t('wallet_shell_open_vault')}</Link> : null}
         </div>
       )}
     </>
@@ -70,9 +702,23 @@ export function VaultWalletContent({ wallet, status = '', error = '', isVaultOpe
 }
 
 export function PremiumWalletPanel() {
+  const { t } = useLocale();
   const [wallet, setWallet] = useState(null);
-  const [status, setStatus] = useState('Loading wallet preview...');
+  const [status, setStatus] = useState('');
   const [error, setError] = useState('');
+
+  const refreshWallet = useCallback(async () => {
+    const token = readStoredVaultToken();
+    if (!token) {
+      setWallet(null);
+      return;
+    }
+
+    const payload = await fetchWalletBundle(token);
+    setWallet(payload);
+    setStatus('');
+    setError('');
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,8 +732,10 @@ export function PremiumWalletPanel() {
         return;
       }
 
+      setStatus(t('wallet_shell_loading'));
+
       try {
-        const payload = await fetchPremiumWalletAssets(token);
+        const payload = await fetchWalletBundle(token);
         if (cancelled) return;
         setWallet(payload);
         setStatus('');
@@ -99,7 +747,7 @@ export function PremiumWalletPanel() {
         }
         setWallet(null);
         setStatus('');
-        setError(exception.message || 'Wallet preview is unavailable.');
+        setError(exception.message || t('wallet_shell_error'));
       }
     }
 
@@ -108,12 +756,17 @@ export function PremiumWalletPanel() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   return (
     <main className="page page--wallet">
-      <section className="premium-wallet-shell">
-        <VaultWalletContent wallet={wallet} status={status} error={error} />
+      <section className="premium-wallet-shell premium-wallet-shell--compact">
+        <VaultWalletContent
+          error={error}
+          onRefreshWallet={refreshWallet}
+          status={status}
+          wallet={wallet}
+        />
       </section>
     </main>
   );

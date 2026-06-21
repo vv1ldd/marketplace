@@ -9,12 +9,15 @@ const previousRouteKey = 'meanly:previous-route';
 const primarySwitcherPaths = new Set(['/', '/catalog', '/vault', '/merchant', '/partner', '/ops']);
 
 function backTarget(pathname) {
+  if (pathname === '/vault/connect' || pathname === '/authorize') {
+    return { href: '/', label: 'Back' };
+  }
+
   if (
     pathname === '/'
     || pathname === '/catalog'
     || pathname === '/vault'
-    || pathname.startsWith('/vault/')
-    || pathname === '/authorize'
+    || (pathname.startsWith('/vault/') && pathname !== '/vault/connect')
     || pathname === '/wallet'
     || pathname === '/identity'
   ) {

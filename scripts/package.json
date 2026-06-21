@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "bip322-js": "^2.0.0"
+  }
+}

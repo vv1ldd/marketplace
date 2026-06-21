@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchPartnerModule, fetchPartnerWorkspace, postPartnerAction } from '../lib/partner-api';
 import { merchantConnectUrl } from '../lib/storefront-api';
+import { normalizePartnerWorkspace, merchantLedgerCurrency } from '../lib/merchant-workspace-market';
 import { BusinessOnboardingStatus } from './BusinessOnboardingStatus';
 import { MeanlyConnectLink } from './MeanlyConnectLink';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 
 const MODULES = [
   { key: 'overview', path: '', title: 'Overview', endpoint: null },
@@ -57,19 +59,81 @@ function normalizeWorkspacePath(path = '') {
 
 function cachePartnerWorkspace(workspace) {
   try {
-    window.sessionStorage.setItem(workspaceCacheKey, JSON.stringify(workspace));
+    window.sessionStorage.setItem(workspaceCacheKey, JSON.stringify({
+      market: workspace?.market?.market || 'global',
+      payload: workspace,
+    }));
   } catch {
     // Workspace cache is a UX optimization only.
   }
 }
 
-function formatCurrency(value) {
-  const amount = Number(value || 0);
+function readCachedPartnerWorkspace() {
+  try {
+    const raw = window.sessionStorage.getItem(workspaceCacheKey);
+    if (!raw) {
+      return null;
+    }
 
-  return `${amount.toLocaleString('ru-RU', {
+    const parsed = JSON.parse(raw);
+    const payload = parsed?.payload || parsed;
+
+    return normalizePartnerWorkspace(payload);
+  } catch {
+    return null;
+  }
+}
+
+function formatCurrency(value, market = null, formatted = null) {
+  if (formatted) {
+    return formatted;
+  }
+
+  const amount = Number(value || 0);
+  let currency = String(
+    market?.currency || market?.display_currency || merchantLedgerCurrency(market),
+  ).toUpperCase();
+
+  if (merchantLedgerCurrency(market) !== 'RUB' && currency === 'RUB') {
+    currency = 'USD';
+  }
+
+  const locale = market?.locale === 'ru' ? 'ru-RU' : 'en-US';
+
+  if (currency === 'RUB') {
+    return `${amount.toLocaleString(locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} ₽`;
+  }
+
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })} ₽`;
+  }).format(amount);
+}
+
+function displayBalance(balances, field, market) {
+  const formattedKey = `${field}_formatted`;
+  const formatted = balances?.[formattedKey];
+  const displayMarket = {
+    ...(market || {}),
+    currency: balances?.currency || merchantLedgerCurrency(market),
+  };
+
+  if (formatted && !formatted.includes('₽')) {
+    return formatted;
+  }
+
+  return formatCurrency(balances?.[field], displayMarket);
+}
+
+function formatMetric(value) {
+  const amount = Number(value || 0);
+
+  return amount.toLocaleString('en-US');
 }
 
 function valuePreview(value) {
@@ -195,17 +259,19 @@ function SummaryCard({ title, value, caption }) {
 }
 
 function OverviewModule({ workspace }) {
+  const showInn = workspace.market?.market === 'ru';
+
   return (
-    <div className="seller-module-stack">
-      <section className="seller-summary-grid">
-        <SummaryCard title="Orders in work" value={workspace.orders_summary?.active || 0} caption="Active orders" />
-        <SummaryCard title="Catalog available" value={workspace.catalog_summary?.catalog_available || 0} caption="Platform products seller can take" />
-        <SummaryCard title="Supply" value={workspace.catalog_summary?.supply_products || 0} caption={`${workspace.catalog_summary?.active_supply_products || 0} active seller products`} />
-        <SummaryCard title="Stock" value={workspace.catalog_summary?.stock_units || 0} caption="Available units in warehouses" />
-        <SummaryCard title="Balance" value={formatCurrency(workspace.finance_summary?.available)} caption="Available funds" />
+    <div className="seller-module-stack seller-overview">
+      <section className="seller-summary-grid seller-summary-grid--overview">
+        <SummaryCard title="Orders in work" value={formatMetric(workspace.orders_summary?.active || 0)} caption="Active orders" />
+        <SummaryCard title="Catalog available" value={formatMetric(workspace.catalog_summary?.catalog_available || 0)} caption="Platform products you can take" />
+        <SummaryCard title="Supply" value={formatMetric(workspace.catalog_summary?.supply_products || 0)} caption={`${formatMetric(workspace.catalog_summary?.active_supply_products || 0)} active in your shops`} />
+        <SummaryCard title="Stock" value={formatMetric(workspace.catalog_summary?.stock_units || 0)} caption="Available warehouse units" />
+        <SummaryCard title="Balance" value={displayBalance(workspace.finance_summary, 'available', workspace.market)} caption="Available funds" />
       </section>
 
-      <section className="seller-grid-two">
+      <section className="seller-grid-two seller-overview__details">
         <div className="panel">
           <div className="section-heading">
             <h2>Legal Entity</h2>
@@ -213,7 +279,11 @@ function OverviewModule({ workspace }) {
           </div>
           <div className="seller-kv">
             <span>Name</span><strong>{workspace.legal_entity?.short_name || workspace.legal_entity?.name}</strong>
-            <span>INN</span><strong>{workspace.legal_entity?.inn || 'Required for marketplaces'}</strong>
+            {showInn ? (
+              <>
+                <span>INN</span><strong>{workspace.legal_entity?.inn || 'Required for marketplaces'}</strong>
+              </>
+            ) : null}
             <span>Status</span><strong>{workspace.legal_entity?.status || 'unknown'}</strong>
           </div>
         </div>
@@ -244,6 +314,8 @@ function OverviewModule({ workspace }) {
 }
 
 function SalesChannelsModule({ workspace }) {
+  const channels = workspace.sales_channels || [];
+
   return (
     <section className="seller-module-stack">
       <div className="section-heading">
@@ -254,7 +326,7 @@ function SalesChannelsModule({ workspace }) {
       </div>
 
       <div className="grid">
-        {(workspace.sales_channels || []).map((channel) => (
+        {(channels).map((channel) => (
           <article className="product-card seller-channel-card" key={channel.type}>
             <div className="product-card__meta">
               <span>{channel.group || 'channel'}</span>
@@ -288,7 +360,7 @@ function SalesChannelsModule({ workspace }) {
 function GenericRows({ payload, module }) {
   const { key, rows } = firstCollection(payload);
   const columns = rows.length
-    ? Object.keys(rows[0]).filter((column) => !['id'].includes(column)).slice(0, 6)
+    ? Object.keys(rows[0]).filter((column) => !['id', 'list_price', 'list_price_currency'].includes(column)).slice(0, 6)
     : [];
   const isSellerSupply = module.key === 'provider_storefront';
 
@@ -380,6 +452,17 @@ function FinanceModule({
   const [amount, setAmount] = useState('');
   const [comment, setComment] = useState('');
   const [targetLegalEntityId, setTargetLegalEntityId] = useState('');
+  const [proofDrafts, setProofDrafts] = useState({});
+
+  function updateProofDraft(intentId, field, value) {
+    setProofDrafts((current) => ({
+      ...current,
+      [intentId]: {
+        ...(current[intentId] || {}),
+        [field]: value,
+      },
+    }));
+  }
 
   function submitIntent(event) {
     event.preventDefault();
@@ -399,10 +482,10 @@ function FinanceModule({
 
   return (
     <div className="seller-module-stack">
-      <section className="seller-summary-grid">
-        <SummaryCard title="Available" value={formatCurrency(balances.available)} caption="Ready for stock procurement" />
-        <SummaryCard title="Reserved" value={formatCurrency(balances.reserved)} caption="Held for open operations" />
-        <SummaryCard title="Total" value={formatCurrency(balances.total ?? balances.available)} caption="Merchant RUB ledger" />
+      <section className="seller-summary-grid seller-summary-grid--finance">
+        <SummaryCard title="Available" value={displayBalance(balances, 'available', workspace.market)} caption="Ready for stock procurement" />
+        <SummaryCard title="Reserved" value={displayBalance(balances, 'reserved', workspace.market)} caption="Held for open operations" />
+        <SummaryCard title="Total" value={displayBalance(balances, 'total', workspace.market)} caption={payload?.ledger_caption || `Merchant ${workspace.market?.currency || 'USD'} ledger`} />
       </section>
 
       <section className="seller-grid-two">
@@ -421,8 +504,8 @@ function FinanceModule({
                 <option key={item.key} value={item.key}>{item.title}</option>
               ))}
             </select>
-            <span>Amount RUB</span>
-            <input min="0.01" onChange={(event) => setAmount(event.target.value)} placeholder="10000" step="0.01" type="number" value={amount} />
+            <span>{payload?.deposit_amount_label || `Amount (${workspace.market?.currency || 'USD'})`}</span>
+            <input min="0.01" onChange={(event) => setAmount(event.target.value)} placeholder="100.00" step="0.01" type="number" value={amount} />
             {rail === 'merchant_transfer' ? (
               <>
                 <span>Target legal entity ID</span>
@@ -472,6 +555,45 @@ function FinanceModule({
               <article className="seller-mini-card" key={intent.id}>
                 <strong>{intent.reference} · {intent.amount_formatted}</strong>
                 <span>{intent.rail_title} · {intent.status} · {intent.next_action}</span>
+                {intent.crypto_deposit?.deposit_address ? (
+                  <div className="seller-kv seller-form-stack">
+                    <span>{intent.crypto_deposit.network_label || 'Polygon'} deposit</span>
+                    <code className="seller-code-block">{intent.crypto_deposit.deposit_address}</code>
+                    <span>
+                      Assets: {(intent.crypto_deposit.assets || []).join(', ') || 'USDT, USDC'}
+                      {intent.crypto_deposit.chain_id ? ` · chain ${intent.crypto_deposit.chain_id}` : ''}
+                    </span>
+                  </div>
+                ) : null}
+                {intent.crypto_deposit?.can_submit_proof ? (
+                  <div className="seller-kv seller-form-stack">
+                    <span>Submit transaction proof</span>
+                    <select
+                      onChange={(event) => updateProofDraft(intent.id, 'asset', event.target.value)}
+                      value={proofDrafts[intent.id]?.asset || intent.crypto_deposit.assets?.[0] || 'USDT'}
+                    >
+                      {(intent.crypto_deposit.assets || ['USDT', 'USDC']).map((asset) => (
+                        <option key={asset} value={asset}>{asset}</option>
+                      ))}
+                    </select>
+                    <input
+                      onChange={(event) => updateProofDraft(intent.id, 'tx_hash', event.target.value)}
+                      placeholder="0x transaction hash"
+                      value={proofDrafts[intent.id]?.tx_hash || ''}
+                    />
+                    <button
+                      disabled={actionState === `finance:proof:${intent.id}` || !(proofDrafts[intent.id]?.tx_hash || '').startsWith('0x')}
+                      onClick={() => onFinanceAction('submit_proof', {
+                        id: intent.id,
+                        tx_hash: proofDrafts[intent.id]?.tx_hash || '',
+                        asset: proofDrafts[intent.id]?.asset || intent.crypto_deposit.assets?.[0] || 'USDT',
+                      })}
+                      type="button"
+                    >
+                      {actionState === `finance:proof:${intent.id}` ? 'Submitting proof...' : 'Submit crypto proof'}
+                    </button>
+                  </div>
+                ) : null}
                 {intent.authority ? (
                   <span>
                     Authority {intent.authority.decision} · quorum {intent.authority.accepted_attestations}/{intent.authority.required_quorum}
@@ -749,8 +871,8 @@ function SupplyCatalogModule({
       {actionFeedback ? (
         <div className="seller-alert seller-alert--compact">
           <strong>{actionFeedback}</strong>
-          {/balance|баланс|недостаточно|RUB/i.test(actionFeedback) ? (
-            <button onClick={onOpenFinance} type="button">Top up RUB balance</button>
+          {/balance|insufficient|RUB|USD/i.test(actionFeedback) ? (
+            <button onClick={onOpenFinance} type="button">Top up balance</button>
           ) : null}
         </div>
       ) : null}
@@ -862,6 +984,14 @@ function SupplyCatalogModule({
   );
 }
 
+function SellerModuleLoading({ label }) {
+  return (
+    <div className="seller-module-loading">
+      <MeanlyLoadingMark label={label} size="sm" />
+    </div>
+  );
+}
+
 function ModuleDetail({
   activeModule,
   workspace,
@@ -890,7 +1020,7 @@ function ModuleDetail({
     return (
       <div className="seller-module-stack">
         {error ? <p className="product-card__reason">{error}</p> : null}
-        {loading ? <p className="checkout-note">Loading finance...</p> : null}
+        {loading ? <SellerModuleLoading label="Loading finance..." /> : null}
         {payload ? (
           <FinanceModule
             actionFeedback={actionFeedback}
@@ -907,7 +1037,7 @@ function ModuleDetail({
     return (
       <div className="seller-module-stack">
         {error ? <p className="product-card__reason">{error}</p> : null}
-        {loading ? <p className="checkout-note">Loading {activeModule.title.toLowerCase()}...</p> : null}
+        {loading ? <SellerModuleLoading label={`Loading ${activeModule.title.toLowerCase()}...`} /> : null}
         {payload ? (
           <SupplyCatalogModule
             actionFeedback={actionFeedback}
@@ -934,7 +1064,7 @@ function ModuleDetail({
         </div>
       ) : null}
       {error ? <p className="product-card__reason">{error}</p> : null}
-      {loading ? <p className="checkout-note">Loading {activeModule.title.toLowerCase()}...</p> : null}
+      {loading ? <SellerModuleLoading label={`Loading ${activeModule.title.toLowerCase()}...`} /> : null}
       {!loading && payload ? <GenericRows payload={payload} module={activeModule} /> : null}
     </div>
   );
@@ -959,9 +1089,13 @@ function AuthRequired({ error }) {
 }
 
 export function PartnerWorkspace({ initialPath = '', initialWorkspace = null }) {
+  const normalizedInitialWorkspace = useMemo(
+    () => (initialWorkspace ? normalizePartnerWorkspace(initialWorkspace) : null),
+    [initialWorkspace],
+  );
   const normalizedPath = normalizeWorkspacePath(initialPath);
   const initialModule = MODULE_BY_PATH[normalizedPath] || MODULES[0];
-  const [workspace, setWorkspace] = useState(initialWorkspace);
+  const [workspace, setWorkspace] = useState(normalizedInitialWorkspace);
   const [workspaceError, setWorkspaceError] = useState('');
   const [activeKey, setActiveKey] = useState(initialModule.key);
   const [modulePayloads, setModulePayloads] = useState({});
@@ -988,44 +1122,48 @@ export function PartnerWorkspace({ initialPath = '', initialWorkspace = null }) 
   }
 
   useEffect(() => {
-    if (initialWorkspace) {
-      cachePartnerWorkspace(initialWorkspace);
-      return undefined;
+    if (normalizedInitialWorkspace) {
+      cachePartnerWorkspace(normalizedInitialWorkspace);
     }
 
     let cancelled = false;
     fetchPartnerWorkspace()
       .then((payload) => {
         if (!cancelled) {
-          cachePartnerWorkspace(payload);
-          setWorkspace(payload);
+          const normalized = normalizePartnerWorkspace(payload);
+          cachePartnerWorkspace(normalized);
+          setWorkspace(normalized);
           setWorkspaceError('');
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          setWorkspaceError(error.message || 'Could not load seller workspace.');
+          if (!normalizedInitialWorkspace) {
+            setWorkspaceError(error.message || 'Could not load seller workspace.');
+          }
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [initialWorkspace]);
+  }, [normalizedInitialWorkspace]);
+
+  const modulePayloadKey = modulePayloads[activeModule.key] ? activeModule.key : '';
 
   useEffect(() => {
     if (
       !workspace
       || shouldShowOnboardingForEntity(workspace.legal_entity)
       || !activeModule.endpoint
-      || modulePayloads[activeModule.key]
+      || modulePayloadKey
     ) {
-      return;
+      return undefined;
     }
 
     const endpoint = moduleEndpointFor(workspace, activeModule);
     if (!endpoint) {
-      return;
+      return undefined;
     }
 
     let cancelled = false;
@@ -1050,8 +1188,9 @@ export function PartnerWorkspace({ initialPath = '', initialWorkspace = null }) 
 
     return () => {
       cancelled = true;
+      setModuleLoading(false);
     };
-  }, [activeModule, activeModuleQuery, activeModuleQueryKey, modulePayloads, workspace]);
+  }, [activeModule.key, activeModule.endpoint, activeModule.title, activeModuleQueryKey, modulePayloadKey, workspace?.legal_entity?.id]);
 
   function handleModuleFilter(moduleKey, patch) {
     const nextQuery = Object.fromEntries(
@@ -1071,8 +1210,9 @@ export function PartnerWorkspace({ initialPath = '', initialWorkspace = null }) 
 
   async function refreshWorkspace() {
     const payload = await fetchPartnerWorkspace();
-    cachePartnerWorkspace(payload);
-    setWorkspace(payload);
+    const normalized = normalizePartnerWorkspace(payload);
+    cachePartnerWorkspace(normalized);
+    setWorkspace(normalized);
   }
 
   async function handleAction(actionKey) {
@@ -1104,14 +1244,31 @@ export function PartnerWorkspace({ initialPath = '', initialWorkspace = null }) 
   async function handleFinanceAction(action, body = {}) {
     const endpoint = action === 'cancel'
       ? `/api/partner/workspace/finance/deposit-intents/${body.id}/cancel`
-      : '/api/partner/workspace/finance/deposit-intents';
-    const actionKey = action === 'cancel' ? `finance:cancel:${body.id}` : 'finance:create';
+      : action === 'submit_proof'
+        ? `/api/partner/workspace/finance/deposit-intents/${body.id}/crypto-proof`
+        : '/api/partner/workspace/finance/deposit-intents';
+    const actionKey = action === 'cancel'
+      ? `finance:cancel:${body.id}`
+      : action === 'submit_proof'
+        ? `finance:proof:${body.id}`
+        : 'finance:create';
 
     setActionState(actionKey);
     setActionFeedback('');
     try {
-      const result = await postPartnerAction(endpoint, action === 'cancel' ? {} : body);
-      setActionFeedback(action === 'cancel' ? 'Deposit intent cancelled.' : result.intent?.next_action || 'Deposit intent created.');
+      const requestBody = action === 'cancel'
+        ? {}
+        : action === 'submit_proof'
+          ? { tx_hash: body.tx_hash, asset: body.asset }
+          : body;
+      const result = await postPartnerAction(endpoint, requestBody);
+      setActionFeedback(
+        action === 'cancel'
+          ? 'Deposit intent cancelled.'
+          : action === 'submit_proof'
+            ? result.intent?.next_action || 'Crypto proof submitted.'
+            : result.intent?.next_action || 'Deposit intent created.',
+      );
       setModulePayloads((current) => ({ ...current, finance: undefined }));
       await refreshWorkspace();
       return result;
@@ -1223,7 +1380,7 @@ export function PartnerWorkspace({ initialPath = '', initialWorkspace = null }) 
       <main className="page">
         <section className="hero">
           <p className="eyebrow">Seller workspace</p>
-          <h1>Opening seller workspace...</h1>
+          <MeanlyLoadingMark label="Opening seller workspace..." size="md" />
           <p>Checking seller access. If this takes more than a moment, continue with Meanly.</p>
         </section>
       </main>

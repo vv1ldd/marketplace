@@ -33,6 +33,7 @@ import {
   traceOpsSimpleLayer1,
   validateOpsTribunalChain,
 } from '../lib/ops-api';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 
 const MODULE_GROUPS = [
   {
@@ -231,7 +232,11 @@ function OpsState({ error, isLoading, empty, emptyText = 'No rows for this surfa
     return <p className="ops-state-note ops-state-note--error">{error.message}</p>;
   }
   if (isLoading) {
-    return <p className="ops-state-note">Loading ops surface...</p>;
+    return (
+      <div className="ops-state-note ops-state-note--loading">
+        <MeanlyLoadingMark label="Loading ops surface..." size="sm" />
+      </div>
+    );
   }
   if (empty) {
     return <p className="ops-state-note">{emptyText}</p>;
@@ -1000,7 +1005,11 @@ function ProvidersModule() {
         ...(current || {}),
         data: (current?.data || providers).map((item) => (item.id === provider.id ? result.provider || item : item)),
       }));
-      setOutput(result.output || result.message || `Provider sync finished with exit code ${result.exit_code ?? 0}.`);
+      setOutput(
+        result.message
+        || result.output
+        || (result.queued ? 'Catalog sync queued in background. Status will move to idle when finished.' : `Provider sync finished with exit code ${result.exit_code ?? 0}.`),
+      );
       await refresh();
     } catch (exception) {
       setOutput(exception.message || 'Provider sync failed.');

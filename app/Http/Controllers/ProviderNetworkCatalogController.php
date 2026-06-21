@@ -5,74 +5,30 @@ namespace App\Http\Controllers;
 use App\Models\ProviderProduct;
 use App\Services\ProductIntentResolutionService;
 use App\Services\ProviderNetworkCatalogService;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
 class ProviderNetworkCatalogController extends Controller
 {
-    public function index(ProviderNetworkCatalogService $network): View
+    public function index(Request $request): RedirectResponse
     {
-        return view('network.index', [
-            'categories' => $network->categorySummaries(),
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
-    public function category(string $category, ProviderNetworkCatalogService $network): View
+    public function category(string $category, Request $request): RedirectResponse
     {
         abort_unless(array_key_exists($category, (array) config('catalog_taxonomy.categories', [])), 404);
 
-        $meta = (array) config("catalog_taxonomy.categories.{$category}", []);
-        $products = $network->candidatesQuery($category)
-            ->orderByDesc('brand_id')
-            ->orderBy('name')
-            ->paginate(30)
-            ->withQueryString();
-        $identityGroups = $network->groupCandidatesByIdentity(collect($products->items()));
-
-        return view('network.category', [
-            'category' => $category,
-            'meta' => $meta,
-            'products' => $products,
-            'identityGroupsByFingerprint' => $identityGroups->keyBy('fingerprint'),
-            'jsonLd' => [
-                '@context' => 'https://schema.org',
-                '@type' => 'CollectionPage',
-                'name' => 'Provider network: '.($meta['label_en'] ?? $category),
-                'description' => $meta['description_ru'] ?? null,
-                'mainEntity' => $network->itemListJsonLd($products, $meta['label_en'] ?? $category),
-            ],
-            'network' => $network,
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
-    public function show(string $idSlug, ProviderNetworkCatalogService $network, ProductIntentResolutionService $intentResolver, Request $request): View
+    public function show(string $idSlug, ProviderNetworkCatalogService $network, ProductIntentResolutionService $intentResolver, Request $request): RedirectResponse
     {
-        $product = $network->findByPublicSlug($idSlug);
-        abort_unless($product instanceof ProviderProduct, 404);
-        $facts = $network->facts($product);
-        $intentResolution = $intentResolver->resolveFromRankedOffers(
-            $product,
-            $request->query('intent'),
-            collect($facts['seller_offers']['offers'] ?? []),
-        );
-        $jsonLd = $network->jsonLd($product);
-        $selectedOfferJsonLd = $intentResolver->selectedOfferJsonLd($intentResolution);
-        if ($selectedOfferJsonLd !== null) {
-            $jsonLd['mainEntity'] = $selectedOfferJsonLd;
-            $jsonLd['potentialAction'] = [
-                '@type' => 'BuyAction',
-                'target' => $intentResolution['selected_offer']['url'],
-                'name' => 'Buy selected '.$intentResolution['intent_label'].' offer',
-            ];
-        }
+        abort_unless($network->findByPublicSlug($idSlug) instanceof ProviderProduct, 404);
 
-        return view('network.show', [
-            'product' => $product,
-            'facts' => $facts,
-            'intentResolution' => $intentResolution,
-            'jsonLd' => $jsonLd,
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function categoryJson(string $category, ProviderNetworkCatalogService $network): JsonResponse

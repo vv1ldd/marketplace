@@ -1,0 +1,285 @@
+<?php
+
+namespace App\Services\SettlementAdapters;
+
+use App\Contracts\SettlementAdapter;
+use App\Models\IdentityBinding;
+use App\Models\VaultIdentity;
+use App\Services\SettlementAuditEventRecorder;
+use App\Services\SettlementNetworkRegistry;
+use App\Services\UtxoWalletPreviewEnricher;
+use App\Services\WalletBindingService;
+use App\Support\BitcoinRpcClient;
+use App\Support\SettlementAdapterConfig;
+use App\Support\SettlementAdapterHealthCodes;
+use App\Support\SettlementNetwork;
+
+class BitcoinSettlementAdapter implements SettlementAdapter
+{
+    private const ADAPTER_KEY = 'bitcoin';
+
+    public function __construct(
+        private readonly SettlementNetworkRegistry $settlementNetworks,
+        private readonly WalletBindingService $bindings,
+        private readonly UtxoWalletPreviewEnricher $walletPreviewEnricher,
+        private readonly SettlementAuditEventRecorder $auditEvents,
+        private readonly BitcoinRpcClient $bitcoin,
+    ) {}
+
+    public function adapterKey(): string
+    {
+        return self::ADAPTER_KEY;
+    }
+
+    public function mode(): string
+    {
+        return SettlementAdapterConfig::mode(self::ADAPTER_KEY);
+    }
+
+    public function isEnabled(): bool
+    {
+        return SettlementAdapterConfig::isEnabled(self::ADAPTER_KEY);
+    }
+
+    public function allowsWrite(): bool
+    {
+        return SettlementAdapterConfig::allowsWrite(self::ADAPTER_KEY);
+    }
+
+    public function verifyAttachment(VaultIdentity $vault, IdentityBinding $binding): array
+    {
+        if ($binding->binding_key !== self::ADAPTER_KEY || ! $binding->isVerified()) {
+            return [
+                'valid' => false,
+                'reason' => 'binding_not_verified',
+            ];
+        }
+
+        if ((string) $binding->vault_id !== (string) $vault->id) {
+            return [
+                'valid' => false,
+                'reason' => 'binding_vault_mismatch',
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'binding' => $this->bindings->formatBinding($binding),
+        ];
+    }
+
+    public function observeBalance(VaultIdentity $vault, IdentityBinding $binding): array
+    {
+        $verification = $this->verifyAttachment($vault, $binding);
+        if ($verification['valid'] !== true) {
+            return [
+                'observed' => false,
+                'reason' => $verification['reason'] ?? 'attachment_invalid',
+                'observation_state' => SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE,
+            ];
+        }
+
+        $network = $this->settlementNetworks->network(self::ADAPTER_KEY);
+        $preview = $this->settlementNetworks->adapter(self::ADAPTER_KEY)->walletPreview([
+            'entity_l1_address' => $vault->anchor_address,
+        ]);
+        $preview = $this->walletPreviewEnricher->enrich(
+            $preview,
+            $network,
+            (string) $binding->binding_value_normalized,
+        );
+
+        $coins = $this->extractCoins($preview);
+        $observationState = $this->resolveObservationState($network, $coins);
+
+        if ($observationState !== 'live') {
+            return [
+                'observed' => false,
+                'reason' => $observationState === SettlementAdapterHealthCodes::RPC_ERROR
+                    ? SettlementAdapterHealthCodes::RPC_ERROR
+                    : SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE,
+                'observation_state' => $observationState,
+                'adapter' => self::ADAPTER_KEY,
+                'mode' => $this->mode(),
+                'address' => $binding->binding_value_normalized,
+                'coins' => $coins,
+                'capabilities' => $preview['capabilities'] ?? [],
+            ];
+        }
+
+        $this->auditEvents->recordBalanceRead(
+            identityId: (string) $vault->anchor_address,
+            vaultId: (string) $vault->id,
+            source: self::ADAPTER_KEY,
+        );
+
+        return [
+            'observed' => true,
+            'observation_state' => 'live',
+            'adapter' => self::ADAPTER_KEY,
+            'mode' => $this->mode(),
+            'address' => $binding->binding_value_normalized,
+            'coins' => $coins,
+            'capabilities' => $preview['capabilities'] ?? [],
+        ];
+    }
+
+    public function listEvents(VaultIdentity $vault, int $limit = 50): array
+    {
+        return $this->auditEvents
+            ->listForVault((string) $vault->id, $limit)
+            ->map(fn ($event) => $this->auditEvents->formatEvent($event))
+            ->values()
+            ->all();
+    }
+
+    public function healthCheck(): array
+    {
+        $network = $this->settlementNetworks->network(self::ADAPTER_KEY);
+        $failures = [];
+        $expectedChain = (string) config('blockchain_networks.networks.bitcoin.expected_chain', 'main');
+
+        $checks = [
+            'adapter_registered' => true,
+            'adapter_enabled' => $this->isEnabled(),
+            'mode' => $this->mode(),
+            'crypto_rails_enabled' => $this->settlementNetworks->cryptoRailsEnabled(),
+            'rpc_configured' => is_string($network->rpcUrl) && $network->rpcUrl !== '',
+            'rpc_enabled' => $network->rpcEnabled,
+            'rpc_reachable' => false,
+            'chain_matches' => false,
+            'expected_chain' => $expectedChain,
+        ];
+
+        if (! $checks['adapter_enabled']) {
+            $failures[] = SettlementAdapterHealthCodes::ADAPTER_DISABLED;
+        }
+
+        if ($checks['adapter_enabled'] && ! $checks['crypto_rails_enabled']) {
+            $failures[] = SettlementAdapterHealthCodes::CRYPTO_RAILS_DISABLED;
+            $failures[] = SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE;
+        }
+
+        if ($checks['rpc_configured'] && $checks['rpc_enabled']) {
+            try {
+                $info = $this->bitcoin->getBlockchainInfo((string) $network->rpcUrl);
+            } catch (\Throwable) {
+                $info = null;
+            }
+
+            $checks['rpc_chain'] = is_array($info) ? ($info['chain'] ?? null) : null;
+            $checks['rpc_reachable'] = is_array($info);
+            $checks['chain_matches'] = is_array($info) && (string) ($info['chain'] ?? '') === $expectedChain;
+
+            if (! $checks['rpc_reachable']) {
+                $failures[] = SettlementAdapterHealthCodes::RPC_ERROR;
+            } elseif (! $checks['chain_matches']) {
+                $failures[] = SettlementAdapterHealthCodes::CHAIN_ID_MISMATCH;
+                $failures[] = SettlementAdapterHealthCodes::RPC_ERROR;
+            }
+        } elseif ($checks['adapter_enabled'] && $checks['crypto_rails_enabled']) {
+            $failures[] = SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE;
+        }
+
+        if ($checks['adapter_enabled']
+            && $checks['rpc_enabled']
+            && $checks['rpc_reachable']
+            && $checks['chain_matches']) {
+            $lastBalanceRead = $this->auditEvents->lastBalanceReadForAdapter(self::ADAPTER_KEY);
+            $staleHours = SettlementAdapterConfig::staleObservationHours(self::ADAPTER_KEY);
+
+            if ($lastBalanceRead !== null
+                && $lastBalanceRead->occurred_at !== null
+                && $lastBalanceRead->occurred_at->lt(now()->subHours($staleHours))) {
+                $failures[] = SettlementAdapterHealthCodes::STALE_OBSERVATION;
+            }
+        }
+
+        $failures = array_values(array_unique($failures));
+        $healthy = $checks['adapter_registered']
+            && ($checks['adapter_enabled'] === false
+                || ($checks['crypto_rails_enabled']
+                    && ($checks['rpc_enabled'] === false || ($checks['rpc_reachable'] && $checks['chain_matches']))
+                    && ! in_array(SettlementAdapterHealthCodes::STALE_OBSERVATION, $failures, true)));
+
+        return [
+            'status' => $healthy ? SettlementAdapterHealthCodes::PASS : SettlementAdapterHealthCodes::FAIL,
+            'healthy' => $healthy,
+            'adapter' => self::ADAPTER_KEY,
+            'mode' => $this->mode(),
+            'failures' => $failures,
+            'checks' => $checks,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $preview
+     * @return list<array{symbol: string, amount: string, display_amount: string, status: string}>
+     */
+    private function extractCoins(array $preview): array
+    {
+        $coins = [];
+
+        foreach ($preview['coins'] ?? [] as $coin) {
+            if (! is_array($coin)) {
+                continue;
+            }
+
+            $coins[] = [
+                'symbol' => (string) ($coin['symbol'] ?? ''),
+                'amount' => (string) ($coin['amount'] ?? '0'),
+                'display_amount' => (string) ($coin['display_amount'] ?? ''),
+                'status' => (string) ($coin['status'] ?? 'unknown'),
+            ];
+        }
+
+        return $coins;
+    }
+
+    /**
+     * @param list<array{symbol: string, amount: string, display_amount: string, status: string}> $coins
+     */
+    private function resolveObservationState(SettlementNetwork $network, array $coins): string
+    {
+        $rpcReady = $network->rpcEnabled
+            && is_string($network->rpcUrl)
+            && $network->rpcUrl !== '';
+
+        if (! $rpcReady) {
+            return SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE;
+        }
+
+        $nativeSymbol = strtoupper((string) ($network->nativeSymbol ?? 'BTC'));
+        $settlementCoins = array_values(array_filter(
+            $coins,
+            static fn (array $coin): bool => strtoupper($coin['symbol']) === $nativeSymbol,
+        ));
+
+        if ($settlementCoins === []) {
+            return SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE;
+        }
+
+        $hasLive = false;
+        $hasUnavailable = false;
+
+        foreach ($settlementCoins as $coin) {
+            if ($coin['status'] === 'live') {
+                $hasLive = true;
+            }
+
+            if ($coin['status'] === 'balance_unavailable') {
+                $hasUnavailable = true;
+            }
+        }
+
+        if ($hasUnavailable && ! $hasLive) {
+            return SettlementAdapterHealthCodes::RPC_ERROR;
+        }
+
+        if ($hasLive) {
+            return 'live';
+        }
+
+        return SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE;
+    }
+}

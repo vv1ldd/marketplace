@@ -10,6 +10,10 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@metamask/bitcoin-wallet-standard": "^1.1.0",
+    "@metamask/multichain-api-client": "^0.12.0",
+    "@wallet-standard/core": "^1.1.2",
+    "bip322-js": "^2.0.0",
     "next": "^16.3.0-canary.46",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

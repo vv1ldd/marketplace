@@ -298,6 +298,16 @@ class User extends Authenticatable implements HasPasskeys
         return static::where('entity_l1_address_bidx', $bidx)->first();
     }
 
+    public static function usernameCandidateFromEntityAddress(?string $entityAddress): ?string
+    {
+        $address = Str::lower(trim((string) $entityAddress));
+        if (! preg_match('/^sl1e_[a-f0-9]{39}$/', $address)) {
+            return null;
+        }
+
+        return static::normalizeUsername('sl1e_'.substr($address, -6));
+    }
+
     public static function normalizeUsername(mixed $value): ?string
     {
         $username = Str::lower(trim((string) $value));
@@ -375,6 +385,11 @@ class User extends Authenticatable implements HasPasskeys
     public function legalEntities(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(LegalEntity::class);
+    }
+
+    public function vaultIdentities(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VaultIdentity::class, 'owner_user_id');
     }
 
     public function managedLegalEntities(): \Illuminate\Database\Eloquent\Relations\BelongsToMany

@@ -70,13 +70,10 @@ class MarketplaceAiDiscoveryTest extends TestCase
         $this->assertGreaterThan(0, $matches->first()['score']);
 
         $this->get(route('home', ['intent' => 'хочу купить Steam Турция на 1000 рублей']))
-            ->assertOk()
-            ->assertSee('Search results', false)
-            ->assertDontSee('Disabled Seller Steam Turkey', false);
+            ->assertRedirect('/?intent='.rawurlencode('хочу купить Steam Турция на 1000 рублей'));
 
         $this->get(route('meanly.storefront.products.show', $otherSeller->slug))
-            ->assertOk()
-            ->assertSee('Other Seller Steam Turkey', false);
+            ->assertRedirect('/store/products/'.$otherSeller->slug);
 
         $this->get(route('meanly.storefront.products.show', $disabledSeller->slug))
             ->assertNotFound();
@@ -102,15 +99,12 @@ class MarketplaceAiDiscoveryTest extends TestCase
         $this->createOrderItem($firstOrder, $popular->sku, 1);
         $this->createOrderItem($secondOrder, $popular->sku, 2);
 
-        $this->get(route('meanly.storefront.products.show', $recent->slug))->assertOk();
+        $this->get(route('meanly.storefront.products.show', $recent->slug))->assertRedirect('/store/products/'.$recent->slug);
         $this->postJson(route('meanly.storefront.favorites.toggle', $popular))->assertOk()
             ->assertJsonPath('favorite', true);
 
         $this->get(route('home'))
-            ->assertOk()
-            ->assertSee('Popular groups', false)
-            ->assertSee('Best offers now', false)
-            ->assertSee('Catalog categories', false);
+            ->assertRedirect('/');
     }
 
     public function test_best_offer_ranking_is_deterministic_from_price_stock_and_seller_reliability(): void
@@ -242,10 +236,7 @@ class MarketplaceAiDiscoveryTest extends TestCase
         app(\App\Services\CanonicalProductIdentityIndexService::class)->rebuild();
 
         $this->get(route('home', ['intent' => 'Steam Турция']))
-            ->assertOk()
-            ->assertSee('No storefront results for this query', false)
-            ->assertSee('Coming soon', false)
-            ->assertDontSee('3D-очки', false);
+            ->assertRedirect('/?intent='.rawurlencode('Steam Турция'));
     }
 
     private function createStorefrontProduct(Shop $shop, array $overrides = []): Product

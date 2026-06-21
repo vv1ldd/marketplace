@@ -10,6 +10,10 @@ return [
         'currency' => 'RUB',
     ],
 
+    'b2b' => [
+        'email' => env('MEANLY_B2B_INQUIRIES_EMAIL', env('ACQUIRING_COMPANY_EMAIL', 'support@meanly.one')),
+    ],
+
     'shop' => [
         'name' => env('MEANLY_SHOP_NAME', 'Meanly Store'),
         'domain' => env('MEANLY_STOREFRONT_DOMAIN', env('APP_DOMAIN', 'meanly.local')),

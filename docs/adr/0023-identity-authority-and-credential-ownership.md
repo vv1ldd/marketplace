@@ -123,3 +123,6 @@ environment mode. Provider mode remains the production default.
 Audit old application-owned passkey/WebAuthn routes and copy. Retired routes may
 remain as explicit `410 Gone` compatibility responses, but no user-facing
 application flow should depend on local marketplace passkey login or registration.
+
+See ADR 0024 for phased Identity Root Authority (provider v1, sovereign-ready
+metadata, future user root recovery key).

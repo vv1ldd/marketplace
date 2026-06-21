@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { BusinessOnboardingStatus } from './BusinessOnboardingStatus';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 
 const taxRules = {
   RU: { label: 'INN', placeholder: '7700123456 or 123456789012', lengths: [10, 12], max: 12, hint: '10 digits for company, 12 for individual entrepreneur' },
@@ -267,10 +268,8 @@ export function BusinessRegistrationForm({ initialApplicationChecked = false }) 
   if (!applicationChecked) {
     return (
       <section className="business-register-panel">
-        <div className="business-register-card">
-          <span>Checking status</span>
-          <h2>Preparing Merchant Center...</h2>
-          <p>Meanly is checking whether this identity already has a merchant application.</p>
+        <div className="business-register-card business-register-card--loading">
+          <MeanlyLoadingMark label="Preparing Merchant Center..." size="md" />
         </div>
       </section>
     );
@@ -346,7 +345,11 @@ export function BusinessRegistrationForm({ initialApplicationChecked = false }) 
             </div>
           </label>
           <p className="product-card__muted">{rule.hint}</p>
-          {orgStatus ? <p className="checkout-note">{orgStatus}</p> : null}
+          {orgStatus === 'Checking INN...' ? (
+            <MeanlyLoadingMark className="meanly-loading-mark--inline" label={orgStatus} size="xs" />
+          ) : orgStatus ? (
+            <p className="checkout-note">{orgStatus}</p>
+          ) : null}
           {org ? (
             <div className="business-org-card">
               <span>Found company</span>

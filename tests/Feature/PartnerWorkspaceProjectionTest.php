@@ -87,7 +87,7 @@ class PartnerWorkspaceProjectionTest extends TestCase
 
         $response = $this->withoutMiddleware()
             ->actingAs($user)
-            ->getJson(route('partner.workspace.summary'))
+            ->getJson('https://meanly.ru'.route('partner.workspace.summary', [], false))
             ->assertOk();
 
         $this->assertContains(

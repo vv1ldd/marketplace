@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { MeanlyConnectPanel } from './MeanlyConnectPanel';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 
 async function fetchSimpleL1Status() {
   const response = await fetch('/simple-l1/status', {
@@ -50,12 +51,8 @@ export function LoginStatusPanel({ connectUrl, returnTo = '/vault' }) {
 
   if (!checked) {
     return (
-      <section className="meanly-connect-panel">
-        <div>
-          <p className="eyebrow">Meanly Connect</p>
-          <h2>Checking session...</h2>
-          <p>Meanly is checking whether this browser already has an active identity.</p>
-        </div>
+      <section className="meanly-connect-panel meanly-connect-panel--loading">
+        <MeanlyLoadingMark label="Checking session..." size="md" />
       </section>
     );
   }

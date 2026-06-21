@@ -46,7 +46,8 @@ class StorefrontApiSurfaceCompletionTest extends TestCase
         $this->getJson('/api/storefront/v1/context')
             ->assertOk()
             ->assertJsonPath('contract.name', 'storefront-context')
-            ->assertJsonPath('market.key', 'global');
+            ->assertJsonPath('market.key', 'global')
+            ->assertJsonPath('settlement_networks.default', 'simple-layer-1');
 
         $this->getJson('/api/storefront/v1/catalog/products/'.$product->slug)
             ->assertOk()
@@ -161,6 +162,8 @@ class StorefrontApiSurfaceCompletionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('contract.name', 'storefront-vault-wallet-coins')
             ->assertJsonPath('contract.network', 'simple-layer-1')
+            ->assertJsonPath('settlement_network.key', 'simple-layer-1')
+            ->assertJsonPath('wallet.network_key', 'simple-layer-1')
             ->assertJsonPath('contract.mode', 'preview')
             ->assertJsonPath('wallet.tier', 'premium-preview')
             ->assertJsonPath('wallet.label', 'Vault Wallet')
@@ -169,6 +172,11 @@ class StorefrontApiSurfaceCompletionTest extends TestCase
             ->assertJsonPath('coins.2.symbol', 'MLP')
             ->assertJsonPath('coins.0.transferable', false)
             ->assertJsonPath('capabilities.can_transfer_coins', false);
+
+        $this->withToken($this->storefrontToken($entityAddress, ['storefront:read', 'storefront:vault']))
+            ->getJson('/api/storefront/v1/wallet')
+            ->assertOk()
+            ->assertJsonPath('settlement_networks.default', 'simple-layer-1');
     }
 
     private function seedProduct(): Product

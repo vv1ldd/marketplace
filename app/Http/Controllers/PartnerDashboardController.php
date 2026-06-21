@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Order\Order;
 use App\Models\Shop;
+use App\Support\Concerns\ResolvesSettlementNetworkLabels;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -11,10 +13,29 @@ use Illuminate\Support\Str;
 
 class PartnerDashboardController extends Controller
 {
+    use ResolvesSettlementNetworkLabels;
+
     private function currentLegalEntity(\App\Models\User $user): ?\App\Models\LegalEntity
     {
         return $user->legalEntities()->first()
             ?? $user->managedLegalEntities()->first();
+    }
+
+    private function ensureWorkspaceMarketContext(Request $request): \App\Support\MarketContext
+    {
+        if (! app()->bound(\App\Support\MarketContext::class)) {
+            app()->instance(
+                \App\Support\MarketContext::class,
+                app(\App\Services\MarketContextResolver::class)->resolve($request)
+            );
+        }
+
+        return market();
+    }
+
+    private function workspacePresentation(): \App\Services\MerchantWorkspacePresentationService
+    {
+        return app(\App\Services\MerchantWorkspacePresentationService::class);
     }
 
     private function dispatchYandexServicesReportLegalEnrichment(Shop $shop): void
@@ -322,11 +343,15 @@ class PartnerDashboardController extends Controller
 
     private function storefrontCategoryOptions(): array
     {
+        $useEnglish = market()->locale === 'en' || market()->market === 'global';
+
         return collect((array) config('catalog_taxonomy.categories', []))
             ->mapWithKeys(fn (array $meta, string $slug): array => [
-                $slug => (string) ($meta['label_ru'] ?? $meta['label_en'] ?? Str::headline($slug)),
+                $slug => (string) ($useEnglish
+                    ? ($meta['label_en'] ?? $meta['label_ru'] ?? Str::headline($slug))
+                    : ($meta['label_ru'] ?? $meta['label_en'] ?? Str::headline($slug))),
             ])
-            ->all() + ['unmapped' => 'Неразобранное'];
+            ->all() + ['unmapped' => $useEnglish ? 'Unmapped' : 'Неразобранное'];
     }
 
     private function storefrontCategoryNeedles(): array
@@ -631,9 +656,10 @@ class PartnerDashboardController extends Controller
             'id' => $record->id,
             'name' => $record->name,
             'public_sku' => 'MS-'.strtoupper(substr(hash('sha256', $record->id.'|'.$catalogSku), 0, 10)),
-            'brand_name' => $record->brand?->name ?? ($record->category ?: 'Другое'),
+            'brand_name' => $record->brand?->name ?? ($safeCategory['label'] ?? 'Other'),
             'brand_logo' => $record->brand?->logo ? asset($record->brand->logo) : ($record->brand?->logo_png ? asset($record->brand->logo_png) : null),
-            'region_name' => $record->region?->name_ru ?? 'Global',
+            'region_name' => app(\App\Services\MappingCountryLabelService::class)
+                ->localizedLabel((string) ($record->region?->code ?? 'GLOBAL'), 'en'),
             'region_code' => $record->region?->code ?? 'GLOBAL',
             'region_flag' => $record->region?->flag ?? '',
             'purchase_price' => $purchasePrice,
@@ -649,7 +675,7 @@ class PartnerDashboardController extends Controller
             'currency' => $record->currency,
             'is_variable' => $wf ? (bool) $wf->is_variable_price : ((float) $record->min_price > 0 && (float) $record->max_price > (float) $record->min_price + 0.01),
             'supply_class' => $isVault ? 'vault' : 'network',
-            'supply_label' => $isVault ? 'Meanly Vault' : 'Meanly Supply Network',
+            'supply_label' => $isVault ? 'Maestrooo Vault' : 'Meanly Supply Network',
             'catalog_group_id' => $safeCategory['slug'],
             'catalog_group_name' => $safeCategory['label'],
             'catalog_group_slug' => $safeCategory['slug'],
@@ -688,11 +714,12 @@ class PartnerDashboardController extends Controller
         $cards = collect();
 
         if ($totalCount > 0) {
+            $allProducts = $this->workspacePresentation()->categoryCardAllProducts();
             $cards->push([
                 'id' => 'all',
                 'filter_key' => '__all',
-                'name' => 'Все товары',
-                'description' => 'Все доступные позиции поставщиков, которые можно взять в продажу.',
+                'name' => $allProducts['name'],
+                'description' => $allProducts['description'],
                 'slug' => 'all',
                 'icon' => '🛒',
                 'count' => $totalCount,
@@ -704,12 +731,13 @@ class PartnerDashboardController extends Controller
                 $count = (clone $baseQuery)
                     ->where('canonical_category', $slug)
                     ->count();
+                $copy = $this->workspacePresentation()->categoryCardFromTaxonomy($slug, $meta);
 
                 return [
                     'id' => $slug,
                     'filter_key' => $slug,
-                    'name' => (string) ($meta['label_ru'] ?? $meta['label_en'] ?? Str::headline($slug)),
-                    'description' => (string) ($meta['description_ru'] ?? 'Открыть поставщиков и доступные номиналы в этой категории.'),
+                    'name' => $copy['name'],
+                    'description' => $copy['description'],
                     'slug' => $slug,
                     'icon' => $this->storefrontCategoryIcon($slug),
                     'count' => $count,
@@ -726,11 +754,12 @@ class PartnerDashboardController extends Controller
             ->count();
 
         if ($unmappedCount > 0) {
+            $unmapped = $this->workspacePresentation()->categoryCardUnmapped();
             $cards->push([
                 'id' => null,
                 'filter_key' => 'unmapped',
-                'name' => 'Неразобранное',
-                'description' => 'Товары без canonical category. Их надо постепенно разнести маппингами.',
+                'name' => $unmapped['name'],
+                'description' => $unmapped['description'],
                 'slug' => 'unmapped',
                 'icon' => '🧩',
                 'count' => $unmappedCount,
@@ -755,7 +784,7 @@ class PartnerDashboardController extends Controller
         };
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         
@@ -778,139 +807,7 @@ class PartnerDashboardController extends Controller
             return redirect()->route('partner.onboarding');
         }
 
-        app(\App\Services\SellerDistributionCenterService::class)
-            ->ensureForLegalEntity($legalEntity);
-
-        // Dynamically reconstruct balance using MDK Sovereign L1 Ledger
-        $l1State = app(\App\Services\L1StateService::class)->reconstructBalance($legalEntity);
-
-        $operatorService = app(\App\Services\PartnerOperatorIntelligenceService::class);
-        $stats = $operatorService->stats($legalEntity, $l1State);
-
-        $shops = $legalEntity->shops()->get();
-
-        $testOrders = Order::whereHas('shop', fn($q) => $q->where('legal_entity_id', $legalEntity->id))
-            ->where('is_test', true)
-            ->with(['items'])
-            ->latest()
-            ->limit(5)
-            ->get();
-
-        // 📋 Fetch all B2B panel resources for integrated SPA view
-        $orders = Order::whereHas('shop', fn($q) => $q->where('legal_entity_id', $legalEntity->id))
-            ->with(['items', 'shop'])
-            ->latest()
-            ->limit(50)
-            ->get();
-
-        $catalogQuery = \App\Models\Product::whereHas('shop', fn($q) => $q->where('legal_entity_id', $legalEntity->id));
-        $allCatalog = $catalogQuery
-            ->with(['shop', 'salesChannels' => fn ($q) => $q->where('is_enabled', true)])
-            ->latest()
-            ->get();
-        $sellerCatalog = $allCatalog
-            ->filter(fn ($product) => data_get($product->data ?? [], 'ym_raw') !== null)
-            ->values();
-        $catalogTotal = $sellerCatalog->count();
-        $catalogYandexTotal = $catalogTotal;
-        $catalog = $sellerCatalog
-            ->take(50)
-            ->values();
-
-        $tickets = \App\Models\Ticket::with(['shop', 'order'])
-            ->whereHas('shop', fn($q) => $q->where('legal_entity_id', $legalEntity->id))
-            ->latest()
-            ->limit(50)
-            ->get();
-
-        $warehouses = \App\Models\Warehouse::where('is_main', true)
-            ->whereHas('shop', fn($q) => $q->where('legal_entity_id', $legalEntity->id))
-            ->latest()
-            ->limit(50)
-            ->get();
-
-        $shops = $legalEntity->shops;
-        $providerProductsQuery = $this->storefrontProductsQuery($legalEntity);
-        $providerProductsTotal = (clone $providerProductsQuery)->count();
-        $storefrontCategoryCards = $this->storefrontCategoryCards(clone $providerProductsQuery);
-        $providerProducts = $providerProductsQuery
-            ->orderBy('name')
-            ->limit(24)
-            ->get()
-            ->map(fn ($record) => $this->storefrontProductPayload($record, $shops))
-            ->values();
-
-        $vouchers = \App\Models\ProductInventory::whereHas('shop', fn($q) => $q->where('legal_entity_id', $legalEntity->id))
-            ->with('orderItem')
-            ->latest()
-            ->limit(50)
-            ->get();
-
-        $apiApplications = \App\Models\ApiApplication::whereHas('shop', fn($q) => $q->where('legal_entity_id', $legalEntity->id))
-            ->latest()
-            ->get();
-
-        $ledgerTransactions = DB::table('sovereign_ledger')
-            ->where('legal_entity_id', $legalEntity->id)
-            ->latest()
-            ->limit(50)
-            ->get();
-
-        $activations = \App\Models\Procurement::whereHas('shop', fn($q) => $q->where('legal_entity_id', $legalEntity->id))
-            ->with(['product', 'warehouse', 'shop'])
-            ->latest()
-            ->limit(50)
-            ->get()
-            ->map(function ($p) {
-                return [
-                    'id' => $p->id,
-                    'date' => $p->completed_at ? $p->completed_at->format('d.m.Y H:i') : ($p->created_at ? $p->created_at->format('d.m.Y H:i') : '—'),
-                    'product_name' => $p->product->name ?? '—',
-                    'sku' => $p->product->sku ?? '—',
-                    'warehouse_name' => $p->warehouse->name ?? '—',
-                    'count' => $p->count,
-                    'total_price_rub' => round($p->total_price / 100, 2),
-                    'status' => $p->status,
-                ];
-            });
-
-        $sovereignRequests = \App\Models\SovereignBalanceRequest::where('legal_entity_id', $legalEntity->id)
-            ->latest()
-            ->get();
-
-        $operatorWorkspace = $operatorService->payload($legalEntity, $stats, $sovereignRequests);
-        $yandexChannelStatuses = $shops
-            ->mapWithKeys(fn (Shop $shop): array => [$shop->id => $this->yandexChannelStatus($shop, $legalEntity)])
-            ->all();
-
-        $agreement = \App\Models\Agreement::where('is_active', true)->latest('published_at')->first();
-        $agreementText = $agreement ? $agreement->content : "Текст оферты не найден.";
-
-        return view('partner.dashboard', [
-            'user' => $user,
-            'legalEntity' => $legalEntity,
-            'agreementText' => $agreementText,
-            'stats' => $stats,
-            'shops' => $shops,
-            'testOrders' => $testOrders,
-            'orders' => $orders,
-            'catalog' => $catalog,
-            'catalogTotal' => $catalogTotal,
-            'catalogYandexTotal' => $catalogYandexTotal,
-            'tickets' => $tickets,
-            'warehouses' => $warehouses,
-            'providerProducts' => $providerProducts,
-            'providerProductsTotal' => $providerProductsTotal,
-            'storefrontCategoryCards' => $storefrontCategoryCards,
-            'vouchers' => $vouchers,
-            'apiApplications' => $apiApplications,
-            'ledgerTransactions' => $ledgerTransactions,
-            'activations' => $activations,
-            'sovereignRequests' => $sovereignRequests,
-            'operatorWorkspace' => $operatorWorkspace,
-            'yandexChannelStatuses' => $yandexChannelStatuses,
-            'activePartnerTab' => $this->activePartnerTab(),
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     private function activePartnerTab(): ?string
@@ -982,6 +879,9 @@ class PartnerDashboardController extends Controller
         app(\App\Services\SellerDistributionCenterService::class)
             ->ensureForLegalEntity($legalEntity);
 
+        $workspaceMarket = app(\App\Services\MarketContextResolver::class)->resolve($request);
+        app()->instance(\App\Support\MarketContext::class, $workspaceMarket);
+
         $l1State = app(\App\Services\L1StateService::class)->reconstructBalance($legalEntity);
         $operatorService = app(\App\Services\PartnerOperatorIntelligenceService::class);
         $stats = $operatorService->stats($legalEntity, $l1State);
@@ -1043,12 +943,13 @@ class PartnerDashboardController extends Controller
                 'app_connect_url' => '/simple-l1/connect?mode=login&return_to=/merchant/catalog&intent_type=merchant.stock.sign&intent_title=Merchant%20stock%20purchase&intent_cta=Continue',
             ],
             'capabilities' => $capabilities,
+            'market' => $workspaceMarket->toArray(),
             'navigation' => $this->workspaceNavigation($capabilities),
             'shops' => $shops->map(fn (Shop $shop): array => [
                 'id' => $shop->id,
                 'name' => $shop->name,
                 'domain' => $shop->domain,
-                'region' => $shop->shop_region ?: ($shop->allowed_regions[0] ?? 'RU'),
+                'region' => $this->workspacePresentation()->shopRegionLabel($shop),
                 'is_active' => (bool) $shop->is_active,
                 'is_sandbox' => (bool) $shop->is_sandbox,
                 'product_count' => (int) $shop->products_count,
@@ -1071,9 +972,11 @@ class PartnerDashboardController extends Controller
                     ->count(),
                 'market_errors' => (int) ($stats['market_errors_count'] ?? 0),
             ],
-            'finance_summary' => [
-                'available' => (float) ($stats['balance'] ?? $legalEntity->available_balance ?? 0),
-                'reserved' => (float) ($stats['reserved_balance'] ?? $legalEntity->reserved_balance ?? 0),
+            'finance_summary' => $this->workspacePresentation()->financeBalances(
+                (float) ($stats['balance'] ?? $legalEntity->available_balance ?? 0),
+                (float) ($stats['reserved_balance'] ?? $legalEntity->reserved_balance ?? 0),
+                (float) ($legalEntity->balance ?? 0),
+            ) + [
                 'native_available' => (float) ($stats['native_balance'] ?? $legalEntity->native_token_balance ?? 0),
                 'integrity_secured' => (bool) ($stats['integrity_secured'] ?? false),
             ],
@@ -1093,25 +996,38 @@ class PartnerDashboardController extends Controller
     private function workspaceCapabilities(\App\Models\LegalEntity $legalEntity): array
     {
         $active = (bool) $legalEntity->is_active && $legalEntity->status !== 'pending_moderation';
+        $policy = app(\App\Services\MerchantWorkspacePolicy::class);
 
-        return [
-            'overview' => true,
-            'orders' => $active,
-            'catalog' => $active,
-            'sales_channels' => $active,
-            'provider_storefront' => $active,
-            'warehouses' => $active,
-            'activations' => $active,
-            'vouchers' => $active,
-            'finance' => $active,
-            'support' => $active,
-            'settings' => $active,
-            'reason_codes' => $active ? [] : ['legal_entity_not_active'],
+        $moduleKeys = [
+            'overview',
+            'orders',
+            'catalog',
+            'sales_channels',
+            'provider_storefront',
+            'warehouses',
+            'activations',
+            'vouchers',
+            'finance',
+            'support',
+            'settings',
         ];
+
+        $capabilities = ['reason_codes' => $active ? [] : ['legal_entity_not_active']];
+
+        foreach ($moduleKeys as $module) {
+            $allowed = $policy->isModuleAllowed($module);
+            $capabilities[$module] = $module === 'overview'
+                ? $allowed
+                : ($active && $allowed);
+        }
+
+        return $capabilities;
     }
 
     private function workspaceNavigation(array $capabilities): array
     {
+        $policy = app(\App\Services\MerchantWorkspacePolicy::class);
+
         return collect([
             ['key' => 'overview', 'label' => 'Overview', 'href' => '/merchant'],
             ['key' => 'sales_channels', 'label' => 'Sales Channels', 'href' => '/merchant/channels'],
@@ -1119,23 +1035,32 @@ class PartnerDashboardController extends Controller
             ['key' => 'catalog', 'label' => 'Catalog', 'href' => '/merchant/catalog'],
             ['key' => 'provider_storefront', 'label' => 'Supply', 'href' => '/merchant/storefront'],
             ['key' => 'warehouses', 'label' => 'Stock', 'href' => '/merchant/warehouses'],
+            ['key' => 'activations', 'label' => 'Activations', 'href' => '/merchant/activations'],
             ['key' => 'vouchers', 'label' => 'Vouchers', 'href' => '/merchant/vouchers'],
             ['key' => 'finance', 'label' => 'Finance', 'href' => '/merchant/finance'],
             ['key' => 'support', 'label' => 'Support', 'href' => '/merchant/support'],
             ['key' => 'settings', 'label' => 'Settings', 'href' => '/merchant/settings'],
-        ])->map(fn (array $item): array => $item + [
-            'enabled' => (bool) ($capabilities[$item['key']] ?? false),
-            'disabled_reason' => (bool) ($capabilities[$item['key']] ?? false)
-                ? null
-                : 'Laravel authority has not granted this capability.',
-        ])->values()->all();
+        ])
+            ->filter(fn (array $item): bool => $policy->isModuleAllowed($item['key']))
+            ->map(fn (array $item): array => $item + [
+                'enabled' => (bool) ($capabilities[$item['key']] ?? false),
+                'disabled_reason' => (bool) ($capabilities[$item['key']] ?? false)
+                    ? null
+                    : 'Laravel authority has not granted this capability.',
+            ])->values()->all();
     }
 
     private function workspaceSalesChannels(\App\Models\LegalEntity $legalEntity, \Illuminate\Support\Collection $shops): array
     {
         $channels = [];
+        $market = market();
 
         foreach (\App\Support\SalesChannels::all() as $key => $meta) {
+            if (! \App\Support\SalesChannels::isChannelVisibleForMarket($key, $market)) {
+                continue;
+            }
+
+            $localized = \App\Support\SalesChannels::localizedMeta($key, $market);
             $perShop = $shops->map(function (Shop $shop) use ($key, $legalEntity): array {
                 if ($key === 'yandex_market') {
                     $status = $this->yandexChannelStatus($shop, $legalEntity);
@@ -1178,9 +1103,13 @@ class PartnerDashboardController extends Controller
 
             $channels[] = [
                 'type' => $key,
-                'label' => (string) ($meta['label'] ?? $key),
+                'label' => (string) ($localized['label'] ?? $meta['label'] ?? $key),
                 'icon' => (string) ($meta['icon'] ?? ''),
                 'group' => (string) ($meta['group'] ?? 'other'),
+                'scoped_markets' => array_values(array_unique(array_filter(array_map(
+                    static fn (mixed $value): string => strtolower(trim((string) $value)),
+                    (array) ($meta['markets'] ?? []),
+                )))),
                 'implemented' => (bool) ($meta['implemented'] ?? false),
                 'enabled' => (bool) ($meta['enabled'] ?? false),
                 'configured' => $configuredCount > 0,
@@ -1199,8 +1128,9 @@ class PartnerDashboardController extends Controller
     private function workspaceAlerts(\App\Models\LegalEntity $legalEntity, array $stats, array $channels): array
     {
         $alerts = collect();
+        $requiresInn = app(\App\Services\MerchantWorkspacePolicy::class)->requiresInnForChannels();
 
-        if (blank($legalEntity->inn)) {
+        if ($requiresInn && blank($legalEntity->inn)) {
             $alerts->push([
                 'type' => 'legal_entity_inn_missing',
                 'severity' => 'high',
@@ -2455,6 +2385,9 @@ class PartnerDashboardController extends Controller
         $user = Auth::user();
         if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
 
+        $this->ensureWorkspaceMarketContext($request);
+        $presentation = $this->workspacePresentation();
+
         $legalEntity = $this->currentLegalEntity($user);
         if (!$legalEntity) return response()->json(['error' => 'Legal Entity not found'], 404);
 
@@ -2517,7 +2450,16 @@ class PartnerDashboardController extends Controller
         $brands = \App\Models\Brand::whereIn('id', $brandIds)->orderBy('name')->get(['id', 'name']);
 
         $regionIds = (clone $query)->distinct()->pluck('region_id')->filter()->toArray();
-        $regions = \App\Models\MappingCountry::whereIn('id', $regionIds)->orderBy('name_ru')->get(['id', 'name_ru', 'code']);
+        $regions = \App\Models\MappingCountry::whereIn('id', $regionIds)
+            ->orderBy($presentation->prefersEnglish() ? 'name_en' : 'name_ru')
+            ->get(['id', 'name_ru', 'name_en', 'code'])
+            ->map(fn (\App\Models\MappingCountry $region): array => [
+                'id' => $region->id,
+                'name' => app(\App\Services\MappingCountryLabelService::class)
+                    ->localizedLabel((string) ($region->code ?? 'GLOBAL'), $presentation->prefersEnglish() ? 'en' : 'ru'),
+                'code' => $region->code,
+            ])
+            ->values();
 
         // Paginate
         $paginator = $query->orderBy('name')->paginate(
@@ -2975,7 +2917,7 @@ class PartnerDashboardController extends Controller
 
         $settlement = $this->storefrontSettlementForSignature($record, $shop, $intent);
         $payload = [
-            'network' => 'Simple Layer One',
+            'network' => $this->settlementNetworkTraceLabel(),
             'version' => 1,
             'action' => $intent['action'],
             'asset' => $settlement['asset'],
@@ -3037,7 +2979,7 @@ class PartnerDashboardController extends Controller
         $settlement = $this->storefrontSettlementForSignature($record, $shop, $intent);
         $identity = $request->hasSession() ? $request->session()->get('simple_l1_identity', []) : [];
         $payload = [
-            'network' => 'Simple Layer One',
+            'network' => $this->settlementNetworkTraceLabel(),
             'version' => 1,
             'action' => $intent['action'],
             'asset' => $settlement['asset'],
@@ -3277,7 +3219,7 @@ class PartnerDashboardController extends Controller
         return [
             'valid' => true,
             'proof' => [
-                'network' => 'Simple Layer One',
+                'network' => $this->settlementNetworkTraceLabel(),
                 'tx_hash' => (string) $txEnvelope['tx_hash'],
                 'tx_nonce' => (string) data_get($txEnvelope, 'payload.nonce'),
                 'canonical_payload' => $txEnvelope['payload'],
@@ -4278,6 +4220,9 @@ class PartnerDashboardController extends Controller
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
 
+        $this->ensureWorkspaceMarketContext($request);
+        $presentation = $this->workspacePresentation();
+
         $legalEntity = $this->currentLegalEntity($user);
         if (!$legalEntity) {
             return response()->json(['error' => 'No legal entity configured'], 400);
@@ -4314,7 +4259,7 @@ class PartnerDashboardController extends Controller
 
         $paginated = $query->paginate(15);
 
-        $products = collect($paginated->items())->map(function($p) {
+        $products = collect($paginated->items())->map(function ($p) {
             $errors = [];
             if ($p->ym_errors) {
                 $decoded = is_array($p->ym_errors) ? $p->ym_errors : json_decode($p->ym_errors, true);
@@ -4325,17 +4270,20 @@ class PartnerDashboardController extends Controller
                 }
             }
 
+            $presentation = app(\App\Services\MerchantProductPresentationService::class);
+            $listPrice = $presentation->listPrice($p);
+
             return [
                 'id' => $p->id,
                 'sku' => $p->sku,
                 'name' => $p->name,
                 'vendor' => $p->vendor ?: '—',
-                'category' => $p->category ?: 'Другое',
-                'price_rub' => round(($p->price_rub ?? 0) / 100, 2),
-                'is_active' => (bool)$p->is_active,
+                'category' => $presentation->categoryLabel($p),
+                'price' => $listPrice['label'],
+                'is_active' => (bool) $p->is_active,
                 'shop_name' => $p->shop->name ?? '—',
                 'errors' => $errors,
-                'created_at' => $p->created_at ? $p->created_at->format('d.m.Y H:i') : '—'
+                'created_at' => $presentation->formatDate($p->created_at),
             ];
         });
 
@@ -5218,6 +5166,9 @@ class PartnerDashboardController extends Controller
         $user = Auth::user();
         if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
 
+        $this->ensureWorkspaceMarketContext($request);
+        $presentation = $this->workspacePresentation();
+
         $legalEntity = $user->legalEntities()->first();
         if (!$legalEntity) return response()->json(['error' => 'Legal Entity not found'], 404);
 
@@ -5260,7 +5211,7 @@ class PartnerDashboardController extends Controller
 
         $paginator = $query->latest('id')->paginate(10);
 
-        $transactions = collect($paginator->items())->map(function ($record) {
+        $transactions = collect($paginator->items())->map(function ($record) use ($presentation) {
             $payload = $record->payload ?? [];
             $amount = (float) ($payload['amount_rub'] ?? $payload['amount'] ?? 0);
             $description = $payload['description'] ?? str_replace('_', ' ', $record->event_type);
@@ -5270,36 +5221,31 @@ class PartnerDashboardController extends Controller
                 'event_type' => $record->event_type,
                 'event_type_formatted' => str_replace('_', ' ', $record->event_type),
                 'amount' => $amount,
-                'amount_formatted' => ($amount >= 0 ? '+' : '') . number_format($amount, 2, '.', ' ') . ' ₽',
+                'amount_formatted' => ($amount >= 0 ? '+' : '').$presentation->formatMoneyLabel(abs($amount)),
                 'description' => $description,
                 'trigger_source' => $record->trigger_source,
                 'fingerprint' => $record->fingerprint,
-                'created_at_formatted' => $record->created_at ? $record->created_at->format('d.m.Y H:i') : '—',
+                'created_at_formatted' => $presentation->formatDate($record->created_at),
             ];
         });
 
         $sovereignRequests = \App\Models\SovereignBalanceRequest::where('legal_entity_id', $legalEntity->id)
             ->latest()
             ->get()
-            ->map(function ($r) {
+            ->map(function ($r) use ($presentation) {
                 return [
                     'id' => $r->id,
                     'type' => $r->type,
-                    'type_formatted' => $r->type === 'top_up' ? 'Пополнение баланса' : 'Кредитная линия',
+                    'type_formatted' => $presentation->sovereignRequestTypeLabel((string) $r->type),
                     'amount' => (float)$r->amount,
-                    'amount_formatted' => number_format($r->amount, 2, '.', ' ') . ' ₽',
+                    'amount_formatted' => $presentation->formatMoneyLabel((float) $r->amount),
                     'currency' => $r->currency,
                     'status' => $r->status,
-                    'status_formatted' => match($r->status) {
-                        'pending' => 'Ожидает подписи админа',
-                        'approved' => 'Успешно исполнен ✅',
-                        'rejected' => 'Отклонен ❌',
-                        default => $r->status,
-                    },
+                    'status_formatted' => $presentation->sovereignRequestStatusLabel((string) $r->status),
                     'l1_address' => $r->l1_address,
                     'signature_assertion' => $r->signature_assertion,
                     'comment' => $r->comment,
-                    'created_at_formatted' => $r->created_at ? $r->created_at->format('d.m.Y H:i') : '—',
+                    'created_at_formatted' => $presentation->formatDate($r->created_at),
                 ];
             });
 
@@ -5313,14 +5259,13 @@ class PartnerDashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'balances' => [
-                'available' => (float) ($legalEntity->available_balance ?? 0.00),
-                'available_formatted' => number_format($legalEntity->available_balance ?? 0.00, 2, '.', ' ') . ' ₽',
-                'reserved' => (float) ($legalEntity->reserved_balance ?? 0.00),
-                'reserved_formatted' => number_format($legalEntity->reserved_balance ?? 0.00, 2, '.', ' ') . ' ₽',
-                'total' => (float) ($legalEntity->balance ?? 0.00),
-                'total_formatted' => number_format($legalEntity->balance ?? 0.00, 2, '.', ' ') . ' ₽',
-            ],
+            'balances' => $presentation->financeBalances(
+                (float) ($legalEntity->available_balance ?? 0.00),
+                (float) ($legalEntity->reserved_balance ?? 0.00),
+                (float) ($legalEntity->balance ?? 0.00),
+            ),
+            'deposit_amount_label' => $presentation->depositAmountLabel(),
+            'ledger_caption' => $presentation->ledgerCaption(),
             'transactions' => $transactions,
             'deposit_rails' => $this->merchantDepositRails(),
             'deposit_intents' => $depositIntents,
@@ -5336,22 +5281,29 @@ class PartnerDashboardController extends Controller
         $user = Auth::user();
         if (!$user) return response()->json(['error' => 'Unauthorized'], 401);
 
+        $this->ensureWorkspaceMarketContext($request);
+        $presentation = $this->workspacePresentation();
+
         $legalEntity = $this->currentLegalEntity($user);
         if (!$legalEntity) return response()->json(['error' => 'Legal Entity not found'], 404);
 
+        $allowedRails = app(\App\Services\MerchantSettlementService::class)->allowedDepositRails();
+
         $data = $request->validate([
-            'rail' => 'required|string|in:invoice_manual,crypto_usdt_usdc,payment_provider,merchant_transfer,ops_manual_credit',
+            'rail' => 'required|string|in:'.implode(',', $allowedRails),
             'amount' => 'required|numeric|min:0.01|max:999999999',
             'comment' => 'nullable|string|max:500',
             'target_legal_entity_id' => 'nullable|integer|exists:legal_entities,id',
             'idempotency_key' => 'nullable|string|max:160',
         ]);
 
+        $amountRub = $presentation->convertDisplayAmountToRub((float) $data['amount']);
+
         $intent = app(\App\Services\MerchantSettlementService::class)->issueIntent(
             legalEntity: $legalEntity,
             createdBy: $user,
             rail: $data['rail'],
-            amount: (float) $data['amount'],
+            amount: $amountRub,
             options: [
                 'comment' => $data['comment'] ?? '',
                 'target_legal_entity_id' => $data['target_legal_entity_id'] ?? null,
@@ -5362,11 +5314,11 @@ class PartnerDashboardController extends Controller
         return response()->json([
             'success' => true,
             'intent' => $this->formatMerchantDepositIntent($intent->loadMissing(['proofs.authorityVerdicts', 'targetLegalEntity', 'authorityVerdicts'])),
-            'balances' => [
-                'available' => (float) $legalEntity->refresh()->available_balance,
-                'reserved' => (float) $legalEntity->reserved_balance,
-                'total' => (float) $legalEntity->balance,
-            ],
+            'balances' => $presentation->financeBalances(
+                (float) $legalEntity->refresh()->available_balance,
+                (float) $legalEntity->reserved_balance,
+                (float) $legalEntity->balance,
+            ),
         ], $intent->wasRecentlyCreated ? 201 : 200);
     }
 
@@ -5404,19 +5356,96 @@ class PartnerDashboardController extends Controller
         ]);
     }
 
+    public function submitMerchantCryptoDepositProof(Request $request, \App\Models\MerchantDepositIntent $merchantDepositIntent)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $legalEntity = $this->currentLegalEntity($user);
+        if (!$legalEntity || (int) $merchantDepositIntent->legal_entity_id !== (int) $legalEntity->id) {
+            return response()->json(['error' => 'Forbidden'], 403);
+        }
+
+        if (! app(\App\Services\SettlementNetworkRegistry::class)->cryptoRailsEnabled()) {
+            return response()->json(['error' => 'Crypto settlement rails are disabled.'], 503);
+        }
+
+        if ($merchantDepositIntent->rail !== \App\Models\MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC) {
+            return response()->json(['error' => 'This intent is not a crypto settlement rail.'], 422);
+        }
+
+        if ($merchantDepositIntent->status !== \App\Models\MerchantDepositIntent::STATUS_WAITING_PAYMENT) {
+            return response()->json(['error' => 'Crypto proof can only be submitted while payment is pending.'], 422);
+        }
+
+        $validated = $request->validate([
+            'tx_hash' => 'required|string|max:80',
+            'asset' => 'required|string|max:16',
+            'amount' => 'nullable|numeric|min:0',
+        ]);
+
+        $providerPayload = (array) ($merchantDepositIntent->provider_payload ?? []);
+        $proofPayload = [
+            ...$validated,
+            'deposit_address' => (string) ($providerPayload['deposit_address'] ?? ''),
+        ];
+
+        try {
+            $proof = app(\App\Services\MerchantSettlementService::class)->recordVerifiedCryptoProof(
+                intent: $merchantDepositIntent,
+                reviewer: $user,
+                proofPayload: $proofPayload,
+                note: (string) $request->input('note', 'Merchant submitted crypto deposit proof.'),
+            );
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return response()->json([
+                'error' => collect($exception->errors())->flatten()->first() ?: 'Invalid crypto deposit proof.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'proof' => [
+                'id' => $proof->id,
+                'source' => $proof->source,
+                'status' => $proof->status,
+                'external_reference' => $proof->external_reference,
+                'verification' => data_get($proof->raw_payload, 'verification') ?? data_get($proof->raw_payload, 'settlement_network'),
+            ],
+            'intent' => $this->formatMerchantDepositIntent($merchantDepositIntent->refresh()->loadMissing(['proofs.authorityVerdicts', 'targetLegalEntity', 'authorityVerdicts'])),
+        ]);
+    }
+
     private function merchantDepositRails(): array
     {
-        return [
+        $presentation = $this->workspacePresentation();
+        $transferDescription = $presentation->prefersEnglish()
+            ? 'Move balance from one merchant legal entity to another.'
+            : 'Перевод RUB между merchant legal entities.';
+
+        $rails = [
             ['key' => 'invoice_manual', 'title' => 'Invoice', 'description' => 'Create an invoice/reference and wait for Ops proof.'],
-            ['key' => 'crypto_usdt_usdc', 'title' => 'Crypto', 'description' => 'Stablecoin deposit placeholder for future watcher/webhook proof.'],
+            ['key' => 'crypto_usdt_usdc', 'title' => 'Crypto', 'description' => 'Send USDT/USDC to the issued Polygon deposit address, then submit the transaction hash.'],
             ['key' => 'payment_provider', 'title' => 'Payment link', 'description' => 'Checkout placeholder for future provider proof.'],
-            ['key' => 'merchant_transfer', 'title' => 'Merchant transfer', 'description' => 'Move RUB from one merchant legal entity to another.'],
+            ['key' => 'merchant_transfer', 'title' => 'Merchant transfer', 'description' => $transferDescription],
             ['key' => 'ops_manual_credit', 'title' => 'Ops review', 'description' => 'Request manual reviewed credit with attached proof.'],
         ];
+
+        if (! app(\App\Services\SettlementNetworkRegistry::class)->cryptoRailsEnabled()) {
+            $rails = array_values(array_filter(
+                $rails,
+                static fn (array $rail): bool => ($rail['key'] ?? '') !== 'crypto_usdt_usdc',
+            ));
+        }
+
+        return $rails;
     }
 
     private function formatMerchantDepositIntent(\App\Models\MerchantDepositIntent $intent): array
     {
+        $presentation = $this->workspacePresentation();
         $proofs = $intent->relationLoaded('proofs') ? $intent->proofs : collect();
         $latestProof = $proofs->sortByDesc('id')->first();
         $latestVerdict = ($intent->relationLoaded('authorityVerdicts') ? $intent->authorityVerdicts : collect())
@@ -5424,6 +5453,21 @@ class PartnerDashboardController extends Controller
             ->sortByDesc('id')
             ->first();
         $rail = collect($this->merchantDepositRails())->firstWhere('key', $intent->rail);
+        $providerPayload = (array) ($intent->provider_payload ?? []);
+        $cryptoDeposit = $intent->rail === \App\Models\MerchantDepositIntent::RAIL_CRYPTO_USDT_USDC
+            ? [
+                'settlement_network' => (string) ($providerPayload['settlement_network'] ?? ''),
+                'network_label' => app(\App\Services\SettlementNetworkRegistry::class)
+                    ->network((string) ($providerPayload['settlement_network'] ?? config('blockchain_networks.merchant_crypto_network', 'polygon')))
+                    ->label,
+                'chain_id' => $providerPayload['chain_id'] ?? null,
+                'assets' => array_values(array_filter((array) ($providerPayload['assets'] ?? []))),
+                'deposit_address' => (string) ($providerPayload['deposit_address'] ?? ''),
+                'deposit_address_status' => (string) ($providerPayload['deposit_address_status'] ?? ''),
+                'proof_verification' => (string) ($providerPayload['proof_verification'] ?? 'structural'),
+                'can_submit_proof' => $intent->status === \App\Models\MerchantDepositIntent::STATUS_WAITING_PAYMENT,
+            ]
+            : null;
 
         return [
             'id' => $intent->id,
@@ -5432,10 +5476,11 @@ class PartnerDashboardController extends Controller
             'rail_title' => $rail['title'] ?? $intent->rail,
             'status' => $intent->status,
             'amount' => (float) $intent->amount,
-            'amount_formatted' => number_format((float) $intent->amount, 2, '.', ' ') . ' ₽',
+            'amount_formatted' => $presentation->formatMoneyLabel((float) $intent->amount),
             'currency' => $intent->currency,
             'invoice_payload' => $intent->invoice_payload ?? [],
-            'provider_payload' => $intent->provider_payload ?? [],
+            'provider_payload' => $providerPayload,
+            'crypto_deposit' => $cryptoDeposit,
             'metadata' => $intent->metadata ?? [],
             'target_legal_entity' => $intent->targetLegalEntity ? [
                 'id' => $intent->targetLegalEntity->id,
@@ -5460,7 +5505,9 @@ class PartnerDashboardController extends Controller
                 'credited_ledger_id' => $latestVerdict->credited_ledger_id,
             ] : null,
             'next_action' => match ($intent->status) {
-                'waiting_payment' => $intent->rail === 'merchant_transfer' ? 'Transfer pending.' : 'Pay or wait for external proof.',
+                'waiting_payment' => $intent->rail === 'crypto_usdt_usdc'
+                    ? 'Send stablecoin to the issued deposit address, then submit the transaction hash.'
+                    : ($intent->rail === 'merchant_transfer' ? 'Transfer pending.' : 'Pay or wait for external proof.'),
                 'proof_received' => 'Ops review is in progress.',
                 'waiting_authority' => $latestVerdict
                     ? "Authority {$latestVerdict->decision}: {$latestVerdict->accepted_attestations}/{$latestVerdict->required_quorum} attestations."
@@ -5474,7 +5521,7 @@ class PartnerDashboardController extends Controller
             'issued_at' => $intent->issued_at?->toJSON(),
             'expires_at' => $intent->expires_at?->toJSON(),
             'created_at' => $intent->created_at?->toJSON(),
-            'created_at_formatted' => $intent->created_at ? $intent->created_at->format('d.m.Y H:i') : '—',
+            'created_at_formatted' => $presentation->formatDate($intent->created_at),
         ];
     }
 

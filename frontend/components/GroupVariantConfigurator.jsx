@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useLocale } from './LocaleProvider';
 
 function groupBy(items, keyFn) {
   return items.reduce((carry, item) => {
@@ -15,10 +16,10 @@ function groupBy(items, keyFn) {
   }, new Map());
 }
 
-function priceLabel(variant) {
+function priceLabel(variant, waitingLabel) {
   const price = variant?.offer?.price || variant?.price;
   if (!price?.amount || !price?.currency) {
-    return 'Waiting for price';
+    return waitingLabel;
   }
 
   return `${price.amount} ${price.currency}`;
@@ -60,7 +61,12 @@ function variantFromSelectedProduct(product) {
   };
 }
 
+function regionMatches(left, right) {
+  return String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
+}
+
 export function GroupVariantConfigurator({ group }) {
+  const { t } = useLocale();
   const info = group.group || {};
   const facets = group.facets || {};
   const selected = facets.selected || {};
@@ -90,6 +96,10 @@ export function GroupVariantConfigurator({ group }) {
 
   const nominals = useMemo(() => {
     if (selectableVariants.length === 0) {
+      if (region) {
+        return [];
+      }
+
       return (facets.nominals || []).map((option) => ({
         value: option.key || [option.face_value, option.currency].filter(Boolean).join('|'),
         label: option.label || option.value || option.key,
@@ -97,7 +107,9 @@ export function GroupVariantConfigurator({ group }) {
       }));
     }
 
-    const scoped = region ? selectableVariants.filter((variant) => variant.region === region) : selectableVariants;
+    const scoped = region
+      ? selectableVariants.filter((variant) => regionMatches(variant.region, region))
+      : selectableVariants;
 
     return Array.from(groupBy(scoped, (variant) => variant.nominal_key).entries())
       .map(([value, items]) => ({
@@ -109,7 +121,7 @@ export function GroupVariantConfigurator({ group }) {
   }, [facets.nominals, region, selectableVariants]);
 
   const selectedVariant = selectableVariants.find((variant) => (
-    variant.region === region && variant.nominal_key === nominalKey
+    regionMatches(variant.region, region) && variant.nominal_key === nominalKey
   )) || (info.selection_ready ? variantFromSelectedProduct(info.selected_product) : null);
   const checkoutProductId = selectedVariant?.offer?.product_id;
   const canResolveOffer = region && nominalKey && !selectedVariant;
@@ -117,14 +129,13 @@ export function GroupVariantConfigurator({ group }) {
   return (
     <div className="buyer-product-copy group-product-layout">
       <section className="variant-selector">
-        <div className="section-heading">
-          <h2>Choose parameters</h2>
-          <p>Pick region and nominal to resolve an offer</p>
+        <div className="section-heading section-heading--compact">
+          <h2>{t('catalog_show_choose_parameters')}</h2>
         </div>
 
         <div className="variant-select-form">
           <label>
-            Region
+            {t('catalog_show_country_region')}
             <select
               value={region}
               onChange={(event) => {
@@ -132,26 +143,26 @@ export function GroupVariantConfigurator({ group }) {
                 setNominalKey('');
               }}
             >
-              <option value="">Select region</option>
+              <option value="">{t('catalog_show_select_region')}</option>
               {regions.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label} ({option.count})
+                  {option.label}
                 </option>
               ))}
             </select>
           </label>
 
           <label>
-            Nominal
+            {t('catalog_show_nominal')}
             <select
               disabled={!region}
               value={nominalKey}
               onChange={(event) => setNominalKey(event.target.value)}
             >
-              <option value="">{region ? 'Select nominal' : 'Select region first'}</option>
+              <option value="">{region ? t('catalog_show_select_nominal') : t('catalog_show_choose_country_first')}</option>
               {nominals.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label} ({option.count})
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -165,33 +176,35 @@ export function GroupVariantConfigurator({ group }) {
           </div>
         ) : canResolveOffer ? (
           <div className="product-card__actions">
-            <Link href={groupHref(info, { region, nominal: nominalKey })}>Show offer</Link>
+            <Link href={groupHref(info, { region, nominal: nominalKey })}>{t('catalog_show_show_offer')}</Link>
           </div>
         ) : null}
       </section>
 
       <aside className="checkout-panel">
         <div>
-          <div className="seller">{selectedVariant?.seller?.name || 'Seller pending'}</div>
-          <div className="price">{priceLabel(selectedVariant)}</div>
+          {selectedVariant?.seller?.name ? (
+            <div className="seller">{selectedVariant.seller.name}</div>
+          ) : null}
+          <div className="price">{priceLabel(selectedVariant, t('catalog_show_waiting_price'))}</div>
         </div>
-        <p className="checkout-note">
-          Select region and nominal. Checkout availability is confirmed when you continue.
-        </p>
         {selectedVariant ? (
-          <div className="product-card__actions">
-            {checkoutProductId ? (
-              <Link href={`/checkout?product_id=${checkoutProductId}`}>Buy now</Link>
-            ) : (
-              <span>No checkout offer</span>
-            )}
-          </div>
+          <>
+            <p className="checkout-note">{t('catalog_show_group_checkout_note')}</p>
+            <div className="product-card__actions">
+              {checkoutProductId ? (
+                <Link href={`/checkout?product_id=${checkoutProductId}`}>{t('catalog_show_buy_now')}</Link>
+              ) : (
+                <span>{t('catalog_show_no_checkout_offer')}</span>
+              )}
+            </div>
+          </>
         ) : canResolveOffer ? (
           <div className="product-card__actions">
-            <Link href={groupHref(info, { region, nominal: nominalKey })}>Show matching offer</Link>
+            <Link href={groupHref(info, { region, nominal: nominalKey })}>{t('catalog_show_show_matching_offer')}</Link>
           </div>
         ) : (
-          <p className="product-card__reason">Choose region and nominal to resolve a specific product.</p>
+          <p className="checkout-hint">{t('catalog_show_choose_region_nominal_resolve')}</p>
         )}
       </aside>
     </div>

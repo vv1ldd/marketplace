@@ -78,6 +78,43 @@ export function vaultMethodState() {
   };
 }
 
+export function vaultIdentityLabel(identity) {
+  if (!identity) {
+    return null;
+  }
+
+  if (identity.username) {
+    return `@${identity.username}`;
+  }
+
+  return identity.display_alias || identity.alias || null;
+}
+
+export function readVaultHeaderLabel() {
+  return vaultIdentityLabel(readCachedVault()?.identity);
+}
+
+export function useVaultHeaderLabel(initialLabel = null) {
+  const [label, setLabel] = useState(initialLabel);
+
+  useEffect(() => {
+    const sync = () => {
+      setLabel(readVaultHeaderLabel() || initialLabel || null);
+    };
+
+    sync();
+    window.addEventListener(vaultAuthorityEventName, sync);
+    window.addEventListener('storage', sync);
+
+    return () => {
+      window.removeEventListener(vaultAuthorityEventName, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, [initialLabel]);
+
+  return label;
+}
+
 export function clearVaultAuthorityState() {
   try {
     window.localStorage.removeItem(storefrontTokenStorageKey);

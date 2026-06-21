@@ -12,7 +12,7 @@ class MarketContextResolver
 {
     public function resolve(Request $request): MarketContext
     {
-        $host = $this->normalizeHost($request->getHost());
+        $host = $this->storefrontHost($request);
         $markets = (array) config('markets.markets', []);
         $defaultKey = (string) config('markets.default', 'global');
         $hostMarketKey = $this->marketKeyForHost($host, $markets, $defaultKey);
@@ -40,6 +40,19 @@ class MarketContextResolver
         $regionMarketKey = $region ? $this->marketKeyForDemandRegion($region, $markets) : null;
 
         return $this->contextForMarket($regionMarketKey ?? $defaultKey, $host, false, $markets, $defaultKey);
+    }
+
+    public function resolveForMarketKey(string $marketKey, string $host = ''): MarketContext
+    {
+        $markets = (array) config('markets.markets', []);
+        $defaultKey = (string) config('markets.default', 'global');
+        $normalizedKey = strtolower(trim($marketKey));
+
+        if (! array_key_exists($normalizedKey, $markets)) {
+            $normalizedKey = $defaultKey;
+        }
+
+        return $this->contextForMarket($normalizedKey, $this->normalizeHost($host), false, $markets, $defaultKey);
     }
 
     /**
@@ -145,6 +158,27 @@ class MarketContextResolver
             static fn (mixed $value): string => Str::upper(trim((string) $value)),
             Arr::wrap($values),
         ))));
+    }
+
+    private function storefrontHost(Request $request): string
+    {
+        $requestHost = $this->normalizeHost($request->getHost());
+        $forwardedHost = $this->normalizeHost($request->header('X-Forwarded-Host'));
+
+        if ($forwardedHost === '' || $forwardedHost === $requestHost) {
+            return $requestHost;
+        }
+
+        $apiHosts = array_map(
+            static fn (mixed $host): string => Str::lower(trim((string) $host)),
+            (array) config('storefront.api_hosts', []),
+        );
+
+        if (in_array($requestHost, $apiHosts, true) || str_starts_with($requestHost, 'api.')) {
+            return $forwardedHost;
+        }
+
+        return $requestHost;
     }
 
     private function normalizeHost(?string $host): string

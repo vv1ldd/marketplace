@@ -45,19 +45,16 @@ class MarketContextTest extends TestCase
     public function test_market_login_keeps_auth_flow_on_current_domain(): void
     {
         $expectations = [
-            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'copy' => 'Сейчас откроется Meanly One'],
-            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'copy' => 'Meanly One se abrirá ahora'],
-            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'copy' => 'Meanly One ახლავე გაიხსნება'],
+            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'copy' => 'Сейчас откроется Maestrooo Identity'],
+            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'copy' => 'Maestrooo Identity se abrirá ahora'],
+            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'copy' => 'Maestrooo Identity ახლავე გაიხსნება'],
         ];
 
         foreach ($expectations as $host => $expected) {
             $this->get("https://{$host}/login")
-                ->assertOk()
+                ->assertRedirect('/login')
                 ->assertHeader('X-Market', $expected['market'])
-                ->assertHeader('Content-Language', $expected['locale'])
-                ->assertSee('/simple-l1/connect?', false)
-                ->assertSee($expected['copy'])
-                ->assertDontSee('https://meanly.one/simple-l1/connect', false);
+                ->assertHeader('Content-Language', $expected['locale']);
         }
     }
 
@@ -65,19 +62,16 @@ class MarketContextTest extends TestCase
     {
         foreach (['meanly.ru', 'digitienda.ar', 'tsipruli.ge'] as $host) {
             $this->get("https://{$host}/")
-                ->assertOk()
-                ->assertSee('/simple-l1/connect?', false)
-                ->assertDontSee('https://meanly.one/simple-l1/connect', false)
-                ->assertDontSee('storefront.index.title');
+                ->assertRedirect('/');
         }
     }
 
     public function test_market_simple_l1_handoff_uses_market_locale_and_callback_host(): void
     {
         $expectations = [
-            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'title' => 'Входим через Meanly One?'],
-            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'title' => '¿Entrar con Meanly One?'],
-            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'title' => 'შევიდეთ Meanly One-ით?'],
+            'meanly.ru' => ['market' => 'ru', 'locale' => 'ru', 'title' => 'Продолжить через Maestrooo Identity?'],
+            'digitienda.ar' => ['market' => 'latam_ar', 'locale' => 'es', 'title' => '¿Entrar con Maestrooo Identity?'],
+            'tsipruli.ge' => ['market' => 'ge', 'locale' => 'ka', 'title' => 'შევიდეთ Maestrooo Identity-ით?'],
         ];
 
         foreach ($expectations as $host => $expected) {
@@ -238,11 +232,9 @@ class MarketContextTest extends TestCase
         $this->withHeader('Accept-Language', 'ru,en;q=0.8')
             ->withSession(['locale' => 'ru'])
             ->get('https://meanly.one/')
-            ->assertOk()
+            ->assertRedirect('/')
             ->assertHeader('X-Market', 'global')
-            ->assertHeader('Content-Language', 'en')
-            ->assertSee('Meanly helps you find digital goods fast.')
-            ->assertDontSee('Meanly помогает быстро найти цифровой товар.');
+            ->assertHeader('Content-Language', 'en');
     }
 
     public function test_meanly_one_catalog_footer_uses_english_copy(): void
@@ -250,30 +242,20 @@ class MarketContextTest extends TestCase
         $this->withHeader('Accept-Language', 'ru,en;q=0.8')
             ->withSession(['locale' => 'ru'])
             ->get('https://meanly.one/catalog')
-            ->assertOk()
+            ->assertRedirect('/catalog')
             ->assertHeader('X-Market', 'global')
-            ->assertHeader('Content-Language', 'en')
-            ->assertSee('All digital goods.')
-            ->assertSee('Catalog filters')
-            ->assertSee('Digital cards, game keys, and subscriptions with fast code delivery')
-            ->assertSee('Marketplace')
-            ->assertSee('For business')
-            ->assertDontSee('Все цифровые товары.')
-            ->assertDontSee('Фильтры каталога')
-            ->assertDontSee('Маркетплейс цифровых карт')
-            ->assertDontSee('Для бизнеса');
+            ->assertHeader('Content-Language', 'en');
     }
 
     public function test_explicit_locale_can_override_global_market_ui_language(): void
     {
         $this->withHeader('Accept-Language', 'en,ru;q=0.8')
             ->get('https://meanly.one/?locale=ru')
-            ->assertOk()
+            ->assertRedirect('/?locale=ru')
             ->assertHeader('X-Market', 'global')
             ->assertHeader('X-Pricing-Scope', 'global')
             ->assertHeader('X-Display-Currency', 'USD')
-            ->assertHeader('Content-Language', 'en')
-            ->assertSee('Meanly helps you find digital goods fast.');
+            ->assertHeader('Content-Language', 'en');
 
         $context = market();
         $this->assertSame('global', $context->market);
@@ -291,12 +273,11 @@ class MarketContextTest extends TestCase
     {
         $this->withHeader('Accept-Language', 'ru,en;q=0.8')
             ->get('https://meanly.ru/?locale=en')
-            ->assertOk()
+            ->assertRedirect('/?locale=en')
             ->assertHeader('X-Market', 'ru')
             ->assertHeader('X-Pricing-Scope', 'ru')
             ->assertHeader('X-Display-Currency', 'RUB')
-            ->assertHeader('Content-Language', 'en')
-            ->assertSee('Meanly helps you find digital goods fast.');
+            ->assertHeader('Content-Language', 'en');
 
         $context = market();
         $this->assertSame('ru', $context->market);
@@ -317,7 +298,7 @@ class MarketContextTest extends TestCase
 
         $this->withHeader('Accept-Language', 'en,de;q=0.8')
             ->get('https://meanly.one/?locale=de')
-            ->assertOk()
+            ->assertRedirect('/?locale=de')
             ->assertHeader('X-Market', 'global')
             ->assertHeader('X-Pricing-Scope', 'global')
             ->assertHeader('X-Display-Currency', 'USD')
@@ -337,10 +318,9 @@ class MarketContextTest extends TestCase
         $this->withHeader('Accept-Language', 'en,ru;q=0.8')
             ->withSession(['locale' => 'en'])
             ->get('https://meanly.ru/')
-            ->assertOk()
+            ->assertRedirect('/')
             ->assertHeader('X-Market', 'ru')
-            ->assertHeader('Content-Language', 'ru')
-            ->assertSee('Meanly помогает быстро найти цифровой товар.');
+            ->assertHeader('Content-Language', 'ru');
     }
 
     public function test_meanly_ru_catalog_uses_russian_copy(): void
@@ -348,14 +328,25 @@ class MarketContextTest extends TestCase
         $this->withHeader('Accept-Language', 'en,ru;q=0.8')
             ->withSession(['locale' => 'en'])
             ->get('https://meanly.ru/catalog')
-            ->assertOk()
+            ->assertRedirect('/catalog')
             ->assertHeader('X-Market', 'ru')
-            ->assertHeader('Content-Language', 'ru')
-            ->assertSee('Все цифровые товары.')
-            ->assertSee('Фильтры каталога')
-            ->assertSee('Маркетплейс цифровых карт')
-            ->assertSee('Для бизнеса')
-            ->assertDontSee('All digital goods.')
-            ->assertDontSee('Catalog filters');
+            ->assertHeader('Content-Language', 'ru');
+    }
+
+    public function test_storefront_api_uses_forwarded_host_for_market_context(): void
+    {
+        $this->getJson('https://api.meanly.test/api/storefront/v1/context', [
+            'X-Forwarded-Host' => 'meanly.ru',
+        ])
+            ->assertOk()
+            ->assertJsonPath('market.key', 'ru')
+            ->assertJsonPath('market.locale', 'ru');
+
+        $this->getJson('https://api.meanly.test/api/storefront/v1/context', [
+            'X-Forwarded-Host' => 'meanly.one',
+        ])
+            ->assertOk()
+            ->assertJsonPath('market.key', 'global')
+            ->assertJsonPath('market.locale', 'en');
     }
 }

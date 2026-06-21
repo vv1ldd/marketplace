@@ -3,26 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Services\CanonicalProductPageService;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
 class CanonicalProductPageController extends Controller
 {
-    public function show(string $identitySlug, CanonicalProductPageService $pages, Request $request): View
+    public function show(string $identitySlug, CanonicalProductPageService $pages, Request $request): RedirectResponse
     {
-        $facts = $pages->resolveBySlug(
+        abort_unless($pages->resolveBySlug(
             $identitySlug,
             $request->query('intent'),
             $request->integer('offer') ?: null,
-        );
-        abort_unless($facts !== null, 404);
+        ) !== null, 404);
 
-        return view('catalog.product', [
-            'facts' => $facts,
-            'intentResolution' => $facts['intent_resolution'],
-            'jsonLd' => $this->jsonLd($facts),
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function productJson(string $identitySlug, CanonicalProductPageService $pages): JsonResponse

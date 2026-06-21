@@ -2,21 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Contracts\View\View;
+use App\Support\StorefrontFrontendRedirect;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class LegalPageController extends Controller
 {
-    public function show(string $page): View
+    public function show(string $page, Request $request): RedirectResponse
     {
         abort_unless(array_key_exists($page, $this->pages()), 404);
 
-        return view('legal.show', [
-            'company' => config('acquiring.company'),
-            'bank' => config('acquiring.bank'),
-            'page' => $this->pages()[$page],
-            'pageKey' => $page,
-            'pages' => $this->pages(),
-        ]);
+        return StorefrontFrontendRedirect::toFrontend($request, $page);
     }
 
     private function pages(): array

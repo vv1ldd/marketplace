@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Contracts\BindingChallengeFormatter;
+use App\Services\Bindings\MeanlyVaultBindingChallengeFormatter;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -22,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
             \Spatie\LaravelPasskeys\Actions\FindPasskeyToAuthenticateAction::class,
             \App\Actions\Auth\CustomFindPasskeyToAuthenticateAction::class
         );
+
+        $this->app->singleton(BindingChallengeFormatter::class, MeanlyVaultBindingChallengeFormatter::class);
     }
 
     /**

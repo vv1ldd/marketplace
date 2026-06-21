@@ -36,33 +36,15 @@ class CanonicalStorefrontHomepageService
     private array $currencyRateToRubCache = [];
 
     /**
-     * @var array<string, array{label: string, description: string}>
+     * @var array<int, string>
      */
-    private const PRODUCT_KIND_META = [
-        'gift-cards' => [
-            'label' => 'Gift cards',
-            'description' => 'Подарочные карты и коды пополнения с выбором региона и номинала.',
-        ],
-        'subscriptions' => [
-            'label' => 'Subscriptions',
-            'description' => 'Подписки и продления доступа с выбором региона, срока и номинала.',
-        ],
-        'points' => [
-            'label' => 'Points',
-            'description' => 'Игровые очки и внутриигровая валюта с выбором номинала.',
-        ],
-        'top-ups' => [
-            'label' => 'Top-ups',
-            'description' => 'Пополнения балансов, кошельков и игровых аккаунтов.',
-        ],
-        'software-licenses' => [
-            'label' => 'Software licenses',
-            'description' => 'Лицензии и ключи активации цифрового ПО.',
-        ],
-        'vouchers' => [
-            'label' => 'Vouchers',
-            'description' => 'Цифровые ваучеры и сертификаты.',
-        ],
+    private const PRODUCT_KIND_SLUGS = [
+        'gift-cards',
+        'subscriptions',
+        'points',
+        'top-ups',
+        'software-licenses',
+        'vouchers',
     ];
 
     /**
@@ -155,6 +137,7 @@ class CanonicalStorefrontHomepageService
         private readonly CanonicalCategoryResolver $categoryResolver,
         private readonly MeanlyFirstPartyStorefrontService $storefront,
         private readonly PricingProjectionService $pricingProjection,
+        private readonly MappingCountryLabelService $countryLabels,
     ) {}
 
     /**
@@ -401,7 +384,7 @@ class CanonicalStorefrontHomepageService
 
         $brand = $this->resolveCategoryBrand($category, $brandSlug);
 
-        if ($brand === null || ! array_key_exists($kindSlug, self::PRODUCT_KIND_META)) {
+        if ($brand === null || ! in_array($kindSlug, self::PRODUCT_KIND_SLUGS, true)) {
             return null;
         }
 
@@ -443,7 +426,7 @@ class CanonicalStorefrontHomepageService
         $total = $filteredCards->count();
         $lastPage = max(1, (int) ceil($total / $perPage));
         $page = min($page, $lastPage);
-        $kind = self::PRODUCT_KIND_META[$kindSlug];
+        $kind = $this->productKindMeta($kindSlug);
         $meta = (array) config("catalog_taxonomy.categories.{$category}", []);
         $nominalFacetCards = ($filters['region'] ?? null) !== null
             ? $allCards
@@ -501,7 +484,7 @@ class CanonicalStorefrontHomepageService
                 'selected_product' => $selectedProduct,
                 'selected_offer' => $selectedProduct['selected_offer'] ?? null,
                 'price_range' => $priceRange,
-                'variants' => $request->boolean('compact') ? collect() : $this->productGroupVariantOptions($allCards),
+                'variants' => $this->productGroupVariantOptions($allCards),
                 'canonical_url' => route('meanly.catalog.groups.show', [
                     'category' => $category,
                     'brandSlug' => Str::slug($brand),
@@ -511,7 +494,10 @@ class CanonicalStorefrontHomepageService
             'meta' => [
                 'label_ru' => trim($brand.' '.$kind['label']),
                 'label_en' => trim($brand.' '.$kind['label']),
-                'description_ru' => trim($kind['description'].' '.(string) ($meta['description_ru'] ?? '')),
+                'description' => trim($kind['description'].' '.(string) ($this->localizedCategoryDescription($meta, $category) ?? '')),
+                'description_ru' => trim(
+                    __('catalog.product_kind.'.$kindSlug.'.description', [], 'ru').' '.(string) ($meta['description_ru'] ?? '')
+                ),
             ],
             'products' => $paginator->withQueryString(),
             'facets' => [
@@ -642,7 +628,7 @@ class CanonicalStorefrontHomepageService
                     'name' => $region,
                     'value' => $region,
                     'slug' => Str::slug($region),
-                    'label' => Str::upper($region),
+                    'label' => $this->localizedRegionLabel($region),
                     'count' => $regions->count(),
                 ];
             })
@@ -768,7 +754,7 @@ class CanonicalStorefrontHomepageService
                     'name' => (string) ($card['name'] ?? ''),
                     'region' => $region,
                     'region_key' => Str::lower($region),
-                    'region_label' => Str::upper($region),
+                    'region_label' => $this->localizedRegionLabel($region),
                     'nominal_key' => $this->nominalKey($formatted, $currency),
                     'nominal_value' => trim($formatted.' '.$currency),
                     'nominal_label' => trim($formatted.' '.$currency),
@@ -1086,6 +1072,7 @@ class CanonicalStorefrontHomepageService
                     'name' => $label,
                     'label_ru' => $meta['label_ru'] ?? $this->categoryResolver->label($category),
                     'label_en' => $meta['label_en'] ?? $category,
+                    'description' => $this->localizedCategoryDescription($meta, $category),
                     'description_ru' => $meta['description_ru'] ?? null,
                     'schema_org' => $meta['schema_org'] ?? 'Product',
                     'google_product_category' => $meta['google_product_category'] ?? null,
@@ -1618,7 +1605,44 @@ class CanonicalStorefrontHomepageService
             default => 'gift-cards',
         };
 
-        return ['slug' => $slug] + self::PRODUCT_KIND_META[$slug];
+        return $this->productKindMeta($slug);
+    }
+
+    /**
+     * @return array{slug: string, label: string, description: string}
+     */
+    private function productKindMeta(string $slug): array
+    {
+        $labelKey = "catalog.product_kind.{$slug}.label";
+        $descriptionKey = "catalog.product_kind.{$slug}.description";
+
+        return [
+            'slug' => $slug,
+            'label' => __($labelKey) !== $labelKey ? __($labelKey) : Str::headline(str_replace('-', ' ', $slug)),
+            'description' => __($descriptionKey) !== $descriptionKey ? __($descriptionKey) : '',
+        ];
+    }
+
+    private function localizedRegionLabel(string $region): string
+    {
+        return $this->countryLabels->localizedLabel($region);
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function localizedCategoryDescription(array $meta, string $category): ?string
+    {
+        $key = "catalog.taxonomy.{$category}.description";
+        $translated = __($key);
+
+        if ($translated !== $key) {
+            return $translated;
+        }
+
+        return app()->getLocale() === 'ru'
+            ? ($meta['description_ru'] ?? null)
+            : null;
     }
 
     private function rememberHomepageBlock(string $key, callable $resolver): mixed
@@ -2225,7 +2249,7 @@ class CanonicalStorefrontHomepageService
             $brand !== '' ? $brand : null,
             $family !== '' && Str::lower($family) !== Str::lower($brand) ? Str::title($family) : null,
             is_numeric($faceValue) ? $this->formatAmount((float) $faceValue).' '.$currency : null,
-            $region !== '' && $region !== 'global' ? Str::upper($region) : null,
+            $region !== '' && $region !== 'global' ? $this->localizedRegionLabel($region) : null,
         ])->filter()->values();
 
         if ($parts->isNotEmpty()) {
@@ -2253,6 +2277,7 @@ class CanonicalStorefrontHomepageService
                     'name' => $label,
                     'label_ru' => $meta['label_ru'] ?? $group->first()['category_label'] ?? $category,
                     'label_en' => $meta['label_en'] ?? $category,
+                    'description' => $this->localizedCategoryDescription($meta, $category),
                     'description_ru' => $meta['description_ru'] ?? null,
                     'schema_org' => $meta['schema_org'] ?? 'Product',
                     'google_product_category' => $meta['google_product_category'] ?? null,

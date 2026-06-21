@@ -5,21 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Services\LlmProductFactsService;
 use App\Services\PricingProjectionService;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function show(string $slug, LlmProductFactsService $llmFacts, PricingProjectionService $pricingProjection)
+    public function show(string $slug, Request $request, LlmProductFactsService $llmFacts, PricingProjectionService $pricingProjection)
     {
-        $product = Product::where('slug', $slug)
-            ->where('is_active', true)
-            ->firstOrFail();
-        $productFacts = $llmFacts->productFacts($product);
-        $productJsonLd = $llmFacts->productJsonLd($product);
-        $productDisplayPrice = $pricingProjection->publicPriceForProduct($product);
-        $productDisplayPriceLabel = $pricingProjection->format($productDisplayPrice);
+        abort_unless(Product::where('slug', $slug)->where('is_active', true)->exists(), 404);
 
-        return view('products.show', compact('product', 'productFacts', 'productJsonLd', 'productDisplayPrice', 'productDisplayPriceLabel'));
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     public function search(Request $request, PricingProjectionService $pricingProjection)

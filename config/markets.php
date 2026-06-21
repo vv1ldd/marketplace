@@ -13,6 +13,19 @@ $domains = static function (string $market, array $defaults): array {
 return [
     'default' => env('MARKET_DEFAULT', 'global'),
 
+    'merchant_modules_default' => [
+        'overview',
+        'sales_channels',
+        'orders',
+        'catalog',
+        'provider_storefront',
+        'warehouses',
+        'vouchers',
+        'finance',
+        'support',
+        'settings',
+    ],
+
     'markets' => [
         'global' => [
             'name' => 'Global',
@@ -26,13 +39,22 @@ return [
             'demand_region' => null,
             'preferred_product_regions' => ['US', 'TR', 'GB'],
             'sales_channels' => ['meanly_storefront', 'offline_store', 'woocommerce'],
+            'merchant_modules' => [
+                'overview',
+                'sales_channels',
+                'orders',
+                'catalog',
+                'provider_storefront',
+                'warehouses',
+                'vouchers',
+                'finance',
+                'support',
+                'settings',
+            ],
             'domains' => $domains('GLOBAL', [
-                env('APP_DOMAIN', 'meanly.one'),
                 'meanly.one',
                 'www.meanly.one',
-                'meanly.test',
                 'marketplace.one',
-                'marketplace.test',
             ]),
         ],
 
@@ -48,6 +70,18 @@ return [
             'demand_region' => 'AR',
             'preferred_product_regions' => ['AR', 'US', 'TR'],
             'sales_channels' => ['meanly_storefront', 'offline_store', 'woocommerce'],
+            'merchant_modules' => [
+                'overview',
+                'sales_channels',
+                'orders',
+                'catalog',
+                'provider_storefront',
+                'warehouses',
+                'vouchers',
+                'finance',
+                'support',
+                'settings',
+            ],
             'domains' => $domains('LATAM_AR', [
                 'ar.marketplace.one',
                 'ar.marketplace.test',
@@ -69,6 +103,19 @@ return [
             'demand_region' => 'RU',
             'preferred_product_regions' => ['RU', 'TR', 'US'],
             'sales_channels' => ['meanly_storefront', 'yandex_market', 'offline_store', 'woocommerce'],
+            'merchant_modules' => [
+                'overview',
+                'sales_channels',
+                'orders',
+                'catalog',
+                'provider_storefront',
+                'warehouses',
+                'activations',
+                'vouchers',
+                'finance',
+                'support',
+                'settings',
+            ],
             'domains' => $domains('RU', [
                 'ru.marketplace.one',
                 'ru.marketplace.test',
@@ -89,6 +136,18 @@ return [
             'demand_region' => 'GE',
             'preferred_product_regions' => ['GE', 'TR', 'US'],
             'sales_channels' => ['meanly_storefront', 'offline_store', 'woocommerce'],
+            'merchant_modules' => [
+                'overview',
+                'sales_channels',
+                'orders',
+                'catalog',
+                'provider_storefront',
+                'warehouses',
+                'vouchers',
+                'finance',
+                'support',
+                'settings',
+            ],
             'domains' => $domains('GE', [
                 'tsipruli.ge',
                 'www.tsipruli.ge',

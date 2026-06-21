@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { BusinessOnboardingStatus } from './BusinessOnboardingStatus';
 import { MeanlyConnectPanel } from './MeanlyConnectPanel';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 import {
   claimSimpleL1Handoff,
   fetchPartnerRegistrationState,
@@ -170,9 +171,8 @@ export function PartnerRegistrationPanel({
 
   if (!sessionApplicationChecked) {
     return (
-      <section className="panel">
-        <h2>Checking seller onboarding...</h2>
-        <p className="product-card__muted">Meanly is checking whether this identity already has a merchant application.</p>
+      <section className="panel panel--loading">
+        <MeanlyLoadingMark label="Checking seller onboarding..." size="md" />
       </section>
     );
   }

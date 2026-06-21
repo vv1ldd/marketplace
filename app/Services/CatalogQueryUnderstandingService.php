@@ -2,84 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\CanonicalProductIdentity;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CatalogQueryUnderstandingService
 {
     private const MAX_QUERY_LENGTH = 240;
 
-    /**
-     * @var array<string, array{display: string, aliases: array<int, string>, confidence: float}>
-     */
-    private const BRAND_ALIASES = [
-        'PlayStation' => [
-            'display' => 'PlayStation/PSN',
-            'aliases' => ['playstation', 'play station', 'psn', 'ps store', 'playstation network'],
-            'confidence' => 0.94,
-        ],
-        'Xbox' => [
-            'display' => 'Xbox',
-            'aliases' => ['xbox', 'xbox live', 'microsoft xbox'],
-            'confidence' => 0.93,
-        ],
-        'Nintendo' => [
-            'display' => 'Nintendo',
-            'aliases' => ['nintendo', 'nintendo switch', 'switch online'],
-            'confidence' => 0.93,
-        ],
-        'Steam' => [
-            'display' => 'Steam',
-            'aliases' => ['steam', 'steam wallet'],
-            'confidence' => 0.94,
-        ],
-        'Apple' => [
-            'display' => 'Apple/App Store',
-            'aliases' => ['apple', 'app store', 'itunes', 'icloud'],
-            'confidence' => 0.9,
-        ],
-        'Google Play' => [
-            'display' => 'Google Play',
-            'aliases' => ['google play', 'play store'],
-            'confidence' => 0.93,
-        ],
-        'Roblox' => [
-            'display' => 'Roblox',
-            'aliases' => ['roblox', 'robux'],
-            'confidence' => 0.94,
-        ],
-        'PUBG' => [
-            'display' => 'PUBG',
-            'aliases' => ['pubg', 'pubg mobile', 'unknown cash'],
-            'confidence' => 0.92,
-        ],
-        'Free Fire' => [
-            'display' => 'Free Fire',
-            'aliases' => ['free fire', 'garena free fire'],
-            'confidence' => 0.92,
-        ],
-        'Bigo Live' => [
-            'display' => 'Bigo Live',
-            'aliases' => ['bigo live', 'bigo'],
-            'confidence' => 0.92,
-        ],
-        'Bitdefender' => [
-            'display' => 'Bitdefender',
-            'aliases' => ['bitdefender'],
-            'confidence' => 0.94,
-        ],
-        'American Express' => [
-            'display' => 'American Express',
-            'aliases' => ['american express', 'amex'],
-            'confidence' => 0.93,
-        ],
-        'Abbonamenti.it' => [
-            'display' => 'Abbonamenti.it',
-            'aliases' => ['abbonamenti.it', 'abbonamenti it', 'abbonamenti'],
-            'confidence' => 0.94,
-        ],
-    ];
+    public function __construct(
+        private readonly CatalogQueryLexiconService $lexicon,
+    ) {}
 
     /**
      * @var array<string, array<int, string>>
@@ -95,13 +26,13 @@ class CatalogQueryUnderstandingService
      * @var array<string, array<int, string>>
      */
     private const REGION_ALIASES = [
-        'turkey' => ['turkey', 'turkiye', 'türkiye', 'tr', 'турция', 'турции', 'турецкий'],
-        'us' => ['us', 'usa', 'united states', 'america', 'сша', 'америка'],
-        'eu' => ['eu', 'europe', 'european', 'европа', 'европейский'],
-        'global' => ['global', 'worldwide', 'international', 'глобальный', 'международный'],
-        'gb' => ['uk', 'gb', 'great britain', 'united kingdom', 'британия', 'великобритания'],
-        'italy' => ['italy', 'italia', 'it', 'италия', 'италии', 'итальянский'],
-        'russia' => ['russia', 'ru', 'россия', 'россии', 'российский'],
+        'turkey' => ['turkey', 'turkiye', 'türkiye', 'tr'],
+        'us' => ['us', 'usa', 'united states', 'america'],
+        'eu' => ['eu', 'europe', 'european'],
+        'global' => ['global', 'worldwide', 'international'],
+        'gb' => ['uk', 'gb', 'great britain', 'united kingdom'],
+        'italy' => ['italy', 'italia', 'it'],
+        'russia' => ['russia', 'ru'],
     ];
 
     /**
@@ -116,16 +47,17 @@ class CatalogQueryUnderstandingService
 
         $normalizedQuery = $this->normalizeHumanText($canonicalQuery !== '' ? $canonicalQuery : $originalQuery);
         $asciiQuery = $this->normalizeAsciiText($normalizedQuery);
+        $queryVariants = $this->lexicon->queryTextVariants($canonicalQuery !== '' ? $canonicalQuery : $originalQuery);
 
         $entities = [];
         $filters = [];
 
-        $intent = $this->detectIntent($normalizedQuery, $asciiQuery, $entities);
+        $intent = $this->detectIntent($queryVariants, $entities);
         $this->detectAmountsAndCurrencies($normalizedQuery, $asciiQuery, $filters, $entities);
-        $this->detectBrands($normalizedQuery, $asciiQuery, $filters, $entities);
-        $this->detectCategory($normalizedQuery, $asciiQuery, $filters, $entities);
-        $this->detectRegion($normalizedQuery, $asciiQuery, $filters, $entities);
-        $this->detectAvailabilityFilters($normalizedQuery, $asciiQuery, $filters, $entities);
+        $this->detectBrands($queryVariants, $filters, $entities);
+        $this->detectCategory($queryVariants, $filters, $entities);
+        $this->detectRegion($queryVariants, $filters, $entities);
+        $this->detectAvailabilityFilters($queryVariants, $filters, $entities);
 
         return [
             'type' => 'CatalogQueryUnderstanding',
@@ -143,9 +75,10 @@ class CatalogQueryUnderstandingService
     }
 
     /**
+     * @param  array<int, string>  $queryVariants
      * @param  array<int, array<string, mixed>>  $entities
      */
-    private function detectIntent(string $normalizedQuery, string $asciiQuery, array &$entities): string
+    private function detectIntent(array $queryVariants, array &$entities): string
     {
         $rules = [
             'trusted_seller' => [
@@ -167,7 +100,7 @@ class CatalogQueryUnderstandingService
         ];
 
         foreach ($rules as $intent => $aliases) {
-            $matched = $this->firstMatchedAlias($normalizedQuery, $asciiQuery, $aliases);
+            $matched = $this->firstMatchedAlias($queryVariants, $aliases);
             if ($matched === null) {
                 continue;
             }
@@ -240,7 +173,7 @@ class CatalogQueryUnderstandingService
         }
 
         foreach (self::CURRENCY_ALIASES as $currency => $aliases) {
-            $matched = $this->firstMatchedAlias($normalizedQuery, $asciiQuery, $aliases);
+            $matched = $this->firstMatchedAlias([$normalizedQuery, $asciiQuery], $aliases);
             if ($matched === null) {
                 continue;
             }
@@ -253,15 +186,16 @@ class CatalogQueryUnderstandingService
     }
 
     /**
+     * @param  array<int, string>  $queryVariants
      * @param  array<string, mixed>  $filters
      * @param  array<int, array<string, mixed>>  $entities
      */
-    private function detectBrands(string $normalizedQuery, string $asciiQuery, array &$filters, array &$entities): void
+    private function detectBrands(array $queryVariants, array &$filters, array &$entities): void
     {
         $matches = [];
 
-        foreach ($this->brandCandidates() as $brand => $candidate) {
-            $matched = $this->firstMatchedAlias($normalizedQuery, $asciiQuery, $candidate['aliases']);
+        foreach ($this->lexicon->brandCandidates() as $brand => $candidate) {
+            $matched = $this->firstMatchedAlias($queryVariants, $candidate['aliases']);
             if ($matched === null) {
                 continue;
             }
@@ -273,6 +207,23 @@ class CatalogQueryUnderstandingService
                 'confidence' => $candidate['confidence'],
                 'source' => $candidate['source'],
             ];
+        }
+
+        if ($matches === []) {
+            foreach ($this->lexicon->brandCandidates() as $brand => $candidate) {
+                $matched = $this->fuzzyBrandMatch($queryVariants, $candidate['aliases']);
+                if ($matched === null) {
+                    continue;
+                }
+
+                $matches[] = [
+                    'brand' => $brand,
+                    'display' => $candidate['display'],
+                    'matched' => $matched,
+                    'confidence' => max(0.6, $candidate['confidence'] - 0.12),
+                    'source' => 'lexicon.fuzzy_brand',
+                ];
+            }
         }
 
         usort($matches, fn (array $a, array $b): int => $b['confidence'] <=> $a['confidence']);
@@ -287,10 +238,11 @@ class CatalogQueryUnderstandingService
     }
 
     /**
+     * @param  array<int, string>  $queryVariants
      * @param  array<string, mixed>  $filters
      * @param  array<int, array<string, mixed>>  $entities
      */
-    private function detectCategory(string $normalizedQuery, string $asciiQuery, array &$filters, array &$entities): void
+    private function detectCategory(array $queryVariants, array &$filters, array &$entities): void
     {
         $categories = (array) config('catalog_taxonomy.categories', []);
         $keywordRules = (array) config('catalog_taxonomy.keyword_rules', []);
@@ -308,7 +260,7 @@ class CatalogQueryUnderstandingService
                 $aliases[] = (string) $keyword;
             }
 
-            $matched = $this->firstMatchedAlias($normalizedQuery, $asciiQuery, $aliases);
+            $matched = $this->firstMatchedAlias($queryVariants, $aliases);
             if ($matched === null) {
                 continue;
             }
@@ -332,31 +284,94 @@ class CatalogQueryUnderstandingService
     }
 
     /**
+     * @param  array<int, string>  $queryVariants
      * @param  array<string, mixed>  $filters
      * @param  array<int, array<string, mixed>>  $entities
      */
-    private function detectRegion(string $normalizedQuery, string $asciiQuery, array &$filters, array &$entities): void
+    private function detectRegion(array $queryVariants, array &$filters, array &$entities): void
     {
-        foreach (self::REGION_ALIASES as $region => $aliases) {
-            $matched = $this->firstMatchedAlias($normalizedQuery, $asciiQuery, $aliases);
-            if ($matched === null) {
+        $best = null;
+
+        foreach ($this->lexicon->regionAliasMap() as $region => $aliases) {
+            $matched = $this->firstMatchedAlias($queryVariants, $aliases);
+            if ($matched === null || $this->isBlockedRegionAliasContext($queryVariants, $matched)) {
                 continue;
             }
 
-            $filters['region'] = $region;
-            $entities[] = $this->entity('region', $region, $matched, 0.82, 'heuristic.region_alias');
+            $candidate = [
+                'region' => $region,
+                'matched' => $matched,
+                'score' => mb_strlen($matched),
+                'confidence' => 0.82,
+                'source' => 'lexicon.region_alias',
+            ];
 
+            if ($best === null || $candidate['score'] > $best['score']) {
+                $best = $candidate;
+            }
+        }
+
+        foreach (self::REGION_ALIASES as $region => $aliases) {
+            $matched = $this->firstMatchedAlias($queryVariants, $aliases);
+            if ($matched === null || $this->isBlockedRegionAliasContext($queryVariants, $matched)) {
+                continue;
+            }
+
+            $candidate = [
+                'region' => $region,
+                'matched' => $matched,
+                'score' => mb_strlen($matched),
+                'confidence' => 0.78,
+                'source' => 'heuristic.region_alias',
+            ];
+
+            if ($best === null || $candidate['score'] > $best['score']) {
+                $best = $candidate;
+            }
+        }
+
+        if ($best === null) {
             return;
         }
+
+        $filters['region'] = $best['region'];
+        $entities[] = $this->entity('region', $best['region'], $best['matched'], $best['confidence'], $best['source']);
     }
 
     /**
+     * @param  array<int, string>  $queryVariants
+     */
+    private function isBlockedRegionAliasContext(array $queryVariants, string $alias): bool
+    {
+        if (mb_strlen($alias) > 2) {
+            return false;
+        }
+
+        $blockers = [
+            'id' => ['apple id', 'app id', 'user id', 'google id', 'icloud id', 'player id'],
+        ];
+
+        foreach ($queryVariants as $variant) {
+            $variant = $this->normalizeHumanText($variant);
+
+            foreach ($blockers[$alias] ?? [] as $phrase) {
+                if ($this->phraseExists($variant, $phrase)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, string>  $queryVariants
      * @param  array<string, mixed>  $filters
      * @param  array<int, array<string, mixed>>  $entities
      */
-    private function detectAvailabilityFilters(string $normalizedQuery, string $asciiQuery, array &$filters, array &$entities): void
+    private function detectAvailabilityFilters(array $queryVariants, array &$filters, array &$entities): void
     {
-        $hasOffer = $this->firstMatchedAlias($normalizedQuery, $asciiQuery, [
+        $hasOffer = $this->firstMatchedAlias($queryVariants, [
             'seller offer', 'with offer', 'has offer', 'checkout offer',
             'предложение продавца', 'есть оффер', 'с оффером',
         ]);
@@ -366,7 +381,7 @@ class CatalogQueryUnderstandingService
             $entities[] = $this->entity('filter', 'has_offer:true', $hasOffer, 0.74, 'heuristic.availability_filter');
         }
 
-        $providerNetwork = $this->firstMatchedAlias($normalizedQuery, $asciiQuery, [
+        $providerNetwork = $this->firstMatchedAlias($queryVariants, [
             'provider network', 'network candidate', 'provider candidate',
             'провайдер', 'провайдерская сеть', 'кандидат провайдера',
         ]);
@@ -378,53 +393,70 @@ class CatalogQueryUnderstandingService
     }
 
     /**
-     * @return array<string, array{display: string, aliases: array<int, string>, confidence: float, source: string}>
+     * @param  array<int, string>  $queryVariants
+     * @param  array<int, string>  $aliases
      */
-    private function brandCandidates(): array
+    private function firstMatchedAlias(array $queryVariants, array $aliases): ?string
     {
-        $candidates = [];
-
-        foreach (self::BRAND_ALIASES as $brand => $definition) {
-            $candidates[$brand] = [
-                'display' => $definition['display'],
-                'aliases' => $definition['aliases'],
-                'confidence' => $definition['confidence'],
-                'source' => 'heuristic.brand_alias',
-            ];
-        }
-
-        try {
-            if (! Schema::hasTable('canonical_product_identities')) {
-                return $candidates;
+        foreach ($aliases as $alias) {
+            $alias = $this->normalizeHumanText((string) $alias);
+            if ($alias === '') {
+                continue;
             }
 
-            CanonicalProductIdentity::query()
-                ->whereNotNull('brand')
-                ->where('brand', '<>', '')
-                ->distinct()
-                ->orderBy('brand')
-                ->limit(100)
-                ->pluck('brand')
-                ->each(function (string $brand) use (&$candidates): void {
-                    if (isset($candidates[$brand])) {
-                        return;
-                    }
+            $asciiAlias = $this->normalizeAsciiText($alias);
 
-                    $candidates[$brand] = [
-                        'display' => $brand,
-                        'aliases' => array_values(array_unique([
-                            $brand,
-                            str_replace(['.', '_', '-'], ' ', $brand),
-                        ])),
-                        'confidence' => 0.72,
-                        'source' => 'indexed_brand',
-                    ];
-                });
-        } catch (\Throwable) {
-            return $candidates;
+            foreach ($queryVariants as $variant) {
+                $variant = $this->normalizeHumanText($variant);
+                $asciiVariant = $this->normalizeAsciiText($variant);
+
+                if ($this->phraseExists($variant, $alias) || $this->phraseExists($asciiVariant, $asciiAlias)) {
+                    return $alias;
+                }
+            }
         }
 
-        return $candidates;
+        return null;
+    }
+
+    /**
+     * @param  array<int, string>  $queryVariants
+     * @param  array<int, string>  $aliases
+     */
+    private function fuzzyBrandMatch(array $queryVariants, array $aliases): ?string
+    {
+        $tokens = collect($queryVariants)
+            ->flatMap(fn (string $variant): array => preg_split('/\s+/', $this->normalizeAsciiText($variant)) ?: [])
+            ->filter(fn (string $token): bool => strlen($token) >= 4 && preg_match('/^[a-z0-9]+$/', $token) === 1)
+            ->unique()
+            ->values();
+
+        if ($tokens->isEmpty()) {
+            return null;
+        }
+
+        $targets = collect($aliases)
+            ->map(fn (string $alias): string => $this->normalizeAsciiText($alias))
+            ->filter(fn (string $alias): bool => strlen($alias) >= 4 && preg_match('/^[a-z0-9 ]+$/', $alias) === 1)
+            ->flatMap(fn (string $alias): array => preg_split('/\s+/', $alias) ?: [])
+            ->filter(fn (string $token): bool => strlen($token) >= 4)
+            ->unique()
+            ->values();
+
+        foreach ($tokens as $token) {
+            foreach ($targets as $target) {
+                if (str_starts_with($target, $token) || str_starts_with($token, $target)) {
+                    return $token;
+                }
+
+                $maxDistance = max(1, min(3, (int) floor(max(strlen($token), strlen($target)) / 4)));
+                if (levenshtein($token, $target) <= $maxDistance) {
+                    return $token;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -435,14 +467,10 @@ class CatalogQueryUnderstandingService
     {
         $parts = [];
 
-        foreach ($entities as $entity) {
-            if (($entity['type'] ?? null) !== 'brand') {
-                continue;
-            }
-
-            $value = (string) ($entity['value'] ?? '');
-            if ($value !== '') {
-                $parts[] = str_contains($value, '/') ? Str::before($value, '/') : $value;
+        if (isset($filters['brand'])) {
+            $brand = (string) $filters['brand'];
+            if ($brand !== '') {
+                $parts[] = $brand;
             }
         }
 
@@ -454,30 +482,15 @@ class CatalogQueryUnderstandingService
             $parts[] = (string) $filters['currency'];
         }
 
+        if (isset($filters['region'])) {
+            $parts[] = (string) $filters['region'];
+        }
+
         $rewritten = Str::of(implode(' ', array_values(array_unique($parts))))
             ->squish()
             ->toString();
 
         return $rewritten !== '' ? $rewritten : $normalizedQuery;
-    }
-
-    /**
-     * @param  array<int, string>  $aliases
-     */
-    private function firstMatchedAlias(string $normalizedQuery, string $asciiQuery, array $aliases): ?string
-    {
-        foreach ($aliases as $alias) {
-            $alias = $this->normalizeHumanText((string) $alias);
-            if ($alias === '') {
-                continue;
-            }
-
-            if ($this->phraseExists($normalizedQuery, $alias) || $this->phraseExists($asciiQuery, $this->normalizeAsciiText($alias))) {
-                return $alias;
-            }
-        }
-
-        return null;
     }
 
     private function phraseExists(string $haystack, string $needle): bool

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { frontendUrl, simpleL1ConnectUrl } from '../lib/storefront-api';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 
 async function jsonRequest(path, { body, method = 'GET', csrfToken } = {}) {
   const response = await fetch(`/backend${path}`, {
@@ -188,9 +189,15 @@ export function BusinessOfferForm() {
         <p>Review the offer and confirm your authority to sign it.</p>
 
         <div className="business-offer-document">
-          <strong>{offer?.agreement?.title || 'Loading offer...'}</strong>
-          {offer?.agreement?.published_at ? <small>Published: {offer.agreement.published_at}</small> : null}
-          <div>{offer?.agreement?.text || 'Loading offer text...'}</div>
+          {!offer && !error ? (
+            <MeanlyLoadingMark label="Loading offer..." size="sm" />
+          ) : (
+            <>
+              <strong>{offer?.agreement?.title || 'Public offer'}</strong>
+              {offer?.agreement?.published_at ? <small>Published: {offer.agreement.published_at}</small> : null}
+              <div>{offer?.agreement?.text || 'Offer text is unavailable.'}</div>
+            </>
+          )}
         </div>
 
         <label className="business-offer-confirm">

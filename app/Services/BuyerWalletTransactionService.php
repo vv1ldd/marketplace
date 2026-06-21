@@ -23,6 +23,7 @@ class BuyerWalletTransactionService
     public function __construct(
         private readonly BuyerWalletService $wallets,
         private readonly L1IdentityService $identity,
+        private readonly SettlementNetworkRegistry $settlementNetworks,
     ) {}
 
     /**
@@ -60,7 +61,7 @@ class BuyerWalletTransactionService
 
         $shop = $product->shop;
         $payload = [
-            'network' => 'Simple Layer One',
+            'network' => $this->settlementNetworks->payloadNetworkLabel('simple-layer-1'),
             'version' => 1,
             'intent' => 'BUYER_PURCHASE_DEBIT',
             'asset' => BuyerWalletService::ASSET_RUB,
@@ -324,7 +325,7 @@ class BuyerWalletTransactionService
         return [
             'valid' => true,
             'proof' => [
-                'network' => 'Simple Layer One',
+                'network' => $this->settlementNetworks->payloadNetworkLabel('simple-layer-1'),
                 'tx_hash' => (string) $envelope['tx_hash'],
                 'tx_nonce' => (int) data_get($envelope, 'payload.nonce'),
                 'canonical_payload' => $envelope['payload'],

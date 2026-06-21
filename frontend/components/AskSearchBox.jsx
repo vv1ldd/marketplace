@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { fetchStorefrontCatalog, fetchStorefrontSuggestions } from '../lib/storefront-api';
 import { useLocale } from './LocaleProvider';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 
 const CURRENCY_TERMS = new Set([
   'usd',
@@ -511,7 +512,11 @@ export function AskSearchBox({ initialQuery = '' }) {
       </form>
       {showDropdown ? (
         <div className="ask-suggestions" onMouseDown={(event) => event.preventDefault()}>
-          {isLoading ? <p className="ask-suggestions__status">{t('status_searching')}</p> : null}
+          {isLoading ? (
+            <div className="ask-suggestions__status ask-suggestions__status--loading">
+              <MeanlyLoadingMark className="meanly-loading-mark--inline" label={t('status_searching')} size="xs" />
+            </div>
+          ) : null}
           {!isLoading && suggestions.length === 0 ? (
             <p className="ask-suggestions__status">{t('status_no_match')}</p>
           ) : null}

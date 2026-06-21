@@ -4,15 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Services\AppStoreLookupService;
 use App\Services\CanonicalStorefrontHomepageService;
+use App\Services\CatalogQueryUnderstandingService;
 use App\Services\Llm\LlmProviderManager;
 use App\Services\MeanlyAnalyticsService;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\Request;
 
 class StorefrontChatController extends Controller
 {
-    public function page()
+    public function page(Request $request)
     {
-        return view('storefront.ai-chat');
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     /**
@@ -36,14 +38,16 @@ class StorefrontChatController extends Controller
         }
 
         $startedAt = microtime(true);
-        $appStoreIntent = $appStoreLookup->intentFromMessage((string) $message);
+        $wholesaleIntent = $this->isWholesaleIntent((string) $message);
+        $catalogQuery = $this->catalogQueryForMessage((string) $message, $wholesaleIntent);
+        $appStoreIntent = $appStoreLookup->intentFromMessage($catalogQuery);
         $externalResults = $appStoreIntent !== null
             ? $appStoreLookup->search($appStoreIntent['app_query'], $appStoreIntent['region'])
             : [];
 
         // 1. Получаем релевантные карточки для чата: пользователь пишет свободно,
         // поэтому чистим фразу от служебных слов и добавляем синонимы каталога.
-        $cards = $this->catalogCardsForMessage((string) $message, $homepageService);
+        $cards = $this->catalogCardsForMessage($catalogQuery, $homepageService);
 
         if ($appStoreIntent !== null) {
             $giftCardCards = $this->catalogCardsForMessage($appStoreIntent['gift_card_query'], $homepageService)
@@ -99,7 +103,7 @@ class StorefrontChatController extends Controller
             'timeout' => 60,
             'temperature' => 0.2,
             'max_tokens' => 900,
-            'system' => 'You are Meanly AI, a concise marketplace shopping assistant.',
+            'system' => 'You are Meanly AI. Reply in 1-2 short sentences. Use markdown catalog links only. No technical status notes or long explanations.',
         ]);
         $model = trim($response->provider.':'.($response->model ?? ''), ':');
 
@@ -121,7 +125,7 @@ class StorefrontChatController extends Controller
                 'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             ]);
 
-            return response()->json([
+            return $this->chatResponse([
                 'success' => true,
                 'response' => $answer,
                 'external_results' => $externalResults,
@@ -129,7 +133,7 @@ class StorefrontChatController extends Controller
                 'model' => $model,
                 'provider' => $response->provider,
                 'fallback_used' => $response->fallbackUsed,
-            ]);
+            ], $wholesaleIntent, (string) $message);
         }
 
         if ($products !== []) {
@@ -149,14 +153,14 @@ class StorefrontChatController extends Controller
                 'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             ]);
 
-            return response()->json([
+            return $this->chatResponse([
                 'success' => true,
                 'response' => $this->fallbackProductResponse($products, $externalResults),
                 'external_results' => $externalResults,
                 'products' => $products,
                 'model' => $model,
                 'model_unavailable' => true,
-            ]);
+            ], $wholesaleIntent, (string) $message);
         }
 
         app(MeanlyAnalyticsService::class)->track('ai.chat.failed', [
@@ -245,43 +249,45 @@ class StorefrontChatController extends Controller
         }
 
         $lines = collect($products)
-            ->take(2)
+            ->take(3)
             ->map(function (array $product): string {
-                $isGrouped = (bool) ($product['is_grouped'] ?? false);
-                $note = $isGrouped
-                    ? __('runtime.chat.grouped_product_hint')
-                    : ($product['availability'] === 'active_offer'
-                        ? $product['price']
-                        : __('runtime.chat.catalog_only_hint'));
+                if (($product['availability'] ?? '') === 'active_offer' && ($product['price'] ?? '') !== '') {
+                    return "- [{$product['name']}]({$product['url']}) — {$product['price']}";
+                }
 
-                return "- [{$product['name']}]({$product['url']}) — {$product['region']}, {$note}";
+                return "- [{$product['name']}]({$product['url']})";
             })
             ->implode("\n");
 
-        return $externalSummary.__('runtime.chat.apple_balance_summary', ['lines' => $lines]);
+        $summaryKey = $this->shouldUseAppleBalanceSummary($products, $externalResults)
+            ? 'runtime.chat.apple_balance_summary'
+            : 'runtime.chat.catalog_product_summary';
+
+        return $externalSummary.__($summaryKey, ['lines' => $lines]);
     }
 
-    private function catalogCardsForMessage(string $message, CanonicalStorefrontHomepageService $homepageService)
+    /**
+     * @param  array<int, array<string, mixed>>  $products
+     * @param  array<int, array<string, mixed>>  $externalResults
+     */
+    private function shouldUseAppleBalanceSummary(array $products, array $externalResults): bool
     {
-        $cards = collect();
-
-        foreach ($this->chatCatalogQueries($message) as $query) {
-            $cards = $cards->concat($homepageService->storefrontReadyCards($query, 120));
+        if ($externalResults !== []) {
+            return true;
         }
 
-        return $cards
-            ->unique('slug')
-            ->sortByDesc(fn (array $card): int => $this->chatCatalogScore($card, $message))
-            ->take(60)
-            ->values();
+        return collect($products)->contains(fn (array $product): bool => $this->isAppleGiftCardProduct($product));
     }
 
-    private function isAppleGiftCardCard(array $card): bool
+    /**
+     * @param  array<string, mixed>  $product
+     */
+    private function isAppleGiftCardProduct(array $product): bool
     {
         $haystack = $this->normalizeChatText(implode(' ', array_filter([
-            $card['name'] ?? null,
-            $card['brand'] ?? null,
-            $card['product_family'] ?? null,
+            $product['name'] ?? null,
+            $product['brand'] ?? null,
+            $product['product_family'] ?? null,
         ])));
 
         return str_contains($haystack, 'apple')
@@ -289,51 +295,55 @@ class StorefrontChatController extends Controller
             || str_contains($haystack, 'app store');
     }
 
+    private function catalogCardsForMessage(string $message, CanonicalStorefrontHomepageService $homepageService)
+    {
+        $understanding = app(CatalogQueryUnderstandingService::class)->understand($message);
+        $cards = collect();
+
+        foreach ($this->chatCatalogQueries($message, $understanding) as $query) {
+            $cards = $cards->concat($homepageService->storefrontReadyCards($query, 120));
+        }
+
+        return $cards
+            ->unique('slug')
+            ->sortByDesc(fn (array $card): int => $this->chatCatalogScore($card, $understanding))
+            ->take(60)
+            ->values();
+    }
+
+    private function isAppleGiftCardCard(array $card): bool
+    {
+        return $this->isAppleGiftCardProduct([
+            'name' => $card['name'] ?? null,
+            'brand' => $card['brand'] ?? null,
+            'product_family' => $card['product_family'] ?? null,
+        ]);
+    }
+
     /**
+     * @param  array<string, mixed>  $understanding
      * @return array<int, string>
      */
-    private function chatCatalogQueries(string $message): array
+    private function chatCatalogQueries(string $message, array $understanding): array
     {
-        $normalized = $this->normalizeChatText($message);
-        $tokens = preg_split('/\s+/', $normalized) ?: [];
-        $stopWords = [
-            'а', 'ах', 'в', 'во', 'вот', 'вы', 'да', 'дай', 'дайте', 'даже', 'для', 'если', 'же', 'и',
-            'ка', 'как', 'ко', 'мне', 'можно', 'на', 'найди', 'нет', 'нужен', 'нужна', 'нужно', 'о',
-            'от', 'по', 'покажи', 'подбери', 'про', 'с', 'ссылку', 'товар', 'товары', 'у', 'хочу',
-            'что', 'this', 'show', 'find', 'give', 'link', 'for', 'the', 'please', 'me', 'with',
-            'without', 'available', 'availability', 'stock', 'out', 'of', 'in',
-        ];
-        $keywords = collect($tokens)
-            ->filter(fn (string $token): bool => mb_strlen($token) > 1 && ! in_array($token, $stopWords, true))
-            ->values();
+        $filters = (array) ($understanding['filters'] ?? []);
+        $queries = collect([
+            $understanding['rewritten_query'] ?? null,
+            $understanding['canonical_query'] ?? null,
+            $understanding['normalized_query'] ?? null,
+        ]);
 
-        $queries = collect();
-        $keywordsQuery = $keywords->implode(' ');
+        $brandSearchTerm = $this->chatBrandSearchTerm(isset($filters['brand']) ? (string) $filters['brand'] : null);
+        $region = isset($filters['region']) ? (string) $filters['region'] : null;
 
-        if ($keywordsQuery !== '') {
-            $queries->push($keywordsQuery);
+        if ($brandSearchTerm !== null) {
+            $queries->push($region ? "{$brandSearchTerm} {$region}" : $brandSearchTerm);
         }
 
-        $region = $this->chatRegionQuery($normalized);
-
-        if (str_contains($normalized, 'apple')) {
-            $appleQueries = [
-                'apple',
-                'itunes',
-                'app store',
-                'apple app store',
-                'apple app store itunes',
-            ];
-
-            foreach ($appleQueries as $query) {
-                $queries->push($region ? "{$query} {$region}" : $query);
-            }
-        }
-
-        foreach (['steam', 'playstation', 'psn', 'xbox', 'spotify', 'google play', 'amazon'] as $brand) {
-            if (str_contains($normalized, $brand)) {
-                $queries->push($region ? "{$brand} {$region}" : $brand);
-            }
+        if ($this->isAppleGiftCardBrand(isset($filters['brand']) ? (string) $filters['brand'] : null)) {
+            $appleRegion = $region ?? '';
+            $queries->push(trim("apple app store itunes gift card {$appleRegion}"));
+            $queries->push(trim("itunes app store {$appleRegion}"));
         }
 
         if ($region) {
@@ -343,33 +353,29 @@ class StorefrontChatController extends Controller
         $queries->push($message);
 
         return $queries
-            ->map(fn (string $query): string => trim($query))
+            ->map(fn (mixed $query): string => trim((string) $query))
             ->filter()
             ->unique()
             ->values()
             ->all();
     }
 
-    private function chatRegionQuery(string $normalized): ?string
+    private function chatBrandSearchTerm(?string $brand): ?string
     {
-        return match (true) {
-            str_contains($normalized, 'turkey'),
-            str_contains($normalized, 'turkiye'),
-            str_contains($normalized, 'турц'),
-            preg_match('/\btr\b/', $normalized) === 1 => 'turkey',
-            str_contains($normalized, 'united states'),
-            str_contains($normalized, 'usa'),
-            str_contains($normalized, 'сша'),
-            preg_match('/\bus\b/', $normalized) === 1 => 'united states',
-            str_contains($normalized, 'uae'),
-            str_contains($normalized, 'оаэ') => 'uae',
-            default => null,
-        };
+        if ($brand === null || $brand === '') {
+            return null;
+        }
+
+        return mb_strtolower($brand);
     }
 
-    private function chatCatalogScore(array $card, string $message): int
+    /**
+     * @param  array<string, mixed>  $understanding
+     */
+    private function chatCatalogScore(array $card, array $understanding): int
     {
-        $normalized = $this->normalizeChatText($message);
+        $filters = (array) ($understanding['filters'] ?? []);
+        $normalized = $this->normalizeChatText((string) ($understanding['original_query'] ?? ''));
         $haystack = $this->normalizeChatText(implode(' ', array_filter([
             $card['name'] ?? null,
             $card['brand'] ?? null,
@@ -388,11 +394,50 @@ class StorefrontChatController extends Controller
             $score += 35;
         }
 
-        if (($region = $this->chatRegionQuery($normalized)) && str_contains($haystack, $region)) {
+        $region = isset($filters['region']) ? (string) $filters['region'] : null;
+        if ($region && $this->cardMatchesRegion($card, $region)) {
             $score += 30;
+        } elseif ($region) {
+            $score -= 25;
         }
 
         return $score;
+    }
+
+    private function isAppleGiftCardBrand(?string $brand): bool
+    {
+        if ($brand === null || $brand === '') {
+            return false;
+        }
+
+        return str_contains($this->normalizeChatText($brand), 'apple');
+    }
+
+    private function cardMatchesRegion(array $card, string $region): bool
+    {
+        $region = $this->normalizeChatText($region);
+        $haystack = $this->normalizeChatText(implode(' ', array_filter([
+            $card['region'] ?? null,
+            data_get($card, 'variant_group.regions.0'),
+            ...(array) ($card['variant_group']['regions'] ?? []),
+        ])));
+
+        if ($haystack === '' || $region === '') {
+            return false;
+        }
+
+        if (str_contains($haystack, $region)) {
+            return true;
+        }
+
+        return match ($region) {
+            'turkey' => str_contains($haystack, 'tr') || str_contains($haystack, 'turk'),
+            'united states', 'us' => str_contains($haystack, 'us') || str_contains($haystack, 'usa'),
+            'united kingdom', 'gb' => str_contains($haystack, 'gb') || str_contains($haystack, 'uk'),
+            'austria' => str_contains($haystack, 'at') || str_contains($haystack, 'austria'),
+            'indonesia' => str_contains($haystack, 'indonesia') || preg_match('/\bid\b/', $haystack) === 1,
+            default => false,
+        };
     }
 
     private function normalizeChatText(string $value): string
@@ -402,6 +447,94 @@ class StorefrontChatController extends Controller
         $value = preg_replace('/[^\pL\pN]+/u', ' ', $value) ?: '';
 
         return trim(preg_replace('/\s+/u', ' ', $value) ?: '');
+    }
+
+    /**
+     * @var array<int, string>
+     */
+    private const WHOLESALE_MARKERS = [
+        'оптом',
+        'опт',
+        'оптов',
+        'оптовые',
+        'оптовая',
+        'оптовый',
+        'wholesale',
+        'bulk',
+        'b2b',
+        'large order',
+        'volume order',
+        'партией',
+        'партия',
+        'крупным',
+        'крупный опт',
+    ];
+
+    private function isWholesaleIntent(string $message): bool
+    {
+        $haystack = mb_strtolower(trim($message));
+
+        foreach (self::WHOLESALE_MARKERS as $marker) {
+            if (str_contains($haystack, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function catalogQueryForMessage(string $message, bool $wholesaleIntent): string
+    {
+        if (! $wholesaleIntent) {
+            return $message;
+        }
+
+        $query = $message;
+        foreach (self::WHOLESALE_MARKERS as $marker) {
+            $pattern = '/'.preg_quote($marker, '/').'/iu';
+            $query = preg_replace($pattern, ' ', $query) ?? $query;
+        }
+
+        $query = trim(preg_replace('/\s+/u', ' ', $query) ?: '');
+
+        return $query !== '' ? $query : $message;
+    }
+
+    /**
+     * @return array{active: bool, email: string, message: string}|null
+     */
+    private function wholesalePayload(bool $active, string $message): ?array
+    {
+        if (! $active) {
+            return null;
+        }
+
+        $email = (string) config('meanly_storefront.b2b.email', config('acquiring.company.email', 'support@meanly.one'));
+
+        return [
+            'active' => true,
+            'email' => $email,
+            'message' => __(
+                'runtime.chat.b2b_wholesale_note',
+                ['email' => $email],
+                $this->messageLocaleHint($message),
+            ),
+        ];
+    }
+
+    private function messageLocaleHint(string $message): ?string
+    {
+        return preg_match('/\p{Cyrillic}/u', $message) === 1 ? 'ru' : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function chatResponse(array $payload, bool $wholesaleIntent, string $message): \Illuminate\Http\JsonResponse
+    {
+        $payload['b2b'] = $this->wholesalePayload($wholesaleIntent, $message);
+
+        return response()->json($payload);
     }
 
     private function catalogUrlForPrompt(string $url): string

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Shop;
 use App\Services\MarketChannelPolicy;
+use App\Services\MarketContextResolver;
 
 class SalesChannels
 {
@@ -71,6 +72,47 @@ class SalesChannels
     public static function isChannelAllowedForShop(string $key, Shop $shop): bool
     {
         return app(MarketChannelPolicy::class)->isAllowedForShop($key, $shop);
+    }
+
+    public static function isChannelVisibleForMarket(string $key, MarketContext|string $market): bool
+    {
+        $meta = self::all()[$key] ?? null;
+        if (! is_array($meta)) {
+            return false;
+        }
+
+        $markets = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $value): string => strtolower(trim((string) $value)),
+            (array) ($meta['markets'] ?? []),
+        ))));
+
+        if ($markets === []) {
+            return true;
+        }
+
+        $marketKey = $market instanceof MarketContext
+            ? $market->market
+            : strtolower(trim($market));
+
+        return in_array($marketKey, $markets, true);
+    }
+
+    /**
+     * @return array{label:string, icon:string, enabled:bool, implemented:bool, group?:string}
+     */
+    public static function localizedMeta(string $key, MarketContext|string $market): array
+    {
+        $meta = (array) (self::all()[$key] ?? []);
+        $context = $market instanceof MarketContext
+            ? $market
+            : app(MarketContextResolver::class)->resolveForMarketKey((string) $market);
+        $useEnglish = ($context->locale ?? 'en') === 'en' || $context->market === 'global';
+
+        return array_merge($meta, [
+            'label' => (string) ($useEnglish
+                ? ($meta['label_en'] ?? $meta['label'] ?? $key)
+                : ($meta['label'] ?? $meta['label_en'] ?? $key)),
+        ]);
     }
 
     public static function isChannelConfigured(string $key, Shop $shop): bool

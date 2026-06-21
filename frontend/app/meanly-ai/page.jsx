@@ -6,7 +6,7 @@ export default async function MeanlyAiPage({ searchParams }) {
   const params = await searchParams;
 
   return (
-    <main className="page page--ai">
+    <main className="page--ai">
       <MeanlyAiChat initialQuery={params?.q || ''} />
     </main>
   );

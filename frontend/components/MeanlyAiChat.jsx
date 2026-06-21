@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { fetchStorefrontCatalog, submitStorefrontChat } from '../lib/storefront-api';
+import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 
 function localHref(href, fallback = '/') {
   if (!href) {
@@ -40,17 +41,34 @@ function collectResults(catalog = {}) {
   return { offers: [], groups, products, categories };
 }
 
+const EMPTY_RESULTS = Object.freeze({
+  offers: [],
+  groups: [],
+  products: [],
+  categories: [],
+});
+
+function normalizeResults(results) {
+  if (!results || typeof results !== 'object') {
+    return EMPTY_RESULTS;
+  }
+
+  return {
+    offers: Array.isArray(results.offers) ? results.offers : [],
+    groups: Array.isArray(results.groups) ? results.groups : [],
+    products: Array.isArray(results.products) ? results.products : [],
+    categories: Array.isArray(results.categories) ? results.categories : [],
+  };
+}
+
 function collectChatResults(payload = {}) {
   const offers = (payload.products || []).slice(0, 6).map((product) => ({
     key: `offer-${product.url || product.name}`,
     href: localHref(product.url),
-    label: product.cta || (product.is_grouped ? 'Open group' : 'Open offer'),
     title: product.name,
     meta: [
-      product.brand,
       product.region,
-      product.price,
-      product.is_grouped && product.variant_count ? `${product.variant_count} variants` : null,
+      product.price && product.price !== 'Coming soon' ? product.price : null,
     ].filter(Boolean).join(' · '),
   }));
 
@@ -58,47 +76,55 @@ function collectChatResults(payload = {}) {
 }
 
 function resultCount(results) {
-  return results.offers.length + results.groups.length + results.products.length + results.categories.length;
+  const normalized = normalizeResults(results);
+
+  return normalized.offers.length
+    + normalized.groups.length
+    + normalized.products.length
+    + normalized.categories.length;
 }
 
 function assistantCopy(question, results) {
   const count = resultCount(results);
 
   if (!count) {
-    return `I could not find exact catalog matches for "${question}" yet. Try a brand, product type, region, or denomination.`;
+    return `No matches for "${question}" yet. Try a brand, region, or product type.`;
   }
 
-  const lead = results.groups[0]?.name || results.products[0]?.name || results.categories[0]?.label;
+  return count === 1 ? 'One match in the catalog.' : `${count} matches in the catalog.`;
+}
 
-  return `I found ${count} catalog ${count === 1 ? 'match' : 'matches'} for "${question}". Start with ${lead}, then open the result to choose region, value, and checkout options.`;
+function assistantLeadText(results) {
+  const count = resultCount(results);
+
+  if (!count) {
+    return null;
+  }
+
+  return count === 1 ? 'One match' : `${count} matches`;
 }
 
 function ResultCards({ results }) {
+  const normalized = normalizeResults(results);
   const cards = [
-    ...results.offers,
-    ...results.groups.map((group) => ({
+    ...normalized.offers,
+    ...normalized.groups.map((group) => ({
       key: `group-${group.id || group.name}`,
       href: groupHref(group),
-      label: 'Product group',
       title: group.name,
-      meta: [
-        group.variant_group?.variant_count ? `${group.variant_group.variant_count} variants` : null,
-        group.variant_group?.region_count ? `${group.variant_group.region_count} regions` : null,
-      ].filter(Boolean).join(' · '),
+      meta: group.region || null,
     })),
-    ...results.products.map((product) => ({
+    ...normalized.products.map((product) => ({
       key: `product-${product.id || product.slug}`,
       href: productHref(product),
-      label: product.category?.label || 'Product',
       title: product.name,
-      meta: product.region || 'global',
+      meta: product.region || null,
     })),
-    ...results.categories.map((category) => ({
+    ...normalized.categories.map((category) => ({
       key: `category-${category.slug || category.name}`,
       href: category.slug ? `/catalog/${category.slug}` : '/',
-      label: 'Category',
       title: category.label || category.name,
-      meta: category.count ? `${category.count} products` : 'Browse category',
+      meta: null,
     })),
   ];
 
@@ -110,11 +136,61 @@ function ResultCards({ results }) {
     <div className="ai-result-grid">
       {cards.map((card) => (
         <Link className="ai-result-card" href={card.href || '/'} key={card.key}>
-          <span>{card.label}</span>
           <strong>{card.title}</strong>
-          {card.meta ? <p>{card.meta}</p> : null}
+          {card.meta ? <span>{card.meta}</span> : null}
         </Link>
       ))}
+    </div>
+  );
+}
+
+function displayAssistantText(text, results) {
+  const normalized = normalizeResults(results);
+
+  if (resultCount(normalized) > 0) {
+    return assistantLeadText(normalized);
+  }
+
+  const cleaned = String(text || '')
+    .split('\n')
+    .filter((line) => !/^\s*-\s*\[/.test(line))
+    .join('\n')
+    .replace(/available in catalog; active offer will appear later/gi, '')
+    .replace(/grouped product: choose region and denomination on the page/gi, '')
+    .replace(/есть в каталоге, активный оффер появится позже/gi, '')
+    .replace(/групповой товар: выберите регион и номинал на странице/gi, '')
+    .replace(/\s*—\s*,/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (!cleaned) {
+    return null;
+  }
+
+  const firstParagraph = cleaned.split('\n\n')[0].trim();
+
+  return firstParagraph.length > 180 ? `${firstParagraph.slice(0, 177).trim()}…` : firstParagraph;
+}
+
+function resolveAssistantText(rawText, question, results) {
+  return displayAssistantText(rawText, results)
+    || assistantCopy(question, results);
+}
+
+function B2bNote({ email, message }) {
+  if (!email || !message) {
+    return null;
+  }
+
+  const parts = String(message).split(email);
+
+  return (
+    <div className="ai-b2b-note">
+      <p>
+        {parts[0]}
+        <a href={`mailto:${email}?subject=${encodeURIComponent('Wholesale / B2B inquiry')}`}>{email}</a>
+        {parts[1] || ''}
+      </p>
     </div>
   );
 }
@@ -146,6 +222,10 @@ function MessageText({ text }) {
           parts.push(line.slice(lastIndex));
         }
 
+        if (!line.trim()) {
+          return null;
+        }
+
         return <p key={`${lineIndex}-${line}`}>{parts.length ? parts : line}</p>;
       })}
     </>
@@ -160,8 +240,7 @@ export function MeanlyAiChat({ initialQuery = '' }) {
     {
       id: 'welcome',
       role: 'assistant',
-      text: 'Hi. Ask me what to buy, where to find a brand, or which catalog group fits an intent.',
-      results: null,
+      text: 'What are you looking for?',
     },
   ]);
   const [isSending, setIsSending] = useState(false);
@@ -209,25 +288,31 @@ export function MeanlyAiChat({ initialQuery = '' }) {
         }));
       const payload = await submitStorefrontChat(trimmed, history);
       const results = collectChatResults(payload);
-      const assistantMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        text: payload.response || assistantCopy(trimmed, results),
-        results,
-      };
+      const hasResults = resultCount(results) > 0;
+      const rawText = payload.response?.trim() || '';
 
-      setMessages((current) => [...current, assistantMessage]);
+      setMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          text: resolveAssistantText(rawText, trimmed, hasResults ? results : null),
+          results: hasResults ? results : null,
+          b2b: payload.b2b?.active ? payload.b2b : null,
+        },
+      ]);
     } catch (error) {
       try {
         const catalog = await fetchStorefrontCatalog(trimmed);
         const results = collectResults(catalog);
+        const hasResults = resultCount(results) > 0;
         setMessages((current) => [
           ...current,
           {
             id: `assistant-fallback-${Date.now()}`,
             role: 'assistant',
-            text: assistantCopy(trimmed, results),
-            results,
+            text: resolveAssistantText(assistantCopy(trimmed, results), trimmed, hasResults ? results : null),
+            results: hasResults ? results : null,
           },
         ]);
       } catch {
@@ -252,29 +337,34 @@ export function MeanlyAiChat({ initialQuery = '' }) {
   }
 
   return (
-    <section className="ai-chat-shell">
+    <section aria-label="Meanly AI chat" className="ai-chat-shell">
       <div className="ai-chat-panel">
-        <div className="ai-chat-topbar">
-          <div>
-            <strong>Meanly AI</strong>
-            <span>Catalog-aware marketplace chat</span>
-          </div>
-          <span className="ai-chat-status">Online</span>
-        </div>
-
         <div className="ai-message-list" aria-live="polite" ref={messageListRef}>
-          {messages.map((message) => (
-            <article className={`ai-message ai-message--${message.role}`} key={message.id}>
-              <span>{message.role === 'assistant' ? 'Meanly AI' : 'You'}</span>
-              <MessageText text={message.text} />
-              {message.results ? <ResultCards results={message.results} /> : null}
-            </article>
-          ))}
+          {messages.map((message) => {
+            const normalizedResults = normalizeResults(message.results);
+            const hasResultCards = resultCount(normalizedResults) > 0;
+            const visibleText = message.text?.trim();
+
+            if (!visibleText && !hasResultCards && !message.b2b?.active) {
+              return null;
+            }
+
+            return (
+              <article
+                aria-label={message.role === 'assistant' ? 'Meanly AI' : 'Your message'}
+                className={`ai-message ai-message--${message.role}${hasResultCards ? ' ai-message--cards' : ''}${message.b2b?.active ? ' ai-message--b2b' : ''}`}
+                key={message.id}
+              >
+                {visibleText ? <MessageText text={visibleText} /> : null}
+                {message.b2b?.active ? <B2bNote email={message.b2b.email} message={message.b2b.message} /> : null}
+                {hasResultCards ? <ResultCards results={normalizedResults} /> : null}
+              </article>
+            );
+          })}
           {isSending ? (
-            <article className="ai-message ai-message--assistant">
-              <span>Meanly AI</span>
-              <p>Looking through the catalog...</p>
-            </article>
+            <div aria-live="polite" className="ai-chat-pending">
+              <MeanlyLoadingMark className="meanly-loading-mark--inline" label="Thinking…" size="xs" />
+            </div>
           ) : null}
         </div>
 
@@ -282,7 +372,7 @@ export function MeanlyAiChat({ initialQuery = '' }) {
           <input
             aria-label="Ask Meanly AI"
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask for a product, brand, subscription, region..."
+            placeholder="Ask about a product…"
             value={input}
           />
           <button disabled={isSending || !input.trim()} type="submit">

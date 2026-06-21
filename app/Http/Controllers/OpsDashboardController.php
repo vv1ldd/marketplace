@@ -36,11 +36,15 @@ use App\Models\Warehouse;
 use App\Models\WarehouseStock;
 use App\Models\ZeroLayerIntegration;
 use App\Models\ZeroLayerSignal;
+use App\Jobs\SyncProviderCatalogJob;
 use App\Services\Ai\OpsAnalystService;
+use App\Services\ProviderCatalogSyncState;
 use App\Services\SearchSignals\ExternalSearchSignalIngestor;
 use App\Services\ZeroLayer\ZeroLayerIngestionService;
+use App\Support\StorefrontFrontendRedirect;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -56,57 +60,7 @@ class OpsDashboardController extends Controller
             abort(403, 'Доступ в Центр Операций ограничен. Требуются права супер-администратора.');
         }
 
-        // Global Platform Stats
-        $stats = [
-            'total_partners' => LegalEntity::count(),
-            'pending_partners' => LegalEntity::where('status', 'pending_moderation')->count(),
-            'total_shops' => Shop::count(),
-            'total_orders' => Order::count(),
-            'total_products' => Product::count(),
-            'total_volume' => round(DB::table('order_items')->sum('price_rub') / 100, 2),
-            'active_integrations' => ApiApplication::count(),
-            'low_stock_count' => \App\Models\WarehouseStock::where('count', '<', 5)->count(),
-            'critical_errors' => Product::whereNotNull('ym_errors')->count(),
-        ];
-
-        // 📋 Initial data sets for the SPA view
-        $orders = Order::with(['items', 'shop'])->latest()->limit(50)->get();
-        $catalog = Product::with(['shop'])->latest()->limit(50)->get();
-        $tickets = Ticket::with(['shop'])->latest()->limit(50)->get();
-        $shops = Shop::with(['legalEntity'])->latest()->limit(50)->get();
-        $partners = LegalEntity::latest()->limit(50)->get();
-        
-        $ledgerTransactions = SovereignLedger::with(['shop', 'legalEntity'])
-            ->latest()
-            ->limit(50)
-            ->get();
-
-        $decisionRecommendations = SearchDemandRecommendation::query()
-            ->orderByRaw("CASE status WHEN 'proposed' THEN 0 WHEN 'approved' THEN 1 WHEN 'rejected' THEN 2 WHEN 'applied' THEN 3 ELSE 4 END")
-            ->orderByDesc('impact_score')
-            ->orderByDesc('confidence')
-            ->latest()
-            ->limit(25)
-            ->get();
-
-        $decisionStatusCounts = SearchDemandRecommendation::query()
-            ->selectRaw('status, COUNT(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        return view('ops.dashboard', [
-            'user' => $user,
-            'stats' => $stats,
-            'orders' => $orders,
-            'catalog' => $catalog,
-            'tickets' => $tickets,
-            'shops' => $shops,
-            'partners' => $partners,
-            'ledgerTransactions' => $ledgerTransactions,
-            'decisionRecommendations' => $decisionRecommendations,
-            'decisionStatusCounts' => $decisionStatusCounts,
-            'activeOpsTab' => $request->query('tab'),
-        ]);
+        return StorefrontFrontendRedirect::fromRequest($request);
     }
 
     // 📋 AJAX — Глобальные Организации (Партнеры)
@@ -1094,41 +1048,35 @@ class OpsDashboardController extends Controller
             'mode' => 'required|string|in:embedded,pull-upstream,http',
         ]);
 
-        $args = [
-            'provider' => $provider->id,
-            '--force' => true,
-        ];
+        $provider = app(ProviderCatalogSyncState::class)->reconcile($provider);
 
-        if ($data['mode'] === 'embedded') {
-            $args['--embedded'] = true;
-        }
-        if ($data['mode'] === 'pull-upstream') {
-            $args['--pull-upstream'] = true;
+        if ($provider->sync_status === 'syncing') {
+            return response()->json([
+                'success' => true,
+                'queued' => true,
+                'message' => 'Catalog sync is already running for this provider.',
+                'provider' => $this->providerOpsPayload($provider->refresh()),
+            ]);
         }
 
         $provider->forceFill(['sync_status' => 'syncing'])->save();
 
-        try {
-            $exitCode = Artisan::call('app:sync-catalogs', $args);
-            $provider->refresh()->forceFill([
-                'sync_status' => 'idle',
-                'last_sync_at' => $exitCode === 0 ? now() : $provider->last_sync_at,
-            ])->save();
+        Bus::dispatch(new SyncProviderCatalogJob(
+            providerId: $provider->id,
+            embedded: $data['mode'] === 'embedded',
+            pullUpstream: $data['mode'] === 'pull-upstream',
+        ));
 
-            return response()->json([
-                'success' => $exitCode === 0,
-                'exit_code' => $exitCode,
-                'provider' => $this->providerOpsPayload($provider->refresh()),
-                'output' => mb_substr(trim(Artisan::output()), -4000),
-            ], $exitCode === 0 ? 200 : 500);
-        } catch (\Throwable $error) {
-            $provider->refresh()->forceFill(['sync_status' => 'idle'])->save();
+        $queueHint = config('queue.default') === 'sync'
+            ? ''
+            : ' Ensure a queue worker is running (`php artisan queue:work`).';
 
-            return response()->json([
-                'success' => false,
-                'message' => $error->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'queued' => true,
+            'message' => 'Catalog sync started in background. Provider rows sync first, then products publish to Global catalog and search rebuild runs automatically when the job finishes.'.$queueHint,
+            'provider' => $this->providerOpsPayload($provider->refresh(), reconcile: false),
+        ], 202);
     }
 
     public function grantPartnerCredit(Request $request, LegalEntity $legalEntity)
@@ -2119,8 +2067,12 @@ class OpsDashboardController extends Controller
         ];
     }
 
-    private function providerOpsPayload(Provider $provider): array
+    private function providerOpsPayload(Provider $provider, bool $reconcile = true): array
     {
+        if ($reconcile) {
+            $provider = app(ProviderCatalogSyncState::class)->reconcile($provider);
+        }
+
         $rawCredentials = is_array($provider->credentials) ? $provider->credentials : [];
         $credentials = $this->providerAuthorityCredentials($provider, $rawCredentials);
         $settings = is_array($provider->settings) ? $provider->settings : [];
@@ -2138,6 +2090,7 @@ class OpsDashboardController extends Controller
             'is_legacy_alias' => $isLegacyAlias,
             'is_active' => (bool) $provider->is_active,
             'sync_status' => $provider->sync_status ?: 'idle',
+            'sync_active' => app(ProviderCatalogSyncState::class)->isActive($provider->id),
             'last_sync_at' => optional($provider->last_sync_at)->format('d.m.Y H:i') ?: '—',
             'catalog_source' => data_get($settings, 'catalog_source', 'http'),
             'provider_products_count' => (int) ($provider->provider_products_count ?? 0),
