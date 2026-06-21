@@ -5,53 +5,79 @@ namespace App\Services\SettlementAdapters;
 use App\Contracts\SettlementAdapter;
 use App\Models\IdentityBinding;
 use App\Models\VaultIdentity;
-use App\Services\SettlementAdapters\Concerns\DeclinesSettlementProofVerification;
+use App\Services\EvmWalletPreviewEnricher;
+use App\Services\SettlementAdapters\Concerns\VerifiesEvmUsdcTransferProof;
 use App\Services\SettlementAuditEventRecorder;
 use App\Services\SettlementNetworkRegistry;
-use App\Services\UtxoWalletPreviewEnricher;
+use App\Services\VerificationEventRecorder;
 use App\Services\WalletBindingService;
-use App\Support\BitcoinRpcClient;
+use App\Support\EvmErc20TransferProofVerifier;
+use App\Support\EvmRpcClient;
 use App\Support\SettlementAdapterConfig;
 use App\Support\SettlementAdapterHealthCodes;
 use App\Support\SettlementNetwork;
 
-class BitcoinSettlementAdapter implements SettlementAdapter
+abstract class AbstractEvmSettlementAdapter implements SettlementAdapter
 {
-    use DeclinesSettlementProofVerification;
-
-    private const ADAPTER_KEY = 'bitcoin';
+    use VerifiesEvmUsdcTransferProof;
 
     public function __construct(
         private readonly SettlementNetworkRegistry $settlementNetworks,
         private readonly WalletBindingService $bindings,
-        private readonly UtxoWalletPreviewEnricher $walletPreviewEnricher,
+        private readonly EvmWalletPreviewEnricher $walletPreviewEnricher,
         private readonly SettlementAuditEventRecorder $auditEvents,
-        private readonly BitcoinRpcClient $bitcoin,
+        private readonly EvmRpcClient $rpc,
+        private readonly EvmErc20TransferProofVerifier $erc20TransferProofVerifier,
+        private readonly VerificationEventRecorder $verificationEvents,
     ) {}
+
+    abstract protected function networkKey(): string;
+
+    protected function erc20TransferProofVerifier(): EvmErc20TransferProofVerifier
+    {
+        return $this->erc20TransferProofVerifier;
+    }
+
+    protected function walletBindings(): WalletBindingService
+    {
+        return $this->bindings;
+    }
+
+    protected function verificationEvents(): VerificationEventRecorder
+    {
+        return $this->verificationEvents;
+    }
+
+    protected function settlementAuditEvents(): SettlementAuditEventRecorder
+    {
+        return $this->auditEvents;
+    }
 
     public function adapterKey(): string
     {
-        return self::ADAPTER_KEY;
+        return $this->networkKey();
     }
 
     public function mode(): string
     {
-        return SettlementAdapterConfig::mode(self::ADAPTER_KEY);
+        return SettlementAdapterConfig::mode($this->networkKey());
     }
 
     public function isEnabled(): bool
     {
-        return SettlementAdapterConfig::isEnabled(self::ADAPTER_KEY);
+        return SettlementAdapterConfig::isEnabled($this->networkKey());
     }
 
     public function allowsWrite(): bool
     {
-        return SettlementAdapterConfig::allowsWrite(self::ADAPTER_KEY);
+        return SettlementAdapterConfig::allowsWrite($this->networkKey());
     }
 
     public function verifyAttachment(VaultIdentity $vault, IdentityBinding $binding): array
     {
-        if ($binding->binding_key !== self::ADAPTER_KEY || ! $binding->isVerified()) {
+        $networkKey = $this->networkKey();
+
+        if ($binding->binding_key !== $networkKey || ! $binding->isVerified()) {
             return [
                 'valid' => false,
                 'reason' => 'binding_not_verified',
@@ -73,6 +99,7 @@ class BitcoinSettlementAdapter implements SettlementAdapter
 
     public function observeBalance(VaultIdentity $vault, IdentityBinding $binding): array
     {
+        $networkKey = $this->networkKey();
         $verification = $this->verifyAttachment($vault, $binding);
         if ($verification['valid'] !== true) {
             return [
@@ -82,8 +109,8 @@ class BitcoinSettlementAdapter implements SettlementAdapter
             ];
         }
 
-        $network = $this->settlementNetworks->network(self::ADAPTER_KEY);
-        $preview = $this->settlementNetworks->adapter(self::ADAPTER_KEY)->walletPreview([
+        $network = $this->settlementNetworks->network($networkKey);
+        $preview = $this->settlementNetworks->adapter($networkKey)->walletPreview([
             'entity_l1_address' => $vault->anchor_address,
         ]);
         $preview = $this->walletPreviewEnricher->enrich(
@@ -102,7 +129,7 @@ class BitcoinSettlementAdapter implements SettlementAdapter
                     ? SettlementAdapterHealthCodes::RPC_ERROR
                     : SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE,
                 'observation_state' => $observationState,
-                'adapter' => self::ADAPTER_KEY,
+                'adapter' => $networkKey,
                 'mode' => $this->mode(),
                 'address' => $binding->binding_value_normalized,
                 'coins' => $coins,
@@ -113,13 +140,13 @@ class BitcoinSettlementAdapter implements SettlementAdapter
         $this->auditEvents->recordBalanceRead(
             identityId: (string) $vault->anchor_address,
             vaultId: (string) $vault->id,
-            source: self::ADAPTER_KEY,
+            source: $networkKey,
         );
 
         return [
             'observed' => true,
             'observation_state' => 'live',
-            'adapter' => self::ADAPTER_KEY,
+            'adapter' => $networkKey,
             'mode' => $this->mode(),
             'address' => $binding->binding_value_normalized,
             'coins' => $coins,
@@ -138,9 +165,9 @@ class BitcoinSettlementAdapter implements SettlementAdapter
 
     public function healthCheck(): array
     {
-        $network = $this->settlementNetworks->network(self::ADAPTER_KEY);
+        $networkKey = $this->networkKey();
+        $network = $this->settlementNetworks->network($networkKey);
         $failures = [];
-        $expectedChain = (string) config('blockchain_networks.networks.bitcoin.expected_chain', 'main');
 
         $checks = [
             'adapter_registered' => true,
@@ -150,8 +177,7 @@ class BitcoinSettlementAdapter implements SettlementAdapter
             'rpc_configured' => is_string($network->rpcUrl) && $network->rpcUrl !== '',
             'rpc_enabled' => $network->rpcEnabled,
             'rpc_reachable' => false,
-            'chain_matches' => false,
-            'expected_chain' => $expectedChain,
+            'chain_id_matches' => false,
         ];
 
         if (! $checks['adapter_enabled']) {
@@ -165,18 +191,19 @@ class BitcoinSettlementAdapter implements SettlementAdapter
 
         if ($checks['rpc_configured'] && $checks['rpc_enabled']) {
             try {
-                $info = $this->bitcoin->getBlockchainInfo((string) $network->rpcUrl);
+                $chainId = $this->rpc->getChainId((string) $network->rpcUrl);
             } catch (\Throwable) {
-                $info = null;
+                $chainId = null;
             }
 
-            $checks['rpc_chain'] = is_array($info) ? ($info['chain'] ?? null) : null;
-            $checks['rpc_reachable'] = is_array($info);
-            $checks['chain_matches'] = is_array($info) && (string) ($info['chain'] ?? '') === $expectedChain;
+            $checks['rpc_chain_id'] = $chainId;
+            $checks['expected_chain_id'] = $network->chainId;
+            $checks['rpc_reachable'] = $chainId !== null;
+            $checks['chain_id_matches'] = $chainId === $network->chainId;
 
             if (! $checks['rpc_reachable']) {
                 $failures[] = SettlementAdapterHealthCodes::RPC_ERROR;
-            } elseif (! $checks['chain_matches']) {
+            } elseif (! $checks['chain_id_matches']) {
                 $failures[] = SettlementAdapterHealthCodes::CHAIN_ID_MISMATCH;
                 $failures[] = SettlementAdapterHealthCodes::RPC_ERROR;
             }
@@ -187,9 +214,9 @@ class BitcoinSettlementAdapter implements SettlementAdapter
         if ($checks['adapter_enabled']
             && $checks['rpc_enabled']
             && $checks['rpc_reachable']
-            && $checks['chain_matches']) {
-            $lastBalanceRead = $this->auditEvents->lastBalanceReadForAdapter(self::ADAPTER_KEY);
-            $staleHours = SettlementAdapterConfig::staleObservationHours(self::ADAPTER_KEY);
+            && $checks['chain_id_matches']) {
+            $lastBalanceRead = $this->auditEvents->lastBalanceReadForAdapter($networkKey);
+            $staleHours = SettlementAdapterConfig::staleObservationHours($networkKey);
 
             if ($lastBalanceRead !== null
                 && $lastBalanceRead->occurred_at !== null
@@ -202,13 +229,13 @@ class BitcoinSettlementAdapter implements SettlementAdapter
         $healthy = $checks['adapter_registered']
             && ($checks['adapter_enabled'] === false
                 || ($checks['crypto_rails_enabled']
-                    && ($checks['rpc_enabled'] === false || ($checks['rpc_reachable'] && $checks['chain_matches']))
+                    && ($checks['rpc_enabled'] === false || ($checks['rpc_reachable'] && $checks['chain_id_matches']))
                     && ! in_array(SettlementAdapterHealthCodes::STALE_OBSERVATION, $failures, true)));
 
         return [
             'status' => $healthy ? SettlementAdapterHealthCodes::PASS : SettlementAdapterHealthCodes::FAIL,
             'healthy' => $healthy,
-            'adapter' => self::ADAPTER_KEY,
+            'adapter' => $networkKey,
             'mode' => $this->mode(),
             'failures' => $failures,
             'checks' => $checks,
@@ -252,10 +279,9 @@ class BitcoinSettlementAdapter implements SettlementAdapter
             return SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE;
         }
 
-        $nativeSymbol = strtoupper((string) ($network->nativeSymbol ?? 'BTC'));
         $settlementCoins = array_values(array_filter(
             $coins,
-            static fn (array $coin): bool => strtoupper($coin['symbol']) === $nativeSymbol,
+            static fn (array $coin): bool => in_array(strtoupper($coin['symbol']), ['USDC', 'USDT'], true),
         ));
 
         if ($settlementCoins === []) {

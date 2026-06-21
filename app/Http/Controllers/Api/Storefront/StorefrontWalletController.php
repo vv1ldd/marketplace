@@ -179,10 +179,12 @@ class StorefrontWalletController extends Controller
         ]);
 
         $proof = $proofs->verifyUsdcTransfer($vault, $validated);
+        $formatted = $proofs->formatProof($proof);
 
         return response()->json([
             'success' => true,
-            'proof' => $proofs->formatProof($proof),
+            'settlement_proof' => $formatted,
+            'proof' => $formatted,
         ])->header('Cache-Control', 'private, no-store');
     }
 }

@@ -3,7 +3,7 @@
 namespace App\Support;
 
 use App\Contracts\TransferProofVerifier;
-use App\Models\BindingProof;
+use App\Models\VaultSettlementProof;
 use App\Services\SettlementNetworkRegistry;
 use Illuminate\Support\Str;
 
@@ -118,7 +118,7 @@ class EvmErc20TransferProofVerifier implements TransferProofVerifier
         return [
             'valid' => true,
             'proof' => [
-                'proof_type' => BindingProof::TYPE_USDC_TRANSFER,
+                'proof_kind' => VaultSettlementProof::KIND_USDC_TRANSFER,
                 'binding_key' => $bindingKey,
                 'chain_id' => $expectedChainId,
                 'token_contract' => $tokenContract,
