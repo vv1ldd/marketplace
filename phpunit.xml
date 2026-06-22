@@ -42,5 +42,9 @@
         <env name="COMMERCE_CRYPTO_RAILS_ENABLED" value="false"/>
         <env name="SETTLEMENT_ADAPTER_POLYGON_ENABLED" value="false"/>
         <env name="SETTLEMENT_ADAPTER_BITCOIN_ENABLED" value="false"/>
+        <env name="SETTLEMENT_ADAPTER_ETHEREUM_ENABLED" value="false"/>
+        <env name="SETTLEMENT_ADAPTER_BASE_ENABLED" value="false"/>
+        <env name="SETTLEMENT_ADAPTER_SOLANA_ENABLED" value="false"/>
+        <env name="SETTLEMENT_ADAPTER_TON_ENABLED" value="false"/>
     </php>
 </phpunit>

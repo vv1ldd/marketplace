@@ -61,7 +61,8 @@ class StorefrontWalletBindingChallengeTest extends TestCase
             ->assertOk()
             ->assertJsonPath('binding.verification_state', IdentityBinding::STATE_VERIFIED)
             ->assertJsonPath('binding.verification_method', IdentityBinding::METHOD_SIGNATURE)
-            ->assertJsonPath('binding.binding_value', self::TEST_WALLET_ADDRESS);
+            ->assertJsonPath('binding.binding_value', self::TEST_WALLET_ADDRESS)
+            ->assertJsonPath('binding.metadata.signature_scheme', 'evm_personal_sign');
 
         $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
 
@@ -79,6 +80,112 @@ class StorefrontWalletBindingChallengeTest extends TestCase
 
         $challenge = BindingChallenge::query()->where('nonce', $nonce)->first();
         $this->assertNotNull($challenge?->consumed_at);
+    }
+
+    public function test_wallet_binding_verify_stores_optional_wallet_metadata(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('f', 39);
+        User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+        ]);
+        $token = $this->vaultToken($entityAddress);
+
+        $challengeResponse = $this->withToken($token)
+            ->postJson('/api/storefront/v1/wallet/bindings/challenge', [
+                'binding_type' => 'wallet',
+                'binding_key' => 'base',
+                'binding_value' => self::TEST_WALLET_ADDRESS,
+            ])
+            ->assertCreated();
+
+        $nonce = $challengeResponse->json('challenge.nonce');
+        $message = $challengeResponse->json('challenge.message');
+        $signature = $this->signPersonalMessage(self::TEST_PRIVATE_KEY, $message);
+
+        $this->withToken($token)
+            ->postJson('/api/storefront/v1/wallet/bindings/verify', [
+                'nonce' => $nonce,
+                'signature' => $signature,
+                'wallet_provider_id' => 'io.rabby',
+                'wallet_brand' => 'Rabby',
+            ])
+            ->assertOk()
+            ->assertJsonPath('binding.metadata.signature_scheme', 'evm_personal_sign')
+            ->assertJsonPath('binding.metadata.wallet_provider_id', 'io.rabby')
+            ->assertJsonPath('binding.metadata.wallet_brand', 'Rabby');
+    }
+
+    public function test_wallet_binding_verify_ignores_wallet_brand_for_signature_check(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('c', 39);
+        User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+        ]);
+        $token = $this->vaultToken($entityAddress);
+
+        $challengeResponse = $this->withToken($token)
+            ->postJson('/api/storefront/v1/wallet/bindings/challenge', [
+                'binding_type' => 'wallet',
+                'binding_key' => 'polygon',
+                'binding_value' => self::TEST_WALLET_ADDRESS,
+            ])
+            ->assertCreated();
+
+        $nonce = $challengeResponse->json('challenge.nonce');
+        $message = $challengeResponse->json('challenge.message');
+        $signature = $this->signPersonalMessage(self::TEST_PRIVATE_KEY, $message);
+
+        $this->withToken($token)
+            ->postJson('/api/storefront/v1/wallet/bindings/verify', [
+                'nonce' => $nonce,
+                'signature' => $signature,
+                'wallet_provider_id' => 'io.metamask',
+                'wallet_brand' => 'MetaMask',
+            ])
+            ->assertOk()
+            ->assertJsonPath('binding.binding_value', self::TEST_WALLET_ADDRESS)
+            ->assertJsonPath('binding.metadata.wallet_provider_id', 'io.metamask');
+    }
+
+    public function test_wallet_binding_allows_same_address_on_second_evm_network(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('b', 39);
+        User::factory()->create([
+            'entity_l1_address' => $entityAddress,
+        ]);
+        $token = $this->vaultToken($entityAddress);
+
+        foreach (['polygon', 'ethereum'] as $bindingKey) {
+            $challengeResponse = $this->withToken($token)
+                ->postJson('/api/storefront/v1/wallet/bindings/challenge', [
+                    'binding_type' => 'wallet',
+                    'binding_key' => $bindingKey,
+                    'binding_value' => self::TEST_WALLET_ADDRESS,
+                ])
+                ->assertCreated();
+
+            $nonce = $challengeResponse->json('challenge.nonce');
+            $message = $challengeResponse->json('challenge.message');
+            $signature = $this->signPersonalMessage(self::TEST_PRIVATE_KEY, $message);
+
+            $this->withToken($token)
+                ->postJson('/api/storefront/v1/wallet/bindings/verify', [
+                    'nonce' => $nonce,
+                    'signature' => $signature,
+                    'wallet_provider_id' => $bindingKey === 'polygon' ? 'io.metamask' : 'io.rabby',
+                    'wallet_brand' => $bindingKey === 'polygon' ? 'MetaMask' : 'Rabby',
+                ])
+                ->assertOk()
+                ->assertJsonPath('binding.binding_key', $bindingKey)
+                ->assertJsonPath('binding.binding_value', self::TEST_WALLET_ADDRESS);
+        }
+
+        $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
+
+        $this->assertSame(2, IdentityBinding::query()
+            ->where('vault_id', $vaultId)
+            ->where('binding_value_normalized', strtolower(self::TEST_WALLET_ADDRESS))
+            ->count());
     }
 
     public function test_wallet_binding_challenge_and_verify_creates_verified_ethereum_binding(): void

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Support\SettlementProofLifecycle;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -51,6 +52,11 @@ class VaultSettlementProof extends Model
     public function identityBinding(): BelongsTo
     {
         return $this->belongsTo(IdentityBinding::class, 'identity_binding_id');
+    }
+
+    public function creditDecision(): HasOne
+    {
+        return $this->hasOne(CreditDecision::class, 'vault_settlement_proof_id');
     }
 
     public static function externalReferenceFor(string $proofKind, string $reference): string

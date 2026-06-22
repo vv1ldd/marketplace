@@ -34,6 +34,7 @@ import {
   validateOpsTribunalChain,
 } from '../lib/ops-api';
 import { MeanlyLoadingMark } from './MeanlyLoadingMark';
+import { OpsPaymentDisputesSection } from './OpsPaymentDisputesSection';
 
 const MODULE_GROUPS = [
   {
@@ -612,6 +613,8 @@ function FinanceLiquidityModule() {
       ]} />
       <OpsState error={error} isLoading={isLoading} />
       <OpsOutput output={reviewOutput} />
+
+      <OpsPaymentDisputesSection />
 
       <div className="ops-finance-flow" aria-label="Financial control plane model">
         <article>

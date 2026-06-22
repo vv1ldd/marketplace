@@ -186,6 +186,41 @@ class StorefrontWalletBindingEventsTest extends TestCase
         $this->assertSame(1, BindingEvent::query()->where('event_type', BindingEvent::TYPE_WALLET_REVOKED)->count());
     }
 
+    public function test_binding_events_list_returns_vault_history(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('b', 39);
+        User::factory()->create(['entity_l1_address' => $entityAddress]);
+        $token = $this->vaultToken($entityAddress);
+
+        $challenge = $this->withToken($token)
+            ->postJson('/api/storefront/v1/wallet/bindings/challenge', [
+                'binding_type' => 'wallet',
+                'binding_key' => 'polygon',
+                'binding_value' => self::TEST_WALLET_ADDRESS,
+            ])
+            ->assertCreated()
+            ->json('challenge');
+
+        $signature = $this->signPersonalMessage(self::TEST_PRIVATE_KEY, $challenge['message']);
+
+        $this->withToken($token)
+            ->postJson('/api/storefront/v1/wallet/bindings/verify', [
+                'nonce' => $challenge['nonce'],
+                'signature' => $signature,
+            ])
+            ->assertOk();
+
+        $payload = $this->withToken($token)
+            ->getJson('/api/storefront/v1/wallet/binding-events')
+            ->assertOk()
+            ->assertJsonPath('contract.name', 'binding-event-list')
+            ->assertJsonCount(1, 'items')
+            ->json();
+
+        $this->assertSame(BindingEvent::TYPE_WALLET_BOUND, $payload['items'][0]['event_type']);
+        $this->assertSame('polygon', $payload['items'][0]['binding_key']);
+    }
+
     private function signPersonalMessage(string $privateKeyHex, string $message): string
     {
         $hash = app(EvmPersonalSignVerifier::class)->hashPersonalMessage($message);

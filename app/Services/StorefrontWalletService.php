@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\IdentityBinding;
 use App\Models\User;
 use App\Models\VaultIdentity;
+use App\Services\ManagedWallet\ManagedWalletProvisioner;
 use App\Support\SettlementAdapterConfig;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,10 @@ class StorefrontWalletService
         private readonly VaultIdentityService $vaultIdentities,
         private readonly EvmWalletPreviewEnricher $evmWalletPreviewEnricher,
         private readonly UtxoWalletPreviewEnricher $utxoWalletPreviewEnricher,
+        private readonly SolanaWalletPreviewEnricher $solanaWalletPreviewEnricher,
+        private readonly TonWalletPreviewEnricher $tonWalletPreviewEnricher,
         private readonly SettlementAdapterRegistry $settlementAdapters,
+        private readonly ManagedWalletProvisioner $managedWallets,
     ) {}
 
     /**
@@ -73,7 +77,17 @@ class StorefrontWalletService
                 'can_submit_transfer_proofs' => $this->settlementNetworks->cryptoRailsEnabled()
                     && $this->settlementAdapters->allowsWrite($this->settlementNetworks->merchantCryptoNetworkKey()),
                 'crypto_rails_enabled' => $this->settlementNetworks->cryptoRailsEnabled(),
+                'managed_wallets_enabled' => (bool) config('managed_wallets.enabled', false),
+                'managed_wallet_networks' => $this->managedWallets->enabledNetworkKeys(),
+                'can_provision_managed_wallet' => $user instanceof User
+                    && $this->settlementNetworks->cryptoRailsEnabled()
+                    && (bool) config('managed_wallets.enabled', false),
                 'can_view_assets' => true,
+                'identity_payments_enabled' => (bool) config('identity_payments.enabled', false),
+                'identity_payments_execute' => (bool) config('identity_payments.enabled', false)
+                    && (bool) config('identity_payments.execute_enabled', false),
+                'identity_payment_disputes_enabled' => (bool) config('identity_payments.enabled', false)
+                    && (bool) config('identity_payments.disputes_enabled', false),
                 'activity' => [
                     'enabled' => false,
                     'status' => 'coming_soon',
@@ -182,7 +196,7 @@ class StorefrontWalletService
             return $preview;
         }
 
-        if (! in_array($network->protocol, ['evm', 'utxo', 'solana'], true)) {
+        if (! in_array($network->protocol, ['evm', 'utxo', 'solana', 'ton'], true)) {
             return $preview;
         }
 
@@ -203,6 +217,14 @@ class StorefrontWalletService
 
         if ($network->protocol === 'evm') {
             return $this->evmWalletPreviewEnricher->enrich($preview, $network, $walletAddress);
+        }
+
+        if ($network->protocol === 'solana') {
+            return $this->solanaWalletPreviewEnricher->enrich($preview, $network, $walletAddress);
+        }
+
+        if ($network->protocol === 'ton') {
+            return $this->tonWalletPreviewEnricher->enrich($preview, $network, $walletAddress);
         }
 
         return $this->utxoWalletPreviewEnricher->enrich($preview, $network, $walletAddress);

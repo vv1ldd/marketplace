@@ -247,8 +247,10 @@ class BitcoinSettlementAdapter implements SettlementAdapter
         $rpcReady = $network->rpcEnabled
             && is_string($network->rpcUrl)
             && $network->rpcUrl !== '';
+        $balanceApiUrl = config('blockchain_networks.networks.bitcoin.balance_api_url');
+        $observationReady = $rpcReady || (is_string($balanceApiUrl) && $balanceApiUrl !== '');
 
-        if (! $rpcReady) {
+        if (! $observationReady) {
             return SettlementAdapterHealthCodes::BALANCE_UNAVAILABLE;
         }
 

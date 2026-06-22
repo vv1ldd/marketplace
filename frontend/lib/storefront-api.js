@@ -466,6 +466,14 @@ export async function verifyWalletBindingChallenge(token, body) {
   });
 }
 
+export async function provisionManagedWalletBinding(token, bindingKey) {
+  return storefrontFetch('/api/storefront/v1/wallet/bindings/managed', {
+    token,
+    body: { binding_key: bindingKey },
+    cache: 'no-store',
+  });
+}
+
 export async function fetchWalletBundle(token) {
   const [summary, bindings, assets] = await Promise.all([
     fetchWalletSummary(token),
@@ -521,6 +529,76 @@ export async function fetchUiProjection(surface, path = '', query = {}) {
 
   return storefrontFetch(`/api/ui/v1/projections/${surface}${suffix}`, {
     query,
+    cache: 'no-store',
+  });
+}
+
+export async function resolveSettlementRecipient(alias, token) {
+  return storefrontFetch('/api/storefront/v1/settlement/resolve-recipient', {
+    token,
+    body: { alias },
+    cache: 'no-store',
+  });
+}
+
+export async function createSettlementPaymentIntent(payload, token) {
+  return storefrontFetch('/api/storefront/v1/settlement/payment-intents', {
+    token,
+    body: payload,
+    cache: 'no-store',
+  });
+}
+
+export async function executeSettlementPaymentIntent(intentUuid, token) {
+  return storefrontFetch(`/api/storefront/v1/settlement/payment-intents/${encodeURIComponent(intentUuid)}/execute`, {
+    token,
+    body: {},
+    cache: 'no-store',
+  });
+}
+
+export async function listSettlementPaymentIntents(token, query = {}) {
+  return storefrontFetch('/api/storefront/v1/settlement/payment-intents', {
+    token,
+    query,
+    cache: 'no-store',
+  });
+}
+
+export async function listBindingEvents(token, query = {}) {
+  return storefrontFetch('/api/storefront/v1/wallet/binding-events', {
+    token,
+    query,
+    cache: 'no-store',
+  });
+}
+
+export async function openPaymentDispute(intentUuid, payload, token) {
+  return storefrontFetch(`/api/storefront/v1/settlement/payment-intents/${encodeURIComponent(intentUuid)}/disputes`, {
+    token,
+    body: payload,
+    cache: 'no-store',
+  });
+}
+
+export async function fetchPaymentIntentDispute(intentUuid, token) {
+  return storefrontFetch(`/api/storefront/v1/settlement/payment-intents/${encodeURIComponent(intentUuid)}/dispute`, {
+    token,
+    cache: 'no-store',
+  });
+}
+
+export async function fetchIdentityStatement(token, query = {}) {
+  return storefrontFetch('/api/storefront/v1/settlement/statement', {
+    token,
+    query,
+    cache: 'no-store',
+  });
+}
+
+export async function fetchPaymentIntentTimeline(intentUuid, token) {
+  return storefrontFetch(`/api/storefront/v1/settlement/payment-intents/${encodeURIComponent(intentUuid)}/timeline`, {
+    token,
     cache: 'no-store',
   });
 }

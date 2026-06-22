@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class IdentityBinding extends Model
 {
@@ -14,9 +15,13 @@ class IdentityBinding extends Model
     public const STATE_REVOKED = 'revoked';
 
     public const METHOD_SIGNATURE = 'signature';
+    public const METHOD_VAULT_KEY = 'vault_key';
     public const METHOD_RPC = 'rpc';
     public const METHOD_MANUAL = 'manual';
     public const METHOD_IMPORTED = 'imported';
+
+    public const SOURCE_EXTERNAL = 'external';
+    public const SOURCE_MANAGED = 'managed';
 
     /** @var list<string> */
     public const ACTIVE_STATES = [
@@ -28,6 +33,7 @@ class IdentityBinding extends Model
         'vault_id',
         'binding_type',
         'binding_key',
+        'binding_source',
         'binding_value_original',
         'binding_value_normalized',
         'verification_state',
@@ -48,6 +54,11 @@ class IdentityBinding extends Model
     public function vault(): BelongsTo
     {
         return $this->belongsTo(VaultIdentity::class, 'vault_id');
+    }
+
+    public function creditDecisions(): HasMany
+    {
+        return $this->hasMany(CreditDecision::class, 'identity_binding_id');
     }
 
     public function isActive(): bool

@@ -24,6 +24,12 @@ return [
     */
     'crypto_rails_enabled' => filter_var(env('COMMERCE_CRYPTO_RAILS_ENABLED', false), FILTER_VALIDATE_BOOL),
 
+    'ton_connect' => [
+        // Comma-separated hostnames allowed in TonConnect signData domain field.
+        // When empty, trusted_hosts + storefront.frontend_url + app.url are used.
+        'allowed_domains' => env('TON_CONNECT_ALLOWED_DOMAINS', ''),
+    ],
+
     'merchant_crypto_network' => env('MERCHANT_CRYPTO_SETTLEMENT_NETWORK', 'polygon'),
 
     'networks' => [
@@ -73,6 +79,7 @@ return [
             'contract_key' => 'bitcoin',
             'assets' => ['BTC'],
             'expected_chain' => env('BITCOIN_EXPECTED_CHAIN', 'main'),
+            'balance_api_url' => env('BITCOIN_BALANCE_API_URL', 'https://blockstream.info/api'),
             'rpc_url' => env('BITCOIN_RPC_URL'),
             'rpc_enabled' => (bool) env('BITCOIN_RPC_ENABLED', false),
             'required_confirmations' => 1,
@@ -129,8 +136,27 @@ return [
             'trace_label' => 'Solana',
             'contract_key' => 'solana',
             'assets' => ['SOL', 'USDC'],
+            'expected_genesis_hash' => env('SOLANA_EXPECTED_GENESIS_HASH', '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d'),
             'rpc_url' => env('SOLANA_RPC_URL'),
             'rpc_enabled' => (bool) env('SOLANA_RPC_ENABLED', false),
+            'required_confirmations' => 1,
+        ],
+
+        'ton' => [
+            'label' => 'TON',
+            'short_label' => 'TON',
+            'protocol' => 'ton',
+            'authority' => 'ton-adapter',
+            'status' => 'coming_soon',
+            'enabled' => false,
+            'storefront_visible' => true,
+            'adapter' => App\Services\Networks\TonNetworkAdapter::class,
+            'native_symbol' => 'TON',
+            'trace_label' => 'TON',
+            'contract_key' => 'ton',
+            'assets' => ['TON', 'USDT'],
+            'rpc_url' => env('TON_API_URL', 'https://tonapi.io/v2'),
+            'rpc_enabled' => (bool) env('TON_API_ENABLED', false),
             'required_confirmations' => 1,
         ],
     ],

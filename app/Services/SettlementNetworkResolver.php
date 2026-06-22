@@ -10,7 +10,7 @@ use InvalidArgumentException;
 class SettlementNetworkResolver
 {
     /** @var list<string> */
-    private const CRYPTO_RAIL_PROTOCOLS = ['evm', 'utxo', 'solana'];
+    private const CRYPTO_RAIL_PROTOCOLS = ['evm', 'utxo', 'solana', 'ton'];
 
     public function defaultKey(): string
     {

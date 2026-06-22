@@ -1,9 +1,12 @@
 import {
   CONNECTABLE_WALLET_KEYS,
 } from './identity-wallets';
-import { readMetaMaskEthereumProvider } from './metamask-multichain-bootstrap';
+import {
+  discoverEvmProviders,
+} from './evm-wallet-discovery';
 import { resolveBitcoinConnect } from './bitcoin-wallet-connect';
 import { resolveSolanaConnect } from './solana-wallet-connect';
+import { resolveTonConnect } from './ton-wallet-connect';
 import { WalletConnectError } from './wallet-connect-error';
 import {
   requestWalletBindingChallenge,
@@ -38,10 +41,12 @@ const EVM_NETWORKS = {
 };
 
 export { WalletConnectError } from './wallet-connect-error';
-
-function readEthereumProvider() {
-  return readMetaMaskEthereumProvider();
-}
+export {
+  clearEvmProviderDiscoveryCache,
+  discoverEvmProviders,
+  isEvmWalletBindingKey,
+  warmEvmProviderDiscovery,
+} from './evm-wallet-discovery';
 
 function mapVerifyError(error) {
   if (error?.status === 401) {
@@ -164,7 +169,13 @@ async function ensureEvmNetwork(provider, bindingKey) {
   }
 }
 
-async function completeBindingChallenge({ token, bindingKey, address, sign }) {
+async function completeBindingChallenge({
+  token,
+  bindingKey,
+  address,
+  sign,
+  attachmentMetadata = {},
+}) {
   let challenge;
   try {
     const response = await requestWalletBindingChallenge(token, {
@@ -194,12 +205,21 @@ async function completeBindingChallenge({ token, bindingKey, address, sign }) {
   const signedMessage = typeof signaturePayload === 'object' && signaturePayload !== null
     ? signaturePayload.signedMessage || undefined
     : undefined;
+  const walletPublicKey = typeof signaturePayload === 'object' && signaturePayload !== null
+    ? signaturePayload.walletPublicKey || undefined
+    : undefined;
+  const tonSignData = typeof signaturePayload === 'object' && signaturePayload !== null
+    ? signaturePayload.tonSignData || undefined
+    : undefined;
 
   try {
     await verifyWalletBindingChallenge(token, {
       nonce: challenge.nonce,
       signature,
       signed_message: signedMessage,
+      wallet_public_key: walletPublicKey,
+      ton_sign_data: tonSignData,
+      ...attachmentMetadata,
     });
   } catch (error) {
     throw mapVerifyError(error);
@@ -209,33 +229,68 @@ async function completeBindingChallenge({ token, bindingKey, address, sign }) {
 }
 
 /**
- * @param {{ token: string, bindingKey: string }} options
+ * @param {{
+ *   token: string,
+ *   bindingKey: string,
+ *   selectEvmProvider?: Function,
+ *   onConnectPhase?: (phaseKey: string) => void,
+ * }} options
  */
-export async function connectWalletBinding({ token, bindingKey }) {
+export async function connectWalletBinding({ token, bindingKey, selectEvmProvider, onConnectPhase }) {
   if (!CONNECTABLE_WALLET_KEYS.has(bindingKey)) {
     throw new WalletConnectError('unsupported_wallet', 'This wallet is not ready to connect yet.');
   }
 
   if (bindingKey === 'bitcoin') {
-    return connectBitcoinBinding({ token, bindingKey });
+    return connectBitcoinBinding({ token, bindingKey, onConnectPhase });
   }
 
   if (bindingKey === 'solana') {
-    return connectSolanaBinding({ token, bindingKey });
+    return connectSolanaBinding({ token, bindingKey, onConnectPhase });
   }
 
-  return connectEvmWalletBinding({ token, bindingKey });
+  if (bindingKey === 'ton') {
+    return connectTonBinding({ token, bindingKey, onConnectPhase });
+  }
+
+  return connectEvmWalletBinding({ token, bindingKey, selectEvmProvider, onConnectPhase });
 }
 
-async function connectEvmWalletBinding({ token, bindingKey }) {
-  const provider = readEthereumProvider();
-  if (!provider) {
+async function resolveSelectedEvmProvider(providers, selectEvmProvider) {
+  if (typeof selectEvmProvider === 'function') {
+    const selected = await selectEvmProvider(providers);
+    if (!selected) {
+      throw new WalletConnectError('user_rejected', 'Wallet connection was cancelled.');
+    }
+
+    return selected;
+  }
+
+  if (providers.length === 1) {
+    return providers[0];
+  }
+
+  throw new WalletConnectError(
+    'no_wallet',
+    'Multiple wallets were detected, but no wallet picker is available.',
+  );
+}
+
+async function connectEvmWalletBinding({ token, bindingKey, selectEvmProvider, onConnectPhase }) {
+  onConnectPhase?.('wallet_connect_discovering');
+  const providers = await discoverEvmProviders({ forceRefresh: true });
+  if (!providers.length) {
     throw new WalletConnectError(
       'no_wallet',
-      'Install MetaMask, then try Connect again.',
+      'No compatible browser wallet found. Install a wallet extension and try Connect again.',
     );
   }
 
+  onConnectPhase?.('wallet_connect_choosing');
+  const selected = await resolveSelectedEvmProvider(providers, selectEvmProvider);
+  const provider = selected.provider;
+
+  onConnectPhase?.('wallet_connect_signing');
   let accounts;
   try {
     accounts = await provider.request({ method: 'eth_requestAccounts' });
@@ -261,6 +316,10 @@ async function connectEvmWalletBinding({ token, bindingKey }) {
     token,
     bindingKey,
     address,
+    attachmentMetadata: {
+      wallet_provider_id: selected.providerId,
+      wallet_brand: selected.label,
+    },
     sign: async (message, account) => provider.request({
       method: 'personal_sign',
       params: [message, account],
@@ -268,7 +327,8 @@ async function connectEvmWalletBinding({ token, bindingKey }) {
   });
 }
 
-async function connectBitcoinBinding({ token, bindingKey }) {
+async function connectBitcoinBinding({ token, bindingKey, onConnectPhase }) {
+  onConnectPhase?.('wallet_connect_opening');
   let connect;
   try {
     connect = await resolveBitcoinConnect();
@@ -286,6 +346,7 @@ async function connectBitcoinBinding({ token, bindingKey }) {
     );
   }
 
+  onConnectPhase?.('wallet_connect_signing');
   let accounts;
   try {
     accounts = await connect.requestAccounts();
@@ -301,6 +362,7 @@ async function connectBitcoinBinding({ token, bindingKey }) {
     throw new WalletConnectError('no_account', 'No Bitcoin address was returned.');
   }
 
+  onConnectPhase?.('wallet_connect_finishing');
   return completeBindingChallenge({
     token,
     bindingKey,
@@ -309,7 +371,52 @@ async function connectBitcoinBinding({ token, bindingKey }) {
   });
 }
 
-async function connectSolanaBinding({ token, bindingKey }) {
+async function connectTonBinding({ token, bindingKey, onConnectPhase }) {
+  onConnectPhase?.('wallet_connect_opening');
+  let connect;
+  try {
+    connect = await resolveTonConnect();
+  } catch (error) {
+    if (error instanceof WalletConnectError) {
+      throw error;
+    }
+    throw mapProviderError(error);
+  }
+
+  if (!connect) {
+    throw new WalletConnectError(
+      'no_wallet',
+      'Install Tonkeeper or another TON wallet with TonConnect, then try Connect again.',
+    );
+  }
+
+  onConnectPhase?.('wallet_connect_signing');
+  let accounts;
+  try {
+    accounts = await connect.requestAccounts();
+  } catch (error) {
+    if (error instanceof WalletConnectError) {
+      throw error;
+    }
+    throw mapProviderError(error);
+  }
+
+  const address = accounts?.[0];
+  if (!address) {
+    throw new WalletConnectError('no_account', 'No TON address was returned.');
+  }
+
+  onConnectPhase?.('wallet_connect_finishing');
+  return completeBindingChallenge({
+    token,
+    bindingKey,
+    address,
+    sign: async (message, account) => connect.signMessage(message, account),
+  });
+}
+
+async function connectSolanaBinding({ token, bindingKey, onConnectPhase }) {
+  onConnectPhase?.('wallet_connect_opening');
   let connect;
   try {
     connect = await resolveSolanaConnect();
@@ -327,6 +434,7 @@ async function connectSolanaBinding({ token, bindingKey }) {
     );
   }
 
+  onConnectPhase?.('wallet_connect_signing');
   let accounts;
   try {
     accounts = await connect.requestAccounts();
@@ -342,6 +450,7 @@ async function connectSolanaBinding({ token, bindingKey }) {
     throw new WalletConnectError('no_account', 'No Solana account was returned.');
   }
 
+  onConnectPhase?.('wallet_connect_finishing');
   return completeBindingChallenge({
     token,
     bindingKey,

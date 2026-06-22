@@ -5,19 +5,32 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   resolveIdentityWalletModel,
   shortenAddress,
+  shouldShowSafeProvisioningShell,
+  shouldShowSafeDashboard,
   vaultBalanceObservationState,
   visibleWalletBindings,
   WALLET_BINDING_STATE,
+  walletCapabilityNote,
+  walletCapabilityNoteTone,
+  walletConnectIntroKey,
   walletCoins,
+  resolvePolygonWalletEntry,
 } from '../lib/identity-wallets';
 import { buildBitcoinReceiveQrDataUrl, buildPolygonUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
-import { fetchWalletBundle, refreshStorefrontVaultToken } from '../lib/storefront-api';
+import { fetchWalletBundle, provisionManagedWalletBinding, refreshStorefrontVaultToken } from '../lib/storefront-api';
+import { readIdentityPaymentFlags } from '../lib/settlement-capabilities';
 import { clearVaultAuthorityState, readStoredVaultToken } from '../lib/vault-authority';
-import { connectWalletBinding, WalletConnectError } from '../lib/wallet-connect';
+import { connectWalletBinding, isEvmWalletBindingKey, WalletConnectError } from '../lib/wallet-connect';
+import { EvmWalletPicker } from './EvmWalletPicker';
 import { GlossaryHint } from './GlossaryHint';
+import { IdentityAccountPanel } from './IdentityAccountPanel';
 import { VaultQrIcon, VaultShieldIcon } from './IdentityVaultIcons';
 import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 import { useLocale } from './LocaleProvider';
+import {
+  SafeNetworksSection,
+  SafeWelcomeCard,
+} from './VaultSafeShell';
 
 function identityLabel(identity = {}) {
   if (identity.username) return `@${identity.username}`;
@@ -91,10 +104,14 @@ function WalletBindingDetail({ walletBinding, t, compact = false, showAssets = t
       ) : null}
 
       {preview?.capabilities ? (
-        <p className="premium-wallet-capability-note">
-          {preview.capabilities.next_action || 'PREVIEW'}
-          {' · '}
-          {t('wallet_binding_capabilities_note')}
+        <p className={`premium-wallet-capability-note premium-wallet-capability-note--${walletCapabilityNoteTone(preview.capabilities.next_action)}`}>
+          {walletCapabilityNote(
+            {
+              nextAction: preview.capabilities.next_action,
+              networkKey: walletBinding.key,
+            },
+            t,
+          )}
         </p>
       ) : null}
     </div>
@@ -106,17 +123,20 @@ function WalletBindingRow({
   isActive,
   onSelect,
   onConnect,
+  onCreateManaged,
   connectingKey,
   connectError,
   connectNotice,
   suppressAssets = false,
+  suppressManagedProvisioning = false,
   showReceiveQr = false,
   t,
 }) {
   const state = walletBinding.bindingState;
   const statusLabel = bindingStateLabel(state, t);
   const canExpand = state === WALLET_BINDING_STATE.CONNECTED && Boolean(walletBinding.preview);
-  const showConnectPanel = walletBinding.canConnect || state === WALLET_BINDING_STATE.PENDING;
+  const showManagedActions = walletBinding.canCreateManaged && !suppressManagedProvisioning;
+  const showConnectPanel = walletBinding.canConnect || showManagedActions || state === WALLET_BINDING_STATE.PENDING;
   const isInteractive = canExpand || showConnectPanel;
   const isConnecting = connectingKey === walletBinding.key;
   const rowError = connectError?.key === walletBinding.key ? connectError.message : '';
@@ -150,8 +170,26 @@ function WalletBindingRow({
 
       {showConnectPanel ? (
         <div className="premium-wallet-binding__connect">
-          <p>{t('wallet_connect_intro')}</p>
-          {walletBinding.canConnect ? (
+          <p>{t(showManagedActions ? 'wallet_polygon_attach_intro' : walletConnectIntroKey(walletBinding.key))}</p>
+          {showManagedActions ? (
+            <div className="premium-wallet-binding__connect-actions">
+              <button
+                disabled={isConnecting}
+                onClick={() => onCreateManaged(walletBinding.key)}
+                type="button"
+              >
+                {isConnecting ? t('wallet_create_safe_opening') : t('wallet_create_safe_cta')}
+              </button>
+              <button
+                className="premium-wallet-binding__connect-secondary"
+                disabled={isConnecting}
+                onClick={() => onConnect(walletBinding.key)}
+                type="button"
+              >
+                {isConnecting ? t('wallet_connect_opening') : t('wallet_connect_existing_cta')}
+              </button>
+            </div>
+          ) : walletBinding.canConnect ? (
             <button
               disabled={isConnecting}
               onClick={() => onConnect(walletBinding.key)}
@@ -497,8 +535,22 @@ export function VaultWalletContent({
   onRefreshWallet,
   variant = 'wallet',
 }) {
+  // UI normalization boundary: raw wallet payload may be null during loading.
+  // Derive safe view-model fields here; presentation children must not dereference `model` directly.
   const { t } = useLocale();
   const model = useMemo(() => (wallet ? resolveIdentityWalletModel(wallet) : null), [wallet]);
+  const identityPaymentFlags = useMemo(
+    () => (wallet ? readIdentityPaymentFlags(wallet) : {}),
+    [wallet],
+  );
+  const identity = model?.identity ?? null;
+  const futureWalletBindings = model?.futureWallets ?? [];
+  const summaryCoins = model?.summaryCoins ?? [];
+  const walletBindings = model?.walletBindings ?? [];
+  const managedWalletsEnabled = model?.managedWalletsEnabled ?? false;
+  const managedNetworkKeys = model?.managedNetworkKeys;
+  const visibleWallets = model ? visibleWalletBindings(model.wallets) : [];
+  const polygonWallet = model ? resolvePolygonWalletEntry(model.wallets) : null;
   const [activeWalletKey, setActiveWalletKey] = useState(null);
   const [showFutureNetworks, setShowFutureNetworks] = useState(false);
   const [connectingKey, setConnectingKey] = useState(null);
@@ -506,26 +558,53 @@ export function VaultWalletContent({
   const [connectNotice, setConnectNotice] = useState(null);
   const [connectPhase, setConnectPhase] = useState('');
   const [refreshingWallet, setRefreshingWallet] = useState(false);
+  const [evmPickerRequest, setEvmPickerRequest] = useState(null);
+  const [showProvisioningNetworks, setShowProvisioningNetworks] = useState(false);
+
+  const selectEvmProvider = useCallback((providers) => {
+    return new Promise((resolve, reject) => {
+      setEvmPickerRequest({ providers, resolve, reject });
+    });
+  }, []);
+
+  const dismissEvmPicker = useCallback((rejectError = null) => {
+    setEvmPickerRequest((current) => {
+      if (current && rejectError) {
+        current.reject(rejectError);
+      }
+
+      return null;
+    });
+  }, []);
 
   useEffect(() => {
     if (!model) {
       setActiveWalletKey(null);
       setShowFutureNetworks(false);
+      setShowProvisioningNetworks(false);
     }
   }, [model]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.ethereum) {
+    if (typeof window === 'undefined') {
       return undefined;
     }
 
     let cancelled = false;
 
-    import('../lib/metamask-multichain-bootstrap').then(({ ensureMetaMaskMultichainRegistered }) => {
+    import('../lib/evm-wallet-discovery').then(({ warmEvmProviderDiscovery }) => {
       if (!cancelled) {
-        ensureMetaMaskMultichainRegistered();
+        warmEvmProviderDiscovery();
       }
     });
+
+    if (window.ethereum) {
+      import('../lib/metamask-multichain-bootstrap').then(({ ensureMetaMaskMultichainRegistered }) => {
+        if (!cancelled) {
+          ensureMetaMaskMultichainRegistered();
+        }
+      });
+    }
 
     return () => {
       cancelled = true;
@@ -550,13 +629,22 @@ export function VaultWalletContent({
     setActiveWalletKey(bindingKey);
 
     const runConnect = async (activeToken) => {
-      setConnectPhase(t('wallet_connect_signing'));
-      await connectWalletBinding({ token: activeToken, bindingKey });
+      await connectWalletBinding({
+        token: activeToken,
+        bindingKey,
+        onConnectPhase: (phaseKey) => setConnectPhase(t(phaseKey)),
+        selectEvmProvider: isEvmWalletBindingKey(bindingKey) ? selectEvmProvider : undefined,
+      });
       setConnectPhase(t('wallet_connect_finishing'));
       if (onRefreshWallet) {
         await onRefreshWallet();
       }
-      setConnectNotice({ key: bindingKey, message: t('wallet_connect_success') });
+      setConnectNotice({
+        key: bindingKey,
+        message: variant === 'vault' && identity
+          ? t('identity_instrument_added', { alias: identityLabel(identity) })
+          : t('wallet_connect_success'),
+      });
       setActiveWalletKey(bindingKey);
     };
 
@@ -579,14 +667,78 @@ export function VaultWalletContent({
       }
 
       const message = exception instanceof WalletConnectError
-        ? exception.userMessage
+        ? (exception.code === 'no_wallet'
+          ? t('wallet_connect_no_wallet')
+          : exception.userMessage)
         : exception?.message || t('wallet_shell_error');
       setConnectError({ key: bindingKey, message });
     } finally {
       setConnectingKey(null);
       setConnectPhase('');
     }
-  }, [onRefreshWallet, t]);
+  }, [identity, onRefreshWallet, selectEvmProvider, t, variant]);
+
+  const handleCreateManaged = useCallback(async (bindingKey) => {
+    let token = readStoredVaultToken();
+    if (!token) {
+      try {
+        token = await refreshStorefrontVaultToken();
+      } catch {
+        setConnectError({ key: bindingKey, message: t('wallet_connect_session_expired') });
+        return;
+      }
+    }
+
+    setConnectingKey(bindingKey);
+    setConnectError(null);
+    setConnectNotice(null);
+    setConnectPhase(t('wallet_create_safe_opening'));
+    setActiveWalletKey(bindingKey);
+
+    try {
+      await provisionManagedWalletBinding(token, bindingKey);
+      setConnectPhase(t('wallet_connect_finishing'));
+      if (onRefreshWallet) {
+        await onRefreshWallet();
+      }
+      setConnectNotice({
+        key: bindingKey,
+        message: variant === 'vault' && identity
+          ? t('identity_instrument_added', { alias: identityLabel(identity) })
+          : t('wallet_create_safe_success'),
+      });
+      setActiveWalletKey(bindingKey);
+    } catch (exception) {
+      const status = exception?.cause?.status ?? exception?.status;
+      if (status === 401 || status === 403) {
+        try {
+          const freshToken = await refreshStorefrontVaultToken();
+          await provisionManagedWalletBinding(freshToken, bindingKey);
+          if (onRefreshWallet) {
+            await onRefreshWallet();
+          }
+          setConnectNotice({
+            key: bindingKey,
+            message: variant === 'vault' && identity
+              ? t('identity_instrument_added', { alias: identityLabel(identity) })
+              : t('wallet_create_safe_success'),
+          });
+          setActiveWalletKey(bindingKey);
+          return;
+        } catch (retryException) {
+          const message = retryException?.message || t('wallet_connect_session_expired');
+          setConnectError({ key: bindingKey, message });
+          return;
+        }
+      }
+
+      const message = exception?.message || t('wallet_shell_error');
+      setConnectError({ key: bindingKey, message });
+    } finally {
+      setConnectingKey(null);
+      setConnectPhase('');
+    }
+  }, [identity, onRefreshWallet, t, variant]);
 
   const handleRefreshWallet = useCallback(async () => {
     if (!onRefreshWallet) {
@@ -603,22 +755,67 @@ export function VaultWalletContent({
 
   const hasWallet = Boolean(wallet && model);
   const showLoadingShell = isLoading || (isVaultOpen && !hasWallet && !error);
-  const visibleWallets = model ? visibleWalletBindings(model.wallets) : [];
-  const showBindingsSection = hasWallet && (visibleWallets.length > 0 || model.futureWallets.length > 0);
-  const suppressBindingAssets = variant === 'vault' && model?.summaryCoins?.length > 0;
-  const showBindingReceiveQr = variant === 'vault';
+  const isVaultVariant = variant === 'vault';
+  const showSafeProvisioningShell = isVaultVariant && model && shouldShowSafeProvisioningShell(model, variant);
+  const showSafeDashboard = isVaultVariant && model && shouldShowSafeDashboard(model, variant);
+  const showBindingsSection = hasWallet && !isVaultVariant && (visibleWallets.length > 0 || futureWalletBindings.length > 0);
+  const showDashboardNetworks = Boolean(model) && !showSafeDashboard && (visibleWallets.length > 0 || futureWalletBindings.length > 0);
+  const suppressBindingAssets = isVaultVariant && summaryCoins.length > 0;
+  const showBindingReceiveQr = isVaultVariant;
+  const welcomeProvisionError = connectError?.key === 'polygon' ? connectError.message : '';
+  const isProvisioningSafe = connectingKey === 'polygon';
 
   return (
     <>
       {hasWallet ? (
         <>
-          <WalletHero
-            model={model}
-            onRefreshWallet={handleRefreshWallet}
-            refreshingWallet={refreshingWallet}
-            t={t}
-            variant={variant}
-          />
+          {showSafeProvisioningShell ? (
+            <SafeWelcomeCard
+              connectError={connectError}
+              connectNotice={connectNotice}
+              connectPhase={connectPhase}
+              connectingKey={connectingKey}
+              futureWallets={futureWalletBindings}
+              identity={identity}
+              isProvisioning={isProvisioningSafe}
+              managedWalletsEnabled={managedWalletsEnabled}
+              networksOpen={showProvisioningNetworks}
+              onConnect={handleConnect}
+              onCreateManaged={handleCreateManaged}
+              onCreateSafe={() => handleCreateManaged('polygon')}
+              onNetworksOpenChange={setShowProvisioningNetworks}
+              onShowConnectExisting={() => setShowProvisioningNetworks(true)}
+              provisionError={welcomeProvisionError}
+              visibleWallets={visibleWallets}
+            />
+          ) : showSafeDashboard ? (
+            <IdentityAccountPanel
+              connectError={connectError}
+              connectNotice={connectNotice}
+              connectPhase={connectPhase}
+              connectingKey={connectingKey}
+              futureWallets={futureWalletBindings}
+              identity={identity}
+              identityPaymentFlags={identityPaymentFlags}
+              observationState={vaultBalanceObservationState(model?.wallets ?? [])}
+              onConnect={handleConnect}
+              onCreateManaged={handleCreateManaged}
+              onRefreshWallet={handleRefreshWallet}
+              polygonWallet={polygonWallet}
+              refreshingWallet={refreshingWallet}
+              summaryCoins={summaryCoins}
+              visibleWallets={visibleWallets}
+              walletBindings={walletBindings}
+            />
+          ) : !isVaultVariant ? (
+            <WalletHero
+              model={model}
+              onRefreshWallet={handleRefreshWallet}
+              refreshingWallet={refreshingWallet}
+              t={t}
+              variant={variant}
+            />
+          ) : null}
 
           {showBindingsSection ? (
             <div className="premium-wallet-body premium-wallet-body--bindings">
@@ -641,6 +838,7 @@ export function VaultWalletContent({
                       isActive={activeWalletKey === walletBinding.key}
                       key={walletBinding.key}
                       onConnect={handleConnect}
+                      onCreateManaged={handleCreateManaged}
                       onSelect={setActiveWalletKey}
                       showReceiveQr={showBindingReceiveQr}
                       suppressAssets={suppressBindingAssets}
@@ -651,7 +849,7 @@ export function VaultWalletContent({
                 </div>
               ) : null}
 
-              {model.futureWallets.length ? (
+              {futureWalletBindings.length ? (
                 <div className="premium-wallet-future">
                   <button
                     className="premium-wallet-future__toggle"
@@ -662,7 +860,7 @@ export function VaultWalletContent({
                   </button>
                   {showFutureNetworks ? (
                     <div className="premium-wallet-bindings__list premium-wallet-bindings__list--future">
-                      {model.futureWallets.map((walletBinding) => (
+                      {futureWalletBindings.map((walletBinding) => (
                         <WalletBindingRow
                           connectError={connectError}
                           connectNotice={connectNotice}
@@ -670,6 +868,7 @@ export function VaultWalletContent({
                           isActive={activeWalletKey === walletBinding.key}
                           key={walletBinding.key}
                           onConnect={handleConnect}
+                          onCreateManaged={handleCreateManaged}
                           onSelect={setActiveWalletKey}
                           showReceiveQr={showBindingReceiveQr}
                           suppressAssets={suppressBindingAssets}
@@ -684,6 +883,77 @@ export function VaultWalletContent({
               </div>
             </div>
           ) : null}
+
+          {showDashboardNetworks ? (
+            <SafeNetworksSection>
+              <div className="premium-wallet-bindings">
+                <div className="premium-wallet-bindings__header">
+                  <span>
+                    {t('wallet_safe_networks_title')}
+                    <GlossaryHint>{t('wallet_bindings_hint')}</GlossaryHint>
+                  </span>
+                  {connectPhase ? <small className="premium-wallet-bindings__phase">{connectPhase}</small> : null}
+                </div>
+
+                {visibleWallets.length ? (
+                  <div className="premium-wallet-bindings__list">
+                    {visibleWallets.map((walletBinding) => (
+                      <WalletBindingRow
+                        connectError={connectError}
+                        connectNotice={connectNotice}
+                        connectingKey={connectingKey}
+                        isActive={activeWalletKey === walletBinding.key}
+                        key={walletBinding.key}
+                        onConnect={handleConnect}
+                        onCreateManaged={handleCreateManaged}
+                        onSelect={setActiveWalletKey}
+                        showReceiveQr={showBindingReceiveQr}
+                        suppressAssets={suppressBindingAssets}
+                        suppressManagedProvisioning={
+                          managedNetworkKeys?.has?.(walletBinding.key)
+                          && walletBinding.bindingState === WALLET_BINDING_STATE.CONNECTED
+                        }
+                        t={t}
+                        walletBinding={walletBinding}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                {futureWalletBindings.length ? (
+                  <div className="premium-wallet-future">
+                    <button
+                      className="premium-wallet-future__toggle"
+                      onClick={() => setShowFutureNetworks((current) => !current)}
+                      type="button"
+                    >
+                      {showFutureNetworks ? t('wallet_future_networks_hide') : t('wallet_future_networks_show')}
+                    </button>
+                    {showFutureNetworks ? (
+                      <div className="premium-wallet-bindings__list premium-wallet-bindings__list--future">
+                        {futureWalletBindings.map((walletBinding) => (
+                          <WalletBindingRow
+                            connectError={connectError}
+                            connectNotice={connectNotice}
+                            connectingKey={connectingKey}
+                            isActive={activeWalletKey === walletBinding.key}
+                            key={walletBinding.key}
+                            onConnect={handleConnect}
+                            onCreateManaged={handleCreateManaged}
+                            onSelect={setActiveWalletKey}
+                            showReceiveQr={showBindingReceiveQr}
+                            suppressAssets={suppressBindingAssets}
+                            t={t}
+                            walletBinding={walletBinding}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </SafeNetworksSection>
+          ) : null}
         </>
       ) : showLoadingShell ? (
         <>
@@ -697,6 +967,19 @@ export function VaultWalletContent({
           {showOpenAction ? <Link href="/vault">{t('wallet_shell_open_vault')}</Link> : null}
         </div>
       )}
+
+      {evmPickerRequest ? (
+        <EvmWalletPicker
+          onCancel={() => {
+            dismissEvmPicker(new WalletConnectError('user_rejected', 'Wallet connection was cancelled.'));
+          }}
+          onSelect={(provider) => {
+            evmPickerRequest.resolve(provider);
+            setEvmPickerRequest(null);
+          }}
+          providers={evmPickerRequest.providers}
+        />
+      ) : null}
     </>
   );
 }

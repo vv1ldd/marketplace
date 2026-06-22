@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Storefront\StorefrontIdentityController;
 use App\Http\Controllers\Api\Storefront\StorefrontPartnerRegistrationController;
 use App\Http\Controllers\Api\Storefront\StorefrontPersonalizationController;
 use App\Http\Controllers\Api\Storefront\StorefrontVaultController;
+use App\Http\Controllers\Api\Storefront\StorefrontSettlementController;
 use App\Http\Controllers\Api\Storefront\StorefrontWalletController;
 use App\Http\Controllers\Api\UiProjectionController;
 use App\Http\Controllers\Ym\MainController as YmMainController;
@@ -100,9 +101,13 @@ Route::prefix('storefront/v1')
         ->middleware('storefront.token:storefront:vault');
     Route::get('wallet/bindings', [StorefrontWalletController::class, 'bindings'])
         ->middleware('storefront.token:storefront:vault');
+    Route::get('wallet/binding-events', [StorefrontWalletController::class, 'bindingEvents'])
+        ->middleware('storefront.token:storefront:vault');
     Route::post('wallet/bindings/challenge', [StorefrontWalletController::class, 'issueBindingChallenge'])
         ->middleware('storefront.token:storefront:vault');
     Route::post('wallet/bindings/verify', [StorefrontWalletController::class, 'verifyBindingChallenge'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('wallet/bindings/managed', [StorefrontWalletController::class, 'provisionManagedBinding'])
         ->middleware('storefront.token:storefront:vault');
     Route::post('wallet/bindings', [StorefrontWalletController::class, 'storeBinding'])
         ->middleware('storefront.token:storefront:vault');
@@ -111,6 +116,32 @@ Route::prefix('storefront/v1')
     Route::get('wallet/assets', [StorefrontWalletController::class, 'assets'])
         ->middleware('storefront.token:storefront:vault');
     Route::post('wallet/proofs/usdc-transfer', [StorefrontWalletController::class, 'verifyUsdcTransferProof'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('settlement/resolve-recipient', [StorefrontSettlementController::class, 'resolveRecipient'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('settlement/payment-intents', [StorefrontSettlementController::class, 'createPaymentIntent'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::get('settlement/payment-intents', [StorefrontSettlementController::class, 'listPaymentIntents'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('settlement/payment-intents/{intentUuid}/execute', [StorefrontSettlementController::class, 'executePaymentIntent'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::get('settlement/statement', [StorefrontSettlementController::class, 'statement'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::get('settlement/payment-intents/{intentUuid}/timeline', [StorefrontSettlementController::class, 'paymentIntentTimeline'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::get('settlement/payment-intents/{intentUuid}/dispute', [StorefrontSettlementController::class, 'paymentIntentDispute'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('settlement/payment-intents/{intentUuid}/disputes', [StorefrontSettlementController::class, 'openDispute'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::get('settlement/disputes/{disputeUuid}', [StorefrontSettlementController::class, 'showDispute'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('settlement/disputes/{disputeUuid}/request-evidence', [StorefrontSettlementController::class, 'requestDisputeEvidence'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('settlement/disputes/{disputeUuid}/collect-evidence', [StorefrontSettlementController::class, 'collectDisputeEvidence'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('settlement/disputes/{disputeUuid}/review', [StorefrontSettlementController::class, 'reviewDispute'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('settlement/disputes/{disputeUuid}/resolve', [StorefrontSettlementController::class, 'resolveDispute'])
         ->middleware('storefront.token:storefront:vault');
     Route::get('personalization/home', [StorefrontPersonalizationController::class, 'home'])
         ->middleware('storefront.token:storefront:read');

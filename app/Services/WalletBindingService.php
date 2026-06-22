@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\IdentityBinding;
 use App\Models\VaultIdentity;
+use App\Services\Settlement\SettlementInstrumentCapabilityService;
 use App\Support\BindingValueCanonicalizer;
 use App\Support\SettlementAdapterConfig;
 use App\Support\SettlementNetwork;
 use App\Support\SolanaAddressCodec;
+use App\Support\TonAddressCodec;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -18,6 +20,7 @@ class WalletBindingService
         private readonly BindingValueCanonicalizer $canonicalizer,
         private readonly BindingEventRecorder $bindingEvents,
         private readonly SettlementAuditEventRecorder $settlementAuditEvents,
+        private readonly SettlementInstrumentCapabilityService $instrumentCapabilities,
     ) {}
 
     /**
@@ -75,6 +78,7 @@ class WalletBindingService
         string $verificationMethod = IdentityBinding::METHOD_MANUAL,
         array $metadata = [],
         string $verificationState = IdentityBinding::STATE_PENDING,
+        string $bindingSource = IdentityBinding::SOURCE_EXTERNAL,
     ): IdentityBinding {
         $networkKey = trim($networkKey);
         $address = trim($address);
@@ -101,6 +105,7 @@ class WalletBindingService
             'vault_id' => $vault->id,
             'binding_type' => IdentityBinding::TYPE_WALLET,
             'binding_key' => $networkKey,
+            'binding_source' => $bindingSource,
             'binding_value_original' => $canonical['original'],
             'binding_value_normalized' => $canonical['normalized'],
             'verification_state' => $verificationState,
@@ -139,6 +144,7 @@ class WalletBindingService
         string $address,
         string $verificationMethod,
         array $metadata = [],
+        string $bindingSource = IdentityBinding::SOURCE_EXTERNAL,
     ): IdentityBinding {
         return $this->createWalletBinding(
             vault: $vault,
@@ -147,6 +153,7 @@ class WalletBindingService
             verificationMethod: $verificationMethod,
             metadata: $metadata,
             verificationState: IdentityBinding::STATE_VERIFIED,
+            bindingSource: $bindingSource,
         );
     }
 
@@ -202,7 +209,7 @@ class WalletBindingService
             ]);
         }
 
-        if (in_array($network->protocol, ['evm', 'utxo', 'solana'], true) && ! $network->storefrontVisible) {
+        if (in_array($network->protocol, ['evm', 'utxo', 'solana', 'ton'], true) && ! $network->storefrontVisible) {
             throw ValidationException::withMessages([
                 'binding_key' => 'This wallet transport layer is not available.',
             ]);
@@ -263,6 +270,7 @@ class WalletBindingService
             'vault_id' => $binding->vault_id,
             'binding_type' => $binding->binding_type,
             'binding_key' => $binding->binding_key,
+            'binding_source' => $binding->binding_source ?? IdentityBinding::SOURCE_EXTERNAL,
             'binding_value' => $binding->binding_value_normalized,
             'binding_value_original' => $binding->binding_value_original,
             'binding_value_normalized' => $binding->binding_value_normalized,
@@ -274,6 +282,7 @@ class WalletBindingService
             'bound_at' => $binding->bound_at?->toJSON(),
             'verified_at' => $binding->verified_at?->toJSON(),
             'revoked_at' => $binding->revoked_at?->toJSON(),
+            'capabilities' => $this->instrumentCapabilities->matrixForBinding($binding),
         ];
     }
 
@@ -291,6 +300,7 @@ class WalletBindingService
             'vault_id' => $binding->vault_id,
             'binding_type' => $binding->binding_type,
             'binding_key' => $binding->binding_key,
+            'binding_source' => $binding->binding_source ?? IdentityBinding::SOURCE_EXTERNAL,
             'address' => $binding->binding_value_normalized,
             'address_original' => $binding->binding_value_original,
             'verification_state' => $binding->verification_state,
@@ -344,6 +354,16 @@ class WalletBindingService
             if (! app(SolanaAddressCodec::class)->isValidAddress($address)) {
                 throw ValidationException::withMessages([
                     'binding_value' => 'Solana wallet bindings require a valid base58 address.',
+                ]);
+            }
+
+            return;
+        }
+
+        if ($protocol === 'ton') {
+            if (! app(TonAddressCodec::class)->isValidAddress($address)) {
+                throw ValidationException::withMessages([
+                    'binding_value' => 'TON wallet bindings require a valid friendly or raw address.',
                 ]);
             }
 

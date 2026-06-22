@@ -55,6 +55,15 @@ class BindingValueCanonicalizer
             ];
         }
 
+        if ($protocol === 'ton') {
+            $normalized = app(TonAddressCodec::class)->normalizeAddress($original);
+
+            return [
+                'original' => $original,
+                'normalized' => $normalized ?? $original,
+            ];
+        }
+
         return [
             'original' => $original,
             'normalized' => $original,

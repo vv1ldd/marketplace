@@ -23,6 +23,8 @@ class UtxoWalletPreviewEnricher
         }
 
         $rpcReady = $network->rpcEnabled && is_string($network->rpcUrl) && $network->rpcUrl !== '';
+        $balanceApiUrl = config('blockchain_networks.networks.bitcoin.balance_api_url');
+        $observationReady = $rpcReady || (is_string($balanceApiUrl) && $balanceApiUrl !== '');
 
         foreach ($preview['coins'] ?? [] as $index => $coin) {
             if (! is_array($coin)) {
@@ -38,15 +40,24 @@ class UtxoWalletPreviewEnricher
             $preview['coins'][$index]['precision'] = $decimals;
             $preview['coins'][$index]['transferable'] = false;
 
-            if (! $rpcReady) {
+            if (! $observationReady) {
                 $preview['coins'][$index]['status'] = 'balance_unavailable';
                 $preview['coins'][$index]['note'] = $network->label.' balance refresh requires RPC.';
 
                 continue;
             }
 
+            $amountBtc = null;
+
             try {
-                $amountBtc = $this->bitcoin->getAddressBalanceBtc((string) $network->rpcUrl, $walletAddress);
+                if (is_string($balanceApiUrl) && $balanceApiUrl !== '') {
+                    $amountBtc = $this->bitcoin->getAddressBalanceFromEsplora($balanceApiUrl, $walletAddress);
+                }
+
+                if ($amountBtc === null && $rpcReady) {
+                    $amountBtc = $this->bitcoin->getAddressBalanceBtc((string) $network->rpcUrl, $walletAddress);
+                }
+
                 if ($amountBtc === null) {
                     $preview['coins'][$index]['status'] = 'balance_unavailable';
                     $preview['coins'][$index]['note'] = 'Could not refresh '.$symbol.' balance right now.';
@@ -72,7 +83,7 @@ class UtxoWalletPreviewEnricher
             is_array($preview['capabilities'] ?? null) ? $preview['capabilities'] : [],
             [
                 'can_view_coins' => true,
-                'next_action' => $rpcReady ? 'VIEW_BOUND_WALLET' : 'NETWORK_RPC_REQUIRED',
+                'next_action' => $observationReady ? 'VIEW_BOUND_WALLET' : 'NETWORK_RPC_REQUIRED',
             ],
         );
 

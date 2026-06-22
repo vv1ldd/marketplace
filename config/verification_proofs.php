@@ -24,5 +24,22 @@ return [
             // Backlog: require current_block - tx_block >= N before accepting monetary proofs.
             // 'required_confirmations' => 12,
         ],
+        'ethereum' => [
+            'chain_id' => 1,
+            'token_contract' => '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+            'decimals' => 6,
+            'asset' => 'USDC',
+        ],
+        'base' => [
+            'chain_id' => 8453,
+            'token_contract' => '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+            'decimals' => 6,
+            'asset' => 'USDC',
+        ],
+        'solana' => [
+            'token_mint' => 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            'decimals' => 6,
+            'asset' => 'USDC',
+        ],
     ],
 ];

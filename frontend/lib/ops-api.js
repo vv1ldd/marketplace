@@ -280,3 +280,39 @@ export function updateOpsTheme(theme) {
     body: { theme },
   });
 }
+
+export function fetchOpsPaymentDisputes(query = {}) {
+  return opsFetch('/ops/dashboard/payment-disputes/data', { query });
+}
+
+export function fetchOpsPaymentDispute(disputeUuid) {
+  return opsFetch(`/ops/dashboard/payment-disputes/${encodeURIComponent(disputeUuid)}`);
+}
+
+export function requestOpsPaymentDisputeEvidence(disputeUuid) {
+  return opsFetch(`/ops/dashboard/payment-disputes/${encodeURIComponent(disputeUuid)}/request-evidence`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export function collectOpsPaymentDisputeEvidence(disputeUuid) {
+  return opsFetch(`/ops/dashboard/payment-disputes/${encodeURIComponent(disputeUuid)}/collect-evidence`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export function reviewOpsPaymentDispute(disputeUuid) {
+  return opsFetch(`/ops/dashboard/payment-disputes/${encodeURIComponent(disputeUuid)}/review`, {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export function resolveOpsPaymentDispute(disputeUuid, body) {
+  return opsFetch(`/ops/dashboard/payment-disputes/${encodeURIComponent(disputeUuid)}/resolve`, {
+    method: 'POST',
+    body,
+  });
+}

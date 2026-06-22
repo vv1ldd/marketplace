@@ -41,7 +41,7 @@ class SettlementNetworkRegistryTest extends TestCase
 
         $catalog = app(SettlementNetworkResolver::class)->storefrontCatalog();
 
-        $this->assertCount(6, $catalog['items']);
+        $this->assertCount(7, $catalog['items']);
         $this->assertSame('polygon', $catalog['items'][1]['key']);
         $this->assertFalse($catalog['items'][1]['enabled']);
         $this->assertSame('coming_soon', $catalog['items'][1]['status']);
@@ -66,7 +66,7 @@ class SettlementNetworkRegistryTest extends TestCase
     {
         $registry = app(SettlementNetworkRegistry::class);
 
-        foreach (['simple-layer-1', 'polygon', 'bitcoin', 'ethereum', 'base', 'solana'] as $networkKey) {
+        foreach (['simple-layer-1', 'polygon', 'bitcoin', 'ethereum', 'base', 'solana', 'ton'] as $networkKey) {
             $adapter = $registry->adapter($networkKey);
             $this->assertInstanceOf(SettlementNetworkAdapter::class, $adapter);
             $this->assertSame($networkKey, $adapter->network()->key);

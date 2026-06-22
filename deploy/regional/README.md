@@ -69,12 +69,16 @@ meanly.ru   ──► Next (RU copy / env)
 
 Market selection is runtime (`Host` / `X-Forwarded-Host`). Legal copy follows `market.key` in code. Separate production **builds** per region matter only when `NEXT_PUBLIC_ACQUIRING_*` env must differ at build time.
 
-## Later: production on a VPS (Coolify optional)
+## Later: production on a VPS (Coolify)
 
-When you move off the Mac tunnel, you can run the same repo as separate services (API + 2 frontends). Coolify is one way to do that — not required for local dev.
+When you move off the Mac tunnel, run Sovereign Coolify on a Linux VPS and deploy API + regional frontends as separate apps. See `deploy/meanly-production.md` for the full runbook.
+
+Mac dev is **not** installed through Coolify — use `scripts/dev-tunnel.sh` above.
 
 | Service | Domain | Env template |
 |---------|--------|--------------|
+| Sovereign panel | `ops.meanly.one` | Coolify install (`SOVEREIGN_HOST_DOMAIN`) |
+| Simple L1 identity | `identity.meanly.one` | Coolify install (`SOVEREIGN_IDENTITY_DOMAIN`) |
 | API | `api.meanly.one` | `deploy/regional/env/backend-shared.env.example` |
 | Storefront global | `meanly.one` | `deploy/regional/env/frontend-global.env.example` |
 | Storefront RU | `meanly.ru` | `deploy/regional/env/frontend-ru.env.example` |

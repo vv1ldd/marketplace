@@ -9,6 +9,9 @@ use App\Models\VaultIdentity;
 use App\Support\BitcoinMessageSignVerifier;
 use App\Support\EvmPersonalSignVerifier;
 use App\Support\SolanaMessageSignVerifier;
+use App\Support\SettlementNetwork;
+use App\Support\TonMessageSignVerifier;
+use App\Support\TonSignDataVerifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -21,6 +24,8 @@ class WalletBindingChallengeService
         private readonly EvmPersonalSignVerifier $evmSignatures,
         private readonly BitcoinMessageSignVerifier $bitcoinSignatures,
         private readonly SolanaMessageSignVerifier $solanaSignatures,
+        private readonly TonMessageSignVerifier $tonSignatures,
+        private readonly TonSignDataVerifier $tonSignDataVerifier,
         private readonly BindingChallengeFormatter $challengeFormatter,
         private readonly BindingEventRecorder $bindingEvents,
     ) {}
@@ -92,8 +97,16 @@ class WalletBindingChallengeService
         return $this->formatChallenge($challenge);
     }
 
-    public function verifyChallenge(VaultIdentity $vault, string $nonce, string $signature, ?string $signedMessage = null): IdentityBinding
-    {
+    public function verifyChallenge(
+        VaultIdentity $vault,
+        string $nonce,
+        string $signature,
+        ?string $signedMessage = null,
+        ?string $walletPublicKey = null,
+        ?string $walletProviderId = null,
+        ?string $walletBrand = null,
+        ?array $tonSignData = null,
+    ): IdentityBinding {
         $nonce = Str::lower(trim($nonce));
         $signature = trim($signature);
 
@@ -187,6 +200,68 @@ class WalletBindingChallengeService
                     'signature',
                 );
             }
+        } elseif ($network->protocol === 'ton') {
+            $walletPublicKey = is_string($walletPublicKey) ? trim($walletPublicKey) : '';
+            if ($walletPublicKey === '') {
+                $this->failVerification(
+                    $challenge,
+                    'public_key_required',
+                    'TON ownership verification requires the wallet public key returned by your wallet.',
+                    'wallet_public_key',
+                );
+            }
+
+            if (! $this->tonSignDataVerifier->runtimeAvailable() && ! $this->tonSignatures->runtimeAvailable()) {
+                $this->failVerification(
+                    $challenge,
+                    'ton_unavailable',
+                    'TON ownership verification is unavailable on this server right now.',
+                    'signature',
+                );
+            }
+
+            $verified = false;
+            if (is_array($tonSignData) && $tonSignData !== []) {
+                $signDataAddress = (string) ($tonSignData['address'] ?? '');
+                if (! $this->tonSignDataVerifier->addressMatchesBinding(
+                    $signDataAddress,
+                    (string) $challenge->binding_value_original,
+                    (string) $challenge->binding_value_normalized,
+                )) {
+                    $this->failVerification(
+                        $challenge,
+                        'signature_mismatch',
+                        'Signed TON address does not match the requested wallet address.',
+                        'signature',
+                    );
+                }
+
+                $verified = $this->tonSignDataVerifier->verifyTextSignData(
+                    signatureBase64: $signature,
+                    addressRaw: $signDataAddress,
+                    timestamp: (int) ($tonSignData['timestamp'] ?? 0),
+                    domain: (string) ($tonSignData['domain'] ?? ''),
+                    payload: is_array($tonSignData['payload'] ?? null) ? $tonSignData['payload'] : [],
+                    walletPublicKey: $walletPublicKey,
+                    expectedMessage: $challenge->message,
+                );
+            } else {
+                $verified = $this->tonSignatures->verifyMessage(
+                    $challenge->message,
+                    $signature,
+                    $walletPublicKey,
+                    $signedMessage,
+                );
+            }
+
+            if (! $verified) {
+                $this->failVerification(
+                    $challenge,
+                    'signature_mismatch',
+                    'Signature does not prove ownership of the requested wallet address.',
+                    'signature',
+                );
+            }
         } else {
             $this->failVerification(
                 $challenge,
@@ -197,7 +272,7 @@ class WalletBindingChallengeService
         }
 
         try {
-            return DB::transaction(function () use ($vault, $challenge): IdentityBinding {
+            return DB::transaction(function () use ($vault, $challenge, $network, $signature, $walletProviderId, $walletBrand): IdentityBinding {
                 $lockedChallenge = BindingChallenge::query()
                     ->whereKey($challenge->id)
                     ->lockForUpdate()
@@ -216,12 +291,15 @@ class WalletBindingChallengeService
                     networkKey: $lockedChallenge->binding_key,
                     address: $lockedChallenge->binding_value_original,
                     verificationMethod: IdentityBinding::METHOD_SIGNATURE,
-                    metadata: [
-                        'challenge_id' => $lockedChallenge->id,
-                        'nonce' => $lockedChallenge->nonce,
-                        'network_label' => data_get($lockedChallenge->metadata, 'network_label'),
-                        'protocol' => data_get($lockedChallenge->metadata, 'protocol'),
-                    ],
+                    metadata: array_merge(
+                        $this->verifiedBindingMetadata(
+                            challenge: $lockedChallenge,
+                            network: $network,
+                            signature: $signature,
+                            walletProviderId: $walletProviderId,
+                            walletBrand: $walletBrand,
+                        ),
+                    ),
                 );
 
                 $lockedChallenge->forceFill([
@@ -240,6 +318,48 @@ class WalletBindingChallengeService
 
             throw $exception;
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function verifiedBindingMetadata(
+        BindingChallenge $challenge,
+        SettlementNetwork $network,
+        string $signature,
+        ?string $walletProviderId = null,
+        ?string $walletBrand = null,
+    ): array {
+        $metadata = [
+            'challenge_id' => $challenge->id,
+            'nonce' => $challenge->nonce,
+            'network_label' => data_get($challenge->metadata, 'network_label'),
+            'protocol' => data_get($challenge->metadata, 'protocol'),
+            'signature_scheme' => $this->resolveSignatureScheme($network->protocol, $signature),
+        ];
+
+        $providerId = is_string($walletProviderId) ? trim($walletProviderId) : '';
+        if ($providerId !== '') {
+            $metadata['wallet_provider_id'] = $providerId;
+        }
+
+        $brand = is_string($walletBrand) ? trim($walletBrand) : '';
+        if ($brand !== '') {
+            $metadata['wallet_brand'] = $brand;
+        }
+
+        return $metadata;
+    }
+
+    private function resolveSignatureScheme(string $protocol, string $signature): string
+    {
+        return match ($protocol) {
+            'evm' => 'evm_personal_sign',
+            'solana' => 'solana_sign_message',
+            'ton' => 'ton_sign_data',
+            'utxo' => $this->looksLikeBip322Signature($signature) ? 'bitcoin_bip322' : 'bitcoin_legacy_message',
+            default => 'unknown',
+        };
     }
 
     /**

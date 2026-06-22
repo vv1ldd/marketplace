@@ -5,6 +5,10 @@
  * adopts `bound_wallets` / `identity_wallets`.
  */
 
+import { isEvmWalletBindingKey } from './evm-wallet-discovery';
+
+export { isEvmWalletBindingKey } from './evm-wallet-discovery';
+
 export const WALLET_BINDING_STATE = {
   CONNECTED: 'connected',
   CONNECT: 'connect',
@@ -12,8 +16,30 @@ export const WALLET_BINDING_STATE = {
   COMING_SOON: 'coming_soon',
 };
 
+/** Default EVM rails for managed provisioning when API omits the list. */
+export const DEFAULT_MANAGED_WALLET_NETWORK_KEYS = ['polygon', 'ethereum', 'base'];
+
+export function readManagedWalletNetworkKeys(payload) {
+  const keys = payload?.capabilities?.managed_wallet_networks
+    ?? payload?.wallet_summary?.capabilities?.managed_wallet_networks;
+  if (Array.isArray(keys) && keys.length > 0) {
+    return new Set(keys);
+  }
+
+  return new Set(DEFAULT_MANAGED_WALLET_NETWORK_KEYS);
+}
+
+/** @deprecated use readManagedWalletNetworkKeys */
+export const MANAGED_WALLET_NETWORK_KEYS = new Set(DEFAULT_MANAGED_WALLET_NETWORK_KEYS);
+
+export function readManagedWalletsEnabled(payload) {
+  return payload?.capabilities?.managed_wallets_enabled === true
+    || payload?.capabilities?.can_provision_managed_wallet === true
+    || payload?.wallet_summary?.capabilities?.managed_wallets_enabled === true;
+}
+
 /** Wallet transport layers with a live connect flow in the UI. */
-export const CONNECTABLE_WALLET_KEYS = new Set(['polygon', 'bitcoin', 'ethereum', 'base', 'solana']);
+export const CONNECTABLE_WALLET_KEYS = new Set(['polygon', 'bitcoin', 'ethereum', 'base', 'solana', 'ton']);
 
 /** Canonical USDC receive rail for connected Polygon wallets (matches verification_proofs.php). */
 export const POLYGON_USDC_RECEIVE = {
@@ -146,7 +172,7 @@ function resolveWalletAddress(networkKey, preview, identity, bindingRecord) {
   return null;
 }
 
-function buildWalletEntry(networkEntry, previewByKey, bindingByKey, identity, defaultKey, cryptoRailsEnabled) {
+function buildWalletEntry(networkEntry, previewByKey, bindingByKey, identity, defaultKey, cryptoRailsEnabled, managedWalletsEnabled, managedNetworkKeys) {
   const key = networkEntry.key;
   const preview = previewByKey.get(key) || null;
   const bindingRecord = bindingByKey.get(key) || null;
@@ -169,8 +195,15 @@ function buildWalletEntry(networkEntry, previewByKey, bindingByKey, identity, de
       && cryptoRailsEnabled
       && networkEntry?.storefront_visible !== false
       && bindingState === WALLET_BINDING_STATE.CONNECT,
+    canCreateManaged: managedNetworkKeys.has(key)
+      && managedWalletsEnabled
+      && cryptoRailsEnabled
+      && networkEntry?.storefront_visible !== false
+      && bindingState === WALLET_BINDING_STATE.CONNECT,
     address: resolveWalletAddress(key, preview, identity, bindingRecord),
     preview,
+    bindingSource: bindingRecord?.binding_source || preview?.binding?.binding_source || null,
+    capabilities: bindingRecord?.capabilities || null,
     isPrimary: key === defaultKey,
   };
 }
@@ -198,6 +231,47 @@ export function resolveConnectedPolygonWallet(wallets = []) {
 
 export function resolvePolygonWalletEntry(wallets = []) {
   return wallets.find((wallet) => wallet.key === POLYGON_USDC_RECEIVE.networkKey) || null;
+}
+
+export function hasPrimarySettlementBinding(modelOrWallets) {
+  const wallets = Array.isArray(modelOrWallets)
+    ? modelOrWallets
+    : modelOrWallets?.wallets || [];
+  const polygon = resolvePolygonWalletEntry(wallets);
+  if (!polygon) {
+    return false;
+  }
+
+  return polygon.bindingState === WALLET_BINDING_STATE.CONNECTED
+    || polygon.bindingState === WALLET_BINDING_STATE.PENDING;
+}
+
+/**
+ * Vault provisioning shell — always Safe-first when no primary settlement binding.
+ * Create Safe is capability-gated; legacy connect stays behind "Connect existing".
+ *
+ * Feature matrix:
+ *   no binding + managed off  → provisioning shell (identity-first, connect existing secondary)
+ *   no binding + managed on   → provisioning shell (Create Safe primary)
+ *   binding exists            → dashboard (managed or external)
+ */
+export function shouldShowSafeProvisioningShell(model, variant = 'wallet') {
+  if (variant !== 'vault' || !model) {
+    return false;
+  }
+
+  return !hasPrimarySettlementBinding(model);
+}
+
+/** @deprecated alias */
+export function shouldShowSafeWelcome(model, variant = 'wallet') {
+  return shouldShowSafeProvisioningShell(model, variant);
+}
+
+export function shouldShowSafeDashboard(model, variant = 'wallet') {
+  return variant === 'vault'
+    && Boolean(model)
+    && hasPrimarySettlementBinding(model);
 }
 
 export function resolveConnectedBitcoinWallet(wallets = []) {
@@ -280,6 +354,8 @@ export function aggregateSummaryCoins(wallets = []) {
 export function resolveIdentityWalletModel(payload) {
   const identity = payload?.identity || {};
   const cryptoRailsEnabled = readCryptoRailsEnabled(payload);
+  const managedWalletsEnabled = readManagedWalletsEnabled(payload);
+  const managedNetworkKeys = readManagedWalletNetworkKeys(payload);
   const defaultKey = payload?.settlement_networks?.default
     || payload?.settlement_network?.key
     || payload?.network?.key
@@ -312,6 +388,8 @@ export function resolveIdentityWalletModel(payload) {
     identity,
     defaultKey,
     cryptoRailsEnabled,
+    managedWalletsEnabled,
+    managedNetworkKeys,
   ));
 
   const catalogKeys = new Set(wallets.map((wallet) => wallet.key));
@@ -325,6 +403,8 @@ export function resolveIdentityWalletModel(payload) {
         identity,
         defaultKey,
         cryptoRailsEnabled,
+        managedWalletsEnabled,
+        managedNetworkKeys,
       ))
     : [];
 
@@ -334,12 +414,15 @@ export function resolveIdentityWalletModel(payload) {
   return {
     identity,
     cryptoRailsEnabled,
+    managedWalletsEnabled,
+    managedNetworkKeys,
     defaultWalletKey: defaultKey,
     primaryWallet,
     summaryCoins: summaryCoins.length ? summaryCoins : walletCoins(primaryWallet?.preview),
     wallets,
     futureWallets,
     boundWalletPreviews: boundPreviews,
+    walletBindings: bindingRecords,
   };
 }
 
@@ -391,4 +474,82 @@ export function shortenAddress(address, head = 6, tail = 4) {
   }
 
   return `${address.slice(0, head)}…${address.slice(-tail)}`;
+}
+
+/** Display form for the durable SL1 identity anchor — not a settlement instrument address. */
+export function shortenIdentityAnchor(address, head = 10, tail = 4) {
+  if (!address || typeof address !== 'string') {
+    return '';
+  }
+
+  return shortenAddress(address, head, tail);
+}
+
+export function resolveIdentityAnchorAddress(identity = {}) {
+  return identity?.entity_l1_address || null;
+}
+
+export function walletExternalWalletLabel(networkKey) {
+  switch (networkKey) {
+    case 'bitcoin':
+      return 'MetaMask or Unisat';
+    case 'solana':
+      return 'MetaMask or Phantom';
+    case 'ton':
+      return 'Tonkeeper or TonConnect';
+    default:
+      if (isEvmWalletBindingKey(networkKey)) {
+        return 'Rabby, Coinbase Wallet, or another browser wallet';
+      }
+
+      return 'your wallet';
+  }
+}
+
+export function walletCapabilityNote({ nextAction, networkKey }, t) {
+  const wallets = walletExternalWalletLabel(networkKey);
+
+  switch (nextAction) {
+    case 'VIEW_BOUND_WALLET':
+      return t('wallet_capability_view_bound', { wallets });
+    case 'NETWORK_RPC_REQUIRED':
+      return t('wallet_capability_rpc_required');
+    case 'CONNECT_OR_VIEW_WALLET':
+      return t('wallet_capability_connect_or_view');
+    case 'NETWORK_COMING_SOON':
+      return t('wallet_capability_coming_soon');
+    default:
+      return t('wallet_binding_capabilities_note', { wallets });
+  }
+}
+
+export function walletConnectIntroKey(networkKey) {
+  if (networkKey === 'ton') {
+    return 'wallet_ton_connect_intro';
+  }
+
+  if (networkKey === 'bitcoin') {
+    return 'wallet_bitcoin_connect_prompt';
+  }
+
+  if (networkKey === 'solana') {
+    return 'wallet_solana_connect_intro';
+  }
+
+  if (isEvmWalletBindingKey(networkKey)) {
+    return 'wallet_evm_connect_intro';
+  }
+
+  return 'wallet_connect_intro';
+}
+
+export function walletCapabilityNoteTone(nextAction) {
+  switch (nextAction) {
+    case 'VIEW_BOUND_WALLET':
+      return 'live';
+    case 'NETWORK_RPC_REQUIRED':
+      return 'warn';
+    default:
+      return 'default';
+  }
 }

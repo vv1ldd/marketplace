@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+use App\Contracts\AccountingConsumer;
 use App\Contracts\BindingChallengeFormatter;
+use App\Contracts\IdentityPaymentExecutor;
+use App\Services\Accounting\AccountingConsumer as AccountingConsumerService;
 use App\Services\Bindings\MeanlyVaultBindingChallengeFormatter;
+use App\Services\Settlement\ManagedEvmIdentityPaymentExecutor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +30,9 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(BindingChallengeFormatter::class, MeanlyVaultBindingChallengeFormatter::class);
+
+        $this->app->singleton(AccountingConsumer::class, AccountingConsumerService::class);
+        $this->app->singleton(IdentityPaymentExecutor::class, ManagedEvmIdentityPaymentExecutor::class);
     }
 
     /**

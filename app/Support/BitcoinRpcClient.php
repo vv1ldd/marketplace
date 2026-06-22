@@ -29,6 +29,33 @@ class BitcoinRpcClient
         return $amount === '' ? '0' : $amount;
     }
 
+    public function getAddressBalanceFromEsplora(string $apiBaseUrl, string $address): ?string
+    {
+        $response = Http::timeout(12)
+            ->acceptJson()
+            ->get(rtrim($apiBaseUrl, '/').'/address/'.rawurlencode($address));
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $body = $response->json();
+        if (! is_array($body)) {
+            return null;
+        }
+
+        $funded = (string) ($body['chain_stats']['funded_txo_sum'] ?? '0');
+        $spent = (string) ($body['chain_stats']['spent_txo_sum'] ?? '0');
+        $sats = bcsub($funded, $spent, 0);
+        if (bccomp($sats, '0', 0) < 0) {
+            $sats = '0';
+        }
+
+        $amountBtc = bcdiv($sats, '100000000', 8);
+
+        return rtrim(rtrim($amountBtc, '0'), '.') ?: '0';
+    }
+
     /**
      * @return mixed
      */

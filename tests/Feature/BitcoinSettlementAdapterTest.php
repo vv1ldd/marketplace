@@ -30,6 +30,7 @@ final class BitcoinSettlementAdapterTest extends TestCase
         config([
             'blockchain_networks.networks.bitcoin.rpc_url' => 'https://bitcoin-rpc.test',
             'blockchain_networks.networks.bitcoin.rpc_enabled' => true,
+            'blockchain_networks.networks.bitcoin.balance_api_url' => null,
         ]);
     }
 

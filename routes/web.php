@@ -471,6 +471,13 @@ $meanlyPublicRoutes = function () {
             Route::post('/dashboard/partners/{legalEntity}/top-up', [\App\Http\Controllers\OpsDashboardController::class, 'topUpPartnerBalance'])->name('ops.dashboard.partners.top-up');
             Route::post('/dashboard/deposit-intents/{merchantDepositIntent}/approve', [\App\Http\Controllers\OpsDashboardController::class, 'approveDepositIntent'])->name('ops.dashboard.deposit-intents.approve');
             Route::post('/dashboard/deposit-intents/{merchantDepositIntent}/reject', [\App\Http\Controllers\OpsDashboardController::class, 'rejectDepositIntent'])->name('ops.dashboard.deposit-intents.reject');
+            Route::get('/dashboard/payment-disputes/data', [\App\Http\Controllers\OpsPaymentDisputeController::class, 'index'])->name('ops.dashboard.payment-disputes.data');
+            Route::get('/dashboard/payment-disputes/{disputeUuid}', [\App\Http\Controllers\OpsPaymentDisputeController::class, 'show'])->name('ops.dashboard.payment-disputes.show');
+            Route::post('/dashboard/payment-disputes/{disputeUuid}/request-evidence', [\App\Http\Controllers\OpsPaymentDisputeController::class, 'requestEvidence'])->name('ops.dashboard.payment-disputes.request-evidence');
+            Route::post('/dashboard/payment-disputes/{disputeUuid}/collect-evidence', [\App\Http\Controllers\OpsPaymentDisputeController::class, 'collectEvidence'])->name('ops.dashboard.payment-disputes.collect-evidence');
+            Route::post('/dashboard/payment-disputes/{disputeUuid}/review', [\App\Http\Controllers\OpsPaymentDisputeController::class, 'review'])->name('ops.dashboard.payment-disputes.review');
+            Route::post('/dashboard/payment-disputes/{disputeUuid}/resolve', [\App\Http\Controllers\OpsPaymentDisputeController::class, 'resolve'])->name('ops.dashboard.payment-disputes.resolve');
+            Route::get('/dashboard/payment-intents/{intentUuid}/timeline', [\App\Http\Controllers\OpsPaymentDisputeController::class, 'paymentIntentTimeline'])->name('ops.dashboard.payment-intents.timeline');
             Route::post('/dashboard/providers/partners/{legalEntity}/grant-credit', [\App\Http\Controllers\OpsDashboardController::class, 'grantPartnerCredit'])->name('ops.dashboard.providers.partners.grant-credit');
             Route::post('/dashboard/providers/partners/{legalEntity}/top-up', [\App\Http\Controllers\OpsDashboardController::class, 'topUpPartnerBalance'])->name('ops.dashboard.providers.partners.top-up');
             Route::get('/dashboard/tickets/data', [\App\Http\Controllers\OpsDashboardController::class, 'getTicketsData'])->name('ops.dashboard.tickets.data');
