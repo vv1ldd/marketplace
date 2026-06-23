@@ -149,6 +149,43 @@ final class StorefrontManagedWalletProvisioningTest extends TestCase
     }
 
     #[Test]
+    public function first_wallet_access_bootstraps_every_enabled_managed_rail(): void
+    {
+        config([
+            'managed_wallets.networks.polygon' => true,
+            'managed_wallets.networks.base' => true,
+            'managed_wallets.networks.ethereum' => true,
+            'managed_wallets.networks.bitcoin' => true,
+            'managed_wallets.networks.solana' => true,
+            'managed_wallets.networks.ton' => true,
+        ]);
+
+        $entityAddress = 'sl1e_'.str_repeat('a', 39);
+        User::factory()->create(['entity_l1_address' => $entityAddress]);
+        $token = $this->vaultToken($entityAddress);
+
+        $this->withToken($token)
+            ->getJson('/api/storefront/v1/wallet')
+            ->assertOk();
+
+        $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
+        $bindingKeys = IdentityBinding::query()
+            ->where('vault_id', $vaultId)
+            ->orderBy('binding_key')
+            ->pluck('binding_key')
+            ->sort()
+            ->values()
+            ->all();
+
+        $this->assertSame(
+            ['base', 'bitcoin', 'ethereum', 'polygon', 'solana', 'ton'],
+            $bindingKeys,
+        );
+
+        $this->assertSame(4, VaultManagedWalletKey::query()->where('vault_id', $vaultId)->count());
+    }
+
+    #[Test]
     public function first_wallet_access_bootstraps_even_when_marketplace_user_did_not_exist_yet(): void
     {
         $entityAddress = 'sl1e_'.str_repeat('3', 39);

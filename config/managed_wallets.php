@@ -38,7 +38,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | When a vault has no wallet bindings yet, create managed instruments for
-    | every enabled network below (EVM rails share one key/address).
+    | every enabled network in bootstrap_network_order (EVM rails share one key).
+    | Non-EVM failures are reported and do not block other rails.
     |
     */
     'auto_provision_on_vault' => filter_var(env('MANAGED_WALLETS_AUTO_PROVISION', true), FILTER_VALIDATE_BOOL),
@@ -50,20 +51,5 @@ return [
         'bitcoin',
         'solana',
         'ton',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Funding-first auto bootstrap
-    |--------------------------------------------------------------------------
-    |
-    | EVM rails required for First Funding Experience. Additional networks are
-    | attempted best-effort and must not block vault load if provisioning fails.
-    |
-    */
-    'bootstrap_funding_networks' => [
-        'polygon',
-        'base',
-        'ethereum',
     ],
 ];

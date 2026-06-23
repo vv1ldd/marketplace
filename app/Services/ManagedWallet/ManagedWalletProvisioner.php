@@ -105,26 +105,27 @@ class ManagedWalletProvisioner
      */
     private function bootstrapNetworkKeys(): array
     {
-        $fundingKeys = array_values(array_filter(
-            (array) config('managed_wallets.bootstrap_funding_networks', []),
+        $order = array_values(array_filter(
+            (array) config('managed_wallets.bootstrap_network_order', []),
             fn ($networkKey) => is_string($networkKey) && $networkKey !== '',
         ));
 
-        $order = $fundingKeys !== []
-            ? $fundingKeys
-            : array_values(array_filter(
-                (array) config('managed_wallets.bootstrap_network_order', []),
-                fn ($networkKey) => is_string($networkKey) && $networkKey !== '',
-            ));
-
         if ($order === []) {
-            $order = ['polygon', 'base', 'ethereum'];
+            $order = ['polygon', 'base', 'ethereum', 'bitcoin', 'solana', 'ton'];
         }
 
-        return array_values(array_filter(
+        $ordered = array_values(array_filter(
             $order,
             fn (string $networkKey): bool => $this->isEnabledForNetwork($networkKey),
         ));
+
+        foreach ($this->enabledNetworkKeys() as $networkKey) {
+            if (! in_array($networkKey, $ordered, true)) {
+                $ordered[] = $networkKey;
+            }
+        }
+
+        return $ordered;
     }
 
     public function provision(VaultIdentity $vault, string $networkKey): IdentityBinding

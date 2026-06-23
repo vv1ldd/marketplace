@@ -23,7 +23,6 @@ abstract class TestCase extends BaseTestCase
             'managed_wallets.networks.bitcoin' => true,
             'managed_wallets.networks.solana' => true,
             'managed_wallets.networks.ton' => true,
-            'managed_wallets.bootstrap_funding_networks' => ['polygon', 'base', 'ethereum'],
             'managed_wallets.bootstrap_network_order' => ['polygon', 'base', 'ethereum', 'bitcoin', 'solana', 'ton'],
         ]);
 
