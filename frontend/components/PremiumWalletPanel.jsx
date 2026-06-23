@@ -597,7 +597,7 @@ export function VaultWalletContent({
   }, [model]);
 
   useEffect(() => {
-    if (!isVaultVariant || !autoProvisionOnVault || !managedWalletsEnabled || !onRefreshWallet || !model) {
+    if (variant !== 'vault' || !autoProvisionOnVault || !managedWalletsEnabled || !onRefreshWallet || !model) {
       return undefined;
     }
 
@@ -621,7 +621,7 @@ export function VaultWalletContent({
     return () => {
       cancelled = true;
     };
-  }, [autoProvisionOnVault, isVaultVariant, managedWalletsEnabled, model, onRefreshWallet]);
+  }, [autoProvisionOnVault, variant, managedWalletsEnabled, model, onRefreshWallet]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
