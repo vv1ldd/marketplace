@@ -541,6 +541,7 @@ export function VaultWalletContent({
   onRefreshWallet,
   variant = 'wallet',
 }) {
+  const isVaultVariant = variant === 'vault';
   // UI normalization boundary: raw wallet payload may be null during loading.
   // Derive safe view-model fields here; presentation children must not dereference `model` directly.
   const { t } = useLocale();
@@ -968,7 +969,6 @@ export function VaultWalletContent({
 
   const hasWallet = Boolean(wallet && model);
   const showLoadingShell = isLoading || (isVaultOpen && !hasWallet && !error);
-  const isVaultVariant = variant === 'vault';
   const vaultShellOptions = useMemo(() => ({
     autoProvisionOnVault,
     managedWalletsEnabled,
