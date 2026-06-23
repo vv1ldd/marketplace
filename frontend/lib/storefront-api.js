@@ -491,32 +491,9 @@ export async function revokeWalletBinding(token, bindingId) {
 }
 
 export async function fetchWalletBundle(token) {
-  let summary = null;
+  const core = await fetchWalletCoreBundle(token);
 
-  try {
-    summary = await fetchWalletSummary(token);
-  } catch (error) {
-    throw error;
-  }
-
-  const [bindingsResult, assetsResult] = await Promise.allSettled([
-    fetchWalletBindings(token),
-    fetchPremiumWalletAssets(token),
-  ]);
-
-  const failures = [bindingsResult, assetsResult].filter(
-    (result) => result.status === 'rejected',
-  );
-
-  if (failures.length === 2 && !summary) {
-    throw failures[0].reason;
-  }
-
-  return mergeWalletBundle(
-    summary,
-    bindingsResult.status === 'fulfilled' ? bindingsResult.value : null,
-    assetsResult.status === 'fulfilled' ? assetsResult.value : null,
-  );
+  return enrichWalletBundleAssets(token, core);
 }
 
 export function mergeWalletBundle(summary, bindings, assets) {
@@ -531,6 +508,54 @@ export function mergeWalletBundle(summary, bindings, assets) {
     bindings_contract: bindings?.contract || null,
     bindings_vault_id: bindings?.vault_id || summary?.vault?.id || null,
   };
+}
+
+function bindingsPayloadFromWallet(wallet) {
+  if (!wallet) {
+    return null;
+  }
+
+  return {
+    items: wallet.wallet_bindings || [],
+    vault_id: wallet.bindings_vault_id || wallet.vault?.id || null,
+    contract: wallet.bindings_contract || null,
+  };
+}
+
+/** Fast path: identity, capabilities, and bindings — enough to render the vault dashboard. */
+export async function fetchWalletCoreBundle(token) {
+  const [summaryResult, bindingsResult] = await Promise.allSettled([
+    fetchWalletSummary(token),
+    fetchWalletBindings(token),
+  ]);
+
+  if (summaryResult.status === 'rejected') {
+    throw summaryResult.reason;
+  }
+
+  return mergeWalletBundle(
+    summaryResult.value,
+    bindingsResult.status === 'fulfilled' ? bindingsResult.value : null,
+    null,
+  );
+}
+
+export async function enrichWalletBundleAssets(token, wallet) {
+  if (!token || !wallet) {
+    return wallet;
+  }
+
+  try {
+    const assets = await fetchPremiumWalletAssets(token);
+
+    return mergeWalletBundle(
+      wallet.wallet_summary || null,
+      bindingsPayloadFromWallet(wallet),
+      assets,
+    );
+  } catch {
+    return wallet;
+  }
 }
 
 export async function fetchPersonalizedHome(token) {

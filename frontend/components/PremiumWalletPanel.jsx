@@ -591,7 +591,7 @@ export function VaultWalletContent({
       return undefined;
     }
 
-    if (walletRecoveryAttempts.current >= 2) {
+    if (walletRecoveryAttempts.current >= 1) {
       return undefined;
     }
 

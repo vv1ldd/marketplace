@@ -1,5 +1,5 @@
 import { StorefrontSessionPanel } from '../../components/StorefrontSessionPanel';
-import { apiUrl, fetchWalletBundle, VAULT_STOREFRONT_SCOPES } from '../../lib/storefront-api';
+import { apiUrl, fetchWalletCoreBundle, VAULT_STOREFRONT_SCOPES } from '../../lib/storefront-api';
 import { cookies } from 'next/headers';
 
 function cookieHeader(cookieStore) {
@@ -53,7 +53,7 @@ async function initialVaultSession(cookieStore) {
     let wallet = null;
 
     try {
-      wallet = await fetchWalletBundle(token);
+      wallet = await fetchWalletCoreBundle(token);
     } catch {
       wallet = null;
     }

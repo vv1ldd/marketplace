@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   claimSimpleL1Handoff,
-  fetchWalletBundle,
+  enrichWalletBundleAssets,
+  fetchWalletCoreBundle,
   fetchVault,
   logoutStorefrontSession,
   vaultHandoffUrl,
@@ -106,7 +107,18 @@ export function StorefrontSessionPanel({
           await restoreVaultFromLaravelSession({ silent: true });
         }
 
-        if (!isCancelled && !initialWallet) {
+        if (!isCancelled && initialWallet) {
+          const activeToken = readStoredVaultToken();
+          if (activeToken) {
+            enrichWalletBundleAssets(activeToken, initialWallet)
+              .then((enriched) => {
+                if (!isCancelled) {
+                  setWallet((current) => enriched || current);
+                }
+              })
+              .catch(() => {});
+          }
+        } else if (!isCancelled && !initialWallet) {
           const activeToken = readStoredVaultToken();
           if (activeToken) {
             await loadWalletWith(activeToken, { silent: true });
@@ -283,10 +295,17 @@ export function StorefrontSessionPanel({
       if (!silent) {
         setWalletStatus('Loading Vault Wallet...');
       }
-      const payload = await fetchWalletBundle(activeToken);
-      setWallet(payload);
+
+      const core = await fetchWalletCoreBundle(activeToken);
+      setWallet(core);
       setWalletStatus('');
       setWalletError('');
+
+      enrichWalletBundleAssets(activeToken, core)
+        .then((enriched) => {
+          setWallet((current) => enriched || current);
+        })
+        .catch(() => {});
     } catch (exception) {
       setWallet(null);
       setWalletStatus('');
@@ -338,7 +357,7 @@ export function StorefrontSessionPanel({
   const shouldShowSignoutSignal = isOpenVault || Boolean(initialVault);
   const vaultStatusNote = isHydratingVault
     ? (status || t('wallet_shell_loading'))
-    : walletStatus || (isWalletBootstrapping ? t('wallet_shell_loading') : '');
+    : walletStatus || (isWalletBootstrapping ? t('wallet_vault_opening') : '');
 
   return (
     <>
