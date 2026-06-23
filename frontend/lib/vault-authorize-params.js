@@ -1,7 +1,17 @@
+function resolveAuthorizeSearchParams(searchParams) {
+  if (typeof window !== 'undefined' && window.location.search) {
+    return new URLSearchParams(window.location.search);
+  }
+
+  return searchParams;
+}
+
 export function buildAuthorizeParams(searchParams) {
+  const paramsSource = resolveAuthorizeSearchParams(searchParams);
+
   const pick = (...keys) => {
     for (const key of keys) {
-      const value = searchParams.get(key);
+      const value = paramsSource.get(key);
       if (value) {
         return value;
       }

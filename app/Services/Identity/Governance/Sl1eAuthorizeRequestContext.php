@@ -3,6 +3,7 @@
 namespace App\Services\Identity\Governance;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * OAuth / SL1e authorize parameters carried through options, verify, and handoff.
@@ -30,8 +31,8 @@ final class Sl1eAuthorizeRequestContext
             'client_id' => 'nullable|string|max:128',
             'clientName' => 'nullable|string|max:128',
             'client_name' => 'nullable|string|max:128',
-            'redirectUri' => 'nullable|string|max:512',
-            'redirect_uri' => 'nullable|string|max:512',
+            'redirectUri' => 'nullable|string|max:2048',
+            'redirect_uri' => 'nullable|string|max:2048',
             'state' => 'nullable|string|max:256',
             'nonce' => 'nullable|string|max:256',
             'mode' => 'nullable|string|max:32',
@@ -44,6 +45,9 @@ final class Sl1eAuthorizeRequestContext
             'usernameCandidate' => 'nullable|string|max:80',
             'username_candidate' => 'nullable|string|max:80',
         ]);
+
+        self::mergeQueryParameters($request, $data);
+        self::hydrateFromConnectState($data);
 
         $clientId = trim((string) (
             $data['clientId']
@@ -107,13 +111,85 @@ final class Sl1eAuthorizeRequestContext
         return rtrim((string) config('storefront.frontend_url', ''), '/');
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private static function mergeQueryParameters(Request $request, array &$data): void
+    {
+        $keys = [
+            'client_id', 'clientId', 'client_name', 'clientName',
+            'redirect_uri', 'redirectUri', 'state', 'nonce', 'mode', 'scope',
+            'handoff_id', 'handoffId', 'handoff_token', 'handoffToken',
+        ];
+
+        foreach ($keys as $key) {
+            if (! empty($data[$key])) {
+                continue;
+            }
+
+            $fromQuery = $request->query($key);
+            if (is_string($fromQuery) && trim($fromQuery) !== '') {
+                $data[$key] = $fromQuery;
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private static function hydrateFromConnectState(array &$data): void
+    {
+        $state = trim((string) ($data['state'] ?? ''));
+        if ($state === '') {
+            return;
+        }
+
+        $cached = Cache::get('simple_l1:connect_state:'.hash('sha256', $state));
+        if (! is_array($cached)) {
+            return;
+        }
+
+        foreach ([
+            'client_id' => ['client_id', 'clientId'],
+            'redirect_uri' => ['redirect_uri', 'redirectUri'],
+            'nonce' => ['nonce'],
+            'mode' => ['mode'],
+            'scope' => ['scope'],
+        ] as $cachedKey => $targets) {
+            $cachedValue = trim((string) ($cached[$cachedKey] ?? ''));
+            if ($cachedValue === '') {
+                continue;
+            }
+
+            foreach ($targets as $target) {
+                if (empty($data[$target])) {
+                    $data[$target] = $cachedValue;
+                }
+            }
+        }
+    }
+
     private static function browserHostFromRequest(Request $request): ?string
     {
-        $incoming = trim((string) $request->header('X-Forwarded-Host', ''));
-        $host = strtolower((string) explode(':', $incoming)[0]);
+        $requestHost = strtolower((string) $request->getHost());
+        $forwarded = strtolower((string) explode(':', trim((string) $request->header('X-Forwarded-Host', '')))[0]);
 
-        if ($host !== '' && ! str_starts_with($host, 'api.')) {
-            return $host;
+        if ($forwarded !== '' && ($forwarded !== $requestHost)) {
+            if (str_starts_with($requestHost, 'api.') || in_array($requestHost, array_map(
+                static fn (mixed $host): string => strtolower(trim((string) $host)),
+                (array) config('storefront.api_hosts', []),
+            ), true)) {
+                return $forwarded;
+            }
+        }
+
+        if ($forwarded !== '' && ! str_starts_with($forwarded, 'api.')) {
+            return $forwarded;
+        }
+
+        $redirectHost = parse_url(trim((string) ($request->input('redirectUri') ?: $request->input('redirect_uri') ?: '')), PHP_URL_HOST);
+        if (is_string($redirectHost) && $redirectHost !== '' && ! str_starts_with(strtolower($redirectHost), 'api.')) {
+            return strtolower($redirectHost);
         }
 
         $storefrontHost = parse_url((string) config('storefront.frontend_url', ''), PHP_URL_HOST);

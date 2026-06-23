@@ -400,10 +400,9 @@ export function WalletAuthorizePanel({
 
       setStatus(t('vault_authorize_returning'));
       const verified = await postSl1eJson('/api/sl1e/authorize/verify', {
+        ...loginParams,
         flowId: prepared.flowId,
         authenticationResponse: credentialResponse,
-        handoffId: loginParams.handoffId,
-        handoffToken: loginParams.handoffToken,
       });
 
       if (verified.entityAddress) {
@@ -463,10 +462,9 @@ export function WalletAuthorizePanel({
 
       setStatus(t('vault_authorize_returning'));
       const verified = await postSl1eJson('/api/sl1e/authorize/register/verify', {
+        ...registerParams,
         flowId: prepared.flowId,
         attestationResponse: credentialResponse,
-        handoffId: registerParams.handoffId,
-        handoffToken: registerParams.handoffToken,
       });
 
       if (verified.entityAddress) {
