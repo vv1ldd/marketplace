@@ -12,6 +12,7 @@ export function ConnectSettlementInstrumentCard({
   walletBinding,
   onConnect,
   onCreateManaged,
+  onImportManaged,
   connectingKey,
   connectError,
   connectNotice,
@@ -33,15 +34,15 @@ export function ConnectSettlementInstrumentCard({
       {showManagedActions ? (
         <div className="identity-add-instrument-option__actions">
           <button disabled={isConnecting} onClick={() => onCreateManaged(walletBinding.key)} type="button">
-            {isConnecting ? t('wallet_create_safe_opening') : t('identity_add_create_managed')}
+            {isConnecting ? t('wallet_create_safe_opening') : t('identity_add_create_managed_cta')}
           </button>
           <button
             className="identity-account-secondary"
             disabled={isConnecting}
-            onClick={() => onConnect(walletBinding.key)}
+            onClick={() => onImportManaged(walletBinding.key)}
             type="button"
           >
-            {isConnecting ? t('wallet_connect_opening') : t('identity_add_connect_existing')}
+            {isConnecting ? t('identity_import_seed_importing') : t('identity_add_import_managed_cta')}
           </button>
         </div>
       ) : (

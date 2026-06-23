@@ -38,16 +38,49 @@ export function readManagedWalletsEnabled(payload) {
     || payload?.wallet_summary?.capabilities?.managed_wallets_enabled === true;
 }
 
+export function readAutoProvisionOnVault(payload) {
+  return payload?.capabilities?.auto_provision_on_vault === true
+    || payload?.wallet_summary?.capabilities?.auto_provision_on_vault === true;
+}
+
+export function readLegacyWalletConnectEnabled(payload) {
+  return payload?.capabilities?.legacy_wallet_connect_enabled === true
+    || payload?.wallet_summary?.capabilities?.legacy_wallet_connect_enabled === true;
+}
+
 /** Wallet transport layers with a live connect flow in the UI. */
 export const CONNECTABLE_WALLET_KEYS = new Set(['polygon', 'bitcoin', 'ethereum', 'base', 'solana', 'ton']);
 
-/** Canonical USDC receive rail for connected Polygon wallets (matches verification_proofs.php). */
+/** Canonical USDC receive rails (matches verification_proofs.php). */
 export const POLYGON_USDC_RECEIVE = {
   networkKey: 'polygon',
   chainId: 137,
   tokenContract: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
   asset: 'USDC',
 };
+
+export const EVM_USDC_VALUE_ENTRY_NETWORKS = {
+  polygon: {
+    ...POLYGON_USDC_RECEIVE,
+    label: 'Polygon',
+  },
+  base: {
+    networkKey: 'base',
+    chainId: 8453,
+    tokenContract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    asset: 'USDC',
+    label: 'Base',
+  },
+  ethereum: {
+    networkKey: 'ethereum',
+    chainId: 1,
+    tokenContract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    asset: 'USDC',
+    label: 'Ethereum',
+  },
+};
+
+const VALUE_ENTRY_NETWORK_ORDER = ['polygon', 'base', 'ethereum'];
 
 /** Canonical BTC receive rail for connected Bitcoin wallets. */
 export const BITCOIN_RECEIVE = {
@@ -172,7 +205,7 @@ function resolveWalletAddress(networkKey, preview, identity, bindingRecord) {
   return null;
 }
 
-function buildWalletEntry(networkEntry, previewByKey, bindingByKey, identity, defaultKey, cryptoRailsEnabled, managedWalletsEnabled, managedNetworkKeys) {
+function buildWalletEntry(networkEntry, previewByKey, bindingByKey, identity, defaultKey, cryptoRailsEnabled, managedWalletsEnabled, managedNetworkKeys, legacyConnectEnabled) {
   const key = networkEntry.key;
   const preview = previewByKey.get(key) || null;
   const bindingRecord = bindingByKey.get(key) || null;
@@ -191,16 +224,19 @@ function buildWalletEntry(networkEntry, previewByKey, bindingByKey, identity, de
     networkStatus: networkEntry.status || null,
     bindingState,
     verificationState: preview?.binding?.verification_state || bindingRecord?.verification_state || null,
-    canConnect: CONNECTABLE_WALLET_KEYS.has(key)
+    canConnect: legacyConnectEnabled
+      && CONNECTABLE_WALLET_KEYS.has(key)
       && cryptoRailsEnabled
       && networkEntry?.storefront_visible !== false
-      && bindingState === WALLET_BINDING_STATE.CONNECT,
+      && bindingState === WALLET_BINDING_STATE.CONNECT
+      && !managedNetworkKeys.has(key),
     canCreateManaged: managedNetworkKeys.has(key)
       && managedWalletsEnabled
       && cryptoRailsEnabled
       && networkEntry?.storefront_visible !== false
       && bindingState === WALLET_BINDING_STATE.CONNECT,
     address: resolveWalletAddress(key, preview, identity, bindingRecord),
+    bindingId: bindingRecord?.id || preview?.binding?.id || preview?.id || null,
     preview,
     bindingSource: bindingRecord?.binding_source || preview?.binding?.binding_source || null,
     capabilities: bindingRecord?.capabilities || null,
@@ -233,17 +269,81 @@ export function resolvePolygonWalletEntry(wallets = []) {
   return wallets.find((wallet) => wallet.key === POLYGON_USDC_RECEIVE.networkKey) || null;
 }
 
+/** Connected EVM instruments that support USDC value-entry proofs. */
+export function buildValueEntryReceiveOptions(wallets = []) {
+  const options = wallets
+    .filter((wallet) => wallet.bindingState === WALLET_BINDING_STATE.CONNECTED)
+    .filter((wallet) => Boolean(EVM_USDC_VALUE_ENTRY_NETWORKS[wallet.key]))
+    .filter((wallet) => Boolean(wallet.address))
+    .map((wallet) => {
+      const rail = EVM_USDC_VALUE_ENTRY_NETWORKS[wallet.key];
+
+      return {
+        key: wallet.key,
+        address: wallet.address,
+        label: wallet.label || rail.label || wallet.key,
+        asset: rail.asset,
+        chainId: rail.chainId,
+        tokenContract: rail.tokenContract,
+      };
+    });
+
+  return options.sort((left, right) => {
+    const leftIndex = VALUE_ENTRY_NETWORK_ORDER.indexOf(left.key);
+    const rightIndex = VALUE_ENTRY_NETWORK_ORDER.indexOf(right.key);
+
+    return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
+  });
+}
+
+/** First attached settlement instrument (any rail), not polygon-specific. */
+export function resolvePrimarySettlementWallet(wallets = []) {
+  return wallets.find((wallet) => (
+    isSettlementInstrumentKey(wallet.key)
+    && (
+      wallet.bindingState === WALLET_BINDING_STATE.CONNECTED
+      || wallet.bindingState === WALLET_BINDING_STATE.PENDING
+    )
+    && (
+      Boolean(wallet.address)
+      || wallet.bindingState === WALLET_BINDING_STATE.PENDING
+    )
+  )) || null;
+}
+
+export function isSettlementInstrumentKey(networkKey) {
+  return networkKey !== 'simple-layer-1'
+    && (
+      Boolean(EVM_USDC_VALUE_ENTRY_NETWORKS[networkKey])
+      || networkKey === BITCOIN_RECEIVE.networkKey
+      || networkKey === 'solana'
+      || networkKey === 'ton'
+    );
+}
+
 export function hasPrimarySettlementBinding(modelOrWallets) {
   const wallets = Array.isArray(modelOrWallets)
     ? modelOrWallets
     : modelOrWallets?.wallets || [];
-  const polygon = resolvePolygonWalletEntry(wallets);
-  if (!polygon) {
-    return false;
+
+  return Boolean(resolvePrimarySettlementWallet(wallets));
+}
+
+/** Default rail for one-tap Safe provisioning — first enabled managed network. */
+export function resolveDefaultProvisionNetworkKey(managedNetworkKeys) {
+  const keys = managedNetworkKeys instanceof Set
+    ? [...managedNetworkKeys]
+    : Array.isArray(managedNetworkKeys) ? managedNetworkKeys : [];
+
+  if (!keys.length) {
+    return POLYGON_USDC_RECEIVE.networkKey;
   }
 
-  return polygon.bindingState === WALLET_BINDING_STATE.CONNECTED
-    || polygon.bindingState === WALLET_BINDING_STATE.PENDING;
+  if (keys.includes(POLYGON_USDC_RECEIVE.networkKey)) {
+    return POLYGON_USDC_RECEIVE.networkKey;
+  }
+
+  return keys[0];
 }
 
 /**
@@ -252,7 +352,7 @@ export function hasPrimarySettlementBinding(modelOrWallets) {
  *
  * Feature matrix:
  *   no binding + managed off  → provisioning shell (identity-first, connect existing secondary)
- *   no binding + managed on   → provisioning shell (Create Safe primary)
+ *   no binding + managed on   → provisioning shell (Create first instrument)
  *   binding exists            → dashboard (managed or external)
  */
 export function shouldShowSafeProvisioningShell(model, variant = 'wallet') {
@@ -355,7 +455,9 @@ export function resolveIdentityWalletModel(payload) {
   const identity = payload?.identity || {};
   const cryptoRailsEnabled = readCryptoRailsEnabled(payload);
   const managedWalletsEnabled = readManagedWalletsEnabled(payload);
+  const autoProvisionOnVault = readAutoProvisionOnVault(payload);
   const managedNetworkKeys = readManagedWalletNetworkKeys(payload);
+  const legacyConnectEnabled = readLegacyWalletConnectEnabled(payload);
   const defaultKey = payload?.settlement_networks?.default
     || payload?.settlement_network?.key
     || payload?.network?.key
@@ -390,6 +492,7 @@ export function resolveIdentityWalletModel(payload) {
     cryptoRailsEnabled,
     managedWalletsEnabled,
     managedNetworkKeys,
+    legacyConnectEnabled,
   ));
 
   const catalogKeys = new Set(wallets.map((wallet) => wallet.key));
@@ -405,6 +508,7 @@ export function resolveIdentityWalletModel(payload) {
         cryptoRailsEnabled,
         managedWalletsEnabled,
         managedNetworkKeys,
+        legacyConnectEnabled,
       ))
     : [];
 
@@ -415,7 +519,9 @@ export function resolveIdentityWalletModel(payload) {
     identity,
     cryptoRailsEnabled,
     managedWalletsEnabled,
+    autoProvisionOnVault,
     managedNetworkKeys,
+    legacyConnectEnabled,
     defaultWalletKey: defaultKey,
     primaryWallet,
     summaryCoins: summaryCoins.length ? summaryCoins : walletCoins(primaryWallet?.preview),

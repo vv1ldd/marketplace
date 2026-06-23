@@ -474,14 +474,42 @@ export async function provisionManagedWalletBinding(token, bindingKey) {
   });
 }
 
+export async function importManagedWalletBinding(token, body) {
+  return storefrontFetch('/api/storefront/v1/wallet/bindings/managed/import', {
+    token,
+    body,
+    cache: 'no-store',
+  });
+}
+
+export async function revokeWalletBinding(token, bindingId) {
+  return storefrontFetch(`/api/storefront/v1/wallet/bindings/${bindingId}`, {
+    token,
+    method: 'DELETE',
+    cache: 'no-store',
+  });
+}
+
 export async function fetchWalletBundle(token) {
-  const [summary, bindings, assets] = await Promise.all([
+  const [summaryResult, bindingsResult, assetsResult] = await Promise.allSettled([
     fetchWalletSummary(token),
     fetchWalletBindings(token),
     fetchPremiumWalletAssets(token),
   ]);
 
-  return mergeWalletBundle(summary, bindings, assets);
+  const failures = [summaryResult, bindingsResult, assetsResult].filter(
+    (result) => result.status === 'rejected',
+  );
+
+  if (failures.length === 3) {
+    throw failures[0].reason;
+  }
+
+  return mergeWalletBundle(
+    summaryResult.status === 'fulfilled' ? summaryResult.value : null,
+    bindingsResult.status === 'fulfilled' ? bindingsResult.value : null,
+    assetsResult.status === 'fulfilled' ? assetsResult.value : null,
+  );
 }
 
 export function mergeWalletBundle(summary, bindings, assets) {
@@ -559,6 +587,22 @@ export async function executeSettlementPaymentIntent(intentUuid, token) {
 
 export async function listSettlementPaymentIntents(token, query = {}) {
   return storefrontFetch('/api/storefront/v1/settlement/payment-intents', {
+    token,
+    query,
+    cache: 'no-store',
+  });
+}
+
+export async function submitUsdcTransferProof(payload, token) {
+  return storefrontFetch('/api/storefront/v1/wallet/proofs/usdc-transfer', {
+    token,
+    body: payload,
+    cache: 'no-store',
+  });
+}
+
+export async function listValueEntries(token, query = {}) {
+  return storefrontFetch('/api/storefront/v1/wallet/value-entries', {
     token,
     query,
     cache: 'no-store',

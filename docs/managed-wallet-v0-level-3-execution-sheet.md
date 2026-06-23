@@ -1,7 +1,8 @@
 # Managed Wallet v0 — Level 3 Staging Execution Sheet
 
 **Format:** Action → Observable fact → PASS / FAIL  
-**Companion:** [`managed-wallet-v0-level-3-staging-drill.md`](managed-wallet-v0-level-3-staging-drill.md)
+**Companion:** [`managed-wallet-v0-level-3-staging-drill.md`](managed-wallet-v0-level-3-staging-drill.md)  
+**Architecture:** [ADR 0026](adr/0026-settlement-instrument-sovereignty.md) — managed wallet = first settlement instrument implementation, not the spine
 
 Fill one row per step. Any FAIL blocks Level 3 sign-off.
 

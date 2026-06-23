@@ -5,7 +5,7 @@ import { WALLET_BINDING_STATE } from '../lib/identity-wallets';
 import { listBindingEvents } from '../lib/storefront-api';
 import { readStoredVaultToken } from '../lib/vault-authority';
 import { buildInstrumentCapabilityRows, readIdentityPaymentFlags } from '../lib/settlement-capabilities';
-import { ConnectSettlementInstrumentCard, isExternalConnectInstrument } from './ConnectSettlementInstrumentCard';
+import { ConnectSettlementInstrumentCard } from './ConnectSettlementInstrumentCard';
 import { SettlementCapabilityMatrix } from './SettlementCapabilityMatrix';
 import { useLocale } from './LocaleProvider';
 
@@ -55,31 +55,138 @@ function bindingEventLabel(event, t) {
   }
 }
 
-function SettlementInstrumentRow({ walletBinding, t }) {
+function ownershipLabel(walletBinding, t) {
+  return walletBinding.bindingSource === 'managed'
+    ? t('identity_instrument_managed')
+    : t('identity_instrument_connected');
+}
+
+function SettlementInstrumentRow({
+  walletBinding,
+  actionError,
+  actingKey,
+  onReplace,
+  onRevoke,
+  t,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [confirmAction, setConfirmAction] = useState('');
   const isManaged = walletBinding.bindingSource === 'managed';
+  const isActing = actingKey === walletBinding.key;
+  const rowError = actionError?.key === walletBinding.key ? actionError.message : '';
 
   return (
-    <article className="identity-instrument-row">
+    <article className={`identity-instrument-row${expanded ? ' is-expanded' : ''}`}>
       <div className="identity-instrument-row__header">
         <strong>{walletBinding.label}</strong>
         <span className="identity-instrument-row__check" aria-hidden="true">✓</span>
       </div>
       <div className="identity-instrument-row__meta">
-        <span>{isManaged ? t('identity_instrument_managed') : t('identity_instrument_connected')}</span>
+        <span>{ownershipLabel(walletBinding, t)}</span>
         <span>
           {t('identity_instrument_receiving', {
             asset: instrumentReceiveAsset(walletBinding.key),
           })}
         </span>
       </div>
+      <div className="identity-instrument-row__actions">
+        <button
+          className="identity-account-secondary"
+          onClick={() => setExpanded((current) => !current)}
+          type="button"
+        >
+          {expanded ? t('identity_instrument_hide') : t('identity_instrument_view')}
+        </button>
+        {walletBinding.canCreateManaged ? (
+          <button
+            className="identity-account-secondary"
+            disabled={isActing || !walletBinding.bindingId}
+            onClick={() => setConfirmAction((current) => (current === 'replace' ? '' : 'replace'))}
+            type="button"
+          >
+            {t('identity_instrument_replace')}
+          </button>
+        ) : null}
+        <button
+          className="identity-account-secondary identity-instrument-row__danger"
+          disabled={isActing || !walletBinding.bindingId}
+          onClick={() => setConfirmAction((current) => (current === 'revoke' ? '' : 'revoke'))}
+          type="button"
+        >
+          {t('identity_instrument_revoke')}
+        </button>
+      </div>
+      {expanded ? (
+        <div className="identity-instrument-row__details">
+          <p>
+            <span>{t('identity_instrument_details_ownership')}</span>
+            <strong>{ownershipLabel(walletBinding, t)}</strong>
+          </p>
+          <p>
+            <span>{t('identity_instrument_details_address')}</span>
+            <code>{walletBinding.address || '—'}</code>
+          </p>
+          {isManaged ? (
+            <p className="identity-instrument-row__hint">{t('identity_instrument_managed_hint')}</p>
+          ) : (
+            <p className="identity-instrument-row__hint">{t('identity_instrument_external_hint')}</p>
+          )}
+        </div>
+      ) : null}
+      {confirmAction === 'revoke' ? (
+        <div className="identity-instrument-row__confirm">
+          <p>{t('identity_instrument_revoke_confirm', { network: walletBinding.label })}</p>
+          <div className="identity-instrument-row__actions">
+            <button
+              className="identity-account-secondary"
+              disabled={isActing}
+              onClick={() => setConfirmAction('')}
+              type="button"
+            >
+              {t('identity_instrument_cancel')}
+            </button>
+            <button
+              className="identity-instrument-row__danger"
+              disabled={isActing}
+              onClick={() => onRevoke(walletBinding)}
+              type="button"
+            >
+              {isActing ? t('identity_instrument_revoking') : t('identity_instrument_revoke')}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {confirmAction === 'replace' ? (
+        <div className="identity-instrument-row__confirm">
+          <p>{t('identity_instrument_replace_confirm', { network: walletBinding.label })}</p>
+          <div className="identity-instrument-row__actions">
+            <button
+              className="identity-account-secondary"
+              disabled={isActing}
+              onClick={() => setConfirmAction('')}
+              type="button"
+            >
+              {t('identity_instrument_cancel')}
+            </button>
+            <button
+              disabled={isActing}
+              onClick={() => onReplace(walletBinding)}
+              type="button"
+            >
+              {isActing ? t('identity_instrument_replacing') : t('identity_instrument_replace_cta')}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {rowError ? <p className="identity-send-error">{rowError}</p> : null}
     </article>
   );
 }
 
 function ManagedInstrumentOption({
   walletBinding,
-  onConnect,
   onCreateManaged,
+  onImportManaged,
   connectingKey,
   connectError,
   t,
@@ -90,19 +197,26 @@ function ManagedInstrumentOption({
   return (
     <article className="identity-add-instrument-option">
       <strong>{walletBinding.label}</strong>
-      <p>{t('identity_add_managed_body')}</p>
-      <div className="identity-add-instrument-option__actions">
-        <button disabled={isConnecting} onClick={() => onCreateManaged(walletBinding.key)} type="button">
-          {isConnecting ? t('wallet_create_safe_opening') : t('identity_add_create_managed')}
-        </button>
-        <button
-          className="identity-account-secondary"
-          disabled={isConnecting}
-          onClick={() => onConnect(walletBinding.key)}
-          type="button"
-        >
-          {isConnecting ? t('wallet_connect_opening') : t('identity_add_connect_existing')}
-        </button>
+      <div className="identity-add-instrument-option__paths">
+        <div className="identity-add-instrument-option__path">
+          <p className="identity-add-instrument-option__path-title">{t('identity_add_create_managed')}</p>
+          <p className="identity-add-instrument-option__path-body">{t('identity_add_create_managed_hint')}</p>
+          <button disabled={isConnecting} onClick={() => onCreateManaged(walletBinding.key)} type="button">
+            {isConnecting ? t('wallet_create_safe_opening') : t('identity_add_create_managed_cta')}
+          </button>
+        </div>
+        <div className="identity-add-instrument-option__path identity-add-instrument-option__path--migrate">
+          <p className="identity-add-instrument-option__path-title">{t('identity_add_import_managed')}</p>
+          <p className="identity-add-instrument-option__path-body">{t('identity_add_import_managed_hint')}</p>
+          <button
+            className="identity-account-secondary"
+            disabled={isConnecting}
+            onClick={() => onImportManaged(walletBinding.key)}
+            type="button"
+          >
+            {isConnecting ? t('identity_import_seed_importing') : t('identity_add_import_managed_cta')}
+          </button>
+        </div>
       </div>
       {rowError ? <p className="identity-send-error">{rowError}</p> : null}
     </article>
@@ -119,8 +233,14 @@ export function IdentityProfileScreen({
   connectPhase,
   connectingKey,
   connectError,
+  instrumentActionError,
+  instrumentActingKey,
+  legacyConnectEnabled = false,
   onConnect,
   onCreateManaged,
+  onImportManaged,
+  onRevokeInstrument,
+  onReplaceInstrument,
   variant = 'profile',
 }) {
   const { t } = useLocale();
@@ -157,9 +277,9 @@ export function IdentityProfileScreen({
   const addableWallets = useMemo(
     () => [...visibleWallets, ...futureWallets].filter(
       (wallet) => wallet.bindingState !== WALLET_BINDING_STATE.CONNECTED
-        && (wallet.canConnect || wallet.canCreateManaged),
+        && (wallet.canCreateManaged || (legacyConnectEnabled && wallet.canConnect)),
     ),
-    [futureWallets, visibleWallets],
+    [futureWallets, legacyConnectEnabled, visibleWallets],
   );
 
   const managedAddable = useMemo(
@@ -167,16 +287,11 @@ export function IdentityProfileScreen({
     [addableWallets],
   );
 
-  const externalAddable = useMemo(
-    () => addableWallets.filter((wallet) => isExternalConnectInstrument(wallet.key) && wallet.canConnect),
-    [addableWallets],
-  );
-
-  const otherConnectable = useMemo(
-    () => addableWallets.filter(
-      (wallet) => !wallet.canCreateManaged && !isExternalConnectInstrument(wallet.key) && wallet.canConnect,
-    ),
-    [addableWallets],
+  const legacyConnectAddable = useMemo(
+    () => (legacyConnectEnabled
+      ? addableWallets.filter((wallet) => wallet.canConnect && !wallet.canCreateManaged)
+      : []),
+    [addableWallets, legacyConnectEnabled],
   );
 
   const loadBindingEvents = useCallback(async () => {
@@ -226,7 +341,7 @@ export function IdentityProfileScreen({
           </div>
           <div>
             <span>{t('identity_profile_ownership_label')}</span>
-            <strong>{t('identity_profile_ownership_connected')}</strong>
+            <strong>{t('identity_profile_ownership_vault')}</strong>
           </div>
           <div>
             <span>{t('identity_profile_economic_state_label')}</span>
@@ -245,7 +360,11 @@ export function IdentityProfileScreen({
           <div className="identity-instrument-list">
             {connectedInstruments.map((walletBinding) => (
               <SettlementInstrumentRow
+                actionError={instrumentActionError}
+                actingKey={instrumentActingKey}
                 key={walletBinding.key}
+                onReplace={onReplaceInstrument}
+                onRevoke={onRevokeInstrument}
                 t={t}
                 walletBinding={walletBinding}
               />
@@ -278,15 +397,14 @@ export function IdentityProfileScreen({
             {connectPhase ? <p className="premium-wallet-bindings__phase">{connectPhase}</p> : null}
             {managedAddable.length ? (
               <section className="identity-add-instrument-section">
-                <h3>{t('identity_add_section_managed')}</h3>
                 <div className="identity-add-instrument-options">
                   {managedAddable.map((walletBinding) => (
                     <ManagedInstrumentOption
                       connectError={connectError}
                       connectingKey={connectingKey}
                       key={walletBinding.key}
-                      onConnect={onConnect}
                       onCreateManaged={onCreateManaged}
+                      onImportManaged={onImportManaged}
                       t={t}
                       walletBinding={walletBinding}
                     />
@@ -294,11 +412,11 @@ export function IdentityProfileScreen({
                 </div>
               </section>
             ) : null}
-            {externalAddable.length ? (
+            {legacyConnectAddable.length ? (
               <section className="identity-add-instrument-section">
-                <h3>{t('identity_add_section_connect')}</h3>
+                <h3>{t('identity_add_section_legacy_connect')}</h3>
                 <div className="identity-add-instrument-options">
-                  {externalAddable.map((walletBinding) => (
+                  {legacyConnectAddable.map((walletBinding) => (
                     <ConnectSettlementInstrumentCard
                       connectError={connectError}
                       connectNotice={connectNotice}
@@ -312,27 +430,7 @@ export function IdentityProfileScreen({
                 </div>
               </section>
             ) : null}
-            {otherConnectable.length ? (
-              <section className="identity-add-instrument-section">
-                <h3>{t('identity_add_section_other')}</h3>
-                <div className="identity-add-instrument-options">
-                  {otherConnectable.map((walletBinding) => (
-                    <ConnectSettlementInstrumentCard
-                      connectError={connectError}
-                      connectNotice={connectNotice}
-                      connectingKey={connectingKey}
-                      key={walletBinding.key}
-                      onConnect={onConnect}
-                      onCreateManaged={onCreateManaged}
-                      showManagedActions={walletBinding.canCreateManaged}
-                      t={t}
-                      walletBinding={walletBinding}
-                    />
-                  ))}
-                </div>
-              </section>
-            ) : null}
-            {!managedAddable.length && !externalAddable.length && !otherConnectable.length ? (
+            {!managedAddable.length && !legacyConnectAddable.length ? (
               <p className="premium-wallet-balances-empty">{t('identity_add_instrument_none')}</p>
             ) : null}
           </div>

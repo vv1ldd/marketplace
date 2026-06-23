@@ -14,14 +14,16 @@ import {
   walletCapabilityNoteTone,
   walletConnectIntroKey,
   walletCoins,
+  resolveDefaultProvisionNetworkKey,
   resolvePolygonWalletEntry,
 } from '../lib/identity-wallets';
 import { buildBitcoinReceiveQrDataUrl, buildPolygonUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
-import { fetchWalletBundle, provisionManagedWalletBinding, refreshStorefrontVaultToken } from '../lib/storefront-api';
+import { fetchWalletBundle, importManagedWalletBinding, provisionManagedWalletBinding, refreshStorefrontVaultToken, revokeWalletBinding } from '../lib/storefront-api';
 import { readIdentityPaymentFlags } from '../lib/settlement-capabilities';
 import { clearVaultAuthorityState, readStoredVaultToken } from '../lib/vault-authority';
 import { connectWalletBinding, isEvmWalletBindingKey, WalletConnectError } from '../lib/wallet-connect';
 import { EvmWalletPicker } from './EvmWalletPicker';
+import { ImportSeedModal } from './ImportSeedModal';
 import { GlossaryHint } from './GlossaryHint';
 import { IdentityAccountPanel } from './IdentityAccountPanel';
 import { VaultQrIcon, VaultShieldIcon } from './IdentityVaultIcons';
@@ -124,6 +126,8 @@ function WalletBindingRow({
   onSelect,
   onConnect,
   onCreateManaged,
+  onImportManaged,
+  legacyConnectEnabled = false,
   connectingKey,
   connectError,
   connectNotice,
@@ -136,7 +140,8 @@ function WalletBindingRow({
   const statusLabel = bindingStateLabel(state, t);
   const canExpand = state === WALLET_BINDING_STATE.CONNECTED && Boolean(walletBinding.preview);
   const showManagedActions = walletBinding.canCreateManaged && !suppressManagedProvisioning;
-  const showConnectPanel = walletBinding.canConnect || showManagedActions || state === WALLET_BINDING_STATE.PENDING;
+  const showLegacyConnect = legacyConnectEnabled && walletBinding.canConnect && !showManagedActions;
+  const showConnectPanel = showLegacyConnect || showManagedActions || state === WALLET_BINDING_STATE.PENDING;
   const isInteractive = canExpand || showConnectPanel;
   const isConnecting = connectingKey === walletBinding.key;
   const rowError = connectError?.key === walletBinding.key ? connectError.message : '';
@@ -183,13 +188,13 @@ function WalletBindingRow({
               <button
                 className="premium-wallet-binding__connect-secondary"
                 disabled={isConnecting}
-                onClick={() => onConnect(walletBinding.key)}
+                onClick={() => onImportManaged(walletBinding.key)}
                 type="button"
               >
-                {isConnecting ? t('wallet_connect_opening') : t('wallet_connect_existing_cta')}
+                {isConnecting ? t('identity_import_seed_importing') : t('identity_import_seed_open')}
               </button>
             </div>
-          ) : walletBinding.canConnect ? (
+          ) : showLegacyConnect ? (
             <button
               disabled={isConnecting}
               onClick={() => onConnect(walletBinding.key)}
@@ -197,9 +202,9 @@ function WalletBindingRow({
             >
               {isConnecting ? t('wallet_connect_opening') : t('wallet_connect_cta')}
             </button>
-          ) : (
+          ) : state === WALLET_BINDING_STATE.COMING_SOON ? (
             <button disabled type="button">{t('wallet_binding_coming_soon')}</button>
-          )}
+          ) : null}
           {rowNotice ? <small className="premium-wallet-binding__notice">{rowNotice}</small> : null}
           {rowError ? <small className="premium-wallet-binding__error">{rowError}</small> : null}
         </div>
@@ -548,7 +553,9 @@ export function VaultWalletContent({
   const summaryCoins = model?.summaryCoins ?? [];
   const walletBindings = model?.walletBindings ?? [];
   const managedWalletsEnabled = model?.managedWalletsEnabled ?? false;
+  const autoProvisionOnVault = model?.autoProvisionOnVault ?? false;
   const managedNetworkKeys = model?.managedNetworkKeys;
+  const legacyConnectEnabled = model?.legacyConnectEnabled ?? false;
   const visibleWallets = model ? visibleWalletBindings(model.wallets) : [];
   const polygonWallet = model ? resolvePolygonWalletEntry(model.wallets) : null;
   const [activeWalletKey, setActiveWalletKey] = useState(null);
@@ -559,7 +566,10 @@ export function VaultWalletContent({
   const [connectPhase, setConnectPhase] = useState('');
   const [refreshingWallet, setRefreshingWallet] = useState(false);
   const [evmPickerRequest, setEvmPickerRequest] = useState(null);
-  const [showProvisioningNetworks, setShowProvisioningNetworks] = useState(false);
+  const [importSeedTarget, setImportSeedTarget] = useState(null);
+  const [importSeedError, setImportSeedError] = useState('');
+  const [instrumentActingKey, setInstrumentActingKey] = useState(null);
+  const [instrumentActionError, setInstrumentActionError] = useState(null);
 
   const selectEvmProvider = useCallback((providers) => {
     return new Promise((resolve, reject) => {
@@ -581,7 +591,6 @@ export function VaultWalletContent({
     if (!model) {
       setActiveWalletKey(null);
       setShowFutureNetworks(false);
-      setShowProvisioningNetworks(false);
     }
   }, [model]);
 
@@ -678,6 +687,36 @@ export function VaultWalletContent({
     }
   }, [identity, onRefreshWallet, selectEvmProvider, t, variant]);
 
+  const handleActivateVault = useCallback(async () => {
+    const bindingKey = resolveDefaultProvisionNetworkKey(managedNetworkKeys);
+    setConnectingKey(bindingKey);
+    setConnectError(null);
+    setConnectNotice(null);
+    setConnectPhase(t('wallet_create_safe_opening'));
+    setActiveWalletKey(bindingKey);
+
+    try {
+      if (onRefreshWallet) {
+        await onRefreshWallet();
+      }
+      setConnectNotice({
+        key: bindingKey,
+        message: variant === 'vault' && identity
+          ? t('identity_instrument_added', { alias: identityLabel(identity) })
+          : t('wallet_create_safe_success'),
+      });
+      setActiveWalletKey(bindingKey);
+    } catch (exception) {
+      setConnectError({
+        key: bindingKey,
+        message: exception?.message || t('wallet_shell_error'),
+      });
+    } finally {
+      setConnectingKey(null);
+      setConnectPhase('');
+    }
+  }, [identity, managedNetworkKeys, onRefreshWallet, t, variant]);
+
   const handleCreateManaged = useCallback(async (bindingKey) => {
     let token = readStoredVaultToken();
     if (!token) {
@@ -740,6 +779,152 @@ export function VaultWalletContent({
     }
   }, [identity, onRefreshWallet, t, variant]);
 
+  const resolveWalletLabel = useCallback((bindingKey) => {
+    const wallet = [...visibleWallets, ...futureWalletBindings].find((entry) => entry.key === bindingKey);
+    return wallet?.label || bindingKey;
+  }, [futureWalletBindings, visibleWallets]);
+
+  const handleOpenImportSeed = useCallback((bindingKey) => {
+    setImportSeedError('');
+    setImportSeedTarget({ key: bindingKey, label: resolveWalletLabel(bindingKey) });
+  }, [resolveWalletLabel]);
+
+  const handleImportManaged = useCallback(async ({ bindingKey, address, secret, secretFormat }) => {
+    let token = readStoredVaultToken();
+    if (!token) {
+      try {
+        token = await refreshStorefrontVaultToken();
+      } catch {
+        setImportSeedError(t('wallet_connect_session_expired'));
+        return;
+      }
+    }
+
+    setConnectingKey(bindingKey);
+    setConnectError(null);
+    setConnectNotice(null);
+    setConnectPhase(t('identity_import_seed_importing'));
+    setImportSeedError('');
+    setActiveWalletKey(bindingKey);
+
+    const runImport = async (activeToken) => {
+      await importManagedWalletBinding(activeToken, {
+        binding_key: bindingKey,
+        address,
+        secret,
+        secret_format: secretFormat,
+      });
+      setConnectPhase(t('wallet_connect_finishing'));
+      if (onRefreshWallet) {
+        await onRefreshWallet();
+      }
+      setConnectNotice({
+        key: bindingKey,
+        message: variant === 'vault' && identity
+          ? t('identity_instrument_added', { alias: identityLabel(identity) })
+          : t('identity_import_seed_success'),
+      });
+      setImportSeedTarget(null);
+      setActiveWalletKey(bindingKey);
+    };
+
+    try {
+      await runImport(token);
+    } catch (exception) {
+      const status = exception?.cause?.status ?? exception?.status;
+      if (status === 401 || status === 403) {
+        try {
+          const freshToken = await refreshStorefrontVaultToken();
+          await runImport(freshToken);
+          return;
+        } catch (retryException) {
+          const message = retryException?.message || t('wallet_connect_session_expired');
+          setImportSeedError(message);
+          return;
+        }
+      }
+
+      const message = exception?.message || t('identity_import_seed_error');
+      setImportSeedError(message);
+    } finally {
+      setConnectingKey(null);
+      setConnectPhase('');
+    }
+  }, [identity, onRefreshWallet, t, variant]);
+
+  const handleRevokeInstrument = useCallback(async (walletBinding) => {
+    const bindingId = walletBinding?.bindingId;
+    const bindingKey = walletBinding?.key;
+    if (!bindingId || !bindingKey) {
+      setInstrumentActionError({ key: bindingKey, message: t('identity_instrument_revoke_missing') });
+      return;
+    }
+
+    let token = readStoredVaultToken();
+    if (!token) {
+      try {
+        token = await refreshStorefrontVaultToken();
+      } catch {
+        setInstrumentActionError({ key: bindingKey, message: t('wallet_connect_session_expired') });
+        return;
+      }
+    }
+
+    setInstrumentActingKey(bindingKey);
+    setInstrumentActionError(null);
+
+    try {
+      await revokeWalletBinding(token, bindingId);
+      if (onRefreshWallet) {
+        await onRefreshWallet();
+      }
+      setConnectNotice({
+        key: bindingKey,
+        message: t('identity_instrument_revoked_success', { network: walletBinding.label }),
+      });
+    } catch (exception) {
+      const message = exception?.message || t('identity_instrument_revoke_error');
+      setInstrumentActionError({ key: bindingKey, message });
+    } finally {
+      setInstrumentActingKey(null);
+    }
+  }, [onRefreshWallet, t]);
+
+  const handleReplaceInstrument = useCallback(async (walletBinding) => {
+    const bindingId = walletBinding?.bindingId;
+    const bindingKey = walletBinding?.key;
+    if (!bindingId || !bindingKey) {
+      setInstrumentActionError({ key: bindingKey, message: t('identity_instrument_revoke_missing') });
+      return;
+    }
+
+    let token = readStoredVaultToken();
+    if (!token) {
+      try {
+        token = await refreshStorefrontVaultToken();
+      } catch {
+        setInstrumentActionError({ key: bindingKey, message: t('wallet_connect_session_expired') });
+        return;
+      }
+    }
+
+    setInstrumentActingKey(bindingKey);
+    setInstrumentActionError(null);
+
+    try {
+      await revokeWalletBinding(token, bindingId);
+      if (onRefreshWallet) {
+        await onRefreshWallet();
+      }
+      handleOpenImportSeed(bindingKey);
+    } catch (exception) {
+      const message = exception?.message || t('identity_instrument_replace_error');
+      setInstrumentActionError({ key: bindingKey, message });
+    } finally {
+      setInstrumentActingKey(null);
+    }
+  }, [handleOpenImportSeed, onRefreshWallet, t]);
+
   const handleRefreshWallet = useCallback(async () => {
     if (!onRefreshWallet) {
       return;
@@ -759,11 +944,16 @@ export function VaultWalletContent({
   const showSafeProvisioningShell = isVaultVariant && model && shouldShowSafeProvisioningShell(model, variant);
   const showSafeDashboard = isVaultVariant && model && shouldShowSafeDashboard(model, variant);
   const showBindingsSection = hasWallet && !isVaultVariant && (visibleWallets.length > 0 || futureWalletBindings.length > 0);
-  const showDashboardNetworks = Boolean(model) && !showSafeDashboard && (visibleWallets.length > 0 || futureWalletBindings.length > 0);
+  const showDashboardNetworks = Boolean(model)
+    && !isVaultVariant
+    && !showSafeDashboard
+    && (visibleWallets.length > 0 || futureWalletBindings.length > 0);
   const suppressBindingAssets = isVaultVariant && summaryCoins.length > 0;
   const showBindingReceiveQr = isVaultVariant;
-  const welcomeProvisionError = connectError?.key === 'polygon' ? connectError.message : '';
-  const isProvisioningSafe = connectingKey === 'polygon';
+  const welcomeProvisionError = connectError?.key === connectingKey ? connectError.message : '';
+  const defaultProvisionNetworkKey = resolveDefaultProvisionNetworkKey(managedNetworkKeys);
+  const isProvisioningSafe = Boolean(connectingKey) && connectingKey === defaultProvisionNetworkKey;
+  const welcomeConnectNotice = connectNotice?.key === defaultProvisionNetworkKey ? connectNotice : null;
 
   return (
     <>
@@ -771,25 +961,21 @@ export function VaultWalletContent({
         <>
           {showSafeProvisioningShell ? (
             <SafeWelcomeCard
-              connectError={connectError}
-              connectNotice={connectNotice}
+              connectNotice={welcomeConnectNotice}
               connectPhase={connectPhase}
-              connectingKey={connectingKey}
-              futureWallets={futureWalletBindings}
               identity={identity}
               isProvisioning={isProvisioningSafe}
               managedWalletsEnabled={managedWalletsEnabled}
-              networksOpen={showProvisioningNetworks}
-              onConnect={handleConnect}
-              onCreateManaged={handleCreateManaged}
-              onCreateSafe={() => handleCreateManaged('polygon')}
-              onNetworksOpenChange={setShowProvisioningNetworks}
-              onShowConnectExisting={() => setShowProvisioningNetworks(true)}
+              onCreateSafe={() => (
+                autoProvisionOnVault
+                  ? handleActivateVault()
+                  : handleCreateManaged(defaultProvisionNetworkKey)
+              )}
               provisionError={welcomeProvisionError}
-              visibleWallets={visibleWallets}
             />
           ) : showSafeDashboard ? (
             <IdentityAccountPanel
+              autoProvisionOnVault={autoProvisionOnVault}
               connectError={connectError}
               connectNotice={connectNotice}
               connectPhase={connectPhase}
@@ -798,9 +984,15 @@ export function VaultWalletContent({
               identity={identity}
               identityPaymentFlags={identityPaymentFlags}
               observationState={vaultBalanceObservationState(model?.wallets ?? [])}
+              instrumentActionError={instrumentActionError}
+              instrumentActingKey={instrumentActingKey}
+              legacyConnectEnabled={legacyConnectEnabled}
               onConnect={handleConnect}
               onCreateManaged={handleCreateManaged}
+              onImportManaged={handleOpenImportSeed}
               onRefreshWallet={handleRefreshWallet}
+              onReplaceInstrument={handleReplaceInstrument}
+              onRevokeInstrument={handleRevokeInstrument}
               polygonWallet={polygonWallet}
               refreshingWallet={refreshingWallet}
               summaryCoins={summaryCoins}
@@ -837,8 +1029,10 @@ export function VaultWalletContent({
                       connectingKey={connectingKey}
                       isActive={activeWalletKey === walletBinding.key}
                       key={walletBinding.key}
+                      legacyConnectEnabled={legacyConnectEnabled}
                       onConnect={handleConnect}
                       onCreateManaged={handleCreateManaged}
+                      onImportManaged={handleOpenImportSeed}
                       onSelect={setActiveWalletKey}
                       showReceiveQr={showBindingReceiveQr}
                       suppressAssets={suppressBindingAssets}
@@ -867,8 +1061,10 @@ export function VaultWalletContent({
                           connectingKey={connectingKey}
                           isActive={activeWalletKey === walletBinding.key}
                           key={walletBinding.key}
+                          legacyConnectEnabled={legacyConnectEnabled}
                           onConnect={handleConnect}
                           onCreateManaged={handleCreateManaged}
+                          onImportManaged={handleOpenImportSeed}
                           onSelect={setActiveWalletKey}
                           showReceiveQr={showBindingReceiveQr}
                           suppressAssets={suppressBindingAssets}
@@ -904,8 +1100,10 @@ export function VaultWalletContent({
                         connectingKey={connectingKey}
                         isActive={activeWalletKey === walletBinding.key}
                         key={walletBinding.key}
+                        legacyConnectEnabled={legacyConnectEnabled}
                         onConnect={handleConnect}
                         onCreateManaged={handleCreateManaged}
+                        onImportManaged={handleOpenImportSeed}
                         onSelect={setActiveWalletKey}
                         showReceiveQr={showBindingReceiveQr}
                         suppressAssets={suppressBindingAssets}
@@ -938,8 +1136,10 @@ export function VaultWalletContent({
                             connectingKey={connectingKey}
                             isActive={activeWalletKey === walletBinding.key}
                             key={walletBinding.key}
+                            legacyConnectEnabled={legacyConnectEnabled}
                             onConnect={handleConnect}
                             onCreateManaged={handleCreateManaged}
+                            onImportManaged={handleOpenImportSeed}
                             onSelect={setActiveWalletKey}
                             showReceiveQr={showBindingReceiveQr}
                             suppressAssets={suppressBindingAssets}
@@ -980,6 +1180,21 @@ export function VaultWalletContent({
           providers={evmPickerRequest.providers}
         />
       ) : null}
+      <ImportSeedModal
+        bindingKey={importSeedTarget?.key || ''}
+        bindingLabel={importSeedTarget?.label || ''}
+        error={importSeedError}
+        isSubmitting={Boolean(importSeedTarget?.key) && connectingKey === importSeedTarget.key}
+        onClose={() => {
+          if (!connectingKey) {
+            setImportSeedTarget(null);
+            setImportSeedError('');
+          }
+        }}
+        onImport={handleImportManaged}
+        open={Boolean(importSeedTarget)}
+        t={t}
+      />
     </>
   );
 }

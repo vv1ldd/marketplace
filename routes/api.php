@@ -109,6 +109,8 @@ Route::prefix('storefront/v1')
         ->middleware('storefront.token:storefront:vault');
     Route::post('wallet/bindings/managed', [StorefrontWalletController::class, 'provisionManagedBinding'])
         ->middleware('storefront.token:storefront:vault');
+    Route::post('wallet/bindings/managed/import', [StorefrontWalletController::class, 'importManagedBinding'])
+        ->middleware('storefront.token:storefront:vault');
     Route::post('wallet/bindings', [StorefrontWalletController::class, 'storeBinding'])
         ->middleware('storefront.token:storefront:vault');
     Route::delete('wallet/bindings/{identityBinding}', [StorefrontWalletController::class, 'destroyBinding'])
@@ -116,6 +118,8 @@ Route::prefix('storefront/v1')
     Route::get('wallet/assets', [StorefrontWalletController::class, 'assets'])
         ->middleware('storefront.token:storefront:vault');
     Route::post('wallet/proofs/usdc-transfer', [StorefrontWalletController::class, 'verifyUsdcTransferProof'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::get('wallet/value-entries', [StorefrontWalletController::class, 'listValueEntries'])
         ->middleware('storefront.token:storefront:vault');
     Route::post('settlement/resolve-recipient', [StorefrontSettlementController::class, 'resolveRecipient'])
         ->middleware('storefront.token:storefront:vault');

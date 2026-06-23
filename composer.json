@@ -18,6 +18,8 @@
         "livewire/livewire": "^4.3",
         "meanly/mdk-kernel": "dev-main",
         "mrt1m/playstation-store-api": "^2.2",
+        "olifanton/mnemonic": "^1.0",
+        "olifanton/ton": "^1.5",
         "opcodesio/log-viewer": "^3.18",
         "php-ffmpeg/php-ffmpeg": "^1.4",
         "simplelayer/sl1e-client": "^0.1",

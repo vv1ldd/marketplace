@@ -14,8 +14,8 @@ return new class extends Migration
             $table->unsignedSmallInteger('attempt_no');
             $table->string('routing_snapshot_ref', 64)->nullable();
             $table->string('network', 32);
-            $table->unsignedBigInteger('binding_from');
-            $table->unsignedBigInteger('binding_to');
+            $table->unsignedBigInteger('binding_from')->nullable();
+            $table->unsignedBigInteger('binding_to')->nullable();
             $table->string('status', 16);
             $table->string('failure_reason', 255)->nullable();
             $table->string('tx_reference', 96)->nullable();

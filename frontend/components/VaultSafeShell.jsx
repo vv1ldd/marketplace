@@ -3,13 +3,11 @@
 import { buildPolygonUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
 import {
   shortenAddress,
-  WALLET_BINDING_STATE,
-  walletConnectIntroKey,
 } from '../lib/identity-wallets';
 import { GlossaryHint } from './GlossaryHint';
 import { VaultQrIcon, VaultShieldIcon } from './IdentityVaultIcons';
 import { useLocale } from './LocaleProvider';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 function identityLabel(identity = {}) {
   if (identity.username) return `@${identity.username}`;
@@ -72,125 +70,14 @@ function SafeReceiveQr({ address, t }) {
   );
 }
 
-function VaultNetworkRow({
-  walletBinding,
-  onConnect,
-  onCreateManaged,
-  connectingKey,
-  connectError,
-  connectNotice,
-  t,
-}) {
-  const isConnecting = connectingKey === walletBinding.key;
-  const rowError = connectError?.key === walletBinding.key ? connectError.message : '';
-  const rowNotice = connectNotice?.key === walletBinding.key ? connectNotice.message : '';
-  const showManagedActions = walletBinding.canCreateManaged;
-  const introKey = showManagedActions
-    ? 'wallet_polygon_attach_intro'
-    : walletConnectIntroKey(walletBinding.key);
-
-  return (
-    <article className={`vault-safe-network-row${isConnecting ? ' is-connecting' : ''}`}>
-      <header className="vault-safe-network-row__header">
-        <strong>{walletBinding.label}</strong>
-        <span className="vault-safe-network-row__badge">{t('wallet_binding_connect')}</span>
-      </header>
-      <p>{t(introKey)}</p>
-      {showManagedActions ? (
-        <div className="vault-safe-network-row__actions">
-          <button
-            className="vault-safe-network-row__primary"
-            disabled={isConnecting}
-            onClick={() => onCreateManaged(walletBinding.key)}
-            type="button"
-          >
-            {isConnecting ? t('wallet_create_safe_opening') : t('wallet_create_safe_cta')}
-          </button>
-          <button
-            className="vault-safe-network-row__secondary"
-            disabled={isConnecting}
-            onClick={() => onConnect(walletBinding.key)}
-            type="button"
-          >
-            {isConnecting ? t('wallet_connect_opening') : t('wallet_connect_existing_cta')}
-          </button>
-        </div>
-      ) : walletBinding.canConnect ? (
-        <button
-          className="vault-safe-network-row__primary"
-          disabled={isConnecting}
-          onClick={() => onConnect(walletBinding.key)}
-          type="button"
-        >
-          {isConnecting ? t('wallet_connect_signing') : t('wallet_connect_cta')}
-        </button>
-      ) : null}
-      {rowNotice ? <p className="vault-safe-provisioning__notice">{rowNotice}</p> : null}
-      {rowError ? <p className="vault-safe-provisioning__error">{rowError}</p> : null}
-    </article>
-  );
-}
-
-export function VaultProvisioningNetworks({
-  visibleWallets = [],
-  futureWallets = [],
-  connectingKey,
-  connectError,
-  connectNotice,
-  connectPhase,
-  onConnect,
-  onCreateManaged,
-  networksOpen,
-  onNetworksOpenChange,
-}) {
-  const { t } = useLocale();
-
-  const addableWallets = useMemo(
-    () => [...visibleWallets, ...futureWallets].filter(
-      (wallet) => wallet.bindingState !== WALLET_BINDING_STATE.CONNECTED
-        && (wallet.canConnect || wallet.canCreateManaged),
-    ),
-    [futureWallets, visibleWallets],
-  );
-
-  return (
-    <SafeNetworksSection open={networksOpen} onOpenChange={onNetworksOpenChange}>
-      {connectPhase ? <p className="vault-safe-provisioning__phase">{connectPhase}</p> : null}
-      <div className="vault-safe-networks__list">
-        {addableWallets.map((walletBinding) => (
-          <VaultNetworkRow
-            connectError={connectError}
-            connectNotice={connectNotice}
-            connectingKey={connectingKey}
-            key={walletBinding.key}
-            onConnect={onConnect}
-            onCreateManaged={onCreateManaged}
-            t={t}
-            walletBinding={walletBinding}
-          />
-        ))}
-      </div>
-    </SafeNetworksSection>
-  );
-}
-
 export function SafeWelcomeCard({
   identity,
   managedWalletsEnabled,
   isProvisioning,
   provisionError,
   onCreateSafe,
-  onShowConnectExisting,
-  visibleWallets = [],
-  futureWallets = [],
-  connectingKey = null,
-  connectError = null,
   connectNotice = null,
   connectPhase = '',
-  onConnect,
-  onCreateManaged,
-  networksOpen = false,
-  onNetworksOpenChange,
 }) {
   const { t } = useLocale();
 
@@ -223,41 +110,13 @@ export function SafeWelcomeCard({
           <p className="vault-safe-provisioning__note">{t('wallet_safe_managed_unavailable')}</p>
         )}
         {provisionError ? <p className="vault-safe-provisioning__error">{provisionError}</p> : null}
-        {connectNotice?.key === 'polygon' ? (
+        {connectNotice?.message ? (
           <p className="vault-safe-provisioning__notice">{connectNotice.message}</p>
         ) : null}
-        {connectPhase && !networksOpen ? (
+        {connectPhase ? (
           <p className="vault-safe-provisioning__phase">{connectPhase}</p>
         ) : null}
       </div>
-
-      <div className="vault-safe-existing">
-        <p>
-          {t('wallet_safe_connect_existing')}{' '}
-          <button
-            className="vault-safe-existing__link"
-            onClick={onShowConnectExisting}
-            type="button"
-          >
-            {t('wallet_safe_connect_existing_cta')}
-          </button>
-        </p>
-      </div>
-
-      {onConnect && onCreateManaged && onNetworksOpenChange ? (
-        <VaultProvisioningNetworks
-          connectError={connectError}
-          connectNotice={connectNotice}
-          connectPhase={connectPhase}
-          connectingKey={connectingKey}
-          futureWallets={futureWallets}
-          networksOpen={networksOpen}
-          onConnect={onConnect}
-          onCreateManaged={onCreateManaged}
-          onNetworksOpenChange={onNetworksOpenChange}
-          visibleWallets={visibleWallets}
-        />
-      ) : null}
     </section>
   );
 }

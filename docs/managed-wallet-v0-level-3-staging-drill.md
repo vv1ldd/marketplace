@@ -3,6 +3,8 @@
 Operational runbook only. This document is **not** a new layer of truth — it describes how to
 prove managed wallet provisioning in a real environment.
 
+**Architecture (read first):** [ADR 0026: Settlement Instrument Sovereignty](adr/0026-settlement-instrument-sovereignty.md) — managed wallet v0 is the **first implementation** of a settlement instrument (`custody_mode: managed`, `signing_surface: server`), not the architecture itself. The durable subject remains `sl1e_`; instruments are replaceable attachments.
+
 **CI companion (Level 2):** `tests/Feature/ManagedWalletAttachmentOperationalDrillTest.php`  
 **Identity companion (Level 1):** `tests/Feature/StorefrontManagedWalletProvisioningTest.php`  
 **Execution sheet:** [`managed-wallet-v0-level-3-execution-sheet.md`](managed-wallet-v0-level-3-execution-sheet.md) — action → observable fact → PASS/FAIL  
@@ -41,7 +43,7 @@ facts as the API. Presentation helpers live in `frontend/lib/identity-wallets.js
 
 **Presentation helpers:**
 
-- `hasPrimarySettlementBinding(model)` — verified or pending Polygon binding
+- `hasPrimarySettlementBinding(model)` — any connected or pending settlement instrument (any rail)
 - `shouldShowSafeProvisioningShell(model, 'vault')` — no primary binding (always Safe-first, never a wall of Connect cards)
 - `shouldShowSafeDashboard(model, 'vault')` — primary binding exists
 

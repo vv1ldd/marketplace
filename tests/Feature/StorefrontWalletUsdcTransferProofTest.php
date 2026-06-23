@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\BindingProof;
+use App\Models\IdentityBinding;
 use App\Models\User;
 use App\Models\VaultIdentity;
 use App\Models\VaultSettlementProof;
@@ -35,6 +36,10 @@ class StorefrontWalletUsdcTransferProofTest extends TestCase
         $entityAddress = 'sl1e_'.str_repeat('9', 39);
         User::factory()->create(['entity_l1_address' => $entityAddress]);
         $token = $this->vaultToken($entityAddress);
+        $vault = app(\App\Services\VaultIdentityService::class)->resolveForStorefront([
+            'entity_l1_address' => $entityAddress,
+        ], User::query()->where('entity_l1_address', $entityAddress)->firstOrFail());
+        $this->seedVerifiedPolygonBinding($vault);
 
         $txHash = '0x'.str_repeat('a', 64);
         $this->fakeSuccessfulTransferReceipt($txHash, self::SENDER, self::RECIPIENT, '989680');
@@ -59,7 +64,9 @@ class StorefrontWalletUsdcTransferProofTest extends TestCase
             ->assertJsonPath('settlement_proof.evidence.amount', '10000000')
             ->assertJsonPath('settlement_proof.evidence.block_number', 16)
             ->assertJsonPath('settlement_proof.transaction_hash', $txHash)
-            ->assertJsonPath('proof.status', VaultSettlementProof::STATUS_VERIFIED);
+            ->assertJsonPath('proof.status', VaultSettlementProof::STATUS_VERIFIED)
+            ->assertJsonPath('credit_decision.status', \App\Models\CreditDecision::STATUS_APPROVED)
+            ->assertJsonPath('value_entry.value_entry.amount', '10');
 
         $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
 
@@ -314,5 +321,20 @@ class StorefrontWalletUsdcTransferProofTest extends TestCase
             'entity_l1_address' => $entityAddress,
             'proof_token_hash' => hash('sha256', $entityAddress),
         ], ['storefront:read', 'storefront:vault'])['access_token'];
+    }
+
+    private function seedVerifiedPolygonBinding(VaultIdentity $vault): IdentityBinding
+    {
+        return IdentityBinding::query()->create([
+            'vault_id' => $vault->id,
+            'binding_type' => IdentityBinding::TYPE_WALLET,
+            'binding_key' => 'polygon',
+            'binding_value_original' => self::RECIPIENT,
+            'binding_value_normalized' => strtolower(self::RECIPIENT),
+            'verification_state' => IdentityBinding::STATE_VERIFIED,
+            'verification_method' => IdentityBinding::METHOD_SIGNATURE,
+            'bound_at' => now(),
+            'verified_at' => now(),
+        ]);
     }
 }

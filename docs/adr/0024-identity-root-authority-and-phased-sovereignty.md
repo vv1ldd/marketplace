@@ -597,6 +597,28 @@ ADR 0023 assigns **credential ownership** to the Identity Layer and makes
 applications relying parties. This ADR assigns **root re-bind authority** within
 the Identity Layer and schedules its evolution.
 
+## Relationship to ADR 0026
+
+Governance answers **who controls `sl1e_`**. It does not define what settlement
+endpoints that identity may use.
+
+**Settlement instruments** — replaceable bindings, proofs, custody evolution —
+are defined in [ADR 0026: Settlement Instrument Sovereignty](0026-settlement-instrument-sovereignty.md).
+
+After reading this ADR, the natural follow-up is: *what does governance
+actually protect?* Answer: identity continuity across credential rotation —
+while value movement remains a separate graph (0026), and proof meaning remains
+a separate interpretive contract (0025).
+
+```text
+0024  Governance graph     →  Who controls sl1e_?
+0026  Settlement graph     →  How does value move?
+```
+
+Instrument replace MUST NOT require governance re-enrollment. Credential
+recovery MUST NOT require instrument migration unless the user explicitly chooses
+it.
+
 ```text
 Recovery Policy           = rule set; governs identity continuity
 Factor class              = knowledge | possession | social | root
@@ -646,6 +668,7 @@ Invariant 9, genesis rule).
 ## References
 
 - ADR 0023: Identity Authority and Credential Ownership
+- ADR 0026: Settlement Instrument Sovereignty — what governance protects vs what moves value
 - `docs/governance-reducer-invariants.md` — replay determinism, snapshot property tests
 - `docs/identity-governance-event-vocabulary.md` — canonical log vocabulary, registry boundary
 - `docs/recovery-policy-schema.md` — Policy / Factors / Evidence JSON schema (v1)

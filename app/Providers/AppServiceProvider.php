@@ -7,6 +7,11 @@ use App\Contracts\BindingChallengeFormatter;
 use App\Contracts\IdentityPaymentExecutor;
 use App\Services\Accounting\AccountingConsumer as AccountingConsumerService;
 use App\Services\Bindings\MeanlyVaultBindingChallengeFormatter;
+use App\Services\ManagedWallet\BitcoinManagedKeyMaterialGenerator;
+use App\Services\ManagedWallet\EvmManagedKeyMaterialGenerator;
+use App\Services\ManagedWallet\ManagedKeyMaterialGeneratorRegistry;
+use App\Services\ManagedWallet\SolanaManagedKeyMaterialGenerator;
+use App\Services\ManagedWallet\TonManagedKeyMaterialGenerator;
 use App\Services\Settlement\ManagedEvmIdentityPaymentExecutor;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -33,6 +38,15 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(AccountingConsumer::class, AccountingConsumerService::class);
         $this->app->singleton(IdentityPaymentExecutor::class, ManagedEvmIdentityPaymentExecutor::class);
+
+        $this->app->singleton(ManagedKeyMaterialGeneratorRegistry::class, function ($app): ManagedKeyMaterialGeneratorRegistry {
+            return new ManagedKeyMaterialGeneratorRegistry([
+                $app->make(EvmManagedKeyMaterialGenerator::class),
+                $app->make(SolanaManagedKeyMaterialGenerator::class),
+                $app->make(TonManagedKeyMaterialGenerator::class),
+                $app->make(BitcoinManagedKeyMaterialGenerator::class),
+            ]);
+        });
     }
 
     /**

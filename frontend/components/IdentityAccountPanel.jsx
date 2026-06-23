@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { buildPolygonUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
+import { buildEvmUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
 import {
   createSettlementPaymentIntent,
   fetchIdentityStatement,
   fetchPaymentIntentDispute,
   fetchPaymentIntentTimeline,
   listSettlementPaymentIntents,
+  listValueEntries,
   openPaymentDispute,
   resolveSettlementRecipient,
+  submitUsdcTransferProof,
 } from '../lib/storefront-api';
 import {
   buildInstrumentCapabilityRows,
@@ -36,7 +38,7 @@ import {
   WalletStatementIcon,
   WalletTokenRow,
 } from './WalletShell';
-import { shortenIdentityAnchor, resolveIdentityAnchorAddress } from '../lib/identity-wallets';
+import { shortenIdentityAnchor, resolveIdentityAnchorAddress, buildValueEntryReceiveOptions } from '../lib/identity-wallets';
 
 function identityLabel(identity = {}) {
   if (identity.username) return `@${identity.username}`;
@@ -90,6 +92,12 @@ function primaryIdentityBalance(coins = []) {
   return { amount: '0', symbol: 'SL1' };
 }
 
+const IDENTITY_LAYER_SYMBOLS = new Set(['SL1', 'MCR', 'MLP']);
+
+function coinHasBalance(coin = {}) {
+  const amount = Number(coin.amount ?? 0);
+  return Number.isFinite(amount) && amount > 0;
+}
 
 function formatActivityDateHeader(value) {
   if (!value) return '';
@@ -99,7 +107,11 @@ function formatActivityDateHeader(value) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function activityStatusTone(status) {
+function activityStatusTone(status, item) {
+  if (item?.activity_kind === 'value_entry') {
+    return item?.value_entry?.credit_approved ? 'success' : 'error';
+  }
+
   switch (status) {
     case 'executed':
       return 'success';
@@ -113,6 +125,14 @@ function activityStatusTone(status) {
 }
 
 function activityTitle(item, t) {
+  if (item?.activity_kind === 'value_entry') {
+    const entry = item.value_entry || {};
+    return t('identity_activity_row_deposit', {
+      asset: entry.asset || 'USDC',
+      network: entry.network_label || entry.network || 'Polygon',
+    });
+  }
+
   const intent = item?.payment_intent || item?.intent || {};
   const direction = item?.activity_direction || 'outgoing';
   const counterparty = direction === 'incoming'
@@ -142,7 +162,7 @@ function groupActivityByDate(items = []) {
 
   for (const item of items) {
     const intent = item?.payment_intent || item?.intent || {};
-    const when = intent.routed_at || intent.executed_at || intent.created_at;
+    const when = item?.activity_at || intent.routed_at || intent.executed_at || intent.created_at;
     const label = formatActivityDateHeader(when) || fallbackLabel;
     if (!groups.has(label)) {
       groups.set(label, []);
@@ -154,6 +174,25 @@ function groupActivityByDate(items = []) {
 }
 
 function ActivityRow({ item, onSelect, t }) {
+  if (item?.activity_kind === 'value_entry') {
+    const entry = item.value_entry || {};
+    const statusLabel = entry.credit_approved
+      ? t('identity_activity_status_confirmed')
+      : t('identity_activity_status_failed');
+
+    return (
+      <WalletActivityRow
+        amount={`+${entry.amount} ${entry.asset}`}
+        fiatAmount={entry.asset === 'USDC' ? `+$${entry.amount}` : null}
+        icon={<WalletActivityIcon direction="incoming" />}
+        onSelect={() => onSelect(item)}
+        status={statusLabel}
+        statusTone={activityStatusTone(null, item)}
+        title={activityTitle(item, t)}
+      />
+    );
+  }
+
   const intent = item?.payment_intent || item?.intent || {};
   const direction = item?.activity_direction || 'outgoing';
   const signedPrefix = direction === 'incoming' ? '+' : '-';
@@ -165,7 +204,7 @@ function ActivityRow({ item, onSelect, t }) {
       icon={<WalletActivityIcon direction={direction} />}
       onSelect={() => onSelect(item)}
       status={paymentStatusLabel(intent.status, t)}
-      statusTone={activityStatusTone(intent.status)}
+      statusTone={activityStatusTone(intent.status, item)}
       title={activityTitle(item, t)}
     />
   );
@@ -427,6 +466,58 @@ function StatementScreen({
           ) : null}
         </>
       ) : null}
+    </div>
+  );
+}
+
+function ValueEntryDetail({ item, onBack, t }) {
+  const entry = item?.value_entry || {};
+
+  return (
+    <div className="identity-activity-detail">
+      <button className="identity-account-back" onClick={onBack} type="button">
+        {t('identity_activity_back')}
+      </button>
+      <header className="identity-activity-detail__header">
+        <span>{t('identity_value_entry_detail_title')}</span>
+        <strong>
+          +{entry.amount} {entry.asset}
+        </strong>
+        <small>
+          {entry.credit_approved
+            ? t('identity_activity_status_confirmed')
+            : t('identity_activity_status_failed')}
+        </small>
+      </header>
+
+      <dl className="identity-activity-detail__facts">
+        <div>
+          <dt>{t('identity_activity_amount')}</dt>
+          <dd>
+            +{entry.amount} {entry.asset}
+          </dd>
+        </div>
+        <div>
+          <dt>{t('identity_activity_settlement')}</dt>
+          <dd>{entry.network_label || entry.network}</dd>
+        </div>
+        {entry.transaction_hash ? (
+          <div>
+            <dt>{t('identity_value_entry_proof')}</dt>
+            <dd><code>{entry.transaction_hash}</code></dd>
+          </div>
+        ) : null}
+        {entry.credit_status ? (
+          <div>
+            <dt>{t('identity_value_entry_credit')}</dt>
+            <dd>
+              {entry.credit_approved
+                ? t('identity_value_entry_credit_approved')
+                : t('identity_value_entry_credit_rejected')}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
     </div>
   );
 }
@@ -831,16 +922,54 @@ function SendModal({
   );
 }
 
-function ReceiveModal({ identity, receiveCapabilities = [], polygonAddress, onClose, t }) {
+function ValueEntryModal({
+  receiveOptions = [],
+  bootstrapping = false,
+  onClose,
+  onSuccess,
+  onRetryBootstrap,
+  t,
+}) {
+  const [step, setStep] = useState('address');
+  const [selectedKey, setSelectedKey] = useState(() => receiveOptions[0]?.key || '');
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [qrLoading, setQrLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [txHash, setTxHash] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+
+  const selectedOption = useMemo(
+    () => receiveOptions.find((option) => option.key === selectedKey) || receiveOptions[0] || null,
+    [receiveOptions, selectedKey],
+  );
+
+  const networkKey = selectedOption?.key || '';
+  const address = selectedOption?.address || '';
+  const networkLabel = selectedOption?.label || networkKey;
+  const asset = selectedOption?.asset || 'USDC';
 
   useEffect(() => {
-    if (!polygonAddress) return undefined;
+    if (!receiveOptions.length) {
+      setSelectedKey('');
+      return;
+    }
+
+    if (!receiveOptions.some((option) => option.key === selectedKey)) {
+      setSelectedKey(receiveOptions[0].key);
+    }
+  }, [receiveOptions, selectedKey]);
+
+  useEffect(() => {
+    if (!address || !networkKey) {
+      setQrDataUrl('');
+      return undefined;
+    }
 
     let cancelled = false;
     setQrLoading(true);
-    buildPolygonUsdcReceiveQrDataUrl(polygonAddress)
+    buildEvmUsdcReceiveQrDataUrl(address, networkKey)
       .then((dataUrl) => {
         if (!cancelled) setQrDataUrl(dataUrl || '');
       })
@@ -851,30 +980,194 @@ function ReceiveModal({ identity, receiveCapabilities = [], polygonAddress, onCl
     return () => {
       cancelled = true;
     };
-  }, [polygonAddress]);
+  }, [address, networkKey]);
+
+  function handleSelectNetwork(nextKey) {
+    if (nextKey === selectedKey) {
+      return;
+    }
+
+    setSelectedKey(nextKey);
+    setStep('address');
+    setTxHash('');
+    setError('');
+    setResult(null);
+  }
+
+  async function handleCopyAddress() {
+    if (!address || typeof navigator === 'undefined' || !navigator.clipboard) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  async function handleSubmitProof() {
+    setError('');
+    const token = readStoredVaultToken();
+    if (!token) {
+      setError(t('wallet_connect_session_expired'));
+      return;
+    }
+
+    const normalizedHash = String(txHash || '').trim();
+    if (!/^0x[a-fA-F0-9]{64}$/.test(normalizedHash)) {
+      setError(t('identity_value_entry_error'));
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const payload = await submitUsdcTransferProof({
+        binding_key: networkKey,
+        transaction_hash: normalizedHash,
+        recipient: address,
+        minimum_amount: '0.01',
+      }, token);
+      setResult(payload);
+      setStep('success');
+    } catch (exception) {
+      setError(exception?.message || t('identity_value_entry_error'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleDone() {
+    onSuccess?.(result);
+    onClose();
+  }
+
+  if (!receiveOptions.length || !selectedOption?.address) {
+    return (
+      <div className="identity-send-modal" role="presentation">
+        <button aria-label={t('identity_send_cancel')} className="identity-send-modal__backdrop" onClick={onClose} type="button" />
+        <section aria-modal="true" className="identity-send-modal__panel" role="dialog">
+          <header className="identity-send-modal__header">
+            <span>{t('identity_value_entry_title')}</span>
+            <button onClick={onClose} type="button">{t('identity_send_cancel')}</button>
+          </header>
+          <div className="identity-send-modal__body identity-receive-body">
+            {bootstrapping ? (
+              <p>{t('identity_value_entry_bootstrapping')}</p>
+            ) : (
+              <>
+                <p>{t('identity_value_entry_no_instrument')}</p>
+                {onRetryBootstrap ? (
+                  <button className="identity-send-primary" onClick={onRetryBootstrap} type="button">
+                    {t('wallet_balances_refresh')}
+                  </button>
+                ) : null}
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="identity-send-modal" role="presentation">
       <button aria-label={t('identity_send_cancel')} className="identity-send-modal__backdrop" onClick={onClose} type="button" />
       <section aria-modal="true" className="identity-send-modal__panel" role="dialog">
         <header className="identity-send-modal__header">
-          <span>{t('identity_receive_title')}</span>
+          <span>
+            {step === 'confirm'
+              ? t('identity_value_entry_confirm_title')
+              : t('identity_value_entry_title')}
+          </span>
           <button onClick={onClose} type="button">{t('identity_send_cancel')}</button>
         </header>
+
         <div className="identity-send-modal__body identity-receive-body">
-          <p className="identity-receive-alias">{identityLabel(identity)}</p>
-          <p>{t('identity_receive_body')}</p>
-          {receiveCapabilities.length ? (
-            <ul className="identity-receive-capabilities">
-              {receiveCapabilities.map((capability) => (
-                <li key={`${capability.network}-${capability.asset}`}>
-                  {capability.asset} · {capability.network}
-                </li>
-              ))}
-            </ul>
+          {step === 'address' ? (
+            <>
+              {receiveOptions.length > 1 ? (
+                <div className="identity-value-entry-networks">
+                  <span className="identity-value-entry-networks__label">{t('identity_value_entry_choose_network')}</span>
+                  <div className="identity-value-entry-networks__list" role="tablist">
+                    {receiveOptions.map((option) => (
+                      <button
+                        aria-selected={option.key === selectedKey}
+                        className={`identity-value-entry-network${option.key === selectedKey ? ' is-active' : ''}`}
+                        key={option.key}
+                        onClick={() => handleSelectNetwork(option.key)}
+                        role="tab"
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <p>{t('identity_value_entry_subtitle', { network: networkLabel })}</p>
+              <p className="identity-value-entry-asset">{asset} · {networkLabel}</p>
+              {qrLoading ? <p>{t('wallet_balances_refreshing')}</p> : null}
+              {qrDataUrl ? <img alt={t('wallet_identity_qr_alt')} className="identity-receive-qr" src={qrDataUrl} /> : null}
+              <div className="identity-value-entry-address">
+                <span className="identity-value-entry-address__label">{t('identity_value_entry_address_label')}</span>
+                <code className="identity-value-entry-address__value">{address}</code>
+                <button onClick={handleCopyAddress} type="button">
+                  {copied ? t('identity_value_entry_copied') : t('identity_value_entry_copy')}
+                </button>
+              </div>
+              <button className="identity-send-primary" onClick={() => setStep('confirm')} type="button">
+                {t('identity_value_entry_sent_cta')}
+              </button>
+            </>
           ) : null}
-          {qrLoading ? <p>{t('wallet_balances_refreshing')}</p> : null}
-          {qrDataUrl ? <img alt={t('wallet_identity_qr_alt')} className="identity-receive-qr" src={qrDataUrl} /> : null}
+
+          {step === 'confirm' ? (
+            <>
+              <p>{t('identity_value_entry_confirm_body')}</p>
+              <label className="identity-send-field">
+                <span>{t('identity_value_entry_tx_hash')}</span>
+                <input
+                  autoComplete="off"
+                  onChange={(event) => setTxHash(event.target.value)}
+                  placeholder="0x…"
+                  spellCheck={false}
+                  value={txHash}
+                />
+              </label>
+              {error ? <p className="identity-send-error">{error}</p> : null}
+              <div className="identity-send-actions">
+                <button onClick={() => setStep('address')} type="button">
+                  {t('identity_activity_back')}
+                </button>
+                <button
+                  className="identity-send-primary"
+                  disabled={busy}
+                  onClick={handleSubmitProof}
+                  type="button"
+                >
+                  {busy ? t('identity_value_entry_submitting') : t('identity_value_entry_submit')}
+                </button>
+              </div>
+            </>
+          ) : null}
+
+          {step === 'success' ? (
+            <>
+              <p className="identity-value-entry-success">{t('identity_value_entry_success')}</p>
+              <p>
+                {t('identity_value_entry_success_body', {
+                  amount: result?.value_entry?.value_entry?.amount || '—',
+                  asset,
+                })}
+              </p>
+              <button className="identity-send-primary" onClick={handleDone} type="button">
+                {t('identity_value_entry_done')}
+              </button>
+            </>
+          ) : null}
         </div>
       </section>
     </div>
@@ -895,15 +1188,24 @@ export function IdentityAccountPanel({
   connectError = null,
   onConnect,
   onCreateManaged,
+  onImportManaged,
+  onRevokeInstrument,
+  onReplaceInstrument,
+  instrumentActionError = null,
+  instrumentActingKey = null,
+  legacyConnectEnabled = false,
+  autoProvisionOnVault = false,
   onRefreshWallet,
   refreshingWallet = false,
   observationState = 'none',
 }) {
   const { t } = useLocale();
   const [tab, setTab] = useState('tokens');
+  const [showZeroBalances, setShowZeroBalances] = useState(false);
   const [overlay, setOverlay] = useState(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveBootstrapping, setReceiveBootstrapping] = useState(false);
   const [activityItems, setActivityItems] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
@@ -919,8 +1221,55 @@ export function IdentityAccountPanel({
     ? summaryCoins
     : (polygonWallet?.preview?.coins || []);
   const identityBalance = primaryIdentityBalance(coins);
+  const displayCoins = useMemo(() => {
+    if (showZeroBalances) {
+      return coins;
+    }
+
+    const nonZero = coins.filter((coin) => coinHasBalance(coin));
+    if (nonZero.length) {
+      return nonZero;
+    }
+
+    return coins.filter((coin) => IDENTITY_LAYER_SYMBOLS.has(String(coin.symbol || '').toUpperCase()));
+  }, [coins, showZeroBalances]);
+  const hiddenTokenCount = Math.max(0, coins.length - displayCoins.length);
   const identityAnchor = resolveIdentityAnchorAddress(identity);
-  const polygonAddress = polygonWallet?.address || '';
+  const receiveOptions = useMemo(
+    () => buildValueEntryReceiveOptions(visibleWallets),
+    [visibleWallets],
+  );
+
+  const ensureReceiveInstruments = useCallback(async () => {
+    if (!autoProvisionOnVault || receiveOptions.length || !onRefreshWallet) {
+      return receiveOptions.length > 0;
+    }
+
+    setReceiveBootstrapping(true);
+    try {
+      await onRefreshWallet();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setReceiveBootstrapping(false);
+    }
+  }, [autoProvisionOnVault, onRefreshWallet, receiveOptions.length]);
+
+  useEffect(() => {
+    if (!autoProvisionOnVault || receiveOptions.length || !onRefreshWallet) {
+      return;
+    }
+
+    ensureReceiveInstruments();
+  }, [autoProvisionOnVault, ensureReceiveInstruments, onRefreshWallet, receiveOptions.length]);
+
+  const handleOpenReceive = useCallback(async () => {
+    setReceiveOpen(true);
+    if (!receiveOptions.length) {
+      await ensureReceiveInstruments();
+    }
+  }, [ensureReceiveInstruments, receiveOptions.length]);
 
   const bindingByKey = useMemo(
     () => new Map(
@@ -944,16 +1293,6 @@ export function IdentityAccountPanel({
     [capabilityRows],
   );
 
-  const receiveCapabilities = useMemo(
-    () => capabilityRows
-      .filter((row) => row.receive?.enabled)
-      .map((row) => ({
-        network: row.instrument_label || row.instrument,
-        asset: row.receive?.asset || 'USDC',
-      })),
-    [capabilityRows],
-  );
-
   const canSendPayments = hasOutgoingPaymentRouting(capabilityRows) && outgoingAssets.length > 0;
   const shortAddress = identityAnchor ? shortenIdentityAnchor(identityAnchor) : '';
 
@@ -967,8 +1306,28 @@ export function IdentityAccountPanel({
     setActivityLoading(true);
     setActivityError('');
     try {
-      const payload = await listSettlementPaymentIntents(token, { limit: 25 });
-      setActivityItems(payload?.items || []);
+      const [paymentsPayload, valueEntriesPayload] = await Promise.all([
+        listSettlementPaymentIntents(token, { limit: 25 }).catch(() => ({ items: [] })),
+        listValueEntries(token, { limit: 25 }),
+      ]);
+
+      const merged = [
+        ...(paymentsPayload?.items || []),
+        ...(valueEntriesPayload?.items || []),
+      ].sort((left, right) => {
+        const leftAt = new Date(left?.activity_at
+          || left?.payment_intent?.routed_at
+          || left?.intent?.created_at
+          || 0).getTime();
+        const rightAt = new Date(right?.activity_at
+          || right?.payment_intent?.routed_at
+          || right?.intent?.created_at
+          || 0).getTime();
+
+        return rightAt - leftAt;
+      });
+
+      setActivityItems(merged);
     } catch (exception) {
       setActivityError(exception?.message || t('identity_activity_error'));
       setActivityItems([]);
@@ -1057,6 +1416,13 @@ export function IdentityAccountPanel({
     setOverlay(null);
   }, [loadActivity, loadStatement]);
 
+  const handleReceiveSuccess = useCallback(() => {
+    onRefreshWallet?.();
+    loadActivity();
+    loadStatement();
+    setTab('activity');
+  }, [loadActivity, loadStatement, onRefreshWallet]);
+
   const groupedActivity = useMemo(() => groupActivityByDate(activityItems), [activityItems]);
 
   const menuSections = [
@@ -1113,8 +1479,14 @@ export function IdentityAccountPanel({
             futureWallets={futureWallets}
             identity={identity}
             identityPaymentFlags={identityPaymentFlags}
+            instrumentActionError={instrumentActionError}
+            instrumentActingKey={instrumentActingKey}
+            legacyConnectEnabled={legacyConnectEnabled}
             onConnect={onConnect}
             onCreateManaged={onCreateManaged}
+            onImportManaged={onImportManaged}
+            onReplaceInstrument={onReplaceInstrument}
+            onRevokeInstrument={onRevokeInstrument}
             variant="networks"
             visibleWallets={visibleWallets}
             walletBindings={walletBindings}
@@ -1168,8 +1540,14 @@ export function IdentityAccountPanel({
             futureWallets={futureWallets}
             identity={identity}
             identityPaymentFlags={identityPaymentFlags}
+            instrumentActionError={instrumentActionError}
+            instrumentActingKey={instrumentActingKey}
+            legacyConnectEnabled={legacyConnectEnabled}
             onConnect={onConnect}
             onCreateManaged={onCreateManaged}
+            onImportManaged={onImportManaged}
+            onReplaceInstrument={onReplaceInstrument}
+            onRevokeInstrument={onRevokeInstrument}
             variant="profile"
             visibleWallets={visibleWallets}
             walletBindings={walletBindings}
@@ -1206,7 +1584,7 @@ export function IdentityAccountPanel({
                 key: 'receive',
                 label: t('identity_account_receive'),
                 icon: <WalletReceiveIcon />,
-                onClick: () => setReceiveOpen(true),
+                onClick: handleOpenReceive,
               },
             ]}
           />
@@ -1225,10 +1603,10 @@ export function IdentityAccountPanel({
           />
 
           {tab === 'tokens' ? (
-            <div className="wallet-shell-panel">
-              {coins.length ? (
-                <div className="wallet-shell-token-list" role="list">
-                  {coins.map((coin) => (
+            <div className="wallet-shell-panel wallet-shell-panel--tokens">
+              {displayCoins.length ? (
+                <div className="wallet-shell-token-list wallet-shell-token-list--compact" role="list">
+                  {displayCoins.map((coin) => (
                     <WalletTokenRow
                       amount={coin.display_amount}
                       fiatAmount={coin.symbol === 'USDC' ? `$${coin.display_amount}` : null}
@@ -1240,6 +1618,17 @@ export function IdentityAccountPanel({
               ) : (
                 <p className="wallet-shell-empty">{t('wallet_vault_balances_zero')}</p>
               )}
+              {hiddenTokenCount > 0 ? (
+                <button
+                  className="wallet-shell-token-toggle"
+                  onClick={() => setShowZeroBalances((current) => !current)}
+                  type="button"
+                >
+                  {showZeroBalances
+                    ? t('wallet_tokens_hide_zero', { count: hiddenTokenCount })
+                    : t('wallet_tokens_show_zero', { count: hiddenTokenCount })}
+                </button>
+              ) : null}
               {onRefreshWallet ? (
                 <button
                   className="wallet-shell-refresh"
@@ -1262,12 +1651,20 @@ export function IdentityAccountPanel({
           {tab === 'activity' ? (
             <div className="wallet-shell-panel identity-activity-screen">
               {selectedActivity ? (
-                <PaymentDetail
-                  disputesEnabled={identityPaymentFlags.identityPaymentDisputesEnabled === true}
-                  item={selectedActivity}
-                  onBack={() => setSelectedActivity(null)}
-                  t={t}
-                />
+                selectedActivity?.activity_kind === 'value_entry' ? (
+                  <ValueEntryDetail
+                    item={selectedActivity}
+                    onBack={() => setSelectedActivity(null)}
+                    t={t}
+                  />
+                ) : (
+                  <PaymentDetail
+                    disputesEnabled={identityPaymentFlags.identityPaymentDisputesEnabled === true}
+                    item={selectedActivity}
+                    onBack={() => setSelectedActivity(null)}
+                    t={t}
+                  />
+                )
               ) : (
                 <>
                   <div className="wallet-shell-panel__toolbar">
@@ -1282,7 +1679,9 @@ export function IdentityAccountPanel({
                         {items.map((item) => (
                           <ActivityRow
                             item={item}
-                            key={item?.payment_intent?.id || item?.intent?.id}
+                            key={item?.activity_kind === 'value_entry'
+                              ? `value-entry-${item?.value_entry?.proof_id}`
+                              : (item?.payment_intent?.id || item?.intent?.id)}
                             onSelect={setSelectedActivity}
                             t={t}
                           />
@@ -1309,11 +1708,12 @@ export function IdentityAccountPanel({
       ) : null}
 
       {receiveOpen ? (
-        <ReceiveModal
-          identity={identity}
+        <ValueEntryModal
+          bootstrapping={receiveBootstrapping}
           onClose={() => setReceiveOpen(false)}
-          polygonAddress={polygonAddress}
-          receiveCapabilities={receiveCapabilities}
+          onRetryBootstrap={ensureReceiveInstruments}
+          onSuccess={handleReceiveSuccess}
+          receiveOptions={receiveOptions}
           t={t}
         />
       ) : null}

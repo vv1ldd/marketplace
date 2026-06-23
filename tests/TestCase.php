@@ -18,6 +18,11 @@ abstract class TestCase extends BaseTestCase
         config([
             'managed_wallets.enabled' => true,
             'managed_wallets.networks.polygon' => true,
+            'managed_wallets.networks.ethereum' => false,
+            'managed_wallets.networks.base' => false,
+            'managed_wallets.networks.bitcoin' => true,
+            'managed_wallets.networks.solana' => true,
+            'managed_wallets.networks.ton' => true,
         ]);
 
         return $this;

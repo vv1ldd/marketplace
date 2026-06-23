@@ -345,7 +345,7 @@ export function StorefrontSessionPanel({
         </section>
       ) : showVaultWorkspace ? (
         <>
-          <div className="vault-workspace">
+          <div className="vault-workspace vault-workspace--adaptive">
             <section className={`premium-wallet-shell premium-wallet-shell--vault premium-wallet-shell--compact ${isWalletBootstrapping ? 'is-bootstrapping' : ''}`}>
               <VaultWalletContent
                 error={walletError}

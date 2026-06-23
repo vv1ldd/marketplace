@@ -32,13 +32,30 @@ class StorefrontWalletService
         $address = strtolower((string) data_get($identity, 'entity_l1_address'));
         abort_if($address === '', 403);
 
-        $user = app(MarketplaceIdentityResolver::class)->resolveFromIdentity($identity);
+        $resolver = app(MarketplaceIdentityResolver::class);
+        $user = $resolver->resolveFromIdentity($identity);
+
+        $vault = $this->vaultIdentities->resolveForStorefront($identity, $user);
+
+        if ((bool) config('managed_wallets.enabled', false)
+            && (bool) config('managed_wallets.auto_provision_on_vault', true)) {
+            try {
+                $user = $resolver->ensureUserFromIdentity($identity) ?? $user;
+                if ($user instanceof User) {
+                    if ((int) ($vault->owner_user_id ?? 0) !== (int) $user->id) {
+                        $vault->forceFill(['owner_user_id' => $user->id])->save();
+                    }
+                    $this->managedWallets->bootstrapDefaultInstruments($vault->refresh());
+                }
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
         if ($user instanceof User) {
             $identity['username'] = $user->username;
             $identity['display_alias'] = $user->publicUsername() ?: ($identity['display_alias'] ?? null);
         }
-
-        $vault = $this->vaultIdentities->resolveForStorefront($identity, $user);
 
         return [
             'identity' => $identity,
@@ -79,9 +96,13 @@ class StorefrontWalletService
                 'crypto_rails_enabled' => $this->settlementNetworks->cryptoRailsEnabled(),
                 'managed_wallets_enabled' => (bool) config('managed_wallets.enabled', false),
                 'managed_wallet_networks' => $this->managedWallets->enabledNetworkKeys(),
+                'auto_provision_on_vault' => (bool) config('managed_wallets.enabled', false)
+                    && (bool) config('managed_wallets.auto_provision_on_vault', true),
                 'can_provision_managed_wallet' => $user instanceof User
                     && $this->settlementNetworks->cryptoRailsEnabled()
                     && (bool) config('managed_wallets.enabled', false),
+                'legacy_wallet_connect_enabled' => $this->settlementNetworks->cryptoRailsEnabled()
+                    && (bool) config('managed_wallets.legacy_connect_enabled', false),
                 'can_view_assets' => true,
                 'identity_payments_enabled' => (bool) config('identity_payments.enabled', false),
                 'identity_payments_execute' => (bool) config('identity_payments.enabled', false)

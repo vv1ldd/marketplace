@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Storefront;
 use App\Http\Controllers\Controller;
 use App\Models\IdentityBinding;
 use App\Models\User;
+use App\Contracts\AccountingConsumer;
+use App\Services\Accounting\ValueEntryService;
 use App\Services\BindingEventRecorder;
 use App\Services\BindingProofVerificationService;
 use App\Services\ManagedWallet\ManagedWalletProvisioner;
@@ -171,6 +173,45 @@ class StorefrontWalletController extends Controller
         ], 201)->header('Cache-Control', 'private, no-store');
     }
 
+    public function importManagedBinding(
+        Request $request,
+        StorefrontWalletService $wallet,
+        VaultIdentityService $vaultIdentities,
+        ManagedWalletProvisioner $managedWallets,
+        WalletBindingService $bindings,
+        MarketplaceIdentityResolver $identityResolver,
+    ): JsonResponse {
+        ['user' => $user, 'vault' => $vault, 'identity' => $identity] = $wallet->resolveContext($request);
+        $user = $identityResolver->ensureUserFromIdentity($identity) ?? $user;
+        abort_unless($user instanceof User, 403, 'Marketplace account is required to import a managed wallet.');
+        $vaultIdentities->assertOwnedByUser($vault, $user);
+
+        $validated = $request->validate([
+            'binding_key' => [
+                'required',
+                'string',
+                'max:64',
+                Rule::in($managedWallets->enabledNetworkKeys()),
+            ],
+            'address' => 'required|string|max:256',
+            'secret' => 'required|string|max:4096',
+            'secret_format' => 'required|string|max:64',
+        ]);
+
+        $binding = $managedWallets->importFromSecret(
+            $vault,
+            (string) $validated['binding_key'],
+            (string) $validated['address'],
+            (string) $validated['secret'],
+            (string) $validated['secret_format'],
+        );
+
+        return response()->json([
+            'success' => true,
+            'binding' => $bindings->formatBinding($binding),
+        ], 201)->header('Cache-Control', 'private, no-store');
+    }
+
     public function storeBinding(
         Request $request,
         StorefrontWalletService $wallet,
@@ -239,6 +280,9 @@ class StorefrontWalletController extends Controller
         StorefrontWalletService $wallet,
         VaultIdentityService $vaultIdentities,
         BindingProofVerificationService $proofs,
+        WalletBindingService $bindings,
+        AccountingConsumer $accounting,
+        ValueEntryService $valueEntries,
     ): JsonResponse {
         ['user' => $user, 'vault' => $vault] = $wallet->resolveContext($request);
         abort_unless($user instanceof User, 403);
@@ -255,10 +299,44 @@ class StorefrontWalletController extends Controller
         $proof = $proofs->verifyUsdcTransfer($vault, $validated);
         $formatted = $proofs->formatProof($proof);
 
-        return response()->json([
+        $creditDecision = null;
+        $binding = $proof->identity_binding_id
+            ? IdentityBinding::query()->find($proof->identity_binding_id)
+            : $bindings->findActiveWalletBinding($vault, (string) $validated['binding_key']);
+
+        if ($binding instanceof IdentityBinding) {
+            $creditDecision = $accounting->consume($proof->refresh(), $binding);
+        }
+
+        $payload = [
             'success' => true,
             'settlement_proof' => $formatted,
             'proof' => $formatted,
-        ])->header('Cache-Control', 'private, no-store');
+        ];
+
+        if ($creditDecision !== null) {
+            $payload['credit_decision'] = $valueEntries->formatCreditDecision($creditDecision);
+            $payload['value_entry'] = $valueEntries->activityItem($proof->refresh(), $creditDecision);
+        }
+
+        return response()->json($payload)->header('Cache-Control', 'private, no-store');
+    }
+
+    public function listValueEntries(
+        Request $request,
+        StorefrontWalletService $wallet,
+        VaultIdentityService $vaultIdentities,
+        ValueEntryService $valueEntries,
+    ): JsonResponse {
+        ['user' => $user, 'vault' => $vault] = $wallet->resolveContext($request);
+        abort_unless($user instanceof User, 403);
+        $vaultIdentities->assertOwnedByUser($vault, $user);
+
+        $validated = $request->validate([
+            'limit' => 'sometimes|integer|min:1|max:50',
+        ]);
+
+        return response()->json($valueEntries->listForVault($vault, (int) ($validated['limit'] ?? 25)))
+            ->header('Cache-Control', 'private, no-store');
     }
 }

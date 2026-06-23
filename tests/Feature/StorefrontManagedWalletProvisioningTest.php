@@ -108,6 +108,69 @@ final class StorefrontManagedWalletProvisioningTest extends TestCase
     }
 
     #[Test]
+    public function first_wallet_access_bootstraps_all_enabled_managed_instruments(): void
+    {
+        config([
+            'managed_wallets.networks.polygon' => true,
+            'managed_wallets.networks.base' => true,
+            'managed_wallets.networks.ethereum' => true,
+            'managed_wallets.networks.bitcoin' => false,
+            'managed_wallets.networks.solana' => false,
+            'managed_wallets.networks.ton' => false,
+        ]);
+
+        $entityAddress = 'sl1e_'.str_repeat('8', 39);
+        User::factory()->create(['entity_l1_address' => $entityAddress]);
+        $token = $this->vaultToken($entityAddress);
+
+        $this->withToken($token)
+            ->getJson('/api/storefront/v1/wallet')
+            ->assertOk()
+            ->assertJsonPath('capabilities.auto_provision_on_vault', true);
+
+        $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
+        $bindings = IdentityBinding::query()
+            ->where('vault_id', $vaultId)
+            ->orderBy('binding_key')
+            ->get();
+
+        $this->assertSame(
+            ['base', 'ethereum', 'polygon'],
+            $bindings->pluck('binding_key')->sort()->values()->all(),
+        );
+
+        $polygon = $bindings->firstWhere('binding_key', 'polygon');
+        $base = $bindings->firstWhere('binding_key', 'base');
+        $ethereum = $bindings->firstWhere('binding_key', 'ethereum');
+
+        $this->assertSame($polygon?->binding_value_normalized, $base?->binding_value_normalized);
+        $this->assertSame($polygon?->binding_value_normalized, $ethereum?->binding_value_normalized);
+        $this->assertSame(3, VaultManagedWalletKey::query()->where('vault_id', $vaultId)->count());
+    }
+
+    #[Test]
+    public function first_wallet_access_bootstraps_even_when_marketplace_user_did_not_exist_yet(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('3', 39);
+        $token = $this->vaultToken($entityAddress);
+
+        $this->assertNull(User::query()->where('entity_l1_address', $entityAddress)->first());
+
+        $this->withToken($token)
+            ->getJson('/api/storefront/v1/wallet')
+            ->assertOk()
+            ->assertJsonPath('capabilities.auto_provision_on_vault', true);
+
+        $this->assertNotNull(User::query()->where('entity_l1_address', $entityAddress)->first());
+
+        $vaultId = VaultIdentity::query()->where('anchor_address', $entityAddress)->value('id');
+        $this->assertSame(
+            1,
+            IdentityBinding::query()->where('vault_id', $vaultId)->where('binding_key', 'polygon')->count(),
+        );
+    }
+
+    #[Test]
     public function second_managed_provision_is_rejected_when_binding_already_exists(): void
     {
         $entityAddress = 'sl1e_'.str_repeat('f', 39);
@@ -167,7 +230,8 @@ final class StorefrontManagedWalletProvisioningTest extends TestCase
             ->assertOk()
             ->assertJsonPath('capabilities.managed_wallets_enabled', true)
             ->assertJsonPath('capabilities.can_provision_managed_wallet', true)
-            ->assertJsonPath('capabilities.managed_wallet_networks', ['polygon']);
+            ->assertJsonPath('capabilities.legacy_wallet_connect_enabled', false)
+            ->assertJsonPath('capabilities.managed_wallet_networks', ['polygon', 'bitcoin', 'solana', 'ton']);
     }
 
     #[Test]
@@ -201,7 +265,7 @@ final class StorefrontManagedWalletProvisioningTest extends TestCase
         $this->withToken($token)
             ->getJson('/api/storefront/v1/wallet')
             ->assertOk()
-            ->assertJsonPath('capabilities.managed_wallet_networks', ['polygon', 'ethereum', 'base']);
+            ->assertJsonPath('capabilities.managed_wallet_networks', ['polygon', 'ethereum', 'base', 'bitcoin', 'solana', 'ton']);
     }
 
     #[Test]
@@ -217,6 +281,109 @@ final class StorefrontManagedWalletProvisioningTest extends TestCase
             ->postJson('/api/storefront/v1/wallet/bindings/managed', ['binding_key' => 'ethereum'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['binding_key']);
+    }
+
+    #[Test]
+    public function managed_provisioning_supports_bitcoin_and_solana_networks(): void
+    {
+        $entityAddress = 'sl1e_'.str_repeat('5', 39);
+        User::factory()->create(['entity_l1_address' => $entityAddress]);
+        $token = $this->vaultToken($entityAddress);
+
+        foreach (['bitcoin', 'solana', 'ton'] as $networkKey) {
+            $binding = $this->withToken($token)
+                ->postJson('/api/storefront/v1/wallet/bindings/managed', [
+                    'binding_key' => $networkKey,
+                ])
+                ->assertCreated()
+                ->assertJsonPath('binding.binding_key', $networkKey)
+                ->assertJsonPath('binding.binding_source', IdentityBinding::SOURCE_MANAGED)
+                ->json('binding');
+
+            $this->assertDatabaseHas('vault_managed_wallet_keys', [
+                'identity_binding_id' => $binding['id'],
+                'network_key' => $networkKey,
+            ]);
+        }
+    }
+
+    #[Test]
+    public function managed_import_accepts_client_derived_solana_secret(): void
+    {
+        if (! function_exists('sodium_crypto_sign_keypair')) {
+            $this->markTestSkipped('Solana managed wallet import requires the sodium extension.');
+        }
+
+        $entityAddress = 'sl1e_'.str_repeat('6', 39);
+        User::factory()->create(['entity_l1_address' => $entityAddress]);
+        $token = $this->vaultToken($entityAddress);
+
+        $keyPair = sodium_crypto_sign_keypair();
+        $secretKey = sodium_crypto_sign_secretkey($keyPair);
+        $publicKey = sodium_crypto_sign_publickey($keyPair);
+        $address = app(\App\Support\SolanaAddressCodec::class)->encodeAddress($publicKey);
+
+        $binding = $this->withToken($token)
+            ->postJson('/api/storefront/v1/wallet/bindings/managed/import', [
+                'binding_key' => 'solana',
+                'address' => $address,
+                'secret' => base64_encode($secretKey),
+                'secret_format' => 'solana_secret_key_base64',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('binding.binding_key', 'solana')
+            ->assertJsonPath('binding.binding_value', $address)
+            ->assertJsonPath('binding.binding_source', IdentityBinding::SOURCE_MANAGED)
+            ->json('binding');
+
+        $this->assertDatabaseHas('vault_managed_wallet_keys', [
+            'identity_binding_id' => $binding['id'],
+            'network_key' => 'solana',
+            'address_normalized' => $address,
+        ]);
+    }
+
+    #[Test]
+    public function managed_import_accepts_client_derived_ton_secret(): void
+    {
+        if (! function_exists('sodium_crypto_sign_keypair')) {
+            $this->markTestSkipped('TON managed wallet import requires the sodium extension.');
+        }
+
+        $words = [
+            'bring', 'like', 'escape', 'health', 'chimney', 'pear',
+            'whale', 'peasant', 'drum', 'beach', 'mass', 'garden',
+            'riot', 'alien', 'possible', 'bus', 'shove', 'unable',
+            'jar', 'anxiety', 'click', 'salon', 'canoe', 'lion',
+        ];
+
+        $keyPair = \Olifanton\Mnemonic\TonMnemonic::mnemonicToKeyPair($words);
+        $wallet = new \Olifanton\Ton\Contracts\Wallets\V4\WalletV4R2(
+            new \Olifanton\Ton\Contracts\Wallets\V4\WalletV4Options(publicKey: $keyPair->publicKey),
+        );
+        $address = $wallet->getAddress()->asWallet();
+        $secret = base64_encode(\Olifanton\Interop\Bytes::arrayToBytes($keyPair->secretKey));
+
+        $entityAddress = 'sl1e_'.str_repeat('7', 39);
+        User::factory()->create(['entity_l1_address' => $entityAddress]);
+        $token = $this->vaultToken($entityAddress);
+
+        $binding = $this->withToken($token)
+            ->postJson('/api/storefront/v1/wallet/bindings/managed/import', [
+                'binding_key' => 'ton',
+                'address' => $address,
+                'secret' => $secret,
+                'secret_format' => 'ton_secret_key_base64',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('binding.binding_key', 'ton')
+            ->assertJsonPath('binding.binding_source', IdentityBinding::SOURCE_MANAGED)
+            ->json('binding');
+
+        $this->assertDatabaseHas('vault_managed_wallet_keys', [
+            'identity_binding_id' => $binding['id'],
+            'network_key' => 'ton',
+        ]);
     }
 
     private function vaultToken(string $entityAddress): string
