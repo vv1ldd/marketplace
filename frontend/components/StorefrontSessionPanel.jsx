@@ -7,6 +7,7 @@ import {
   enrichWalletBundleAssets,
   fetchWalletCoreBundle,
   fetchVault,
+  mergeWalletCoreUpdate,
   logoutStorefrontSession,
   vaultHandoffUrl,
   VAULT_STOREFRONT_SCOPES,
@@ -64,6 +65,7 @@ export function StorefrontSessionPanel({
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [wallet, setWallet] = useState(() => initialWallet);
+  const walletRef = useRef(initialWallet);
   const [walletStatus, setWalletStatus] = useState('');
   const [walletError, setWalletError] = useState('');
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -91,6 +93,10 @@ export function StorefrontSessionPanel({
   const handoffClaimed = useRef(false);
   const vaultRedirectStarted = useRef(false);
   const signOutStarted = useRef(false);
+
+  useEffect(() => {
+    walletRef.current = wallet;
+  }, [wallet]);
 
   useEffect(() => {
     if (claimHandoff) {
@@ -290,7 +296,7 @@ export function StorefrontSessionPanel({
     }
   }
 
-  async function loadWalletWith(activeToken, { silent = false } = {}) {
+  async function loadWalletWith(activeToken, { silent = false, includeAssets = true } = {}) {
     try {
       if (!silent) {
         setWalletStatus('Loading Vault Wallet...');
@@ -301,11 +307,13 @@ export function StorefrontSessionPanel({
       setWalletStatus('');
       setWalletError('');
 
-      enrichWalletBundleAssets(activeToken, core)
-        .then((enriched) => {
-          setWallet((current) => enriched || current);
-        })
-        .catch(() => {});
+      if (includeAssets) {
+        enrichWalletBundleAssets(activeToken, core)
+          .then((enriched) => {
+            setWallet((current) => enriched || current);
+          })
+          .catch(() => {});
+      }
     } catch (exception) {
       setWallet(null);
       setWalletStatus('');
@@ -315,8 +323,29 @@ export function StorefrontSessionPanel({
 
   const refreshVaultWallet = useCallback(async () => {
     const activeToken = readStoredVaultToken();
-    if (activeToken) {
-      await loadWalletWith(activeToken, { silent: true });
+    if (!activeToken) {
+      return;
+    }
+
+    const core = await fetchWalletCoreBundle(activeToken);
+    setWallet((current) => mergeWalletCoreUpdate(current, core));
+  }, []);
+
+  const refreshVaultWalletAssets = useCallback(async () => {
+    const activeToken = readStoredVaultToken();
+    if (!activeToken) {
+      return;
+    }
+
+    const current = walletRef.current;
+    if (!current) {
+      await loadWalletWith(activeToken, { silent: true, includeAssets: true });
+      return;
+    }
+
+    const enriched = await enrichWalletBundleAssets(activeToken, current);
+    if (enriched) {
+      setWallet(enriched);
     }
   }, []);
 
@@ -378,6 +407,7 @@ export function StorefrontSessionPanel({
                 isLoading={isWalletBootstrapping}
                 isVaultOpen
                 onRefreshWallet={refreshVaultWallet}
+                onRefreshWalletAssets={refreshVaultWalletAssets}
                 showOpenAction={false}
                 status={vaultStatusNote}
                 variant="vault"

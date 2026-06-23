@@ -510,6 +510,25 @@ export function mergeWalletBundle(summary, bindings, assets) {
   };
 }
 
+/** Update bindings and capabilities without discarding already-loaded balance previews. */
+export function mergeWalletCoreUpdate(current, core) {
+  if (!core) {
+    return current;
+  }
+
+  return {
+    ...(current || {}),
+    identity: core.identity,
+    settlement_networks: core.settlement_networks,
+    vault: core.vault,
+    wallet_summary: core.wallet_summary,
+    capabilities: core.capabilities,
+    wallet_bindings: core.wallet_bindings,
+    bindings_contract: core.bindings_contract,
+    bindings_vault_id: core.bindings_vault_id,
+  };
+}
+
 function bindingsPayloadFromWallet(wallet) {
   if (!wallet) {
     return null;

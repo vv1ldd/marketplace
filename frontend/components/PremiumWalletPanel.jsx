@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   resolveIdentityWalletModel,
   shortenAddress,
@@ -522,6 +522,7 @@ export function VaultWalletContent({
   isLoading = false,
   showOpenAction = true,
   onRefreshWallet,
+  onRefreshWalletAssets,
   variant = 'wallet',
 }) {
   const isVaultVariant = variant === 'vault';
@@ -555,7 +556,6 @@ export function VaultWalletContent({
   const [importSeedError, setImportSeedError] = useState('');
   const [instrumentActingKey, setInstrumentActingKey] = useState(null);
   const [instrumentActionError, setInstrumentActionError] = useState(null);
-  const walletRecoveryAttempts = useRef(0);
 
   const selectEvmProvider = useCallback((providers) => {
     return new Promise((resolve, reject) => {
@@ -579,28 +579,6 @@ export function VaultWalletContent({
       setShowFutureNetworks(false);
     }
   }, [model]);
-
-  useEffect(() => {
-    if (wallet && model) {
-      walletRecoveryAttempts.current = 0;
-    }
-  }, [model, wallet]);
-
-  useEffect(() => {
-    if (!isVaultVariant || !isVaultOpen || isLoading || (wallet && model) || error || !onRefreshWallet) {
-      return undefined;
-    }
-
-    if (walletRecoveryAttempts.current >= 1) {
-      return undefined;
-    }
-
-    walletRecoveryAttempts.current += 1;
-
-    onRefreshWallet();
-
-    return undefined;
-  }, [error, isLoading, isVaultOpen, isVaultVariant, model, onRefreshWallet, wallet]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -946,6 +924,20 @@ export function VaultWalletContent({
     }
   }, [onRefreshWallet]);
 
+  const handleRefreshBalances = useCallback(async () => {
+    const refresh = onRefreshWalletAssets || onRefreshWallet;
+    if (!refresh) {
+      return;
+    }
+
+    setRefreshingWallet(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshingWallet(false);
+    }
+  }, [onRefreshWallet, onRefreshWalletAssets]);
+
   const hasWallet = Boolean(wallet && model);
   const showLoadingShell = isLoading || (isVaultOpen && !hasWallet && !error);
   const vaultShellOptions = useMemo(() => ({
@@ -1004,6 +996,7 @@ export function VaultWalletContent({
               onCreateManaged={handleCreateManaged}
               onImportManaged={handleOpenImportSeed}
               onRefreshWallet={handleRefreshWallet}
+              onRefreshWalletAssets={handleRefreshBalances}
               onReplaceInstrument={handleReplaceInstrument}
               onRevokeInstrument={handleRevokeInstrument}
               polygonWallet={polygonWallet}

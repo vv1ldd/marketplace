@@ -1196,6 +1196,7 @@ export function IdentityAccountPanel({
   legacyConnectEnabled = false,
   autoProvisionOnVault = false,
   onRefreshWallet,
+  onRefreshWalletAssets,
   refreshingWallet = false,
   observationState = 'none',
 }) {
@@ -1341,8 +1342,10 @@ export function IdentityAccountPanel({
   }, [t]);
 
   useEffect(() => {
-    loadActivity();
-  }, [loadActivity]);
+    if (tab === 'activity') {
+      loadActivity();
+    }
+  }, [loadActivity, tab]);
 
   const loadStatement = useCallback(async () => {
     const token = readStoredVaultToken();
@@ -1633,11 +1636,11 @@ export function IdentityAccountPanel({
                     : t('wallet_tokens_show_zero', { count: hiddenTokenCount })}
                 </button>
               ) : null}
-              {onRefreshWallet ? (
+              {onRefreshWalletAssets || onRefreshWallet ? (
                 <button
                   className="wallet-shell-refresh"
                   disabled={refreshingWallet}
-                  onClick={onRefreshWallet}
+                  onClick={onRefreshWalletAssets || onRefreshWallet}
                   type="button"
                 >
                   {refreshingWallet ? t('wallet_balances_refreshing') : t('wallet_balances_refresh')}
