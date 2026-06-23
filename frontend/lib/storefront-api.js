@@ -491,22 +491,29 @@ export async function revokeWalletBinding(token, bindingId) {
 }
 
 export async function fetchWalletBundle(token) {
-  const [summaryResult, bindingsResult, assetsResult] = await Promise.allSettled([
-    fetchWalletSummary(token),
+  let summary = null;
+
+  try {
+    summary = await fetchWalletSummary(token);
+  } catch (error) {
+    throw error;
+  }
+
+  const [bindingsResult, assetsResult] = await Promise.allSettled([
     fetchWalletBindings(token),
     fetchPremiumWalletAssets(token),
   ]);
 
-  const failures = [summaryResult, bindingsResult, assetsResult].filter(
+  const failures = [bindingsResult, assetsResult].filter(
     (result) => result.status === 'rejected',
   );
 
-  if (failures.length === 3) {
+  if (failures.length === 2 && !summary) {
     throw failures[0].reason;
   }
 
   return mergeWalletBundle(
-    summaryResult.status === 'fulfilled' ? summaryResult.value : null,
+    summary,
     bindingsResult.status === 'fulfilled' ? bindingsResult.value : null,
     assetsResult.status === 'fulfilled' ? assetsResult.value : null,
   );

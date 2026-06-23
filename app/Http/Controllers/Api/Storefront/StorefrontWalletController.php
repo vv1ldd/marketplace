@@ -23,7 +23,7 @@ class StorefrontWalletController extends Controller
 {
     public function show(Request $request, StorefrontWalletService $wallet): JsonResponse
     {
-        ['identity' => $identity, 'user' => $user, 'vault' => $vault] = $wallet->resolveContext($request);
+        ['identity' => $identity, 'user' => $user, 'vault' => $vault] = $wallet->resolveContext($request, bootstrapInstruments: true);
 
         return response()->json($wallet->walletSummary($identity, $vault, $user))
             ->header('Cache-Control', 'private, no-store');

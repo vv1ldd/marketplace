@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   resolveIdentityWalletModel,
   shortenAddress,
@@ -572,6 +572,7 @@ export function VaultWalletContent({
   const [importSeedError, setImportSeedError] = useState('');
   const [instrumentActingKey, setInstrumentActingKey] = useState(null);
   const [instrumentActionError, setInstrumentActionError] = useState(null);
+  const bootstrapRefreshAttempts = useRef(0);
 
   const selectEvmProvider = useCallback((providers) => {
     return new Promise((resolve, reject) => {
@@ -602,8 +603,15 @@ export function VaultWalletContent({
     }
 
     if (hasPrimarySettlementBinding(model)) {
+      bootstrapRefreshAttempts.current = 0;
       return undefined;
     }
+
+    if (bootstrapRefreshAttempts.current >= 2) {
+      return undefined;
+    }
+
+    bootstrapRefreshAttempts.current += 1;
 
     let cancelled = false;
 
@@ -621,7 +629,7 @@ export function VaultWalletContent({
     return () => {
       cancelled = true;
     };
-  }, [autoProvisionOnVault, variant, managedWalletsEnabled, model, onRefreshWallet]);
+  }, [autoProvisionOnVault, managedWalletsEnabled, model, onRefreshWallet, variant]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1197,7 +1205,21 @@ export function VaultWalletContent({
         <div className="premium-wallet-empty">
           <span>{t('wallet_shell_title')}</span>
           <strong>{error || status || t('wallet_shell_empty')}</strong>
-          <p>{isVaultOpen ? t('wallet_shell_loading') : t('wallet_shell_empty')}</p>
+          {error && isVaultOpen && onRefreshWallet ? (
+            <button
+              className="meanly-pill-button meanly-pill-button--compact"
+              disabled={refreshingWallet}
+              onClick={() => {
+                bootstrapRefreshAttempts.current = 0;
+                handleRefreshWallet();
+              }}
+              type="button"
+            >
+              {refreshingWallet ? t('wallet_shell_loading') : t('wallet_shell_retry')}
+            </button>
+          ) : (
+            <p>{isVaultOpen && !error ? t('wallet_shell_loading') : t('wallet_shell_empty')}</p>
+          )}
           {showOpenAction ? <Link href="/vault">{t('wallet_shell_open_vault')}</Link> : null}
         </div>
       )}

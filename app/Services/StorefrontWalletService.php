@@ -26,7 +26,7 @@ class StorefrontWalletService
     /**
      * @return array{identity: array<string, mixed>, user: User|null, vault: VaultIdentity}
      */
-    public function resolveContext(Request $request): array
+    public function resolveContext(Request $request, bool $bootstrapInstruments = false): array
     {
         $identity = (array) $request->attributes->get('storefront_identity', []);
         $address = strtolower((string) data_get($identity, 'entity_l1_address'));
@@ -37,7 +37,8 @@ class StorefrontWalletService
 
         $vault = $this->vaultIdentities->resolveForStorefront($identity, $user);
 
-        if ((bool) config('managed_wallets.enabled', false)
+        if ($bootstrapInstruments
+            && (bool) config('managed_wallets.enabled', false)
             && (bool) config('managed_wallets.auto_provision_on_vault', true)) {
             try {
                 $user = $resolver->ensureUserFromIdentity($identity) ?? $user;
