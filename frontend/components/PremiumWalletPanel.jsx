@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   resolveIdentityWalletModel,
   shortenAddress,
@@ -502,30 +502,14 @@ function WalletHeroPlaceholder({ t, variant = 'wallet' }) {
   );
 }
 
-function VaultWalletLoadingShell({ identity, status = '', t, variant = 'wallet' }) {
-  const hasIdentity = Boolean(
-    identity?.username
-    || identity?.display_alias
-    || identity?.entity_l1_address,
-  );
+function VaultWalletLoadingShell({ status = '', t, variant = 'wallet' }) {
   const isVault = variant === 'vault';
-  const loadingLabel = status || t('wallet_shell_loading');
+  const loadingLabel = status || (isVault ? t('wallet_vault_opening') : t('wallet_shell_loading'));
 
   return (
-    <>
-      {hasIdentity
-        ? <WalletHeroFromIdentity identity={identity} t={t} variant={variant} />
-        : <WalletHeroPlaceholder t={t} variant={variant} />}
-      {isVault && hasIdentity ? (
-        <div className="premium-wallet-body premium-wallet-body--stable">
-          <p className="premium-wallet-balances-empty">{t('wallet_vault_balances_empty')}</p>
-        </div>
-      ) : (
-        <div className="premium-wallet-body premium-wallet-body--loading">
-          <MeanlyLoadingMark label={loadingLabel} size="sm" />
-        </div>
-      )}
-    </>
+    <div className={`premium-wallet-body premium-wallet-body--loading${isVault ? ' premium-wallet-body--vault-opening' : ''}`}>
+      <MeanlyLoadingMark label={loadingLabel} size={isVault ? 'md' : 'sm'} />
+    </div>
   );
 }
 
@@ -571,6 +555,7 @@ export function VaultWalletContent({
   const [importSeedError, setImportSeedError] = useState('');
   const [instrumentActingKey, setInstrumentActingKey] = useState(null);
   const [instrumentActionError, setInstrumentActionError] = useState(null);
+  const walletRecoveryAttempts = useRef(0);
 
   const selectEvmProvider = useCallback((providers) => {
     return new Promise((resolve, reject) => {
@@ -594,6 +579,28 @@ export function VaultWalletContent({
       setShowFutureNetworks(false);
     }
   }, [model]);
+
+  useEffect(() => {
+    if (wallet && model) {
+      walletRecoveryAttempts.current = 0;
+    }
+  }, [model, wallet]);
+
+  useEffect(() => {
+    if (!isVaultVariant || !isVaultOpen || isLoading || (wallet && model) || error || !onRefreshWallet) {
+      return undefined;
+    }
+
+    if (walletRecoveryAttempts.current >= 2) {
+      return undefined;
+    }
+
+    walletRecoveryAttempts.current += 1;
+
+    onRefreshWallet();
+
+    return undefined;
+  }, [error, isLoading, isVaultOpen, isVaultVariant, model, onRefreshWallet, wallet]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1163,7 +1170,7 @@ export function VaultWalletContent({
         </>
       ) : showLoadingShell ? (
         <>
-          <VaultWalletLoadingShell identity={vaultIdentity} status={status} t={t} variant={variant} />
+          <VaultWalletLoadingShell status={status} t={t} variant={variant} />
         </>
       ) : (
         <div className="premium-wallet-empty">
