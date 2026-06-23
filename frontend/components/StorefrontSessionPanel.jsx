@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   claimSimpleL1Handoff,
   fetchWalletBundle,
@@ -294,6 +294,13 @@ export function StorefrontSessionPanel({
     }
   }
 
+  const refreshVaultWallet = useCallback(async () => {
+    const activeToken = readStoredVaultToken();
+    if (activeToken) {
+      await loadWalletWith(activeToken, { silent: true });
+    }
+  }, []);
+
   async function closeVaultAndSignOut() {
     if (signOutStarted.current) {
       return;
@@ -351,12 +358,7 @@ export function StorefrontSessionPanel({
                 error={walletError}
                 isLoading={isWalletBootstrapping}
                 isVaultOpen
-                onRefreshWallet={async () => {
-                  const activeToken = readStoredVaultToken();
-                  if (activeToken) {
-                    await loadWalletWith(activeToken);
-                  }
-                }}
+                onRefreshWallet={refreshVaultWallet}
                 showOpenAction={false}
                 status={vaultStatusNote}
                 variant="vault"

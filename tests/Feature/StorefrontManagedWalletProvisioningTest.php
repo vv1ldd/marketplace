@@ -145,7 +145,7 @@ final class StorefrontManagedWalletProvisioningTest extends TestCase
 
         $this->assertSame($polygon?->binding_value_normalized, $base?->binding_value_normalized);
         $this->assertSame($polygon?->binding_value_normalized, $ethereum?->binding_value_normalized);
-        $this->assertSame(3, VaultManagedWalletKey::query()->where('vault_id', $vaultId)->count());
+        $this->assertSame(1, VaultManagedWalletKey::query()->where('vault_id', $vaultId)->count());
     }
 
     #[Test]

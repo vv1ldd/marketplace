@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   resolveIdentityWalletModel,
   shortenAddress,
@@ -15,7 +15,6 @@ import {
   walletConnectIntroKey,
   walletCoins,
   resolveDefaultProvisionNetworkKey,
-  hasPrimarySettlementBinding,
   resolvePolygonWalletEntry,
 } from '../lib/identity-wallets';
 import { buildBitcoinReceiveQrDataUrl, buildPolygonUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
@@ -572,7 +571,6 @@ export function VaultWalletContent({
   const [importSeedError, setImportSeedError] = useState('');
   const [instrumentActingKey, setInstrumentActingKey] = useState(null);
   const [instrumentActionError, setInstrumentActionError] = useState(null);
-  const bootstrapRefreshAttempts = useRef(0);
 
   const selectEvmProvider = useCallback((providers) => {
     return new Promise((resolve, reject) => {
@@ -596,40 +594,6 @@ export function VaultWalletContent({
       setShowFutureNetworks(false);
     }
   }, [model]);
-
-  useEffect(() => {
-    if (variant !== 'vault' || !autoProvisionOnVault || !managedWalletsEnabled || !onRefreshWallet || !model) {
-      return undefined;
-    }
-
-    if (hasPrimarySettlementBinding(model)) {
-      bootstrapRefreshAttempts.current = 0;
-      return undefined;
-    }
-
-    if (bootstrapRefreshAttempts.current >= 2) {
-      return undefined;
-    }
-
-    bootstrapRefreshAttempts.current += 1;
-
-    let cancelled = false;
-
-    (async () => {
-      setRefreshingWallet(true);
-      try {
-        await onRefreshWallet();
-      } finally {
-        if (!cancelled) {
-          setRefreshingWallet(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [autoProvisionOnVault, managedWalletsEnabled, model, onRefreshWallet, variant]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1209,10 +1173,7 @@ export function VaultWalletContent({
             <button
               className="meanly-pill-button meanly-pill-button--compact"
               disabled={refreshingWallet}
-              onClick={() => {
-                bootstrapRefreshAttempts.current = 0;
-                handleRefreshWallet();
-              }}
+              onClick={handleRefreshWallet}
               type="button"
             >
               {refreshingWallet ? t('wallet_shell_loading') : t('wallet_shell_retry')}

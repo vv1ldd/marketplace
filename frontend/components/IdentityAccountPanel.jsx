@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildEvmUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
 import {
   createSettlementPaymentIntent,
@@ -1215,6 +1215,7 @@ export function IdentityAccountPanel({
   const [statementError, setStatementError] = useState('');
   const [selectedStatementLine, setSelectedStatementLine] = useState(null);
   const [statementPaymentItem, setStatementPaymentItem] = useState(null);
+  const receiveBootstrapAttempts = useRef(0);
   const statementPeriod = useMemo(() => currentMonthPeriod(), []);
 
   const coins = summaryCoins.length
@@ -1245,6 +1246,11 @@ export function IdentityAccountPanel({
       return receiveOptions.length > 0;
     }
 
+    if (receiveBootstrapAttempts.current >= 2) {
+      return false;
+    }
+
+    receiveBootstrapAttempts.current += 1;
     setReceiveBootstrapping(true);
     try {
       await onRefreshWallet();
@@ -1257,12 +1263,10 @@ export function IdentityAccountPanel({
   }, [autoProvisionOnVault, onRefreshWallet, receiveOptions.length]);
 
   useEffect(() => {
-    if (!autoProvisionOnVault || receiveOptions.length || !onRefreshWallet) {
-      return;
+    if (receiveOptions.length > 0) {
+      receiveBootstrapAttempts.current = 0;
     }
-
-    ensureReceiveInstruments();
-  }, [autoProvisionOnVault, ensureReceiveInstruments, onRefreshWallet, receiveOptions.length]);
+  }, [receiveOptions.length]);
 
   const handleOpenReceive = useCallback(async () => {
     setReceiveOpen(true);

@@ -117,6 +117,10 @@ class ManagedWalletProvisioner
                 fn ($networkKey) => is_string($networkKey) && $networkKey !== '',
             ));
 
+        if ($order === []) {
+            $order = ['polygon', 'base', 'ethereum'];
+        }
+
         return array_values(array_filter(
             $order,
             fn (string $networkKey): bool => $this->isEnabledForNetwork($networkKey),
@@ -221,14 +225,21 @@ class ManagedWalletProvisioner
                 bindingSource: IdentityBinding::SOURCE_MANAGED,
             );
 
-            VaultManagedWalletKey::query()->create([
-                'vault_id' => $vault->id,
-                'identity_binding_id' => $binding->id,
-                'network_key' => $networkKey,
-                'address_normalized' => $binding->binding_value_normalized,
-                'key_reference' => $keyMaterial['key_reference'],
-                'encrypted_secret' => Crypt::encryptString($keyMaterial['secret']),
-            ]);
+            $existingManagedKey = VaultManagedWalletKey::query()
+                ->where('vault_id', $vault->id)
+                ->where('key_reference', $keyMaterial['key_reference'])
+                ->first();
+
+            if (! $existingManagedKey instanceof VaultManagedWalletKey) {
+                VaultManagedWalletKey::query()->create([
+                    'vault_id' => $vault->id,
+                    'identity_binding_id' => $binding->id,
+                    'network_key' => $networkKey,
+                    'address_normalized' => $binding->binding_value_normalized,
+                    'key_reference' => $keyMaterial['key_reference'],
+                    'encrypted_secret' => Crypt::encryptString($keyMaterial['secret']),
+                ]);
+            }
 
             return $binding->refresh();
         });
