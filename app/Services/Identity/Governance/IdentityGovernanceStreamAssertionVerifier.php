@@ -18,6 +18,7 @@ class IdentityGovernanceStreamAssertionVerifier
         string $streamId,
         string $publicKeyCredentialJson,
         string $optionsJson,
+        ?string $rpId = null,
     ): bool {
         $publicKeyCredential = Serializer::make()->fromJson(
             $publicKeyCredentialJson,
@@ -63,7 +64,7 @@ class IdentityGovernanceStreamAssertionVerifier
                 $source,
                 $publicKeyCredential->response,
                 $options,
-                IdentityGovernanceWebAuthnCredentialSourceFactory::rpId(),
+                $rpId ?? IdentityGovernanceWebAuthnCredentialSourceFactory::rpId(),
                 $source->userHandle,
             );
 

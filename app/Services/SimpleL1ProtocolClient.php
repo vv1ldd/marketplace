@@ -149,7 +149,11 @@ class SimpleL1ProtocolClient
      */
     public function introspectProof(string $proofToken): array
     {
-        $response = $this->client($this->protocolApiBaseUrl())
+        $baseUrl = config('identity_governance.stream_authorize_enabled')
+            ? rtrim((string) config('app.url'), '/')
+            : $this->protocolApiBaseUrl();
+
+        $response = $this->client($baseUrl)
             ->post((string) config('simple_l1.proof_introspection_path', '/api/sl1e/proofs/introspect'), [
                 'proof_token' => $proofToken,
             ]);

@@ -39,8 +39,15 @@ class IdentityGovernanceStreamAuthorizeContinuityGateTest extends TestCase
         $this->assertSame(0, Passkey::query()->count());
         $this->assertGreaterThan(0, IdentityGovernanceStreamEvent::query()->where('stream_id', $entityAddress)->count());
 
+        config(['identity_governance.stream_enabled' => true]);
+        config(['identity_governance.stream_authorize_enabled' => true]);
+
         $response = $this->postJson('/api/sl1e/authorize/options', [
             'entityAddress' => $entityAddress,
+            'clientId' => 'meanly.test',
+            'redirectUri' => 'https://meanly.test/simple-l1/callback',
+            'state' => 'continuity-state',
+            'nonce' => 'continuity-nonce',
         ]);
 
         $response->assertOk()
@@ -69,6 +76,10 @@ class IdentityGovernanceStreamAuthorizeContinuityGateTest extends TestCase
 
         $options = $this->postJson('/api/sl1e/authorize/options', [
             'entityAddress' => $entityAddress,
+            'clientId' => 'meanly.test',
+            'redirectUri' => 'https://meanly.test/simple-l1/callback',
+            'state' => 'continuity-state',
+            'nonce' => 'continuity-nonce',
         ])->assertOk();
 
         $flowId = (string) $options->json('flowId');
@@ -81,6 +92,10 @@ class IdentityGovernanceStreamAuthorizeContinuityGateTest extends TestCase
 
         $verify = $this->postJson('/api/sl1e/authorize/verify', [
             'flowId' => $flowId,
+            'clientId' => 'meanly.test',
+            'redirectUri' => 'https://meanly.test/simple-l1/callback',
+            'state' => 'continuity-state',
+            'nonce' => 'continuity-nonce',
             'authenticationResponse' => [
                 'id' => rtrim(strtr(base64_encode($rawCredentialId), '+/', '-_'), '='),
                 'rawId' => rtrim(strtr(base64_encode($rawCredentialId), '+/', '-_'), '='),

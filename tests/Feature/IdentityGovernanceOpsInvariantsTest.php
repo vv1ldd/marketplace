@@ -11,6 +11,7 @@ use App\Services\Identity\Governance\IdentityGovernanceStreamAppender;
 use App\Services\Identity\Governance\IdentityGovernanceStreamAssertionVerifier;
 use App\Services\Identity\Governance\IdentityGovernanceStreamAuthorizeService;
 use App\Services\Identity\Governance\IdentityGovernanceStreamWriter;
+use App\Services\Identity\Governance\Sl1eAuthorizeRequestContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -48,12 +49,14 @@ class IdentityGovernanceOpsInvariantsTest extends TestCase
         });
 
         $authorize = app(IdentityGovernanceStreamAuthorizeService::class);
-        $options = $authorize->issueAuthenticationOptions(self::STREAM);
+        $context = $this->authorizeContext();
+        $options = $authorize->issueAuthenticationOptions($context, self::STREAM);
 
         $eventsBefore = IdentityGovernanceStreamEvent::query()->where('stream_id', self::STREAM)->count();
         $headBefore = app(IdentityGovernanceStreamAppender::class)->headVersion(self::STREAM);
 
         $authorize->verifyAuthentication(
+            $context,
             $options['flowId'],
             [
                 'id' => 'dummy',
@@ -161,5 +164,18 @@ class IdentityGovernanceOpsInvariantsTest extends TestCase
                 'transports' => ['internal'],
             ],
         ]);
+    }
+
+    private function authorizeContext(): Sl1eAuthorizeRequestContext
+    {
+        return new Sl1eAuthorizeRequestContext(
+            clientId: 'meanly.test',
+            clientName: 'Meanly',
+            redirectUri: 'https://meanly.test/simple-l1/callback',
+            state: 'ops-state',
+            nonce: 'ops-nonce',
+            mode: 'login',
+            scope: 'openid sl1e',
+        );
     }
 }

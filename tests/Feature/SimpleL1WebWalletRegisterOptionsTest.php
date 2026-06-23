@@ -2,16 +2,19 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class SimpleL1WebWalletRegisterOptionsTest extends TestCase
 {
+    use RefreshDatabase;
     public function test_register_options_user_label_uses_username(): void
     {
         config([
             'simple_l1.runtime_url' => 'https://pass.simplelayer.one',
             'simple_l1.client_name' => 'Meanly',
+            'identity_governance.stream_authorize_enabled' => false,
         ]);
 
         Http::fake([
@@ -36,6 +39,8 @@ class SimpleL1WebWalletRegisterOptionsTest extends TestCase
             'clientId' => 'meanly.test',
             'clientName' => 'Meanly',
             'redirectUri' => 'https://meanly.test/simple-l1/callback',
+            'state' => 'register-state',
+            'nonce' => 'register-nonce',
             'mode' => 'register',
             'username' => 'seballos',
         ], [
@@ -53,6 +58,7 @@ class SimpleL1WebWalletRegisterOptionsTest extends TestCase
         config([
             'simple_l1.runtime_url' => 'https://pass.simplelayer.one',
             'simple_l1.client_name' => 'Meanly',
+            'identity_governance.stream_authorize_enabled' => false,
         ]);
 
         Http::fake(function ($request) {
@@ -86,6 +92,8 @@ class SimpleL1WebWalletRegisterOptionsTest extends TestCase
             'clientId' => 'meanly.test',
             'clientName' => 'Meanly',
             'redirectUri' => 'https://meanly.test/simple-l1/callback',
+            'state' => 'register-state',
+            'nonce' => 'register-nonce',
             'mode' => 'register',
         ], [
             'X-Forwarded-Host' => 'meanly.test',
@@ -96,5 +104,31 @@ class SimpleL1WebWalletRegisterOptionsTest extends TestCase
             ->assertJsonPath('options.user.name', 'Digital Safe')
             ->assertJsonPath('options.user.displayName', 'Meanly · Digital Safe')
             ->assertJsonMissingPath('username');
+    }
+
+    public function test_stream_register_options_user_label_uses_username(): void
+    {
+        config([
+            'simple_l1.client_name' => 'Meanly',
+            'identity_governance.stream_enabled' => true,
+            'identity_governance.stream_authorize_enabled' => true,
+        ]);
+
+        $response = $this->postJson('https://api.meanly.test/api/sl1e/authorize/register/options', [
+            'clientId' => 'meanly.test',
+            'clientName' => 'Meanly',
+            'redirectUri' => 'https://meanly.test/simple-l1/callback',
+            'state' => 'register-state',
+            'nonce' => 'register-nonce',
+            'mode' => 'register',
+            'username' => 'seballos',
+        ], [
+            'X-Forwarded-Host' => 'meanly.test',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('options.user.name', '@seballos')
+            ->assertJsonPath('options.user.displayName', 'Meanly · @seballos')
+            ->assertJsonPath('username', 'seballos');
     }
 }

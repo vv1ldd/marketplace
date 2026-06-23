@@ -12,6 +12,7 @@ use App\Services\Identity\Governance\IdentityGovernanceStreamAssertionVerifier;
 use App\Services\Identity\Governance\IdentityGovernanceStreamAuthorizeService;
 use App\Services\Identity\Governance\IdentityGovernanceStreamConcurrencyException;
 use App\Services\Identity\Governance\IdentityGovernanceStreamWriter;
+use App\Services\Identity\Governance\Sl1eAuthorizeRequestContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -67,10 +68,11 @@ class IdentityGovernanceChaosSoakGateTest extends TestCase
         });
 
         $authorize = app(IdentityGovernanceStreamAuthorizeService::class);
-        $options = $authorize->issueAuthenticationOptions(self::STREAM);
+        $context = $this->authorizeContext();
+        $options = $authorize->issueAuthenticationOptions($context, self::STREAM);
         $headBefore = $appender->headVersion(self::STREAM);
 
-        $authorize->verifyAuthentication($options['flowId'], [
+        $authorize->verifyAuthentication($context, $options['flowId'], [
             'id' => $options['options']['allowCredentials'][0]['id'],
             'rawId' => $options['options']['allowCredentials'][0]['id'],
             'type' => 'public-key',
@@ -203,5 +205,18 @@ class IdentityGovernanceChaosSoakGateTest extends TestCase
                 'transports' => ['internal'],
             ],
         ]);
+    }
+
+    private function authorizeContext(): Sl1eAuthorizeRequestContext
+    {
+        return new Sl1eAuthorizeRequestContext(
+            clientId: 'meanly.test',
+            clientName: 'Meanly',
+            redirectUri: 'https://meanly.test/simple-l1/callback',
+            state: 'chaos-state',
+            nonce: 'chaos-nonce',
+            mode: 'login',
+            scope: 'openid sl1e',
+        );
     }
 }

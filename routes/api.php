@@ -157,10 +157,14 @@ Route::prefix('storefront/v1')
         ->middleware('storefront.token:storefront:read');
 });
 
-if (config('identity_governance.stream_authorize_enabled')) {
-    Route::post('sl1e/authorize/options', [\App\Http\Controllers\IdentityGovernanceStreamAuthorizeController::class, 'options']);
-    Route::post('sl1e/authorize/verify', [\App\Http\Controllers\IdentityGovernanceStreamAuthorizeController::class, 'verify']);
-}
+Route::post('sl1e/authorize/options', [\App\Http\Controllers\Sl1eAuthorizeGatewayController::class, 'options']);
+Route::post('sl1e/authorize/verify', [\App\Http\Controllers\Sl1eAuthorizeGatewayController::class, 'verify']);
+Route::post('sl1e/authorize/register/options', [\App\Http\Controllers\Sl1eAuthorizeGatewayController::class, 'registerOptions']);
+Route::post('sl1e/authorize/register/verify', [\App\Http\Controllers\Sl1eAuthorizeGatewayController::class, 'registerVerify']);
+Route::post('sl1e/authorize/handoff', [\App\Http\Controllers\Sl1eAuthorizeGatewayController::class, 'handoff']);
+Route::get('sl1e/authorize/handoff/{handoffId}', [\App\Http\Controllers\Sl1eAuthorizeGatewayController::class, 'handoffStatus'])
+    ->where('handoffId', '[0-9a-f-]{36}');
+Route::post('sl1e/proofs/introspect', [\App\Http\Controllers\Sl1eAuthorizeGatewayController::class, 'introspect']);
 
 Route::any('sl1e/{path?}', [\App\Http\Controllers\SimpleL1WebWalletProxyController::class, 'sl1eApi'])
     ->where('path', '.*');
