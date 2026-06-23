@@ -15,6 +15,7 @@ import {
   walletConnectIntroKey,
   walletCoins,
   resolveDefaultProvisionNetworkKey,
+  hasPrimarySettlementBinding,
   resolvePolygonWalletEntry,
 } from '../lib/identity-wallets';
 import { buildBitcoinReceiveQrDataUrl, buildPolygonUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
@@ -595,6 +596,33 @@ export function VaultWalletContent({
   }, [model]);
 
   useEffect(() => {
+    if (!isVaultVariant || !autoProvisionOnVault || !managedWalletsEnabled || !onRefreshWallet || !model) {
+      return undefined;
+    }
+
+    if (hasPrimarySettlementBinding(model)) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      setRefreshingWallet(true);
+      try {
+        await onRefreshWallet();
+      } finally {
+        if (!cancelled) {
+          setRefreshingWallet(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoProvisionOnVault, isVaultVariant, managedWalletsEnabled, model, onRefreshWallet]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return undefined;
     }
@@ -941,8 +969,14 @@ export function VaultWalletContent({
   const hasWallet = Boolean(wallet && model);
   const showLoadingShell = isLoading || (isVaultOpen && !hasWallet && !error);
   const isVaultVariant = variant === 'vault';
-  const showSafeProvisioningShell = isVaultVariant && model && shouldShowSafeProvisioningShell(model, variant);
-  const showSafeDashboard = isVaultVariant && model && shouldShowSafeDashboard(model, variant);
+  const vaultShellOptions = useMemo(() => ({
+    autoProvisionOnVault,
+    managedWalletsEnabled,
+  }), [autoProvisionOnVault, managedWalletsEnabled]);
+  const showSafeProvisioningShell = isVaultVariant && model
+    && shouldShowSafeProvisioningShell(model, variant, vaultShellOptions);
+  const showSafeDashboard = isVaultVariant && model
+    && shouldShowSafeDashboard(model, variant, vaultShellOptions);
   const showBindingsSection = hasWallet && !isVaultVariant && (visibleWallets.length > 0 || futureWalletBindings.length > 0);
   const showDashboardNetworks = Boolean(model)
     && !isVaultVariant

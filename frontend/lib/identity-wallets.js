@@ -347,16 +347,20 @@ export function resolveDefaultProvisionNetworkKey(managedNetworkKeys) {
 }
 
 /**
- * Vault provisioning shell — always Safe-first when no primary settlement binding.
- * Create Safe is capability-gated; legacy connect stays behind "Connect existing".
+ * Vault provisioning shell — manual first instrument when auto-bootstrap is off.
  *
  * Feature matrix:
- *   no binding + managed off  → provisioning shell (identity-first, connect existing secondary)
- *   no binding + managed on   → provisioning shell (Create first instrument)
- *   binding exists            → dashboard (managed or external)
+ *   no binding + managed off     → provisioning shell
+ *   no binding + managed on      → provisioning shell (legacy)
+ *   no binding + auto-bootstrap  → skip (dashboard loads, server provisions)
+ *   binding exists               → dashboard
  */
-export function shouldShowSafeProvisioningShell(model, variant = 'wallet') {
+export function shouldShowSafeProvisioningShell(model, variant = 'wallet', options = {}) {
   if (variant !== 'vault' || !model) {
+    return false;
+  }
+
+  if (options.autoProvisionOnVault === true && options.managedWalletsEnabled === true) {
     return false;
   }
 
@@ -364,14 +368,20 @@ export function shouldShowSafeProvisioningShell(model, variant = 'wallet') {
 }
 
 /** @deprecated alias */
-export function shouldShowSafeWelcome(model, variant = 'wallet') {
-  return shouldShowSafeProvisioningShell(model, variant);
+export function shouldShowSafeWelcome(model, variant = 'wallet', options = {}) {
+  return shouldShowSafeProvisioningShell(model, variant, options);
 }
 
-export function shouldShowSafeDashboard(model, variant = 'wallet') {
-  return variant === 'vault'
-    && Boolean(model)
-    && hasPrimarySettlementBinding(model);
+export function shouldShowSafeDashboard(model, variant = 'wallet', options = {}) {
+  if (variant !== 'vault' || !model) {
+    return false;
+  }
+
+  if (options.autoProvisionOnVault === true && options.managedWalletsEnabled === true) {
+    return true;
+  }
+
+  return hasPrimarySettlementBinding(model);
 }
 
 export function resolveConnectedBitcoinWallet(wallets = []) {
