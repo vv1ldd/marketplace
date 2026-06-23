@@ -18,16 +18,99 @@ DNS: all public hostnames → VPS public IP (or Cloudflare proxied A records).
 
 ## Step 1 — Sovereign Coolify + Simple L1
 
+### One curl + reboot (LUKS via kexec autoinstall)
+
+On a **plain** Selectel/cloud image (no rescue toggle):
+
+```bash
+umask 077
+printf '%s' 'YOUR_LONG_PASSPHRASE' > /root/.sovereign-luks-passphrase
+
+export SOVEREIGN_DISK_ENCRYPT=auto
+export SOVEREIGN_LUKS_PASSPHRASE_FILE=/root/.sovereign-luks-passphrase
+export SOVEREIGN_ASSUME_YES=true
+export SOVEREIGN_AUTOCONVERGE_AFTER_ENCRYPT=true
+export SOVEREIGN_RUNTIME_CONVERGE_OWNER=true
+export SOVEREIGN_HOST_DOMAIN=ops.meanly.one
+export SIMPLE_L1_DOMAIN=identity.meanly.one
+export SIMPLE_L1_ISSUER_URL=https://identity.meanly.one/sl1
+export SL1_CONNECT_ISSUER=https://identity.meanly.one
+export SL1_CONNECT_CLIENT_ID=meanly.ops
+export SIMPLE_L1_PUBLIC_IP='YOUR_VPS_IP'
+
+git clone --depth 1 -b sovereign https://github.com/vv1ldd/coolify.git /tmp/coolify-sovereign
+bash /tmp/coolify-sovereign/scripts/install-sovereign.sh
+```
+
+What happens:
+
+1. Script downloads Ubuntu netboot, embeds autoinstall (LUKS LVM) + your SSH key.
+2. **kexec** — machine reboots into installer (SSH drops).
+3. Installer wipes disk, installs encrypted Ubuntu, reboots.
+4. **Provider console** — enter LUKS passphrase if prompted (often once).
+5. SSH back — `sovereign-firstboot` runs Coolify converge automatically.
+
+### Optional: LUKS via rescue (manual provider toggle)
+
+```bash
+umask 077
+printf '%s' 'YOUR_LONG_PASSPHRASE' > /root/.sovereign-luks-passphrase
+
+export SOVEREIGN_DISK_ENCRYPT=true
+export SOVEREIGN_RESCUE_PREPARE=true
+export SOVEREIGN_LUKS_PASSPHRASE_FILE=/root/.sovereign-luks-passphrase
+export SOVEREIGN_ASSUME_YES=true
+export SOVEREIGN_RUNTIME_CONVERGE_OWNER=true
+
+git clone --depth 1 -b sovereign https://github.com/vv1ldd/coolify.git /tmp/coolify-sovereign
+bash /tmp/coolify-sovereign/scripts/install-sovereign.sh
+```
+
+3. Reboot → **provider console** → LUKS passphrase → SSH.
+4. Normal install (encrypted root, no rescue flag):
+
+```bash
+export SOVEREIGN_DISK_ENCRYPT=true
+export SOVEREIGN_RUNTIME_CONVERGE_OWNER=true
+export SOVEREIGN_ASSUME_YES=true
+export SOVEREIGN_HOST_DOMAIN=ops.meanly.one
+export SIMPLE_L1_DOMAIN=identity.meanly.one
+export SIMPLE_L1_ISSUER_URL=https://identity.meanly.one/sl1
+export SL1_CONNECT_ISSUER=https://identity.meanly.one
+export SL1_CONNECT_CLIENT_ID=meanly.ops
+export SIMPLE_L1_PUBLIC_IP='YOUR_VPS_IP'
+
+git clone --depth 1 -b sovereign https://github.com/vv1ldd/coolify.git /tmp/coolify-sovereign
+bash /tmp/coolify-sovereign/scripts/install-sovereign.sh
+```
+
+Scripts: `vv1ldd/coolify` → `scripts/sovereign-disk/` (wired into `scripts/install-sovereign.sh`).
+
+### Standard install (no LUKS)
+
 On a fresh Linux VPS (as root):
 
 ```bash
+export SOVEREIGN_RUNTIME_CONVERGE_OWNER=true
+export SOVEREIGN_ASSUME_YES=true
+export SOVEREIGN_DISK_ENCRYPT=false
 export SOVEREIGN_HOST_DOMAIN=ops.meanly.one
-export SOVEREIGN_IDENTITY_DOMAIN=identity.meanly.one
-export SOVEREIGN_APP_SCHEME=https
-export SIMPLE_L1_CLOUDFLARE_API_TOKEN='...'   # optional, for DNS steering
-export SIMPLE_L1_PUBLIC_IP='YOUR_VPS_IP'
+export SIMPLE_L1_DOMAIN=identity.meanly.one
+export SIMPLE_L1_ISSUER_URL=https://identity.meanly.one/sl1
+export SL1_CONNECT_ISSUER=https://identity.meanly.one
 export SL1_CONNECT_CLIENT_ID=meanly.ops
-curl -fsSL https://raw.githubusercontent.com/vv1ldd/coolify/sovereign/scripts/install-sovereign.sh | bash
+export SIMPLE_L1_PUBLIC_IP='YOUR_VPS_IP'
+
+git clone --depth 1 -b sovereign https://github.com/vv1ldd/coolify.git /tmp/coolify-sovereign
+bash /tmp/coolify-sovereign/scripts/install-sovereign.sh
+```
+
+Or raw curl (disk scripts downloaded on demand when `SOVEREIGN_DISK_ENCRYPT` is set):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vv1ldd/coolify/sovereign/scripts/bootstrap-sovereign-from-git.sh \
+  -o /tmp/bootstrap-sovereign-from-git.sh
+bash /tmp/bootstrap-sovereign-from-git.sh
 ```
 
 After install:
