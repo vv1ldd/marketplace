@@ -209,12 +209,12 @@ export function WalletAuthorizePanel({
     () => buildSl1eAuthorizePayload({
       mode: 'register',
       ...(usernameReady ? { username: usernameValidity.normalized } : {}),
-    }),
-    [usernameReady, usernameValidity.normalized, paramsKey],
+    }, searchParams),
+    [searchParams, usernameReady, usernameValidity.normalized, paramsKey],
   );
   const loginParams = useMemo(
-    () => buildSl1eAuthorizePayload({ mode: 'login' }),
-    [paramsKey],
+    () => buildSl1eAuthorizePayload({ mode: 'login' }, searchParams),
+    [searchParams, paramsKey],
   );
   const viewKey = showHandoff && handoff
     ? 'handoff'

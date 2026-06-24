@@ -3,7 +3,11 @@ function resolveAuthorizeSearchParams(searchParams) {
     return new URLSearchParams(window.location.search);
   }
 
-  return searchParams;
+  if (searchParams && typeof searchParams.get === 'function') {
+    return searchParams;
+  }
+
+  return new URLSearchParams();
 }
 
 export function buildAuthorizeParams(searchParams) {
@@ -53,8 +57,8 @@ export function buildAuthorizeParamsFromRedirect(redirectUrl, origin = typeof wi
   return buildAuthorizeParams(url.searchParams);
 }
 
-export function buildSl1eAuthorizePayload(extra = {}) {
-  const oauth = buildAuthorizeParams();
+export function buildSl1eAuthorizePayload(extra = {}, searchParams = null) {
+  const oauth = buildAuthorizeParams(searchParams);
 
   return {
     ...oauth,
