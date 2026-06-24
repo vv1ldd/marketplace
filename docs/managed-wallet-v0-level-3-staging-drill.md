@@ -3,7 +3,7 @@
 Operational runbook only. This document is **not** a new layer of truth — it describes how to
 prove managed wallet provisioning in a real environment.
 
-**Architecture (read first):** [ADR 0026: Settlement Instrument Sovereignty](adr/0026-settlement-instrument-sovereignty.md) — managed wallet v0 is the **first implementation** of a settlement instrument (`custody_mode: managed`, `signing_surface: server`), not the architecture itself. The durable subject remains `sl1e_`; instruments are replaceable attachments.
+**Architecture (read first):** [ADR 0026](adr/0026-settlement-instrument-sovereignty.md) and [ADR 0027](adr/0027-identity-attachments-and-provider-ownership.md) — managed wallet v0 implements **provider-owned instruments** attached to `sl1e_`, not protocol custody on simplelayer.one.
 
 **CI companion (Level 2):** `tests/Feature/ManagedWalletAttachmentOperationalDrillTest.php`  
 **Identity companion (Level 1):** `tests/Feature/StorefrontManagedWalletProvisioningTest.php`  

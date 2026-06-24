@@ -433,4 +433,7 @@ Settlement graph  →  How does value move?
 Wallet is not a primary object.
 Binding is a settlement capability.
 Keys are implementation detail.
+
+See also [ADR 0027](0027-identity-attachments-and-provider-ownership.md) — identity
+owns attachments; providers own instruments.
 ```
