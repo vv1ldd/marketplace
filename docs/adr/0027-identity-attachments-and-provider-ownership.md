@@ -178,7 +178,7 @@ identity layer from absorbing provider implementation.
 | Vault owns managed keys + adapters | **Achieved** — marketplace |
 | IdentityBinding as attachment | **Achieved** — `binding_source`, metadata |
 | Protocol identity summary without fake chains | **In progress** — simple-l1 `#identity` |
-| Provider `summary()` for protocol aggregator | **Open** — HTTP bridge from SL1 to Vault |
+| Provider `summary()` for protocol aggregator | **Specified** — [Provider Interface v0](../spec/provider-interface-v0.md); implementation Phase 2–3 |
 | Multi-provider registry | **Not started** |
 
 ## Consequences
@@ -190,6 +190,10 @@ identity layer from absorbing provider implementation.
   schema fields.
 - UI copy on protocol domains SHOULD prefer **Identity** over **Wallet** where
   custody is not implied.
+
+## Related specifications
+
+- [Provider Interface v0](../spec/provider-interface-v0.md) — registry, attachment, thin summary, link sequence (normative for API Phase 2+)
 
 ## Summary
 
