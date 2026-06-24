@@ -2,6 +2,7 @@
 
 namespace App\Services\Identity\Governance;
 
+use App\Support\StorefrontRegionalSl1e;
 use App\Support\StorefrontRequestHost;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -52,10 +53,13 @@ final class Sl1eAuthorizeRequestContext
         self::mergeQueryParameters($request, $data);
         self::hydrateFromConnectState($data);
 
+        $requestHost = self::resolveRequestHost($request, $data);
+        $regional = StorefrontRegionalSl1e::forHost($requestHost);
+
         $clientId = trim((string) (
             $data['clientId']
             ?? $data['client_id']
-            ?? config('simple_l1.client_id', 'meanly.one')
+            ?? $regional->clientId
         ));
         $redirectUri = trim((string) ($data['redirectUri'] ?? $data['redirect_uri'] ?? ''));
         $state = trim((string) ($data['state'] ?? ''));
@@ -66,6 +70,11 @@ final class Sl1eAuthorizeRequestContext
         abort_if($redirectUri === '', 422, 'redirectUri is required.');
         abort_if($state === '', 422, 'state is required.');
         abort_if($nonce === '', 422, 'nonce is required.');
+
+        if ($requestHost !== null) {
+            $clientId = $regional->clientId;
+            $regional->assertMatchesRedirectUri($redirectUri);
+        }
 
         $username = \App\Models\User::normalizeUsername(
             $data['username']
@@ -79,7 +88,7 @@ final class Sl1eAuthorizeRequestContext
             clientName: trim((string) (
                 $data['clientName']
                 ?? $data['client_name']
-                ?? config('simple_l1.client_name', 'Meanly')
+                ?? $regional->clientName
             )),
             redirectUri: $redirectUri,
             state: $state,
@@ -89,7 +98,7 @@ final class Sl1eAuthorizeRequestContext
             handoffId: self::nullableTrim($data['handoffId'] ?? $data['handoff_id'] ?? null),
             handoffToken: self::nullableTrim($data['handoffToken'] ?? $data['handoff_token'] ?? null),
             username: $username,
-            requestHost: self::resolveRequestHost($request, $data),
+            requestHost: $requestHost,
         );
     }
 

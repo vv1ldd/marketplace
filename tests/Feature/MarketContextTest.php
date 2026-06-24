@@ -366,13 +366,22 @@ class MarketContextTest extends TestCase
             rawurlencode('https://meanly.ru/simple-l1/callback'),
             (string) $response->json('redirect_url')
         );
+        $this->assertStringContainsString(
+            'client_id=meanly.ru',
+            (string) $response->json('redirect_url')
+        );
         $this->assertStringNotContainsString(
             rawurlencode('https://meanly.one/simple-l1/callback'),
+            (string) $response->json('redirect_url')
+        );
+        $this->assertStringNotContainsString(
+            'client_id=meanly.one',
             (string) $response->json('redirect_url')
         );
         $this->assertSame(
             'https://meanly.ru/simple-l1/callback?popup=1',
             session('simple_l1_connect.redirect_uri')
         );
+        $this->assertSame('meanly.ru', session('simple_l1_connect.client_id'));
     }
 }

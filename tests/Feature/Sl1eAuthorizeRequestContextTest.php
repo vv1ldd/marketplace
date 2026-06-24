@@ -48,8 +48,8 @@ class Sl1eAuthorizeRequestContextTest extends TestCase
         ]);
 
         $response = $this->postJson('https://api.meanly.test/api/sl1e/authorize/options', [
-            'clientId' => 'meanly.one',
-            'redirectUri' => 'https://meanly.one/simple-l1/callback?popup=1',
+            'clientId' => 'meanly.ru',
+            'redirectUri' => 'https://meanly.ru/simple-l1/callback?popup=1',
             'state' => 'rp-id-state',
             'nonce' => 'rp-id-nonce',
             'mode' => 'login',
@@ -60,5 +60,24 @@ class Sl1eAuthorizeRequestContextTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('options.rpId', 'meanly.ru');
+    }
+
+    public function test_authorize_rejects_cross_region_redirect_uri(): void
+    {
+        config([
+            'identity_governance.stream_enabled' => true,
+            'identity_governance.stream_authorize_enabled' => true,
+        ]);
+
+        $this->postJson('https://api.meanly.test/api/sl1e/authorize/options', [
+            'clientId' => 'meanly.one',
+            'redirectUri' => 'https://meanly.one/simple-l1/callback?popup=1',
+            'state' => 'cross-region-state',
+            'nonce' => 'cross-region-nonce',
+            'mode' => 'login',
+            'requestHost' => 'meanly.ru',
+        ], [
+            'X-Forwarded-Host' => 'meanly.ru',
+        ])->assertStatus(422);
     }
 }

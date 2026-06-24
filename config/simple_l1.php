@@ -9,6 +9,18 @@ return [
     'proof_introspection_path' => env('SIMPLE_L1_PROOF_INTROSPECTION_PATH', '/api/sl1e/proofs/introspect'),
     'client_id' => env('SIMPLE_L1_CLIENT_ID', env('APP_DOMAIN', 'meanly.one')),
     'client_name' => env('SIMPLE_L1_CLIENT_NAME', 'Meanly One'),
+    'market_canonical_hosts' => [
+        'global' => env('SIMPLE_L1_GLOBAL_CLIENT_HOST', 'meanly.one'),
+        'ru' => env('SIMPLE_L1_RU_CLIENT_HOST', 'meanly.ru'),
+        'latam_ar' => env('SIMPLE_L1_LATAM_CLIENT_HOST', 'meanly.ar'),
+        'ge' => env('SIMPLE_L1_GE_CLIENT_HOST', 'tsipruli.ge'),
+    ],
+    'market_client_names' => [
+        'global' => env('SIMPLE_L1_GLOBAL_CLIENT_NAME', 'Meanly One'),
+        'ru' => env('SIMPLE_L1_RU_CLIENT_NAME', 'Meanly'),
+        'latam_ar' => env('SIMPLE_L1_LATAM_CLIENT_NAME', 'Meanly'),
+        'ge' => env('SIMPLE_L1_GE_CLIENT_NAME', 'Meanly'),
+    ],
     'ui_theme' => env('SIMPLE_L1_UI_THEME', 'neobrutalism'),
     'prefer_native_deep_link' => env('SIMPLE_L1_PREFER_NATIVE_DEEP_LINK', false),
     'native_deep_link_scheme' => env('SIMPLE_L1_NATIVE_DEEP_LINK_SCHEME', 'simplel1'),

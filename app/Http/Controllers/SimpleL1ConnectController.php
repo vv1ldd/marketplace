@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\StorefrontRegionalSl1e;
 use App\Support\StorefrontSl1Theme;
 use App\Models\User;
 use App\Services\IntentLedgerService;
@@ -1488,7 +1489,7 @@ class SimpleL1ConnectController extends Controller
             return config('simple_l1.client_id');
         }
 
-        return config('simple_l1.client_id', $request->getHost());
+        return StorefrontRegionalSl1e::forRequest($request)->clientId;
     }
 
     /**

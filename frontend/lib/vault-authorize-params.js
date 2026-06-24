@@ -21,7 +21,8 @@ export function buildAuthorizeParams(searchParams) {
   };
 
   return {
-    clientId: pick('client_id', 'clientId') || 'unknown-client',
+    clientId: pick('client_id', 'clientId')
+      || (typeof window !== 'undefined' ? window.location.hostname.replace(/^www\./, '') : 'unknown-client'),
     clientName: pick('client_name', 'clientName'),
     uiTheme: pick('ui_theme', 'uiTheme'),
     redirectUri: pick('redirect_uri', 'redirectUri'),

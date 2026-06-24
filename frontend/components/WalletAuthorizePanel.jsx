@@ -101,6 +101,14 @@ function vaultErrorLabel(exception, fallback = 'Could not open Vault.') {
     return 'This unlock request expired. Open Vault again.';
   }
 
+  if (lower.includes('credential not found in identity stream projection')) {
+    return 'This device key is not linked to a Safe here. Create a new Safe on this storefront.';
+  }
+
+  if (lower.includes('identity flow must stay on the same storefront region')) {
+    return 'This unlock link belongs to another storefront region. Open Vault again from this site.';
+  }
+
   return message;
 }
 
@@ -417,6 +425,16 @@ export function WalletAuthorizePanel({
 
       followRedirect(verified.redirectUrl);
     } catch (exception) {
+      const message = String(exception?.message || '').toLowerCase();
+      if (message.includes('credential not found in identity stream projection')) {
+        forgetVaultHint();
+        setHintAddress('');
+        setError(vaultErrorLabel(exception));
+        setStatus('');
+        setBusy(false);
+        return;
+      }
+
       setError(vaultErrorLabel(exception));
       setStatus('');
       setBusy(false);
