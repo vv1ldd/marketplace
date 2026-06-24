@@ -16,6 +16,77 @@ Mac dev stays on `scripts/dev-tunnel.sh` — not on the Coolify installer.
 
 DNS: all public hostnames → VPS public IP (or Cloudflare proxied A records).
 
+## ADR-0028 identity rollout gate
+
+ADR-0028 fixes the production identity trust topology:
+
+```text
+pass.meanly.one             = issuer endpoint
+connect.identity.meanly.one = ceremony origin
+identity.meanly.one         = RP boundary
+```
+
+Current live rollout state on `lena`:
+
+```text
+pass.meanly.one                 online, DNS-only, healthcheck green
+connect.identity.meanly.one     online, DNS-only, healthcheck green
+identity.meanly.one             online, DNS-only, healthcheck green
+connect.identity.meanly.one     /api/sl1e/connect/status -> rp_id identity.meanly.one
+```
+
+The browser authorize flow MUST redirect from issuer to ceremony before any
+production registration:
+
+```text
+POST https://pass.meanly.one/api/sl1e/authorize/requests
+  -> authorize_url=https://pass.meanly.one/r/...
+
+GET https://pass.meanly.one/r/...
+  -> 302 https://connect.identity.meanly.one/r/...
+
+GET https://connect.identity.meanly.one/r/...
+  -> WebAuthn ceremony with rp_id identity.meanly.one
+```
+
+Registration cutover is blocked until the ADR-0028 runtime behavior is merged
+into the `simple-l1` source tree / official image. The live `lena` runtime now
+runs an upstream-built image tagged:
+
+```text
+ghcr.io/vv1ldd/simple-l1:lena-local
+```
+
+built from `vv1ldd/simple-l1@f1a0001` with:
+
+```env
+SL1_ISSUER_CEREMONY_MAP=pass.meanly.one=connect.identity.meanly.one
+```
+
+Rollback image kept on `lena`:
+
+```text
+ghcr.io/vv1ldd/simple-l1:lena-local-pre-adr0028-20260624215037
+```
+
+Do not run production registrations from `pass.meanly.one` after a rebuild,
+upgrade, or `docker pull` unless the following remains true:
+
+```env
+SL1_ISSUER_CEREMONY_MAP=pass.meanly.one=connect.identity.meanly.one
+```
+
+```bash
+curl -fsS https://connect.identity.meanly.one/api/sl1e/connect/status | jq .rp_id
+# "identity.meanly.one"
+
+curl -sSI https://pass.meanly.one/r/notfound | grep -i '^location:'
+# location: https://connect.identity.meanly.one/r/notfound
+```
+
+Phase 2 (registration cutover) starts only after the deployed image is built
+from upstream `simple-l1` and the verification curls below pass.
+
 ## Step 1 — Sovereign Coolify + Simple L1
 
 ### One curl + reboot (LUKS via kexec autoinstall)
