@@ -1,8 +1,12 @@
 # Provider Interface v0
 
-**Status:** Draft — normative for Phase 2+ implementation  
+**Status:** Accepted — normative for Phase 2+ implementation  
 **Version:** `provider-interface.v0`  
 **Architecture:** [ADR 0027: Identity Attachments and Provider Ownership](../adr/0027-identity-attachments-and-provider-ownership.md)
+
+Phase 1 (this document) is **closed**. Do not extend the interface beyond what
+is defined here until a **second real provider** is integrated — then revise the
+spec deliberately, not ad hoc in API handlers.
 
 ## Purpose
 
@@ -76,10 +80,38 @@ The registry answers: **which providers can be linked?** It does not answer
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `provider_id` | yes | Stable id (`<vendor>.<product>`), lowercase, dotted |
+| `provider_id` | yes | Stable id; see [§1.1 `provider_id` format](#11-provider_id-format) |
 | `label` | yes | Human-readable name for identity UI |
 | `link_url` | yes | Where the user starts link or opens the provider app |
 | `status` | yes | `available` \| `unavailable` \| `deprecated` |
+
+### 1.1 `provider_id` format
+
+`provider_id` MUST use dotted namespace form:
+
+```text
+<namespace>.<provider>
+```
+
+| Rule | Requirement |
+|------|-------------|
+| Shape | Exactly one dot separating namespace and provider slug |
+| Case | Lowercase ASCII only |
+| Charset | `[a-z0-9]` and single `.` between segments |
+| Stability | Immutable once published; deprecate via `status`, do not rename |
+| Forbidden | UUIDs, bare hostnames, free-form strings, version suffixes (`meanly.vault.v2`) |
+
+Examples:
+
+```text
+meanly.vault
+coinbase.wallet
+wise.account
+stripe.treasury
+```
+
+Rationale: attachment logs, link callbacks, and registry entries stay human-
+readable years later. Opaque ids belong in `attachment_id`, not `provider_id`.
 
 ### Forbidden in registry (v0)
 
@@ -166,6 +198,12 @@ The identity layer MUST NOT store settlement identifiers on the attachment.
 Provider-side `IdentityBinding` rows map to attachments internally; that mapping
 is **provider implementation**, not protocol schema.
 
+**Design note:** Attachments intentionally omit `instrument_id`. If identity
+stored `instrument_id` (e.g. `polygon-usdc`), it would imply knowledge of
+provider internals and invite custody questions (multiple instruments, replacement,
+instrument state on the identity node). The clean boundary is: identity knows
+**that** a provider is linked; the provider knows **what** instruments exist.
+
 ### Identity operations (v0)
 
 | Operation | Owner | Description |
@@ -199,8 +237,15 @@ opens it.
   "attachment_id": "att_01HXYZ…",
   "status": "active",
   "instrument_count": 3,
-  "display_balance": "USDC 120.40 + 2 more"
+  "display_balance": "$1,247.32"
 }
+```
+
+Alternate advisory forms (equally valid):
+
+```json
+{ "display_balance": "3 instruments" }
+{ "display_balance": "USDC 120.40 + 2 more" }
 ```
 
 | Field | Required | Description |
@@ -209,7 +254,26 @@ opens it.
 | `attachment_id` | yes | Links summary to attachment |
 | `status` | yes | Mirrors attachment or provider-reported health |
 | `instrument_count` | yes | Non-negative integer; provider-defined what counts as an instrument |
-| `display_balance` | no | Opaque human string for dashboard; not parseable by protocol |
+| `display_balance` | no | Advisory UI metadata; see below |
+
+### `display_balance` (advisory only)
+
+`display_balance` is **decorative headline text** for the identity dashboard so
+users get a glanceable hint without opening the provider. It keeps the identity
+surface useful as an overview screen.
+
+**Normative rules:**
+
+- `display_balance` is **advisory UI metadata** for human display.
+- It **MUST NOT** be used for accounting, settlement, routing, or eligibility
+  decisions.
+- It **MUST NOT** be parsed, summed, or compared programmatically by the
+  identity layer or protocol clients (treat as opaque string).
+- It is **not** a protocol fact — providers MAY change formatting freely.
+
+Without `display_balance`, users with `instrument_count: 3` almost always tap
+**Open** only to learn whether money exists. With it, the dashboard remains
+informative while custody detail stays in the provider.
 
 ### Forbidden in summary (v0)
 
@@ -376,18 +440,43 @@ simple-l1 registry code paths.
 
 | Anti-pattern | Why |
 |--------------|-----|
+| **Identity-owned balances (non-SL)** | See §7.1 — primary custody leak |
 | `supports_*` in registry | Settlement leakage into identity |
-| BTC/ETH in identity `balances` | Implies protocol custody |
+| `instrument_id` on attachment | Identity learns provider instrument graph |
 | `recommended_providers` in protocol API | Protocol becomes provider marketplace |
 | Full instrument list in identity summary | Vault UI duplicated in simple-l1 |
 | `sendTransaction` on identity API | Execution belongs to provider |
 | Hard-coded Meanly branches in simple-l1 | Use `provider_id` + registry |
+| UUID or opaque `provider_id` | Breaks log readability and registry stability |
+
+### 7.1 Identity-owned balances (non-SL)
+
+**Forbidden** on `GET /api/identity/summary` and any identity-layer response:
+
+```json
+{
+  "balances": [
+    { "asset": "SL", "amount": "1000.00" },
+    { "asset": "BTC", "amount": "0.05" },
+    { "asset": "USDC", "amount": "120.40" }
+  ]
+}
+```
+
+The **only** protocol-native balance field on the identity summary is `native`
+(SL on the SL1 ledger). BTC, ETH, USDC, fiat, and all provider instruments
+MUST appear only via `linked_providers[].summary` (advisory headline) or inside
+the provider application — never as identity-owned `balances[]`.
+
+This blocks the recurring “for convenience, proxy BTC/USDC into identity/summary”
+path that ADR-0027 exists to close. Code review SHOULD reject any PR that
+reintroduces multi-asset `balances` or `external_projection` on the protocol node.
 
 ---
 
 ## 8. Acceptance criteria (v0 complete)
 
-- [ ] Spec approved (this document)
+- [x] Spec approved (this document — Phase 1)
 - [ ] Phase 2: `/api/identity/summary` matches §5
 - [ ] Phase 2: UI reads `available_providers` + `linked_providers` only
 - [ ] Phase 3: Link flow creates attachment with audience-bound proof
