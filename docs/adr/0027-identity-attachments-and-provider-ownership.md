@@ -194,6 +194,7 @@ identity layer from absorbing provider implementation.
 ## Related specifications
 
 - [Provider Interface v0](../spec/provider-interface-v0.md) — registry, attachment, thin summary, link sequence (normative for API Phase 2+)
+- [Provider / Storefront Independence Drills](../evidence/provider-interface-independence-drills.md) — backlog acceptance before Interface v1 (non-normative)
 
 ## Summary
 

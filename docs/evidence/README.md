@@ -11,6 +11,10 @@ Fillable artifacts produced **after** staging drills — not design docs.
 | v3a ResolveRecipient contract | implemented + tested |
 | v3a ResolveRecipient evidence | **pending** — [template](./multi-rail-level-3-v3a-TEMPLATE.md) |
 | v3b Payment / routing / accounting | not started |
+| Provider Independence Drill | backlog — [playbook](./provider-interface-independence-drills.md) |
+| Storefront Independence Drill | backlog — [playbook](./provider-interface-independence-drills.md) |
+
+Gate for **Provider Interface v1** (after Phase 3 link/unlink): both independence drills PASS without identity schema changes.
 
 **v3a four invariants:** `identity_id` stable · existing `binding_id` stable · new binding additive · not address lookup.
 

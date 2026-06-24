@@ -490,3 +490,4 @@ reintroduces multi-asset `balances` or `external_projection` on the protocol nod
 - [ADR 0026: Settlement Instrument Sovereignty](../adr/0026-settlement-instrument-sovereignty.md)
 - [ADR 0027: Identity Attachments and Provider Ownership](../adr/0027-identity-attachments-and-provider-ownership.md)
 - Marketplace implementation: `StorefrontWalletService`, `ManagedWalletProvisioner`, settlement adapters (provider side only)
+- [Provider / Storefront Independence Drills](../evidence/provider-interface-independence-drills.md) — backlog acceptance (pre–v1, non-normative)

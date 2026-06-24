@@ -8,7 +8,8 @@ prove managed wallet provisioning in a real environment.
 **CI companion (Level 2):** `tests/Feature/ManagedWalletAttachmentOperationalDrillTest.php`  
 **Identity companion (Level 1):** `tests/Feature/StorefrontManagedWalletProvisioningTest.php`  
 **Execution sheet:** [`managed-wallet-v0-level-3-execution-sheet.md`](managed-wallet-v0-level-3-execution-sheet.md) — action → observable fact → PASS/FAIL  
-**Evidence artifact:** [`docs/evidence/level-3-run-playbook.md`](docs/evidence/level-3-run-playbook.md) (operator scenario) · copy [`docs/evidence/level-3-run-TEMPLATE.md`](docs/evidence/level-3-run-TEMPLATE.md) → `docs/evidence/level-3-run-YYYY-MM-DD.md` · capture: `scripts/level3-evidence-capture.sh`
+**Evidence artifact:** [`docs/evidence/level-3-run-playbook.md`](docs/evidence/level-3-run-playbook.md) (operator scenario) · copy [`docs/evidence/level-3-run-TEMPLATE.md`](docs/evidence/level-3-run-TEMPLATE.md) → `docs/evidence/level-3-run-YYYY-MM-DD.md` · capture: `scripts/level3-evidence-capture.sh`  
+**Post–Phase 3 backlog:** [Provider / Storefront Independence Drills](docs/evidence/provider-interface-independence-drills.md) — gate before Provider Interface v1 (not normative)
 
 ## Current status
 
