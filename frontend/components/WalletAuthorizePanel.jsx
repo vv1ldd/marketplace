@@ -7,7 +7,7 @@ import { ensureHandoffQrDataUrl } from '../lib/handoff-qr';
 import { useLocale } from './LocaleProvider';
 import { IdentityStateStage, IdentityStatusSlot } from './IdentityStateStage';
 import { VaultKeyIcon, VaultPhoneIcon, VaultShieldIcon } from './IdentityVaultIcons';
-import { buildAuthorizeParams } from '../lib/vault-authorize-params';
+import { buildAuthorizeParams, buildSl1eAuthorizePayload } from '../lib/vault-authorize-params';
 import { VaultUsernameField } from './VaultUsernameField';
 
 const SCRIPT_SRC = 'https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js';
@@ -202,16 +202,15 @@ export function WalletAuthorizePanel({
   const isRegister = forceRegister || authorizeParams.mode === 'register';
   const usernameReady = usernameValidity.status === 'available' && Boolean(usernameValidity.normalized);
   const registerParams = useMemo(
-    () => ({
-      ...authorizeParams,
+    () => buildSl1eAuthorizePayload({
       mode: 'register',
       ...(usernameReady ? { username: usernameValidity.normalized } : {}),
     }),
-    [authorizeParams, usernameReady, usernameValidity.normalized],
+    [usernameReady, usernameValidity.normalized, paramsKey],
   );
   const loginParams = useMemo(
-    () => ({ ...authorizeParams, mode: 'login' }),
-    [authorizeParams],
+    () => buildSl1eAuthorizePayload({ mode: 'login' }),
+    [paramsKey],
   );
   const viewKey = showHandoff && handoff
     ? 'handoff'

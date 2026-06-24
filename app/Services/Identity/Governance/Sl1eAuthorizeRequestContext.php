@@ -61,7 +61,7 @@ final class Sl1eAuthorizeRequestContext
             ?? $data['client_id']
             ?? $regional->clientId
         ));
-        $redirectUri = trim((string) ($data['redirectUri'] ?? $data['redirect_uri'] ?? ''));
+        $redirectUri = self::resolveRedirectUri($data, $requestHost, $regional);
         $state = trim((string) ($data['state'] ?? ''));
         $nonce = trim((string) ($data['nonce'] ?? ''));
         $mode = strtolower(trim((string) ($data['mode'] ?? 'login'))) === 'register' ? 'register' : 'login';
@@ -152,13 +152,8 @@ final class Sl1eAuthorizeRequestContext
      */
     private static function hydrateFromConnectState(array &$data): void
     {
-        $state = trim((string) ($data['state'] ?? ''));
-        if ($state === '') {
-            return;
-        }
-
-        $cached = Cache::get('simple_l1:connect_state:'.hash('sha256', $state));
-        if (! is_array($cached)) {
+        $cached = self::connectStateForData($data);
+        if ($cached === []) {
             return;
         }
 
@@ -200,5 +195,52 @@ final class Sl1eAuthorizeRequestContext
         $value = trim((string) $value);
 
         return $value !== '' ? $value : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private static function resolveRedirectUri(
+        array $data,
+        ?string $requestHost,
+        StorefrontRegionalSl1e $regional,
+    ): string {
+        $redirectUri = trim((string) ($data['redirectUri'] ?? $data['redirect_uri'] ?? ''));
+        if ($redirectUri !== '') {
+            return $redirectUri;
+        }
+
+        $cached = self::connectStateForData($data);
+        $cachedRedirect = trim((string) ($cached['redirect_uri'] ?? ''));
+        if ($cachedRedirect !== '') {
+            return $cachedRedirect;
+        }
+
+        if ($requestHost === null) {
+            return '';
+        }
+
+        $redirectUri = 'https://'.$regional->storefrontHost.route('meanly.simple_l1.callback', [], false);
+        if ((bool) ($cached['popup'] ?? false)) {
+            $redirectUri .= (str_contains($redirectUri, '?') ? '&' : '?').'popup=1';
+        }
+
+        return $redirectUri;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function connectStateForData(array $data): array
+    {
+        $state = trim((string) ($data['state'] ?? ''));
+        if ($state === '') {
+            return [];
+        }
+
+        $cached = Cache::get('simple_l1:connect_state:'.hash('sha256', $state));
+
+        return is_array($cached) ? $cached : [];
     }
 }

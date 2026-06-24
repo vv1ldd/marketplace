@@ -52,3 +52,20 @@ export function buildAuthorizeParamsFromRedirect(redirectUrl, origin = typeof wi
   const url = new URL(String(redirectUrl), origin);
   return buildAuthorizeParams(url.searchParams);
 }
+
+export function buildSl1eAuthorizePayload(extra = {}) {
+  const oauth = buildAuthorizeParams();
+
+  return {
+    ...oauth,
+    client_id: oauth.clientId,
+    client_name: oauth.clientName,
+    redirect_uri: oauth.redirectUri,
+    request_host: oauth.requestHost,
+    ...extra,
+    clientId: extra.clientId ?? oauth.clientId,
+    clientName: extra.clientName ?? oauth.clientName,
+    redirectUri: extra.redirectUri ?? oauth.redirectUri,
+    requestHost: extra.requestHost ?? oauth.requestHost,
+  };
+}
