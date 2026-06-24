@@ -38,6 +38,7 @@ export function buildAuthorizeParams(searchParams) {
     intentResource: pick('intent_resource', 'intentResource'),
     handoffId: pick('handoff_id', 'handoffId'),
     handoffToken: pick('handoff_token', 'handoffToken'),
+    requestHost: typeof window !== 'undefined' ? window.location.hostname : '',
   };
 }
 

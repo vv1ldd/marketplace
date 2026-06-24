@@ -2,6 +2,7 @@
 
 namespace App\Services\Identity\Governance;
 
+use App\Support\StorefrontRequestHost;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -44,6 +45,8 @@ final class Sl1eAuthorizeRequestContext
             'username' => 'nullable|string|max:80',
             'usernameCandidate' => 'nullable|string|max:80',
             'username_candidate' => 'nullable|string|max:80',
+            'requestHost' => 'nullable|string|max:128',
+            'request_host' => 'nullable|string|max:128',
         ]);
 
         self::mergeQueryParameters($request, $data);
@@ -86,7 +89,7 @@ final class Sl1eAuthorizeRequestContext
             handoffId: self::nullableTrim($data['handoffId'] ?? $data['handoff_id'] ?? null),
             handoffToken: self::nullableTrim($data['handoffToken'] ?? $data['handoff_token'] ?? null),
             username: $username,
-            requestHost: self::browserHostFromRequest($request),
+            requestHost: self::resolveRequestHost($request, $data),
         );
     }
 
@@ -120,6 +123,7 @@ final class Sl1eAuthorizeRequestContext
             'client_id', 'clientId', 'client_name', 'clientName',
             'redirect_uri', 'redirectUri', 'state', 'nonce', 'mode', 'scope',
             'handoff_id', 'handoffId', 'handoff_token', 'handoffToken',
+            'request_host', 'requestHost',
         ];
 
         foreach ($keys as $key) {
@@ -155,6 +159,7 @@ final class Sl1eAuthorizeRequestContext
             'nonce' => ['nonce'],
             'mode' => ['mode'],
             'scope' => ['scope'],
+            'host' => ['request_host', 'requestHost'],
         ] as $cachedKey => $targets) {
             $cachedValue = trim((string) ($cached[$cachedKey] ?? ''));
             if ($cachedValue === '') {
@@ -169,32 +174,16 @@ final class Sl1eAuthorizeRequestContext
         }
     }
 
-    private static function browserHostFromRequest(Request $request): ?string
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private static function resolveRequestHost(Request $request, array $data): ?string
     {
-        $requestHost = strtolower((string) $request->getHost());
-        $forwarded = strtolower((string) explode(':', trim((string) $request->header('X-Forwarded-Host', '')))[0]);
+        $explicit = StorefrontRequestHost::normalizeHost(
+            (string) ($data['requestHost'] ?? $data['request_host'] ?? ''),
+        );
 
-        if ($forwarded !== '' && ($forwarded !== $requestHost)) {
-            if (str_starts_with($requestHost, 'api.') || in_array($requestHost, array_map(
-                static fn (mixed $host): string => strtolower(trim((string) $host)),
-                (array) config('storefront.api_hosts', []),
-            ), true)) {
-                return $forwarded;
-            }
-        }
-
-        if ($forwarded !== '' && ! str_starts_with($forwarded, 'api.')) {
-            return $forwarded;
-        }
-
-        $redirectHost = parse_url(trim((string) ($request->input('redirectUri') ?: $request->input('redirect_uri') ?: '')), PHP_URL_HOST);
-        if (is_string($redirectHost) && $redirectHost !== '' && ! str_starts_with(strtolower($redirectHost), 'api.')) {
-            return strtolower($redirectHost);
-        }
-
-        $storefrontHost = parse_url((string) config('storefront.frontend_url', ''), PHP_URL_HOST);
-
-        return is_string($storefrontHost) && $storefrontHost !== '' ? strtolower($storefrontHost) : null;
+        return StorefrontRequestHost::resolve($request, $explicit);
     }
 
     private static function nullableTrim(mixed $value): ?string

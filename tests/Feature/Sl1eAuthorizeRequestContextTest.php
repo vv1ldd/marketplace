@@ -39,4 +39,26 @@ class Sl1eAuthorizeRequestContextTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonStructure(['flowId', 'options']);
     }
+
+    public function test_authorize_options_use_request_host_for_webauthn_rp_id(): void
+    {
+        config([
+            'identity_governance.stream_enabled' => true,
+            'identity_governance.stream_authorize_enabled' => true,
+        ]);
+
+        $response = $this->postJson('https://api.meanly.test/api/sl1e/authorize/options', [
+            'clientId' => 'meanly.one',
+            'redirectUri' => 'https://meanly.one/simple-l1/callback?popup=1',
+            'state' => 'rp-id-state',
+            'nonce' => 'rp-id-nonce',
+            'mode' => 'login',
+            'requestHost' => 'meanly.ru',
+        ], [
+            'X-Forwarded-Host' => 'meanly.ru',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('options.rpId', 'meanly.ru');
+    }
 }
