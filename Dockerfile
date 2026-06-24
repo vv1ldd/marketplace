@@ -1,4 +1,4 @@
-FROM serversideup/php:8.3-fpm-nginx
+FROM serversideup/php:8.4-fpm-nginx
 
 # 1. Run as root to install system packages and extensions
 USER root
@@ -36,7 +36,7 @@ WORKDIR /var/www/html
 COPY --chown=www-data:www-data . .
 
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-scripts --ignore-platform-reqs
+RUN composer install --no-dev --optimize-autoloader --no-scripts
 
 # Generate key (needed for some commands) and publish assets
 # We set a dummy key for build time if not present, though artisan usually needs valid config.

@@ -105,6 +105,10 @@ function vaultErrorLabel(exception, fallback = 'Could not open Vault.') {
     return 'This device key is not linked to a Safe here. Create a new Safe on this storefront.';
   }
 
+  if (lower.includes('server error')) {
+    return 'Vault registration failed on the server. Try again in a minute.';
+  }
+
   if (lower.includes('identity flow must stay on the same storefront region')) {
     return 'This unlock link belongs to another storefront region. Open Vault again from this site.';
   }
