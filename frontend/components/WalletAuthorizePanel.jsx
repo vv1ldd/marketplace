@@ -7,7 +7,7 @@ import { ensureHandoffQrDataUrl } from '../lib/handoff-qr';
 import { useLocale } from './LocaleProvider';
 import { IdentityStateStage, IdentityStatusSlot } from './IdentityStateStage';
 import { VaultKeyIcon, VaultPhoneIcon, VaultShieldIcon } from './IdentityVaultIcons';
-import { buildAuthorizeParams } from '../lib/vault-authorize-params';
+import { buildAuthorizeParams, buildSl1eAuthorizePayload } from '../lib/vault-authorize-params';
 import { VaultUsernameField } from './VaultUsernameField';
 
 const SCRIPT_SRC = 'https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js';
@@ -99,6 +99,18 @@ function vaultErrorLabel(exception, fallback = 'Could not open Vault.') {
 
   if (lower.includes('authorization flow not found')) {
     return 'This unlock request expired. Open Vault again.';
+  }
+
+  if (lower.includes('credential not found in identity stream projection')) {
+    return 'This device key is not linked to a Safe here. Create a new Safe on this storefront.';
+  }
+
+  if (lower.includes('server error')) {
+    return 'Vault registration failed on the server. Try again in a minute.';
+  }
+
+  if (lower.includes('identity flow must stay on the same storefront region')) {
+    return 'This unlock link belongs to another storefront region. Open Vault again from this site.';
   }
 
   return message;
@@ -194,16 +206,15 @@ export function WalletAuthorizePanel({
   const isRegister = forceRegister || authorizeParams.mode === 'register';
   const usernameReady = usernameValidity.status === 'available' && Boolean(usernameValidity.normalized);
   const registerParams = useMemo(
-    () => ({
-      ...authorizeParams,
+    () => buildSl1eAuthorizePayload({
       mode: 'register',
       ...(usernameReady ? { username: usernameValidity.normalized } : {}),
-    }),
-    [authorizeParams, usernameReady, usernameValidity.normalized],
+    }, searchParams),
+    [searchParams, usernameReady, usernameValidity.normalized, paramsKey],
   );
   const loginParams = useMemo(
-    () => ({ ...authorizeParams, mode: 'login' }),
-    [authorizeParams],
+    () => buildSl1eAuthorizePayload({ mode: 'login' }, searchParams),
+    [searchParams, paramsKey],
   );
   const viewKey = showHandoff && handoff
     ? 'handoff'
@@ -400,10 +411,9 @@ export function WalletAuthorizePanel({
 
       setStatus(t('vault_authorize_returning'));
       const verified = await postSl1eJson('/api/sl1e/authorize/verify', {
+        ...loginParams,
         flowId: prepared.flowId,
         authenticationResponse: credentialResponse,
-        handoffId: loginParams.handoffId,
-        handoffToken: loginParams.handoffToken,
       });
 
       if (verified.entityAddress) {
@@ -418,6 +428,16 @@ export function WalletAuthorizePanel({
 
       followRedirect(verified.redirectUrl);
     } catch (exception) {
+      const message = String(exception?.message || '').toLowerCase();
+      if (message.includes('credential not found in identity stream projection')) {
+        forgetVaultHint();
+        setHintAddress('');
+        setError(vaultErrorLabel(exception));
+        setStatus('');
+        setBusy(false);
+        return;
+      }
+
       setError(vaultErrorLabel(exception));
       setStatus('');
       setBusy(false);
@@ -463,10 +483,9 @@ export function WalletAuthorizePanel({
 
       setStatus(t('vault_authorize_returning'));
       const verified = await postSl1eJson('/api/sl1e/authorize/register/verify', {
+        ...registerParams,
         flowId: prepared.flowId,
         attestationResponse: credentialResponse,
-        handoffId: registerParams.handoffId,
-        handoffToken: registerParams.handoffToken,
       });
 
       if (verified.entityAddress) {

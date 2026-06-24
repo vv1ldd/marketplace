@@ -349,4 +349,39 @@ class MarketContextTest extends TestCase
             ->assertJsonPath('market.key', 'global')
             ->assertJsonPath('market.locale', 'en');
     }
+
+    public function test_simple_l1_connect_via_api_proxy_uses_forwarded_storefront_host(): void
+    {
+        $response = $this
+            ->withHeader('Accept', 'application/json')
+            ->withHeader('X-Requested-With', 'XMLHttpRequest')
+            ->withHeader('X-Forwarded-Host', 'meanly.ru')
+            ->get('https://api.meanly.test/simple-l1/connect?return_to=/vault&mode=connect&popup=1');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('show_handoff', false);
+
+        $this->assertStringContainsString(
+            rawurlencode('https://meanly.ru/simple-l1/callback'),
+            (string) $response->json('redirect_url')
+        );
+        $this->assertStringContainsString(
+            'client_id=meanly.ru',
+            (string) $response->json('redirect_url')
+        );
+        $this->assertStringNotContainsString(
+            rawurlencode('https://meanly.one/simple-l1/callback'),
+            (string) $response->json('redirect_url')
+        );
+        $this->assertStringNotContainsString(
+            'client_id=meanly.one',
+            (string) $response->json('redirect_url')
+        );
+        $this->assertSame(
+            'https://meanly.ru/simple-l1/callback?popup=1',
+            session('simple_l1_connect.redirect_uri')
+        );
+        $this->assertSame('meanly.ru', session('simple_l1_connect.client_id'));
+    }
 }

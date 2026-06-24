@@ -1,7 +1,21 @@
+function resolveAuthorizeSearchParams(searchParams) {
+  if (typeof window !== 'undefined' && window.location.search) {
+    return new URLSearchParams(window.location.search);
+  }
+
+  if (searchParams && typeof searchParams.get === 'function') {
+    return searchParams;
+  }
+
+  return new URLSearchParams();
+}
+
 export function buildAuthorizeParams(searchParams) {
+  const paramsSource = resolveAuthorizeSearchParams(searchParams);
+
   const pick = (...keys) => {
     for (const key of keys) {
-      const value = searchParams.get(key);
+      const value = paramsSource.get(key);
       if (value) {
         return value;
       }
@@ -11,7 +25,8 @@ export function buildAuthorizeParams(searchParams) {
   };
 
   return {
-    clientId: pick('client_id', 'clientId') || 'unknown-client',
+    clientId: pick('client_id', 'clientId')
+      || (typeof window !== 'undefined' ? window.location.hostname.replace(/^www\./, '') : 'unknown-client'),
     clientName: pick('client_name', 'clientName'),
     uiTheme: pick('ui_theme', 'uiTheme'),
     redirectUri: pick('redirect_uri', 'redirectUri'),
@@ -28,6 +43,7 @@ export function buildAuthorizeParams(searchParams) {
     intentResource: pick('intent_resource', 'intentResource'),
     handoffId: pick('handoff_id', 'handoffId'),
     handoffToken: pick('handoff_token', 'handoffToken'),
+    requestHost: typeof window !== 'undefined' ? window.location.hostname : '',
   };
 }
 
@@ -39,4 +55,21 @@ export function buildAuthorizeParamsFromPath(path, origin = typeof window !== 'u
 export function buildAuthorizeParamsFromRedirect(redirectUrl, origin = typeof window !== 'undefined' ? window.location.origin : 'https://meanly.test') {
   const url = new URL(String(redirectUrl), origin);
   return buildAuthorizeParams(url.searchParams);
+}
+
+export function buildSl1eAuthorizePayload(extra = {}, searchParams = null) {
+  const oauth = buildAuthorizeParams(searchParams);
+
+  return {
+    ...oauth,
+    client_id: oauth.clientId,
+    client_name: oauth.clientName,
+    redirect_uri: oauth.redirectUri,
+    request_host: oauth.requestHost,
+    ...extra,
+    clientId: extra.clientId ?? oauth.clientId,
+    clientName: extra.clientName ?? oauth.clientName,
+    redirectUri: extra.redirectUri ?? oauth.redirectUri,
+    requestHost: extra.requestHost ?? oauth.requestHost,
+  };
 }

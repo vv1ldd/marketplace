@@ -1,3 +1,5 @@
+import { storefrontRequestHeaders } from './storefront-api';
+
 const CONNECT_TIMEOUT_MS = 12000;
 
 export function backendConnectPath(connectQuery = {}) {
@@ -40,6 +42,7 @@ export async function resolveSimpleL1ConnectHandoff(connectQuery = {}) {
     headers: {
       Accept: 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
+      ...storefrontRequestHeaders(),
     },
     cache: 'no-store',
   });

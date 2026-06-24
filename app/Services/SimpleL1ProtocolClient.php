@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\SimpleL1IdentityHost;
+use App\Support\StorefrontRegionalSl1e;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use SimpleLayer\Sl1e\AuthorizeRequest;
@@ -149,7 +150,11 @@ class SimpleL1ProtocolClient
      */
     public function introspectProof(string $proofToken): array
     {
-        $response = $this->client($this->protocolApiBaseUrl())
+        $baseUrl = config('identity_governance.stream_authorize_enabled')
+            ? rtrim((string) config('app.url'), '/')
+            : $this->protocolApiBaseUrl();
+
+        $response = $this->client($baseUrl)
             ->post((string) config('simple_l1.proof_introspection_path', '/api/sl1e/proofs/introspect'), [
                 'proof_token' => $proofToken,
             ]);
@@ -321,10 +326,11 @@ class SimpleL1ProtocolClient
         );
 
         $overrides = $hostClients[$host] ?? [];
+        $regional = StorefrontRegionalSl1e::forHost($host);
 
         return $this->sl1eForClient(
-            clientId: $overrides['client_id'] ?? config('simple_l1.client_id'),
-            clientName: $overrides['client_name'] ?? config('simple_l1.client_name', 'Meanly'),
+            clientId: $overrides['client_id'] ?? $regional->clientId,
+            clientName: $overrides['client_name'] ?? $regional->clientName,
             uiTheme: $overrides['ui_theme'] ?? config('simple_l1.ui_theme', 'neobrutalism'),
             appHost: $host,
         );

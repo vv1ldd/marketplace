@@ -60,6 +60,22 @@ final class IdentityGovernanceWebAuthnCredentialSourceFactory
         return Config::getRelyingPartyId();
     }
 
+    public static function rpIdForHost(?string $host): string
+    {
+        $host = strtolower(trim((string) $host));
+
+        if ($host !== '' && ! str_starts_with($host, 'api.') && self::isValidRpIdHost($host)) {
+            return $host;
+        }
+
+        return self::rpId();
+    }
+
+    private static function isValidRpIdHost(string $host): bool
+    {
+        return preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i', $host) === 1;
+    }
+
     public static function decodeStoredBinary(string $value): string
     {
         $decoded = base64_decode($value, true);

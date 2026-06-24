@@ -55,7 +55,9 @@ async function proxySl1eRequest(request, pathSegments) {
 
   headers.set('Accept', request.headers.get('accept') || 'application/json');
   headers.set('Content-Type', request.headers.get('content-type') || 'application/json');
-  headers.set('X-Forwarded-Host', request.headers.get('host') || 'meanly.test');
+  const storefrontHost = request.headers.get('host') || 'meanly.test';
+  headers.set('X-Forwarded-Host', storefrontHost);
+  headers.set('X-Storefront-Host', storefrontHost.split(':')[0]);
   headers.set('X-Forwarded-Proto', request.headers.get('x-forwarded-proto') || 'https');
 
   const cookie = request.headers.get('cookie');

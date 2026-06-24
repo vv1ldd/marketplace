@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\StorefrontRegionalSl1e;
 use App\Support\StorefrontSl1Theme;
 use App\Models\User;
 use App\Services\IntentLedgerService;
@@ -74,7 +75,7 @@ class SimpleL1ConnectController extends Controller
             'flow'         => $flow,
             'intent'       => array_filter($intent),
             'popup'        => $isPopup,
-            'host'         => $request->getHost(),
+            'host'         => \App\Support\StorefrontRequestHost::resolve($request) ?? $request->getHost(),
             'created_at'   => now()->toIso8601String(),
         ], now()->addMinutes(10));
 
@@ -554,6 +555,12 @@ class SimpleL1ConnectController extends Controller
      */
     private function absoluteCurrentHostRoute(Request $request, string $name, array $parameters = []): string
     {
+        $storefrontHost = \App\Support\StorefrontRequestHost::resolve($request);
+
+        if ($storefrontHost !== null) {
+            return 'https://'.$storefrontHost.route($name, $parameters, false);
+        }
+
         if (in_array($request->getHost(), (array) config('storefront.api_hosts', []), true)) {
             return rtrim((string) config('storefront.frontend_url', $request->getSchemeAndHttpHost()), '/')
                 .route($name, $parameters, false);
@@ -1482,7 +1489,7 @@ class SimpleL1ConnectController extends Controller
             return config('simple_l1.client_id');
         }
 
-        return config('simple_l1.client_id', $request->getHost());
+        return StorefrontRegionalSl1e::forRequest($request)->clientId;
     }
 
     /**
@@ -1502,6 +1509,6 @@ class SimpleL1ConnectController extends Controller
                 : 'maestrooo.test';
         }
 
-        return $request->getHost();
+        return \App\Support\StorefrontRequestHost::resolve($request) ?? $request->getHost();
     }
 }

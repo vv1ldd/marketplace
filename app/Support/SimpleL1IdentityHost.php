@@ -10,6 +10,12 @@ class SimpleL1IdentityHost
      */
     public static function browserProviderUrl(?string $appHost = null): string
     {
+        $appHost = StorefrontRequestHost::normalizeHost($appHost);
+
+        if ($appHost !== null && ! StorefrontRequestHost::isApiHost($appHost)) {
+            return 'https://'.$appHost;
+        }
+
         $explicit = trim((string) config('simple_l1.identity_browser_url', ''));
         if ($explicit !== '') {
             return rtrim($explicit, '/');
