@@ -1,4 +1,4 @@
-FROM serversideup/php:8.3-fpm-nginx
+FROM serversideup/php:8.4-fpm-nginx
 
 # 1. Run as root to install system packages and extensions
 USER root
@@ -6,7 +6,7 @@ USER root
 # Install PHP extensions. Build imagick from GitHub because pecl.php.net can
 # transiently return broken redirects during emergency deploys.
 ARG IMAGICK_VERSION=3.8.0
-RUN install-php-extensions bcmath intl gd && \
+RUN install-php-extensions bcmath intl gd gmp && \
     apt-get update && \
     apt-get install -y --no-install-recommends libmagickwand-dev && \
     curl -fsSL "https://github.com/Imagick/imagick/archive/refs/tags/${IMAGICK_VERSION}.tar.gz" -o /tmp/imagick.tar.gz && \

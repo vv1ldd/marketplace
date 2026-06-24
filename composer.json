@@ -27,9 +27,6 @@
         "simplito/elliptic-php": "^1.0",
         "spatie/laravel-passkeys": "^1.7",
         "spatie/laravel-permission": "^7.4",
-        "symfony/property-access": "^7.4",
-        "symfony/property-info": "^7.4.7",
-        "symfony/serializer": "^7.4",
         "yandex-market/partner-api-spec": "^1.0"
     },
     "require-dev": {
@@ -92,9 +89,6 @@
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
-        "platform": {
-            "php": "8.3.31"
-        },
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true

@@ -10,8 +10,44 @@ function resolveAuthorizeSearchParams(searchParams) {
   return new URLSearchParams();
 }
 
+function storefrontHostClientId() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return window.location.hostname.replace(/^www\./, '');
+}
+
+function regionalRedirectUri(picked) {
+  if (typeof window === 'undefined') {
+    return picked;
+  }
+
+  const fallback = `${window.location.origin}/simple-l1/callback?popup=1`;
+  if (!picked) {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(picked, window.location.origin);
+    const currentHost = storefrontHostClientId();
+    const redirectHost = url.hostname.replace(/^www\./, '');
+
+    if (redirectHost === currentHost) {
+      return url.toString();
+    }
+
+    url.protocol = window.location.protocol;
+    url.host = window.location.host;
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+}
+
 export function buildAuthorizeParams(searchParams) {
   const paramsSource = resolveAuthorizeSearchParams(searchParams);
+  const hostClientId = storefrontHostClientId();
 
   const pick = (...keys) => {
     for (const key of keys) {
@@ -25,11 +61,10 @@ export function buildAuthorizeParams(searchParams) {
   };
 
   return {
-    clientId: pick('client_id', 'clientId')
-      || (typeof window !== 'undefined' ? window.location.hostname.replace(/^www\./, '') : 'unknown-client'),
+    clientId: hostClientId || pick('client_id', 'clientId') || 'unknown-client',
     clientName: pick('client_name', 'clientName'),
     uiTheme: pick('ui_theme', 'uiTheme'),
-    redirectUri: pick('redirect_uri', 'redirectUri'),
+    redirectUri: regionalRedirectUri(pick('redirect_uri', 'redirectUri')),
     scope: pick('scope') || 'openid sl1e',
     state: pick('state'),
     nonce: pick('nonce'),
@@ -43,7 +78,7 @@ export function buildAuthorizeParams(searchParams) {
     intentResource: pick('intent_resource', 'intentResource'),
     handoffId: pick('handoff_id', 'handoffId'),
     handoffToken: pick('handoff_token', 'handoffToken'),
-    requestHost: typeof window !== 'undefined' ? window.location.hostname : '',
+    requestHost: hostClientId,
   };
 }
 
