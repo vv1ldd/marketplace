@@ -39,11 +39,7 @@ export function GlossaryHint({ children }) {
   }, []);
 
   if (!isVisible || !label) {
-    return (
-      <span className="glossary-hint glossary-hint--hidden" aria-hidden="true">
-        ?
-      </span>
-    );
+    return null;
   }
 
   return (
