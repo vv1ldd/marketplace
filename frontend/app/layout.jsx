@@ -8,7 +8,7 @@ import { InteractionRecovery } from '../components/InteractionRecovery';
 import { LocaleProvider } from '../components/LocaleProvider';
 import { StorefrontHeader } from '../components/StorefrontHeader';
 import { StorefrontThemeProvider } from '../components/StorefrontThemeProvider';
-import { marketKeyForHost, resolveStorefrontHost } from '../lib/market-surface';
+import { localeForHost, marketKeyForHost, resolveStorefrontHost } from '../lib/market-surface';
 
 export const metadata = {
   title: 'Meanly',
@@ -92,8 +92,10 @@ export default async function RootLayout({ children }) {
     storefrontAuthority(cookieStore),
   ]);
   const year = new Date().getFullYear();
-  const marketKey = context?.market?.key || marketKeyForHost(storefrontHost);
-  const locale = context?.market?.locale || (marketKey === 'ru' ? 'ru' : 'en');
+  const hostMarketKey = marketKeyForHost(storefrontHost);
+  const apiMarketKey = context?.market?.key;
+  const marketKey = apiMarketKey === hostMarketKey ? apiMarketKey : hostMarketKey;
+  const locale = localeForHost(storefrontHost);
 
   return (
     <html lang={locale} data-theme="retro" suppressHydrationWarning>

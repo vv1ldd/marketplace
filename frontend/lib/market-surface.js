@@ -79,6 +79,10 @@ export async function resolveStorefrontHost(headersList) {
   return normalizeHost(forwarded || requestHost || storefrontHostFromEnv());
 }
 
+export function localeForHost(host) {
+  return marketKeyForHost(host) === 'ru' ? 'ru' : 'en';
+}
+
 export function isRuMarket(marketKey) {
   return marketKey === 'ru';
 }
