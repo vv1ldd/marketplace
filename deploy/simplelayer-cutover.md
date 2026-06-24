@@ -21,11 +21,13 @@ At the `simplelayer.one` registrar / Cloudflare zone:
 pass.simplelayer.one   A   135.106.162.147
 ```
 
-Optional later:
+Optional (recommended for the public protocol site):
 
 ```text
 simplelayer.one        A   135.106.162.147   (marketing / docs)
 ```
+
+`pass.simplelayer.one` stays the issuer; `simplelayer.one` is the public site. Both can point to the same host — routing is by hostname inside `simple-l1`.
 
 Wait until:
 
