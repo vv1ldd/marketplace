@@ -30,7 +30,7 @@ function apiEndpoint(path, query = {}) {
   return url;
 }
 
-function storefrontBrowserHost(forwardedHost) {
+export function storefrontBrowserHost(forwardedHost) {
   if (forwardedHost) {
     return String(forwardedHost).split(':')[0].toLowerCase();
   }
@@ -44,6 +44,15 @@ function storefrontBrowserHost(forwardedHost) {
   } catch {
     return 'meanly.test';
   }
+}
+
+export function storefrontRequestHeaders(forwardedHost) {
+  const host = storefrontBrowserHost(forwardedHost);
+
+  return {
+    'X-Forwarded-Host': host,
+    'X-Storefront-Host': host,
+  };
 }
 
 async function storefrontFetch(path, options = {}) {
@@ -60,7 +69,7 @@ async function storefrontFetch(path, options = {}) {
   } = options;
   const requestHeaders = {
     Accept: 'application/json',
-    'X-Forwarded-Host': storefrontBrowserHost(forwardedHost),
+    ...storefrontRequestHeaders(forwardedHost),
     ...headers,
   };
 
@@ -123,7 +132,8 @@ export function backendUrl(path, query = {}) {
 }
 
 export function frontendUrl(path, query = {}) {
-  const url = new URL(path, storefrontUrl);
+  const base = typeof window !== 'undefined' ? window.location.origin : storefrontUrl;
+  const url = new URL(path, base);
   Object.entries(query).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
       url.searchParams.set(key, String(value));
