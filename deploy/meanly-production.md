@@ -9,7 +9,7 @@ Mac dev stays on `scripts/dev-tunnel.sh` — not on the Coolify installer.
 | Service | Domain | Coolify app | Notes |
 |---------|--------|-------------|-------|
 | Control plane | `ops.meanly.one` | (bundled with Sovereign install) | SL1 login for deploy |
-| Simple L1 identity | `identity.meanly.one` | bundled `simple-l1` container | SL1e issuer + runtime |
+| Simple L1 identity | `pass.simplelayer.one` | bundled `simple-l1` container | SL1e issuer + protocol runtime |
 | API | `api.meanly.one` | `meanly-api` | Laravel + queue worker |
 | Storefront global | `meanly.one` | `meanly-frontend-global` | `NEXT_PUBLIC_MARKETPLACE_REGION=global` |
 | Storefront RU | `meanly.ru` | `meanly-frontend-ru` | `NEXT_PUBLIC_MARKETPLACE_REGION=ru` |
@@ -32,9 +32,9 @@ export SOVEREIGN_ASSUME_YES=true
 export SOVEREIGN_AUTOCONVERGE_AFTER_ENCRYPT=true
 export SOVEREIGN_RUNTIME_CONVERGE_OWNER=true
 export SOVEREIGN_HOST_DOMAIN=ops.meanly.one
-export SIMPLE_L1_DOMAIN=identity.meanly.one
-export SIMPLE_L1_ISSUER_URL=https://identity.meanly.one/sl1
-export SL1_CONNECT_ISSUER=https://identity.meanly.one
+export SIMPLE_L1_DOMAIN=pass.simplelayer.one
+export SIMPLE_L1_ISSUER_URL=https://pass.simplelayer.one/sl1
+export SL1_CONNECT_ISSUER=https://pass.simplelayer.one
 export SL1_CONNECT_CLIENT_ID=meanly.ops
 export SIMPLE_L1_PUBLIC_IP='YOUR_VPS_IP'
 
@@ -74,9 +74,9 @@ export SOVEREIGN_DISK_ENCRYPT=true
 export SOVEREIGN_RUNTIME_CONVERGE_OWNER=true
 export SOVEREIGN_ASSUME_YES=true
 export SOVEREIGN_HOST_DOMAIN=ops.meanly.one
-export SIMPLE_L1_DOMAIN=identity.meanly.one
-export SIMPLE_L1_ISSUER_URL=https://identity.meanly.one/sl1
-export SL1_CONNECT_ISSUER=https://identity.meanly.one
+export SIMPLE_L1_DOMAIN=pass.simplelayer.one
+export SIMPLE_L1_ISSUER_URL=https://pass.simplelayer.one/sl1
+export SL1_CONNECT_ISSUER=https://pass.simplelayer.one
 export SL1_CONNECT_CLIENT_ID=meanly.ops
 export SIMPLE_L1_PUBLIC_IP='YOUR_VPS_IP'
 
@@ -95,9 +95,9 @@ export SOVEREIGN_RUNTIME_CONVERGE_OWNER=true
 export SOVEREIGN_ASSUME_YES=true
 export SOVEREIGN_DISK_ENCRYPT=false
 export SOVEREIGN_HOST_DOMAIN=ops.meanly.one
-export SIMPLE_L1_DOMAIN=identity.meanly.one
-export SIMPLE_L1_ISSUER_URL=https://identity.meanly.one/sl1
-export SL1_CONNECT_ISSUER=https://identity.meanly.one
+export SIMPLE_L1_DOMAIN=pass.simplelayer.one
+export SIMPLE_L1_ISSUER_URL=https://pass.simplelayer.one/sl1
+export SL1_CONNECT_ISSUER=https://pass.simplelayer.one
 export SL1_CONNECT_CLIENT_ID=meanly.ops
 export SIMPLE_L1_PUBLIC_IP='YOUR_VPS_IP'
 
@@ -116,13 +116,13 @@ bash /tmp/bootstrap-sovereign-from-git.sh
 After install:
 
 1. Open `https://ops.meanly.one` and complete SL1 admin claim.
-2. Verify `https://identity.meanly.one/healthcheck`.
-3. Verify `https://identity.meanly.one/api/sl1e/connect/status` (from VPS: `docker exec simple-l1 curl -s http://127.0.0.1:3000/api/sl1e/connect/status`).
+2. Verify `https://pass.simplelayer.one/healthcheck`.
+3. Verify `https://pass.simplelayer.one/api/sl1e/connect/status` (from VPS: `docker exec simple-l1 curl -s http://127.0.0.1:3000/api/sl1e/connect/status`).
 
 Panel domain and identity domain are intentionally split:
 
 - **ops** — deploy / ops login
-- **identity** — passkey RP ID, SL1 Connect issuer, protocol runtime
+- **identity** — passkey RP ID, SL1 Connect issuer, protocol runtime (`pass.simplelayer.one`)
 
 ## Step 2 — Marketplace API
 
@@ -133,8 +133,8 @@ Env template: `deploy/regional/env/backend-shared.env.example`
 Key identity vars for production:
 
 ```env
-SIMPLE_L1_IDENTITY_PROVIDER_URL=https://identity.meanly.one
-SIMPLE_L1_PROTOCOL_GATEWAY_URL=https://identity.meanly.one
+SIMPLE_L1_IDENTITY_PROVIDER_URL=https://pass.simplelayer.one
+SIMPLE_L1_PROTOCOL_GATEWAY_URL=https://pass.simplelayer.one
 SIMPLE_L1_RUNTIME_URL=http://simple-l1:3000
 SIMPLE_L1_CLIENT_ID=meanly.one
 SIMPLE_L1_IDENTITY_BROWSER_URL=https://meanly.one
@@ -168,7 +168,9 @@ NEXT_PUBLIC_SIMPLE_L1_URL=https://meanly.one
 NEXT_PUBLIC_MARKETPLACE_REGION=ru
 ```
 
-Browser OAuth stays on `meanly.one` / `meanly.ru` (storefront proxies `/authorize` to API). Protocol authority is `identity.meanly.one`.
+Browser OAuth stays on `meanly.one` / `meanly.ru` (storefront proxies `/authorize` to API). Protocol authority is `pass.simplelayer.one`.
+
+See `deploy/simplelayer-cutover.md` when migrating from `identity.meanly.one`.
 
 ## Post-deploy checklist
 
@@ -183,7 +185,7 @@ curl -s https://api.meanly.one/api/storefront/v1/context \
   -H 'X-Forwarded-Host: meanly.ru' | jq .market.key
 # expect: "ru"
 
-curl -s https://identity.meanly.one/healthcheck
+curl -fsS https://pass.simplelayer.one/healthcheck
 ```
 
 ## RU storefront — what may still need work

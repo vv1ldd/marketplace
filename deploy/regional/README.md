@@ -78,7 +78,7 @@ Mac dev is **not** installed through Coolify — use `scripts/dev-tunnel.sh` abo
 | Service | Domain | Env template |
 |---------|--------|--------------|
 | Sovereign panel | `ops.meanly.one` | Coolify install (`SOVEREIGN_HOST_DOMAIN`) |
-| Simple L1 identity | `identity.meanly.one` | Coolify install (`SOVEREIGN_IDENTITY_DOMAIN`) |
+| Simple L1 identity | `pass.simplelayer.one` | Coolify install (`SIMPLE_L1_DOMAIN`) |
 | API | `api.meanly.one` | `deploy/regional/env/backend-shared.env.example` |
 | Storefront global | `meanly.one` | `deploy/regional/env/frontend-global.env.example` |
 | Storefront RU | `meanly.ru` | `deploy/regional/env/frontend-ru.env.example` |

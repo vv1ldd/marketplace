@@ -11666,6 +11666,10 @@ body:has(.page--identity-center) .global-back-shell {
   display: none;
 }
 
+body:has(.page--identity-center) .meanly-storefront-header-shell {
+  display: none;
+}
+
 .identity-center-surface__handoff {
   display: grid;
   gap: 12px;
