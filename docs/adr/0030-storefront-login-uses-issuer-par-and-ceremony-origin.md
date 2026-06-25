@@ -9,8 +9,14 @@ already does.
 
 ## Status
 
-Proposed - **2026-06** (accepted in direction; implementation deferred to a
-separate change-set)
+Accepted / Implemented - **2026-06**
+
+Both storefront contours now use PAR -> ceremony origin:
+
+- `meanly.one` -> `pass.meanly.one` -> `connect.identity.meanly.one` (GCP `34.39.244.55`)
+- `meanly.ru` -> `pass.meanly.ru` -> `connect.identity.meanly.ru` (lena `135.106.162.147`)
+
+Sovereign infrastructure split: see [ADR 0032](0032-sovereign-identity-infrastructure-split.md).
 
 ## Context
 

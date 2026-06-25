@@ -7,7 +7,11 @@ whether it should remain a ceremony-only surface.
 
 ## Status
 
-Proposed - **2026-06**
+Accepted - **2026-06** (UX workstream implemented in `simple-l1` commit `b34d77b`)
+
+Implemented: contour-aware `walletSurfaceForHost`, RU/EN ceremony string catalog
+threaded via `ui_locale`, connect-origin landing page for `GET /` on
+`connect.identity.*`.
 
 ## Current position
 
