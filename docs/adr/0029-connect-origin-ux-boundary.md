@@ -32,6 +32,25 @@ connect.identity.meanly.one
 
 Users no longer see Vault-oriented copy in the authentication ceremony itself.
 
+Root behavior for the connect origin is not yet defined by ADR 0028:
+
+```text
+connect.identity.meanly.one/
+  -> currently falls back to the general Simple Layer One protocol landing page
+```
+
+This is not an authorization failure. The active ceremony routes already use the
+connect surface:
+
+```text
+connect.identity.meanly.one/authorize
+connect.identity.meanly.one/r/sl1rq_...
+connect.identity.meanly.one/wallet
+```
+
+The undefined behavior is what the connect origin should show when a user visits
+it directly, outside an authorization flow.
+
 ## Decision question
 
 Should authenticated users be able to browse a wallet/vault UI from
@@ -67,6 +86,25 @@ connect.*   owns ceremony
 In this model, `connect.identity.*` never becomes a mini wallet. It only
 collects proof, confirms intent, and returns to the relying application.
 
+### Root behavior alternatives
+
+The direct root route for `connect.identity.*` needs a separate UX contract:
+
+```text
+GET https://connect.identity.meanly.one/
+```
+
+Possible outcomes:
+
+- Redirect to `pass.*`, treating the connect origin as ceremony-only and not a
+  standalone site.
+- Render a minimal connect landing page explaining secure identity connection and
+  the WebAuthn ceremony boundary.
+- Return an explicit non-document response, such as `404`, for direct visits.
+
+The current fallback to the general protocol marketing page is historical
+behavior, not a deliberate identity surface decision.
+
 ## Recommendation
 
 Defer the decision until after ADR 0028 is fully stable in production.
@@ -86,4 +124,8 @@ Connect UX simplification
 ## Non-decision
 
 This ADR does not change `renderWallet` or any deployed runtime behavior.
+
+It also does not change the current `GET /` behavior for
+`connect.identity.meanly.one`. Defining that root contract is part of this
+future ADR 0029 change set, not a repair inside the ADR 0028 rollout.
 

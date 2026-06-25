@@ -58,6 +58,7 @@ export function IdentityConnectLauncher({ params = {} }) {
   const [phase, setPhase] = useState('loading');
   const [handoff, setHandoff] = useState(null);
   const [authorizePath, setAuthorizePath] = useState('');
+  const [externalUrl, setExternalUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -74,11 +75,17 @@ export function IdentityConnectLauncher({ params = {} }) {
           return;
         }
 
-        setAuthorizePath(payload.authorizePath);
+        setAuthorizePath(payload.authorizePath || '');
+        setExternalUrl(payload.externalUrl || '');
 
         if (payload.showHandoff && payload.handoff) {
           setHandoff(payload.handoff);
           setPhase('handoff');
+          return;
+        }
+
+        if (payload.externalUrl) {
+          window.location.assign(payload.externalUrl);
           return;
         }
 
@@ -99,6 +106,11 @@ export function IdentityConnectLauncher({ params = {} }) {
   }, [connectQuery, router]);
 
   function continueToAuthorize() {
+    if (externalUrl) {
+      window.location.assign(externalUrl);
+      return;
+    }
+
     if (authorizePath) {
       router.replace(authorizePath);
     }

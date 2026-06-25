@@ -56,8 +56,14 @@ export async function resolveSimpleL1ConnectHandoff(connectQuery = {}) {
     throw new Error('Vault handoff failed.');
   }
 
+  // ADR-0030: when the backend returns a canonical ceremony origin short link
+  // (connect.identity.<contour>), the browser must navigate to it as-is. Only
+  // the legacy inline flow is rewritten to a local /authorize route.
+  const external = payload.external_redirect === true;
+
   return {
-    authorizePath: authorizePathFromRedirect(payload.redirect_url),
+    externalUrl: external ? payload.redirect_url : null,
+    authorizePath: external ? null : authorizePathFromRedirect(payload.redirect_url),
     showHandoff: payload.show_handoff === true && Boolean(payload.handoff),
     handoff: payload.handoff || null,
   };

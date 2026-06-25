@@ -29,4 +29,26 @@ return [
     'require_native_direct_proof_signature' => env('SIMPLE_L1_REQUIRE_NATIVE_DIRECT_PROOF_SIGNATURE', true),
     'verify_tls' => env('SIMPLE_L1_VERIFY_TLS', true),
     'authorize_response_mode' => env('SIMPLE_L1_AUTHORIZE_RESPONSE_MODE', 'query'),
+
+    // ADR-0030: storefront login through the issuer Pushed Authorization Request
+    // (PAR) and the canonical ceremony origin (connect.identity.<contour>).
+    // Disabled by default: with no enabled hosts the storefront keeps the legacy
+    // in-page authorize flow, so this block has zero runtime impact until a host
+    // is listed in SIMPLE_L1_PAR_ENABLED_HOSTS and a client secret is provided.
+    'par' => [
+        // Comma-separated storefront hosts where PAR is active (e.g. "meanly.one").
+        'enabled_hosts' => array_values(array_filter(array_map(
+            static fn ($host) => strtolower(trim((string) $host)),
+            explode(',', (string) env('SIMPLE_L1_PAR_ENABLED_HOSTS', '')),
+        ))),
+        // Public issuer base used to build the short ceremony link, e.g.
+        // https://pass.meanly.one (which delegates /r/... to connect.identity.*).
+        'issuer_base' => rtrim((string) env('SIMPLE_L1_PAR_ISSUER_BASE', ''), '/'),
+        // Map of client_id => client_secret used to authenticate the PAR push.
+        // JSON, e.g. {"meanly.one":"<secret>"}.
+        'client_secrets' => array_filter(
+            (array) json_decode((string) env('SIMPLE_L1_PAR_CLIENT_SECRETS_JSON', '{}'), true),
+        ),
+        'timeout' => (int) env('SIMPLE_L1_PAR_TIMEOUT', 10),
+    ],
 ];

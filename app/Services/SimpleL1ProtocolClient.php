@@ -6,6 +6,7 @@ use App\Support\SimpleL1IdentityHost;
 use App\Support\StorefrontRegionalSl1e;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use SimpleLayer\Sl1e\AuthorizeRequest;
 use SimpleLayer\Sl1e\IdentityProof;
 use SimpleLayer\Sl1e\Intent;
@@ -293,6 +294,95 @@ class SimpleL1ProtocolClient
         }
 
         return $payload;
+    }
+
+    /**
+     * ADR-0030: push the authorize request to the issuer (PAR) and return a
+     * short ceremony link on the issuer origin, which delegates to
+     * connect.identity.<contour>. The browser runs the WebAuthn ceremony on the
+     * canonical origin (single rp_id) instead of an in-page, per-storefront rp_id.
+     *
+     * Returns null when PAR is not enabled/usable for the host (no enabled host,
+     * no issuer base, no client secret, or the push failed) so the caller falls
+     * back to the legacy inline authorize URL with no behavioral change.
+     *
+     * @param array<string, string|null> $intent
+     */
+    public function pushedAuthorizationShortLinkForHost(
+        string $host,
+        string $clientId,
+        string $redirectUri,
+        string $state,
+        string $nonce,
+        string $mode = 'login',
+        string $scope = 'openid sl1e marketplace',
+        array $intent = [],
+        ?string $flow = null,
+        ?string $identityHint = null,
+        ?string $uiLocale = null,
+    ): ?string {
+        $enabledHosts = (array) config('simple_l1.par.enabled_hosts', []);
+        if (! in_array(strtolower($host), $enabledHosts, true)) {
+            return null;
+        }
+
+        $issuerBase = rtrim((string) config('simple_l1.par.issuer_base', ''), '/');
+        $secret = (string) (((array) config('simple_l1.par.client_secrets', []))[$clientId] ?? '');
+        if ($issuerBase === '' || $secret === '') {
+            return null;
+        }
+
+        $body = array_filter([
+            'client_id' => $clientId,
+            'redirect_uri' => $redirectUri,
+            'state' => $state,
+            'nonce' => $nonce,
+            'mode' => $mode,
+            'flow' => $flow,
+            'scope' => $scope,
+            'intent_type' => $intent['intent_type'] ?? null,
+            'intent_title' => $intent['intent_title'] ?? null,
+            'intent_description' => $intent['intent_description'] ?? null,
+            'intent_cta' => $intent['intent_cta'] ?? null,
+            'intent_nonce' => $intent['intent_nonce'] ?? null,
+            'intent_resource' => $intent['intent_resource'] ?? null,
+            'identity_hint' => $identityHint,
+            'ui_locale' => $uiLocale,
+        ], static fn ($value) => $value !== null && $value !== '');
+
+        try {
+            $response = Http::timeout((int) config('simple_l1.par.timeout', 10))
+                ->acceptJson()
+                ->withToken($secret)
+                ->withOptions(['verify' => (bool) config('simple_l1.verify_tls', true)])
+                ->post($issuerBase.'/api/sl1e/authorize/requests', $body);
+        } catch (\Throwable $exception) {
+            Log::warning('SL1 PAR push failed', ['error' => $exception->getMessage(), 'client_id' => $clientId]);
+
+            return null;
+        }
+
+        if (! $response->successful()) {
+            Log::warning('SL1 PAR push rejected', ['status' => $response->status(), 'client_id' => $clientId]);
+
+            return null;
+        }
+
+        $requestUri = (string) ($response->json('request_uri') ?? '');
+        if ($requestUri === '') {
+            $ref = (string) ($response->json('request_ref') ?? '');
+            $requestUri = $ref !== '' ? '/r/'.$ref : '';
+        }
+        if ($requestUri === '') {
+            return null;
+        }
+
+        // request_uri is an issuer-relative path (/r/sl1rq_...).
+        if (str_starts_with($requestUri, 'http://') || str_starts_with($requestUri, 'https://')) {
+            return $requestUri;
+        }
+
+        return $issuerBase.'/'.ltrim($requestUri, '/');
     }
 
     private function sl1e(): Sl1eClient

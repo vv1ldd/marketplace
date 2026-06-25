@@ -126,6 +126,32 @@ class SimpleL1ConnectController extends Controller
         $deepLinkUrl = is_string($deepLinkUrl) && $deepLinkUrl !== ''
             ? StorefrontSl1Theme::appendAuthorizeDisplayParams($deepLinkUrl, $request)
             : null;
+
+        // ADR-0030: prefer the issuer PAR + canonical ceremony origin so the
+        // storefront ceremony runs on connect.identity.<contour> under a single
+        // rp_id, instead of an in-page ceremony bound to the per-storefront
+        // rp_id. Returns null (and we keep the inline flow) unless the host is
+        // explicitly enabled and a client secret is configured.
+        $ceremonyShortLink = $simpleL1Client->pushedAuthorizationShortLinkForHost(
+            host: $appHost,
+            clientId: $resolvedClientId,
+            redirectUri: $redirectUri,
+            state: $state,
+            nonce: $nonce,
+            mode: $mode,
+            intent: $intent,
+            flow: $flow,
+            identityHint: $this->simpleL1IdentityHint($request),
+            uiLocale: $this->simpleL1Locale($request),
+        );
+        $usesCeremonyOrigin = is_string($ceremonyShortLink) && $ceremonyShortLink !== '';
+        if ($usesCeremonyOrigin) {
+            // The ceremony origin owns the request state; the browser must reach
+            // the short link as-is (no local /authorize rewrite, no deep link).
+            $authorizeUrl = $ceremonyShortLink;
+            $deepLinkUrl = null;
+        }
+
         $nativeDeepLinkAutoLaunch = (bool) config('simple_l1.native_deep_link_auto_launch', false);
         $handoff = $this->simpleL1HandoffContext($mode, $intent, $returnTo);
 
@@ -136,6 +162,7 @@ class SimpleL1ConnectController extends Controller
                 return response()->json([
                     'show_handoff' => false,
                     'redirect_url' => $authorizeUrl,
+                    'external_redirect' => $usesCeremonyOrigin,
                     'deep_link_url' => $deepLinkUrl,
                     'native_auto_launch' => $nativeDeepLinkAutoLaunch,
                     'handoff_state' => $state,
@@ -153,6 +180,7 @@ class SimpleL1ConnectController extends Controller
             return response()->json([
                 'show_handoff' => true,
                 'redirect_url' => $authorizeUrl,
+                'external_redirect' => $usesCeremonyOrigin,
                 'deep_link_url' => $deepLinkUrl,
                 'native_auto_launch' => $nativeDeepLinkAutoLaunch,
                     'handoff_state' => $state,

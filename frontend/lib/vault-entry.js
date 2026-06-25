@@ -88,6 +88,11 @@ export async function navigateToVaultEntry(router, {
       return;
     }
 
+    if (handoff.externalUrl) {
+      window.location.assign(handoff.externalUrl);
+      return;
+    }
+
     router.push(handoff.authorizePath);
   } catch {
     try {
