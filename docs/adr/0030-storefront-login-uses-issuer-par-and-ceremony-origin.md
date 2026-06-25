@@ -61,6 +61,46 @@ connect.identity.*  = ceremony origin
 pass.*              = issuer endpoint
 ```
 
+## Consequences
+
+### 1. The issuer owns the authorization request
+
+Today part of the request state is effectively authored by the client (the
+storefront assembles the authorize URL). After this ADR the request exists as an
+**object owned by the issuer**, not as a URL composed by the storefront:
+
+```text
+client_id + secret
+      ↓ PAR
+sl1rq_xxx
+      ↓
+issuer-owned request state
+```
+
+The short `sl1rq_…` reference is a handle to issuer state, not a serialization
+of client-supplied parameters.
+
+### 2. The storefront special case disappears
+
+```text
+before:  ops → PAR,  storefront → inline authorize
+after:   ops → PAR,  storefront → PAR,  maestrooo → PAR
+```
+
+One authorization model means one threat model, one trace, and one set of logs.
+There is no longer a "storefront-shaped" exception to reason about.
+
+### 3. It fits ADR 0028 cleanly
+
+If the ceremony must live on a dedicated origin (`connect.identity.<contour>`),
+then every client should reach it the same way. Otherwise the system keeps an
+exception (`ops → ceremony origin`, `storefront → almost ceremony origin`), which
+is exactly the divergence this ADR removes.
+
+This ADR is therefore **not new functionality** — it is the removal of an
+architectural divergence between storefront and ops. The system gets simpler
+because it has fewer exceptions.
+
 ## Required work (separate change-set)
 
 1. **Register storefront clients** (`meanly.one`, `meanly.ru`, Maestrooo) in the
@@ -75,12 +115,40 @@ pass.*              = issuer endpoint
 4. **Verify per contour** (`meanly.one`, `meanly.ru`) that the redirect chain and
    `rp_id` match ADR 0028, exactly as verified for `ops.*`.
 
+## Pre-cutover verification
+
+Before flipping the flag on any contour, walk the registration matrix:
+
+| Contour      | client_id | redirect_uri | rp_id | PAR        |
+|--------------|-----------|--------------|-------|------------|
+| meanly.one   | ✓         | ✓            | ✓     | ✓          |
+| meanly.ru    | ✓         | ✓            | ✓     | ✓          |
+| maestrooo    | ✓         | ✓            | ✓     | ✓          |
+| ops          | ✓         | ✓            | ✓     | already ✓  |
+
+Then verify the full chain on each contour while the flag is still off:
+
+```text
+storefront
+  → PAR
+  → sl1rq_xxx
+  → short URL (pass.<contour>/r/…)
+  → ceremony (connect.identity.<contour>)
+  → callback
+```
+
+Only enable the contour once both the matrix row and the chain pass.
+
 ## Trade-offs
 
 - Storefront sign-in changes from an in-page ceremony to a redirect to the
   ceremony origin. This is the intended ADR 0028 shape but is a UX change.
-- Each contour must have its storefront client registered before cutover, or the
-  PAR call fails (the same dependency that blocked early `ops` short links).
+- **Contour onboarding gains a mandatory issuer-registration step.** Previously a
+  new storefront contour could come up almost autonomously. After this ADR a new
+  contour requires client registration, a `client_secret`, redirect validation,
+  and `rp_id` validation at the issuer before login works. This is the conscious
+  price of making the authorization request issuer-owned: the PAR call fails
+  without it (the same dependency that blocked early `ops` short links).
 
 ## Non-decision
 
