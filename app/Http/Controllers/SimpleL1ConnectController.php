@@ -1290,6 +1290,33 @@ class SimpleL1ConnectController extends Controller
         Auth::logout();
     }
 
+    /**
+     * ADR-0056: email is a scope-gated, non-authoritative contact claim.
+     * It is never used as an identity key, login, or account-resolution input.
+     *
+     * @return array{email: string|null, email_hash: string|null}
+     */
+    private function simpleL1ContactEmail(array $proofResponse): array
+    {
+        $email = trim((string) (
+            data_get($proofResponse, 'identity.email')
+            ?: data_get($proofResponse, 'identity_proof_envelope.claims.email')
+            ?: data_get($proofResponse, 'proof.claims.email')
+            ?: ''
+        ));
+        $emailHash = trim((string) (
+            data_get($proofResponse, 'identity.email_hash')
+            ?: data_get($proofResponse, 'identity_proof_envelope.claims.email_hash')
+            ?: data_get($proofResponse, 'proof.claims.email_hash')
+            ?: ''
+        ));
+
+        return [
+            'email' => $email !== '' ? Str::lower($email) : null,
+            'email_hash' => $emailHash !== '' ? $emailHash : null,
+        ];
+    }
+
     private function simpleL1Alias(array $proofResponse): ?string
     {
         foreach ([
@@ -1441,6 +1468,15 @@ class SimpleL1ConnectController extends Controller
         }
         if ($username !== null) {
             $meta['simple_l1']['username'] = $username;
+        }
+        // ADR-0056: store the consented email strictly as a contact attribute.
+        // It is never written to user->email and never used as an identity key.
+        $contact = $this->simpleL1ContactEmail($proofResponse);
+        if ($contact['email'] !== null) {
+            $meta['simple_l1']['contact_email'] = $contact['email'];
+        }
+        if ($contact['email_hash'] !== null) {
+            $meta['simple_l1']['contact_email_hash'] = $contact['email_hash'];
         }
         $meta['identity_wildflow'] = [
             'protocol' => data_get($proofResponse, 'proof.protocol', 'simple-layer-one'),
