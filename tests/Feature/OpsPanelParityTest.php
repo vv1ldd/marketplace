@@ -151,6 +151,68 @@ class OpsPanelParityTest extends TestCase
         $this->assertIsInt(data_get($response->json('kernel'), 'support_planes.devices.terminals_total'));
     }
 
+    public function test_ops_providers_kernel_shows_remote_consumer_when_ru_pulls_from_one(): void
+    {
+        config([
+            'services.wildflow.kernel_url' => 'https://api.meanly.one/api/v1',
+            'services.wildflow.kernel_mode' => 'http',
+        ]);
+
+        $admin = $this->opsAdmin('ru-supply');
+
+        Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Wildflow',
+                'is_active' => true,
+                'credentials' => [
+                    'api_key' => 'ru-partner-token',
+                    'client_id' => 'ru-legal-entity',
+                    'financial_secret' => 'ru-financial-secret',
+                ],
+            ],
+        );
+
+        $response = $this->actingAs($admin)
+            ->getJson('https://meanly.test/ops/dashboard/providers/data')
+            ->assertOk();
+
+        $this->assertSame('remote_kernel_consumer', data_get($response->json('kernel'), 'mode'));
+        $this->assertSame('api.meanly.one', data_get($response->json('kernel'), 'authority'));
+        $this->assertSame('meanly.one', data_get($response->json('kernel'), 'upstream'));
+        $this->assertCount(1, collect($response->json('data')));
+        $this->assertNull(collect($response->json('data'))->firstWhere('sync_status', 'not_configured'));
+
+        $wildflow = collect($response->json('data'))->first();
+        $this->assertSame('ezpin', data_get($wildflow, 'type'));
+        $this->assertTrue(data_get($wildflow, 'is_legacy_alias'));
+        $this->assertFalse(data_get($wildflow, 'health.supports_upstream_pull'));
+    }
+
+    public function test_ops_provider_sync_rejects_direct_upstream_pull_on_remote_consumer_contour(): void
+    {
+        config([
+            'services.wildflow.kernel_url' => 'https://api.meanly.one/api/v1',
+            'services.wildflow.kernel_mode' => 'http',
+        ]);
+
+        Queue::fake();
+
+        $admin = $this->opsAdmin('ru-pull-block');
+        $provider = Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            ['name' => 'Wildflow', 'is_active' => true],
+        );
+
+        $this->actingAs($admin)
+            ->postJson("https://meanly.test/ops/dashboard/providers/{$provider->id}/sync", [
+                'mode' => 'pull-upstream',
+            ])
+            ->assertStatus(422);
+
+        Queue::assertNothingPushed();
+    }
+
     public function test_legacy_wildflow_provider_type_resolves_to_ezpin_driver_alias(): void
     {
         $provider = Provider::updateOrCreate(

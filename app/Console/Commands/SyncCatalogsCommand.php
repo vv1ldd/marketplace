@@ -12,6 +12,7 @@ use App\Services\MappingService;
 use App\Services\Provider\EzpinCatalogClient;
 use App\Services\Provider\ProviderCatalogAggregator;
 use App\Services\Provider\ProviderCatalogPayloadNormalizer;
+use App\Support\SupplyContour;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -81,6 +82,12 @@ class SyncCatalogsCommand extends Command
         $this->currencyCache = \App\Models\Currency::pluck('id', 'code')->toArray();
 
         if ((bool) $this->option('pull-upstream')) {
+            if (SupplyContour::isRemoteKernelConsumer()) {
+                $this->error('Direct upstream pull is disabled on RU: catalog and fulfillment route through Meanly ONE.');
+
+                return;
+            }
+
             $this->pullDirectEzpinCatalog($provider);
         }
 
@@ -158,6 +165,10 @@ class SyncCatalogsCommand extends Command
 
         if ((bool) $this->option('embedded')) {
             return true;
+        }
+
+        if (SupplyContour::isRemoteKernelConsumer()) {
+            return false;
         }
 
         return (string) data_get($provider->settings, 'catalog_source', 'meanly_one') !== 'legacy_http';

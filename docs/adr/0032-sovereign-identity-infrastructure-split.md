@@ -15,7 +15,7 @@ Accepted - **2026-06**
 |---------|-------|--------|
 | **ONE** | `meanly.one`, `api.meanly.one`, `pass.meanly.one`, `connect.identity.meanly.one`, `identity.meanly.one` | GCP `lena-1-gcl` (`34.39.244.55`) |
 | **RU** | `meanly.ru`, `api.meanly.ru`, `pass.meanly.ru`, `connect.identity.meanly.ru`, `identity.meanly.ru` | lena (`135.106.162.147`) |
-| **Protocol** | `pass.simplelayer.one`, `simplelayer.one` | lena (root) |
+| **Protocol** | `pass.simplelayer.one`, `simplelayer.one` | GCP `lena-1-gcl` (`34.39.244.55`) |
 
 Each commerce contour runs a **separate** `simple-l1` instance with its own
 sovereign ledger volume, `SL1_PASS_ISSUER_HOST`, `SL1_ISSUER_CEREMONY_MAP`, and
@@ -44,4 +44,6 @@ storefront
 ## Non-decision
 
 `ops.meanly.one` / `ops-gcl.meanly.one` Coolify clients remain registered on the
-GCP `.one` issuer. `pass.simplelayer.one` protocol namespace stays on lena.
+GCP `.one` issuer. `pass.simplelayer.one` protocol namespace runs on GCP together
+with the ONE commerce issuer (`simple-l1` on `lena-1-gcl`). lena keeps only the
+RU contour (`simple-l1-ru`).

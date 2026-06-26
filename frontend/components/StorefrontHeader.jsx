@@ -27,13 +27,13 @@ export function StorefrontHeader({ authority = {} }) {
     returnTo: vaultReturnTo,
     mode: 'connect',
     intentTitle: t('header_connect_title'),
-    intentCta: t('header_connect_safe'),
+    intentCta: t('intent_cta'),
     intentDescription: t('header_connect_description'),
   });
   const vaultIntent = {
     returnTo: vaultReturnTo,
     intentTitle: t('header_connect_title'),
-    intentCta: t('header_connect_safe'),
+    intentCta: t('intent_cta'),
     intentDescription: t('header_connect_description'),
   };
   const isCatalogPath = pathname.startsWith('/catalog')

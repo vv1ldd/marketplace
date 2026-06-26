@@ -33,6 +33,7 @@ use App\Models\SettlementProof;
 use App\Models\WalletAccount;
 use App\Models\WalletLedgerEntry;
 use App\Models\Warehouse;
+use App\Support\SupplyContour;
 use App\Models\WarehouseStock;
 use App\Models\ZeroLayerIntegration;
 use App\Models\ZeroLayerSignal;
@@ -1013,27 +1014,7 @@ class OpsDashboardController extends Controller
         return response()->json([
             'data' => $authorityRows,
             'catalog_sources' => $catalogSources->map(fn (Provider $provider): array => $this->providerCatalogSourcePayload($provider))->values(),
-            'kernel' => [
-                'mode' => 'direct_supply_authority',
-                'authority' => 'meanly.one',
-                'upstream' => 'ezpin+fazercards',
-                'upstream_label' => 'EZPin + Fazer Cards',
-                'compatibility_host' => 'api.meanly.one',
-                'ezpin_env_configured' => filled(config('services.ezpin.client_id')) && filled(config('services.ezpin.secret_key')),
-                'compatibility_aliases' => ['legacy provider records resolve to ezpin'],
-                'support_planes' => [
-                    'docs' => [
-                        'catalog' => '/api/v1/providers/{provider}/unified-catalog',
-                        'availability' => '/api/v1/providers/{provider}/check-availability/{sku}',
-                        'orders' => '/api/v1/providers/{provider}/order',
-                        'balance' => '/api/v1/partners/{partner}',
-                    ],
-                    'devices' => [
-                        'terminals_total' => SellerTerminal::count(),
-                        'terminals_active' => SellerTerminal::where('is_active', true)->count(),
-                    ],
-                ],
-            ],
+            'kernel' => SupplyContour::kernelPayload(),
         ]);
     }
 
@@ -1047,6 +1028,12 @@ class OpsDashboardController extends Controller
         $data = $request->validate([
             'mode' => 'required|string|in:embedded,pull-upstream,http',
         ]);
+
+        if ($data['mode'] === 'pull-upstream' && SupplyContour::isRemoteKernelConsumer()) {
+            return response()->json([
+                'error' => 'Direct upstream pull is disabled on RU. Catalog syncs from Meanly ONE.',
+            ], 422);
+        }
 
         $provider = app(ProviderCatalogSyncState::class)->reconcile($provider);
 
@@ -2076,7 +2063,8 @@ class OpsDashboardController extends Controller
         $rawCredentials = is_array($provider->credentials) ? $provider->credentials : [];
         $credentials = $this->providerAuthorityCredentials($provider, $rawCredentials);
         $settings = is_array($provider->settings) ? $provider->settings : [];
-        $supportsUpstreamPull = in_array($provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox', 'fazer'], true);
+        $supportsUpstreamPull = ! SupplyContour::isRemoteKernelConsumer()
+            && in_array($provider->type, ['ezpin', 'ezpin-sandbox', 'wildflow', 'wildflow-sandbox', 'fazer'], true);
         $isLegacyAlias = in_array($provider->type, ['wildflow', 'wildflow-sandbox'], true);
         $effectiveType = $this->effectiveProviderType($provider);
 
@@ -2084,7 +2072,9 @@ class OpsDashboardController extends Controller
             'id' => $provider->id,
             'name' => $this->providerDisplayName($provider),
             'type' => $effectiveType,
-            'authority' => 'meanly.one',
+            'authority' => SupplyContour::isRemoteKernelConsumer()
+                ? SupplyContour::kernelAuthorityHost()
+                : 'meanly.one',
             'upstream_provider' => $this->upstreamProviderSlug($effectiveType),
             'upstream_label' => $this->upstreamProviderLabel($effectiveType),
             'is_legacy_alias' => $isLegacyAlias,
@@ -2124,6 +2114,10 @@ class OpsDashboardController extends Controller
      */
     private function expectedSupplyAuthorityTypes(): array
     {
+        if (SupplyContour::isRemoteKernelConsumer()) {
+            return [];
+        }
+
         return ['ezpin', 'fazer'];
     }
 
@@ -2133,7 +2127,9 @@ class OpsDashboardController extends Controller
             'id' => null,
             'name' => $this->providerDisplayNameForType($effectiveType),
             'type' => $effectiveType,
-            'authority' => 'meanly.one',
+            'authority' => SupplyContour::isRemoteKernelConsumer()
+                ? SupplyContour::kernelAuthorityHost()
+                : 'meanly.one',
             'upstream_provider' => $this->upstreamProviderSlug($effectiveType),
             'upstream_label' => $this->upstreamProviderLabel($effectiveType),
             'is_legacy_alias' => false,

@@ -1322,6 +1322,9 @@ body:has(.page--wallet) .marketplace-footer {
   line-height: 0.96;
   margin: 0 auto;
   max-width: 920px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .hero p:not(.eyebrow):not(.product-card__price) {

@@ -31,3 +31,6 @@ composer.phar
 !/bin/.gitkeep
 /scratch/verification-live-proofs/**
 !/scratch/verification-live-proofs/.gitkeep
+.cursor/
+selectel
+selectel.pub

@@ -225,7 +225,7 @@ export function WalletAuthorizePanel({
         : 'connect';
   const screenTitle = t('header_connect_title');
   const panelAriaLabel = viewKey === 'connect' ? t('vault_authorize_intro') : screenTitle;
-  const primaryCta = hintAddress ? t('header_connect_safe') : t('vault_authorize_open_cta');
+  const primaryCta = hintAddress ? (authorizeParams.intentCta || t('intent_cta')) : t('vault_authorize_open_cta');
   const mobilePasskeyOnly = isMobileSurface && hasPasskeyDriver;
   const registerCtaLabel = t(mobilePasskeyOnly ? 'vault_authorize_create_cta_mobile' : 'vault_authorize_create_cta');
   const registerDescLabel = t(mobilePasskeyOnly ? 'vault_authorize_register_desc_mobile' : 'vault_authorize_register_desc');

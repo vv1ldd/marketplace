@@ -185,7 +185,7 @@ export function StorefrontSessionPanel({
     navigateToVaultEntry(router, {
       returnTo: vaultHandoffUrl({ return_to: '/vault' }),
       intentTitle: t('header_connect_title'),
-      intentCta: t('header_connect_safe'),
+      intentCta: t('intent_cta'),
       intentDescription: t('header_connect_description'),
     }).catch(() => {
       vaultRedirectStarted.current = false;
