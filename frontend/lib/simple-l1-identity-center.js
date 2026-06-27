@@ -13,7 +13,7 @@ export function backendConnectPath(connectQuery = {}) {
 
   params.set('popup', '1');
 
-  return `/backend/simple-l1/connect?${params.toString()}`;
+  return `/simple-l1/connect?${params.toString()}`;
 }
 
 export function authorizePathFromRedirect(redirectUrl, origin = typeof window !== 'undefined' ? window.location.origin : 'https://meanly.test') {
