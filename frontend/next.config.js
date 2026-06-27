@@ -38,6 +38,10 @@ const nextConfig = {
 
     return [
       {
+        source: '/backend/:path*',
+        destination: `${apiUrl}/:path*`,
+      },
+      {
         source: '/identity',
         destination: `${apiUrl}/identity`,
       },
