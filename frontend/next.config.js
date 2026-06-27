@@ -38,20 +38,12 @@ const nextConfig = {
 
     return [
       {
-        source: '/backend/:path*',
-        destination: `${apiUrl}/:path*`,
-      },
-      {
         source: '/identity',
         destination: `${apiUrl}/identity`,
       },
       {
         source: '/wallet',
         destination: `${apiUrl}/wallet`,
-      },
-      {
-        source: '/simple-l1/:path*',
-        destination: `${apiUrl}/simple-l1/:path*`,
       },
       {
         source: '/manifest.webmanifest',
