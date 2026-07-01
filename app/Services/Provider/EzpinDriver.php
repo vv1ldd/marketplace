@@ -10,4 +10,5 @@ namespace App\Services\Provider;
  */
 class EzpinDriver extends WildflowDriver
 {
+    // Inherits fireShadowIngest(), getNormalizedCards(), and Wildflow/EzPin fulfillment from WildflowDriver.
 }

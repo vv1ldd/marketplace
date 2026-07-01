@@ -10,6 +10,7 @@ use App\Services\Mutation\MutationContext;
 use App\Services\Mutation\MutationDedupGuard;
 use App\Services\Mutation\MutationIdentityResolver;
 use App\Services\Provider\ProviderHub;
+use App\Services\Provider\WildflowDriver;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -204,6 +205,20 @@ class OrderService
                 ]);
 
                 $this->notifyCustomer($item, $code);
+
+                if ($item->order) {
+                    app(DgsShadowIngestDispatcher::class)->dispatchFromProviderFulfillment(
+                        $item->order,
+                        $item->fresh(),
+                        $product,
+                        $provider,
+                        null,
+                        WildflowCatalog::query()->where('sku', $catalogSku)->first(),
+                        $codes,
+                        $externalOrderId,
+                        $driver instanceof WildflowDriver ? $driver : null
+                    );
+                }
 
                 return ['success' => true, 'code' => $code];
             }

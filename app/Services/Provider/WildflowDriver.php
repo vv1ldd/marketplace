@@ -3,6 +3,7 @@
 namespace App\Services\Provider;
 
 use App\Models\Provider;
+use App\Services\DgsShadowIngestService;
 use App\Services\WildflowService;
 use Illuminate\Support\Facades\Log;
 
@@ -85,13 +86,37 @@ class WildflowDriver implements ProviderDriverInterface
 
     public function getCodes(string $externalOrderId): array
     {
-        $cards = $this->getService()->getCards($externalOrderId, $this->upstreamProvider());
-
-        return collect($cards)
+        return collect($this->getNormalizedCards($externalOrderId))
             ->map(fn (array $card) => $card['pinCode'] ?? $card['pin_code'] ?? $card['code'] ?? null)
             ->filter()
             ->values()
             ->toArray();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getNormalizedCards(string $externalOrderId): array
+    {
+        $cards = $this->getService()->getCards($externalOrderId, $this->upstreamProvider());
+
+        return is_array($cards) ? $cards : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $phpOrder
+     * @param  array<string, mixed>  $mpOrderData
+     * @param  array<string, mixed>  $mpProductData
+     * @param  array<int, array<string, mixed>>  $legacyCards
+     */
+    public function fireShadowIngest(array $phpOrder, array $mpOrderData, array $mpProductData, array $legacyCards): void
+    {
+        app(DgsShadowIngestService::class)->fireShadowIngest(
+            $phpOrder,
+            $mpOrderData,
+            $mpProductData,
+            $legacyCards
+        );
     }
 
     public function getBalance(): float

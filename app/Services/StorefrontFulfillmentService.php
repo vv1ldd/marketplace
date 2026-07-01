@@ -10,6 +10,8 @@ use App\Models\Provider;
 use App\Models\ProviderProduct;
 use App\Models\WildflowCatalog;
 use App\Services\Provider\ProviderHub;
+use App\Services\Provider\WildflowDriver;
+use App\Services\Provider\WildflowDriver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -382,7 +384,7 @@ class StorefrontFulfillmentService
             }
 
             $item = $item->fresh();
-            $this->storeProviderCodes($order, $item, $provider, $catalog, $providerProduct, $codes, $externalOrderId);
+            $this->storeProviderCodes($order, $item, $provider, $catalog, $providerProduct, $codes, $externalOrderId, $driver instanceof WildflowDriver ? $driver : null);
 
             app(LedgerService::class)->record($shop, 'PROVIDER_ORDER_SUCCESS', $item, [
                 'provider' => $provider->type,
@@ -436,13 +438,21 @@ class StorefrontFulfillmentService
         }
 
         try {
-            $codes = app(ProviderHub::class)
-                ->forProvider($provider)
-                ->getCodes((string) $item->provider_order_id);
+            $driver = app(ProviderHub::class)->forProvider($provider);
+            $codes = $driver->getCodes((string) $item->provider_order_id);
             $codes = array_values(array_filter($codes, fn ($code) => filled($code)));
 
             if ($codes !== []) {
-                $this->storeProviderCodes($order, $item, $provider, $catalog, $providerProduct, $codes, (string) $item->provider_order_id);
+                $this->storeProviderCodes(
+                    $order,
+                    $item,
+                    $provider,
+                    $catalog,
+                    $providerProduct,
+                    $codes,
+                    (string) $item->provider_order_id,
+                    $driver instanceof WildflowDriver ? $driver : null
+                );
             }
         } catch (\Throwable $e) {
             Log::warning('Storefront safe provider poll failed', [
@@ -891,7 +901,8 @@ class StorefrontFulfillmentService
         ?WildflowCatalog $catalog,
         ?ProviderProduct $providerProduct,
         array $codes,
-        string $externalOrderId
+        string $externalOrderId,
+        ?WildflowDriver $driver = null
     ): void {
         DB::transaction(function () use ($order, $item, $provider, $catalog, $providerProduct, $codes, $externalOrderId) {
             $clientInfo = $item->client_info ?? [];
@@ -915,6 +926,21 @@ class StorefrontFulfillmentService
             $this->markOrderReady($order, $item, $codes, $externalOrderId);
             $this->markLocalEntitlements($item, 'exchanged');
         });
+
+        $product = $this->productForItem($order, $item->fresh());
+        if ($product) {
+            app(DgsShadowIngestDispatcher::class)->dispatchFromProviderFulfillment(
+                $order,
+                $item->fresh(),
+                $product,
+                $provider,
+                $providerProduct,
+                $catalog,
+                $codes,
+                $externalOrderId,
+                $driver
+            );
+        }
     }
 
     private function rememberProviderOrderResponse(?OrderItems $item, ?ProviderProduct $providerProduct, mixed $response): void

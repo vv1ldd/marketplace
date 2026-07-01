@@ -174,6 +174,11 @@ return [
         'sandbox' => env('EZPIN_SANDBOX', false),
     ],
 
+    'dgs_shadow' => [
+        'ingest_url' => env('DGS_SHADOW_INGEST_URL'),
+        'timeout_seconds' => (int) env('DGS_SHADOW_INGEST_TIMEOUT', 1),
+    ],
+
     'dadata' => [
         'token' => env('DADATA_TOKEN'),
     ],
