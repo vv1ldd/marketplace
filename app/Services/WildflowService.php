@@ -369,10 +369,11 @@ class WildflowService
             ?? ($entity->user?->meta['l1_address'] ?? null);
 
         $payload = [
-            'terminal_id' => (string)$entity->id,
-            'name'        => $entity->name ?? $entity->short_name,
-            'balance'     => (float)($entity->available_balance ?? $entity->balance ?? 0),
-            'currency'    => $entity->currency ?? 'RUB',
+            'external_id' => (string) ($entity->agreement_metadata['kernel_external_id'] ?? $entity->id),
+            'terminal_id' => (string) $entity->id,
+            'name' => $entity->name ?? $entity->short_name,
+            'balance' => (float) ($entity->available_balance ?? $entity->balance ?? 0),
+            'currency' => $entity->currency ?? 'RUB',
             'provider_credentials' => $providerCredentials,
         ];
 
