@@ -34,7 +34,8 @@ class WildflowService
             ?? config('app.wildflow_token');
 
         $clientId = $providerModel->credentials['client_id'] ?? null;
-        $this->financial_secret = $providerModel->credentials['financial_secret'] ?? null;
+        $this->financial_secret = $providerModel->credentials['financial_secret']
+            ?? config('services.wildflow.financial_secret');
  
         $client = Http::withHeaders([
             'Accept' => 'application/json',
