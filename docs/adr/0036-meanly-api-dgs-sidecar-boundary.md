@@ -82,3 +82,7 @@ remain available.
 - lena compromise does not expose vendor credentials.
 - RU catalog is a replica of ONE; monitor `401/403` on catalog pull.
 - Split fulfillment on lena edge is intentionally disabled; RU orders fulfill via ONE.
+- **Pre-GCP transitional:** while meanly.one still runs on lena with a sterile edge
+  DGS, set `WILDFLOW_FULFILLMENT_MODE=http` on the Meanly API to avoid split → Node
+  `503 EDGE_FULFILLMENT_DELEGATED_TO_ONE` noise. Keep `DGS_SHADOW_INGEST_URL` for parity
+  radar. Live vendor redeem resumes when ONE Authority moves to GCP with EzPin.
