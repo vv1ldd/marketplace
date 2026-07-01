@@ -95,12 +95,20 @@ and serialization parity.
 
 ### Phase A — GCP Authority setup
 
-- [ ] Deploy PHP DGS + Node sidecar on GCP with `EZPIN_*` (authority only).
-- [ ] Deploy Meanly API (meanly.one) on GCP; **no** `EZPIN_*` on API container.
-- [ ] Align `DIGITAL_GOODS_SOURCE_FINANCIAL_SECRET` and platform token across API + DGS.
-- [ ] Point `api.meanly.one` DNS to GCP load balancer.
-- [ ] Run `php artisan wildflow:sync-catalogs wildflow --force` on authority DGS (EzPin upstream).
-- [ ] Record baseline SKU count (e.g. 7343) for Radar parity.
+- [x] Deploy PHP DGS + Node sidecar on GCP with `EZPIN_*` (authority only).
+- [x] Wire Meanly API to `dgs-authority` (no `EZPIN_*` on API container).
+- [x] Align `DIGITAL_GOODS_SOURCE_FINANCIAL_SECRET` and platform token across API + DGS.
+- [ ] Point `api.meanly.one` DNS to GCP load balancer (deferred — authority on `lena-1-gcl` for now).
+- [x] Authority catalog populated (7343 SKU baseline; EzPin direct pull — follow-up).
+- [x] Record baseline SKU count (~7343) for Radar parity.
+
+**Phase A deploy (lena-1-gcl):**
+
+```bash
+bash ops/digital-goods-sidecar/deploy-gcp-authority.sh
+```
+
+Two stacks on host: `~/digital-goods-authority` (EzPin) + `~/digital-goods-sidecar` (sterile edge).
 
 ### Phase B — Auth handshake (ONE ↔ lena edge)
 
