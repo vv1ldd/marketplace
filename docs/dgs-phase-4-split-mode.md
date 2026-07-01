@@ -55,3 +55,32 @@ storefront fulfillment jobs populate this automatically.
 - **4.1** — `split`, production EzPin after full catalog parity
 - **4.2** — `node`, shadow ingest sampled or disabled
 - **4.3** — revoke cutover via `POST /api/v1/fulfillment/revoke`
+
+## CI/CD baking (Phase 4.0)
+
+Push to `master` runs `.github/workflows/docker-publish.yml`:
+
+1. Full Pest suite
+2. Build root `Dockerfile` and push to GHCR
+
+```text
+ghcr.io/vv1ldd/marketplace:latest
+ghcr.io/vv1ldd/marketplace:<git-sha>
+```
+
+### Coolify switch (lena-1-gcl)
+
+Replace git-build with a pinned GHCR image so Coolify recreate no longer wipes
+hot-deployed Phase 4 wiring:
+
+1. Coolify → Meanly API → **Docker Image** (not Git build)
+2. Image: `ghcr.io/vv1ldd/marketplace:<sha-from-master-merge>`
+3. Post-deploy command: `bash deploy.sh`
+4. Keep Phase 4 env from `deploy/regional/env/backend-shared.env.example`
+
+`deploy.sh` runs `php artisan meanly:production-readiness --deploy-gate` after
+cache warm-up. This gate checks Providers, DGS Sidecar (when `split|node`), DB,
+Queue, and Cache — without blocking on SEO/LLM/Ops gates.
+
+Rollback image tag: previous GHCR SHA. Rollback fulfillment mode:
+`WILDFLOW_FULFILLMENT_MODE=http`.

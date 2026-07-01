@@ -17,6 +17,7 @@ class MeanlyProductionReadinessCommand extends Command
 {
     protected $signature = 'meanly:production-readiness
         {--domain= : Optional public HTTPS domain for DNS/deployment checks}
+        {--deploy-gate : Run only deploy-critical gates (Providers, DGS Sidecar, DB, Queue, Cache)}
         {--json : Output machine-readable JSON}';
 
     protected $description = 'Aggregate production readiness across Providers, DNS, Queue, Scheduler, DB, Cache, LLM, SEO, Storefront, and Ops.';
@@ -29,6 +30,19 @@ class MeanlyProductionReadinessCommand extends Command
         if (! $this->option('json')) {
             $this->info('MEANLY PRODUCTION READINESS');
             $this->line('---------------------------');
+        }
+
+        if ($this->option('deploy-gate')) {
+            $this->checkProviders();
+            $this->checkDgsSidecar();
+            $this->checkDatabase();
+            $this->checkQueue();
+            $this->checkCache();
+            $this->render();
+
+            return collect($this->checks)->contains(fn (array $check): bool => $check['status'] === 'fail')
+                ? self::FAILURE
+                : self::SUCCESS;
         }
 
         $this->checkProviders();

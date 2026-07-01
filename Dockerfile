@@ -1,5 +1,11 @@
 FROM serversideup/php:8.4-fpm-nginx
 
+ARG GIT_SHA=unknown
+ARG GIT_REF=unknown
+LABEL org.opencontainers.image.source="https://github.com/vv1ldd/marketplace" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.ref.name="${GIT_REF}"
+
 # 1. Run as root to install system packages and extensions
 USER root
 
