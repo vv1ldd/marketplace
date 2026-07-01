@@ -7,6 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -31,6 +32,7 @@ class MeanlyProductionReadinessCommand extends Command
         }
 
         $this->checkProviders();
+        $this->checkDgsSidecar();
         $this->checkDnsAndDeployment();
         $this->checkQueue();
         $this->checkScheduler();
@@ -75,6 +77,47 @@ class MeanlyProductionReadinessCommand extends Command
             );
         } catch (Throwable $e) {
             $this->addCheck('Providers', 'fail', $e->getMessage());
+        }
+    }
+
+    private function checkDgsSidecar(): void
+    {
+        try {
+            $mode = (string) config('services.dgs.fulfillment_mode', 'http');
+            if (! in_array($mode, ['split', 'node'], true)) {
+                $this->addCheck('DGS Sidecar', 'pass', "fulfillment_mode={$mode}; Node sidecar checks skipped.");
+
+                return;
+            }
+
+            $fulfillmentUrl = rtrim((string) config('services.dgs.fulfillment_url'), '/');
+            $shadowUrl = rtrim((string) config('services.dgs_shadow.ingest_url', ''), '/');
+            $issues = [];
+
+            $fulfillmentHealth = Http::timeout(5)->get("{$fulfillmentUrl}/healthcheck");
+            if (! $fulfillmentHealth->successful()) {
+                $issues[] = ':8091 fulfillment healthcheck failed';
+            }
+
+            if ($shadowUrl !== '') {
+                $shadowBase = preg_replace('#/shadow/ingest$#', '', $shadowUrl) ?: $shadowUrl;
+                $shadowHealth = Http::timeout(5)->get("{$shadowBase}/healthcheck");
+                if (! $shadowHealth->successful()) {
+                    $issues[] = ':8092 shadow ingest healthcheck failed';
+                }
+            } else {
+                $issues[] = 'DGS_SHADOW_INGEST_URL is not configured';
+            }
+
+            $this->addCheck(
+                'DGS Sidecar',
+                $issues === [] ? 'pass' : 'fail',
+                $issues === []
+                    ? "fulfillment_mode={$mode}; Node sidecar endpoints healthy."
+                    : implode('; ', $issues),
+            );
+        } catch (Throwable $e) {
+            $this->addCheck('DGS Sidecar', 'fail', $e->getMessage());
         }
     }
 

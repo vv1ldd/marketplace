@@ -10,6 +10,7 @@ use App\Models\WildflowCatalog;
 use App\Services\Provider\ProviderHub;
 use App\Services\Provider\WildflowDriver;
 use App\Services\DgsShadowIngestDispatcher;
+use App\Services\Dgs\DgsFulfillmentPayloadBuilder;
 use App\Services\WildflowService;
 use App\Services\RedeemFallbackPurchaseService;
 use Illuminate\Bus\Queueable;
@@ -142,6 +143,10 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
                     'seller_id' => $shop ? (string)$shop->id : null,
                     'seller_name' => $shop?->name,
                     'terminal_id' => $shop ? (string)$shop->legal_entity_id : null,
+                    'user_l1_address' => DgsFulfillmentPayloadBuilder::resolveBuyerAddress($order, $order_item, $customer),
+                    'order_uuid' => (string) ($order_item->uuid ?: $order->uuid ?: $order->order_id),
+                    'sku_bidx' => (string) $order_item->sku,
+                    'ezpin_sku' => $numericServiceSku,
                 ]
             );
             $order_item->update(['provider_order_id' => $externalOrderId ?: $providerReference]);

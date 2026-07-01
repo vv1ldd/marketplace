@@ -9,8 +9,8 @@ use App\Models\ProductInventory;
 use App\Models\Provider;
 use App\Models\ProviderProduct;
 use App\Models\WildflowCatalog;
+use App\Services\Dgs\DgsFulfillmentPayloadBuilder;
 use App\Services\Provider\ProviderHub;
-use App\Services\Provider\WildflowDriver;
 use App\Services\Provider\WildflowDriver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -333,6 +333,10 @@ class StorefrontFulfillmentService
                         'seller_name' => $shop?->name,
                         'terminal_id' => $shop ? (string) $shop->legal_entity_id : null,
                         'storefront_order_id' => $order->order_id,
+                        'user_l1_address' => DgsFulfillmentPayloadBuilder::resolveBuyerAddress($order, $item),
+                        'order_uuid' => (string) ($item->uuid ?: $order->uuid ?: $order->order_id),
+                        'sku_bidx' => (string) ($item->sku ?: $catalogSku),
+                        'ezpin_sku' => $serviceSku,
                     ]
                 );
 

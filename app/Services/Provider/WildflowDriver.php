@@ -3,6 +3,9 @@
 namespace App\Services\Provider;
 
 use App\Models\Provider;
+use App\Services\Dgs\DgsFulfillmentPayloadBuilder;
+use App\Services\Dgs\DgsFulfillmentService;
+use App\Services\Dgs\DgsNodeFulfillmentAdapter;
 use App\Services\DgsShadowIngestService;
 use App\Services\WildflowService;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +16,9 @@ class WildflowDriver implements ProviderDriverInterface
     protected ?WildflowService $service = null;
     protected ?array $lastOrderResponse = null;
     protected ?array $lastSourceLedgerReceipt = null;
+
+    /** @var array<string, array<int, array<string, mixed>>> */
+    protected array $normalizedCardsByReference = [];
 
     public function setProvider(Provider $provider): self
     {
@@ -33,10 +39,10 @@ class WildflowDriver implements ProviderDriverInterface
     {
         $totalAmount = $price * $quantity;
         $upstreamProvider = $this->upstreamProvider();
+        $terminalId = (string)($meta['terminal_id'] ?? '');
 
         // 💳 JIT CREDIT GRANTING (With Multi-Tenant Auto-Registration)
         try {
-            $terminalId = (string)($meta['terminal_id'] ?? '');
             $sellerName = (string)($meta['seller_name'] ?? '');
 
             Log::info("Meanly supply authority: attempting JIT credit grant for {$reference}", [
@@ -51,6 +57,29 @@ class WildflowDriver implements ProviderDriverInterface
         } catch (\Throwable $e) {
             Log::error("Meanly supply authority JIT credit failed: " . $e->getMessage());
             throw $e;
+        }
+
+        if ($this->shouldRouteFulfillmentToNode()) {
+            $payloadBuilder = app(DgsFulfillmentPayloadBuilder::class);
+            $adapter = app(DgsNodeFulfillmentAdapter::class);
+            $fulfillmentMeta = array_merge($meta, [
+                'ezpin_sku' => $meta['ezpin_sku'] ?? $sku,
+            ]);
+
+            $nodeResponse = app(DgsFulfillmentService::class)->issue(
+                $payloadBuilder->build($sku, $reference, $price, $quantity, $fulfillmentMeta)
+            );
+
+            $this->lastOrderResponse = $adapter->normalizeOrderResponse($nodeResponse, $reference);
+            $this->normalizedCardsByReference[$reference] = $adapter->normalizedCards($nodeResponse);
+
+            Log::info('Meanly supply authority: Node DGS fulfillment completed', [
+                'reference' => $reference,
+                'node_status' => $nodeResponse['status'] ?? null,
+                'fulfillment_mode' => config('services.dgs.fulfillment_mode'),
+            ]);
+
+            return $reference;
         }
 
         // Meanly provider authority returns the normalized order object. Keep the
@@ -98,6 +127,10 @@ class WildflowDriver implements ProviderDriverInterface
      */
     public function getNormalizedCards(string $externalOrderId): array
     {
+        if (isset($this->normalizedCardsByReference[$externalOrderId])) {
+            return $this->normalizedCardsByReference[$externalOrderId];
+        }
+
         $cards = $this->getService()->getCards($externalOrderId, $this->upstreamProvider());
 
         return is_array($cards) ? $cards : [];
@@ -127,6 +160,27 @@ class WildflowDriver implements ProviderDriverInterface
     public function getRates(): array
     {
         return $this->getService()->getExchangeRates($this->upstreamProvider());
+    }
+
+    private function shouldRouteFulfillmentToNode(): bool
+    {
+        $mode = (string) config('services.dgs.fulfillment_mode', 'http');
+
+        if ($mode === 'http') {
+            return false;
+        }
+
+        if ($mode === 'node') {
+            return true;
+        }
+
+        if ($mode !== 'split') {
+            return false;
+        }
+
+        // Phase 4.0: sandbox upstream only; production EzPin stays on PHP until 4.1.
+        return in_array($this->upstreamProvider(), ['ezpin-sandbox'], true)
+            || in_array((string) $this->provider?->type, ['wildflow-sandbox', 'ezpin-sandbox'], true);
     }
 
     private function upstreamProvider(): string

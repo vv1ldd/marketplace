@@ -179,6 +179,12 @@ return [
         'timeout_seconds' => (int) env('DGS_SHADOW_INGEST_TIMEOUT', 1),
     ],
 
+    'dgs' => [
+        'fulfillment_mode' => env('WILDFLOW_FULFILLMENT_MODE', 'http'),
+        'fulfillment_url' => env('DGS_FULFILLMENT_URL', 'http://dgs-node-sidecar:8091'),
+        'fulfillment_timeout' => (int) env('DGS_FULFILLMENT_TIMEOUT', 60),
+    ],
+
     'dadata' => [
         'token' => env('DADATA_TOKEN'),
     ],
