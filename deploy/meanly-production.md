@@ -197,9 +197,30 @@ Panel domain and identity domain are intentionally split:
 
 ## Step 2 — Marketplace API
 
-Create a Coolify application from `vv1ldd/meanly-marketplace` (or your fork), Dockerfile at repo root.
+### GHCR image (recommended — Phase 4 baking)
 
-Env template: `deploy/regional/env/backend-shared.env.example`
+Every merge to `master` builds and pushes the API image via
+`.github/workflows/docker-publish.yml`:
+
+```text
+ghcr.io/vv1ldd/marketplace:latest
+ghcr.io/vv1ldd/marketplace:<git-sha>
+```
+
+In Coolify, prefer **Docker Image** over git-build so recreate pulls baked
+Phase 4 wiring instead of stale hot-deploy files. Pin a SHA tag for production;
+use `:latest` only on staging.
+
+Post-deploy command: `bash deploy.sh` (migrate, cache, bitcoin binding readiness,
+**deploy-gate** via `meanly:production-readiness --deploy-gate`).
+
+Env template: `deploy/regional/env/backend-shared.env.example` (includes Phase 4
+DGS sidecar vars). See `docs/dgs-phase-4-split-mode.md` for split-mode rollout.
+
+### Git build (legacy)
+
+Create a Coolify application from `vv1ldd/marketplace`, Dockerfile at repo root.
+Same env and post-deploy as above.
 
 Key identity vars for production:
 
@@ -213,7 +234,7 @@ SIMPLE_L1_IDENTITY_BROWSER_URL=https://meanly.one
 
 `SIMPLE_L1_RUNTIME_URL` uses the internal Docker network hostname when API and Sovereign stack share the same Coolify network (`coolify`). Adjust if runtime is reached differently.
 
-Post-deploy command: `bash deploy.sh` (migrate, cache, bitcoin binding readiness).
+Post-deploy command: `bash deploy.sh` (migrate, cache, bitcoin binding readiness, deploy-gate).
 
 Add a second process or service for the queue:
 

@@ -26,4 +26,7 @@ fi
 echo "Checking Bitcoin Vault binding readiness..."
 php artisan meanly:bitcoin-binding-readiness
 
+echo "Running deploy readiness gate (Providers, DGS Sidecar, DB, Queue, Cache)..."
+php artisan meanly:production-readiness --deploy-gate
+
 echo "Deployment finished successfully!"
