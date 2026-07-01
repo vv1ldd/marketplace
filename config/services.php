@@ -155,6 +155,7 @@ return [
         'verify_tls' => env('WILDFLOW_VERIFY_TLS', true),
         'kernel_mode' => env('WILDFLOW_KERNEL_MODE', (env('DIGITAL_GOODS_SOURCE_URL') || env('WILDFLOW_KERNEL_URL')) ? 'http' : 'local'),
         'financial_secret' => env('DIGITAL_GOODS_SOURCE_FINANCIAL_SECRET', env('WILDFLOW_KERNEL_FINANCIAL_SECRET', env('WILDFLOW_FINANCIAL_SECRET'))),
+        'force_direct_supply' => (bool) env('WILDFLOW_FORCE_DIRECT_SUPPLY', false),
         'sku_map_shop_ids' => (function (): array {
             $raw = trim((string) env('WILDFLOW_SKU_MAP_SHOP_IDS', '1'));
 

@@ -167,7 +167,7 @@ class SyncCatalogsCommand extends Command
             return true;
         }
 
-        if (SupplyContour::isRemoteKernelConsumer()) {
+        if (SupplyContour::usesKernelHttpCatalog()) {
             return false;
         }
 

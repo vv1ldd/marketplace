@@ -4,10 +4,19 @@ namespace App\Support;
 
 class SupplyContour
 {
-    public static function isRemoteKernelConsumer(): bool
+    public static function usesKernelHttpCatalog(): bool
     {
         return filled(config('services.wildflow.kernel_url'))
             && (string) config('services.wildflow.kernel_mode', 'http') === 'http';
+    }
+
+    public static function isRemoteKernelConsumer(): bool
+    {
+        if ((bool) config('services.wildflow.force_direct_supply', false)) {
+            return false;
+        }
+
+        return self::usesKernelHttpCatalog();
     }
 
     public static function isDirectSupplyAuthority(): bool

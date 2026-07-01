@@ -50,6 +50,7 @@ jobs:
           php artisan test \
             tests/Feature/MeanlyProductionReadinessDeployGateTest.php \
             tests/Feature/DgsSplitModeFulfillmentTest.php \
+            tests/Unit/SupplyContourTest.php \
             tests/Unit/DgsFulfillmentPayloadBuilderTest.php
 
   publish:
