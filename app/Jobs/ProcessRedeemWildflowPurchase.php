@@ -8,6 +8,8 @@ use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\WildflowCatalog;
 use App\Services\Provider\ProviderHub;
+use App\Services\Provider\WildflowDriver;
+use App\Services\DgsShadowIngestDispatcher;
 use App\Services\WildflowService;
 use App\Services\RedeemFallbackPurchaseService;
 use Illuminate\Bus\Queueable;
@@ -181,6 +183,7 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
                 ]);
                 $this->markOrderProgressIfComplete($order, $order_item);
                 $this->notifyCustomerWithCode($order_item, $order, $customer, $original_code);
+                $this->dispatchShadowIngest($order, $order_item->fresh(), $catalog, $provider, $providerProduct, $driver, $externalOrderId, $codes);
 
                 return;
             }
@@ -272,6 +275,42 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
 
         $this->markOrderProgressIfComplete($order, $order_item);
         $this->notifyCustomerWithCode($order_item, $order, $customer, $original_code);
+    }
+
+    private function dispatchShadowIngest(
+        Order $order,
+        OrderItems $order_item,
+        ?WildflowCatalog $catalog,
+        ?\App\Models\Provider $provider,
+        ?\App\Models\ProviderProduct $providerProduct,
+        ?\App\Services\Provider\ProviderDriverInterface $driver,
+        string $externalOrderId,
+        array $codes,
+    ): void {
+        if (! $provider || ! $catalog) {
+            return;
+        }
+
+        $product = \App\Models\Product::query()
+            ->where('sku', $order_item->sku)
+            ->where('shop_id', $order->shop_id)
+            ->first();
+
+        if (! $product) {
+            return;
+        }
+
+        app(DgsShadowIngestDispatcher::class)->dispatchFromProviderFulfillment(
+            $order,
+            $order_item,
+            $product,
+            $provider,
+            $providerProduct,
+            $catalog,
+            $codes,
+            $externalOrderId,
+            $driver instanceof WildflowDriver ? $driver : null
+        );
     }
 
     /**
