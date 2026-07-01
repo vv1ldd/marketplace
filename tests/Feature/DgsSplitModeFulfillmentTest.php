@@ -87,6 +87,7 @@ class DgsSplitModeFulfillmentTest extends TestCase
     {
         config([
             'services.wildflow.verify_tls' => false,
+            'services.wildflow.kernel_url' => 'https://php-dgs.test/api/v1',
             'services.dgs.fulfillment_mode' => 'http',
         ]);
 
@@ -135,6 +136,7 @@ class DgsSplitModeFulfillmentTest extends TestCase
     {
         config([
             'services.wildflow.verify_tls' => false,
+            'services.wildflow.kernel_url' => 'https://php-dgs.test/api/v1',
             'services.dgs.fulfillment_mode' => 'split',
         ]);
 
