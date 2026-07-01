@@ -86,3 +86,58 @@ remain available.
   DGS, set `WILDFLOW_FULFILLMENT_MODE=http` on the Meanly API to avoid split → Node
   `503 EDGE_FULFILLMENT_DELEGATED_TO_ONE` noise. Keep `DGS_SHADOW_INGEST_URL` for parity
   radar. Live vendor redeem resumes when ONE Authority moves to GCP with EzPin.
+
+## GCP Authority cutover checklist
+
+Operational sequence when ONE moves from lena to GCP. Catalog sync is the deepest
+heartbeat — a successful pull with matching item counts proves auth, connectivity,
+and serialization parity.
+
+### Phase A — GCP Authority setup
+
+- [ ] Deploy PHP DGS + Node sidecar on GCP with `EZPIN_*` (authority only).
+- [ ] Deploy Meanly API (meanly.one) on GCP; **no** `EZPIN_*` on API container.
+- [ ] Align `DIGITAL_GOODS_SOURCE_FINANCIAL_SECRET` and platform token across API + DGS.
+- [ ] Point `api.meanly.one` DNS to GCP load balancer.
+- [ ] Run `php artisan wildflow:sync-catalogs wildflow --force` on authority DGS (EzPin upstream).
+- [ ] Record baseline SKU count (e.g. 7343) for Radar parity.
+
+### Phase B — Auth handshake (ONE ↔ lena edge)
+
+- [ ] Issue or rotate shared `X-Auth-Token` (`APP_WILDFLOW_TOKEN` / `CATALOG_SOURCE_AUTH_TOKEN`).
+- [ ] Update lena edge `.env`: `CATALOG_SOURCE_URL=https://api.meanly.one/api/v1/providers/ezpin/unified-catalog?include_inactive=1`.
+- [ ] Verify `GET unified-catalog` returns `200` with token (not `401`/`403`).
+- [ ] Run lena edge sync: `docker exec digital-goods-source php artisan wildflow:sync-catalogs wildflow`.
+- [ ] Confirm edge SKU count matches authority baseline (±0 tolerance for full sync).
+
+### Phase C — Fulfillment cutover
+
+- [ ] **meanly.one (GCP):** `WILDFLOW_FULFILLMENT_MODE=split`, Node `:8091` healthy with EzPin.
+- [ ] **meanly.ru (lena):** remain `http` + sterile DGS; no `DGS_FULFILLMENT_URL` traffic.
+- [ ] **lena Node:** `DGS_EDGE_MODE=true` — fulfillment stays `503 EDGE_FULFILLMENT_DELEGATED_TO_ONE`.
+- [ ] Smoke: grant-credit on RU edge; live redeem on ONE authority only.
+- [ ] Radar: shadow ingest (`:8092`) receiving PHP baseline packets on lena before split comparison on GCP.
+
+### Phase D — Post-cutover verify (one command)
+
+From dev machine:
+
+```bash
+bash ops/digital-goods-sidecar/deploy-lena-1-gcl.sh
+```
+
+Or on lena after any edge deploy — see `post-sync authority-link verify` in that script.
+
+### Rollback
+
+| Failure | Action |
+|---------|--------|
+| GCP catalog pull fails | Revert DNS to lena authority; re-sync edge from lena ONE |
+| Split redeem fails on GCP | `WILDFLOW_FULFILLMENT_MODE=http` on meanly.one (instant, no sidecar redeploy) |
+| Edge token mismatch | Re-align `CATALOG_SOURCE_AUTH_TOKEN` with `APP_WILDFLOW_TOKEN` on ONE |
+
+### Monitoring (no synthetic pings during stabilization)
+
+- **SKU count drift** on edge vs authority baseline → upstream authority issue.
+- **`401`/`403`** on `api.meanly.one` unified-catalog → auth handshake break.
+- **Shadow ingest silence** on lena `:8092` → `DgsShadowIngestService` or http-fulfillment path change.
