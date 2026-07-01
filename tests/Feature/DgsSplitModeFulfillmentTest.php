@@ -132,12 +132,60 @@ class DgsSplitModeFulfillmentTest extends TestCase
         $this->assertSame(['LEGACY-PIN-001'], $driver->getCodes($reference));
     }
 
-    public function test_split_mode_does_not_route_production_ezpin_to_node(): void
+    public function test_split_mode_routes_production_ezpin_to_node_when_allowlisted(): void
     {
         config([
             'services.wildflow.verify_tls' => false,
             'services.wildflow.kernel_url' => 'https://php-dgs.test/api/v1',
             'services.dgs.fulfillment_mode' => 'split',
+            'services.dgs.fulfillment_url' => 'http://dgs-node-sidecar.test:8091',
+            'services.dgs.split_fulfillment_providers' => ['ezpin-sandbox', 'ezpin'],
+        ]);
+
+        $provider = Provider::updateOrCreate(
+            ['type' => 'wildflow'],
+            [
+                'name' => 'Wildflow',
+                'is_active' => true,
+                'credentials' => [
+                    'base_url' => 'https://php-dgs.test/api/v1/',
+                    'api_key' => 'wf-token',
+                    'client_id' => 'wf-client',
+                    'financial_secret' => 'wf-secret',
+                ],
+            ]
+        );
+
+        Http::fake([
+            'https://php-dgs.test/api/v1/partners/grant-credit' => Http::response(['success' => true], 200),
+            'http://dgs-node-sidecar.test:8091/api/v1/fulfillment/issue' => Http::response([
+                'fulfillment_id' => 'ful_lic_prod001',
+                'status' => 'ISSUED',
+                'strategy' => 'license_key',
+                'payload' => ['license_key' => 'PIN-EZP-PROD-001'],
+            ], 200),
+        ]);
+
+        $driver = (new WildflowDriver())->setProvider($provider);
+        $reference = '48872be1-b981-4770-84d3-887cbe449102';
+
+        $driver->createOrder('4402', $reference, 5.0, 1, [
+            'terminal_id' => '9937',
+            'user_l1_address' => 'sl1:id:buyer-prod-split',
+        ]);
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/fulfillment/issue'));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/providers/ezpin/order'));
+        $this->assertSame(['PIN-EZP-PROD-001'], $driver->getCodes($reference));
+    }
+
+    public function test_split_mode_keeps_production_ezpin_on_php_when_not_allowlisted(): void
+    {
+        config([
+            'services.wildflow.verify_tls' => false,
+            'services.wildflow.kernel_url' => 'https://php-dgs.test/api/v1',
+            'services.dgs.fulfillment_mode' => 'split',
+            'services.dgs.split_fulfillment_providers' => ['ezpin-sandbox'],
         ]);
 
         $provider = Provider::updateOrCreate(
@@ -162,7 +210,7 @@ class DgsSplitModeFulfillmentTest extends TestCase
         ]);
 
         $driver = (new WildflowDriver())->setProvider($provider);
-        $driver->createOrder('4402', '48872be1-b981-4770-84d3-887cbe449102', 5.0, 1, [
+        $driver->createOrder('4402', '48872be1-b981-4770-84d3-887cbe449103', 5.0, 1, [
             'terminal_id' => '9937',
         ]);
 

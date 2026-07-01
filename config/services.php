@@ -183,6 +183,10 @@ return [
         'fulfillment_mode' => env('WILDFLOW_FULFILLMENT_MODE', 'http'),
         'fulfillment_url' => env('DGS_FULFILLMENT_URL', 'http://dgs-node-sidecar:8091'),
         'fulfillment_timeout' => (int) env('DGS_FULFILLMENT_TIMEOUT', 60),
+        'split_fulfillment_providers' => array_values(array_filter(array_map(
+            static fn (string $provider): string => trim($provider),
+            explode(',', (string) env('WILDFLOW_SPLIT_FULFILLMENT_PROVIDERS', 'ezpin-sandbox,ezpin'))
+        ))),
     ],
 
     'dadata' => [

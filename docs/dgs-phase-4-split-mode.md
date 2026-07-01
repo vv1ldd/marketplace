@@ -9,6 +9,7 @@ Phase 4 separates **financial authority** (PHP `digital-goods-source`) from
 | :--- | :--- | :--- |
 | `http` (default) | PHP | PHP `providers/{p}/order` |
 | `split` (Phase 4.0 canary) | PHP | Node for **sandbox only** |
+| `split` (Phase 4.1) | PHP | Node for providers in `WILDFLOW_SPLIT_FULFILLMENT_PROVIDERS` |
 | `node` (Phase 4.2 target) | PHP | Node for all EzPin providers |
 
 Instant rollback: set `WILDFLOW_FULFILLMENT_MODE=http` in Coolify and recreate
@@ -52,9 +53,57 @@ storefront fulfillment jobs populate this automatically.
 ## Rollout ladder
 
 - **4.0** — `split`, sandbox providers only (`ezpin-sandbox`, `wildflow-sandbox`)
-- **4.1** — `split`, production EzPin after full catalog parity
+- **4.1** — `split`, production EzPin via allowlist (default `ezpin-sandbox,ezpin`)
 - **4.2** — `node`, shadow ingest sampled or disabled
 - **4.3** — revoke cutover via `POST /api/v1/fulfillment/revoke`
+
+## Phase 4.1 — Production Canary (without balance/redeem tests)
+
+Balance-funded redeem canaries stay in **pre-production scope**. Phase 4.1
+code and ops prep can proceed independently:
+
+### 1. Full catalog mirror (replace bootstrap slice)
+
+On **Meanly API** (lena):
+
+```bash
+php artisan wildflow:sync-catalogs wildflow --force
+# equivalent: php artisan app:sync-catalogs wildflow --force
+```
+
+On **PHP digital-goods-source** sidecar (pulls from Meanly unified catalog):
+
+```bash
+php artisan wildflow:sync-catalogs ezpin
+```
+
+Ensure provider `catalog_source_url` points at Meanly
+`/api/v1/providers/ezpin/unified-catalog`.
+
+### 2. Enable live EzPin Node routing
+
+```env
+WILDFLOW_FULFILLMENT_MODE=split
+WILDFLOW_SPLIT_FULFILLMENT_PROVIDERS=ezpin-sandbox,ezpin
+```
+
+To keep production EzPin on PHP while testing sandbox only:
+
+```env
+WILDFLOW_SPLIT_FULFILLMENT_PROVIDERS=ezpin-sandbox
+```
+
+### 3. Observability
+
+Node fulfillment latency is logged as structured `dgs_fulfillment_latency`
+events from `DgsFulfillmentService` (`duration_ms`, `node_status`,
+`idempotency_key`). Compare against PHP path timings during shadow split.
+
+### 4. Deferred to pre-prod scope
+
+- EzPin wallet balance top-up
+- Live/sandbox redeem canary with real PIN issuance
+- `is_parity_breached: false` on funded traffic
 
 ## CI/CD baking (Phase 4.0)
 

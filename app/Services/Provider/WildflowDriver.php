@@ -178,9 +178,27 @@ class WildflowDriver implements ProviderDriverInterface
             return false;
         }
 
-        // Phase 4.0: sandbox upstream only; production EzPin stays on PHP until 4.1.
-        return in_array($this->upstreamProvider(), ['ezpin-sandbox'], true)
-            || in_array((string) $this->provider?->type, ['wildflow-sandbox', 'ezpin-sandbox'], true);
+        // Phase 4.1: split routes upstream providers listed in WILDFLOW_SPLIT_FULFILLMENT_PROVIDERS.
+        $allowed = (array) config('services.dgs.split_fulfillment_providers', ['ezpin-sandbox']);
+        $upstream = $this->upstreamProvider();
+        $providerType = (string) ($this->provider?->type ?? '');
+
+        $candidates = array_values(array_unique(array_filter([
+            $upstream,
+            match ($providerType) {
+                'wildflow-sandbox', 'ezpin-sandbox' => 'ezpin-sandbox',
+                'wildflow', 'ezpin' => 'ezpin',
+                default => $providerType,
+            },
+        ])));
+
+        foreach ($candidates as $candidate) {
+            if (in_array($candidate, $allowed, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function upstreamProvider(): string
