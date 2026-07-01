@@ -120,11 +120,18 @@ Two stacks on host: `~/digital-goods-authority` (EzPin) + `~/digital-goods-sidec
 
 ### Phase C — Fulfillment cutover
 
-- [ ] **meanly.one (GCP):** `WILDFLOW_FULFILLMENT_MODE=split`, Node `:8091` healthy with EzPin.
+- [x] **Dry-run:** authority Node `:8091` accepts fulfillment (not `503`; EzPin path active).
+- [x] **Split enabled:** `WILDFLOW_FULFILLMENT_MODE=split` on meanly.one → `dgs-authority-node:8091`.
+- [x] **Canary scope:** `WILDFLOW_SPLIT_FULFILLMENT_PROVIDERS=ezpin-sandbox` (expand to `ezpin` after funded redeem tests).
+- [x] Deploy-gate `READY` with authority sidecar healthchecks.
+- [ ] Live `ezpin` in allowlist + funded redeem smoke (pre-prod scope).
 - [ ] **meanly.ru (lena):** remain `http` + sterile DGS; no `DGS_FULFILLMENT_URL` traffic.
 - [ ] **lena Node:** `DGS_EDGE_MODE=true` — fulfillment stays `503 EDGE_FULFILLMENT_DELEGATED_TO_ONE`.
-- [ ] Smoke: grant-credit on RU edge; live redeem on ONE authority only.
-- [ ] Radar: shadow ingest (`:8092`) receiving PHP baseline packets on lena before split comparison on GCP.
+
+```bash
+# Phase C dry-run (sandbox allowlist)
+bash ops/digital-goods-sidecar/phase-c-split-dry-run.sh
+```
 
 ### Phase D — Post-cutover verify (one command)
 
