@@ -91,6 +91,35 @@ class WeightedOfferScorerTest extends TestCase
         $this->assertGreaterThan($low, $high);
     }
 
+    public function test_lower_latency_provider_scores_higher_with_equal_margin(): void
+    {
+        $latencyBiasedMetrics = new class implements ProviderMetricsProviderInterface {
+            public function getSignalsForProvider(int $providerId): ProviderRuntimeSignals
+            {
+                return new ProviderRuntimeSignals(
+                    successRate: 0.9,
+                    p50LatencyMs: $providerId === 42 ? 500 : 2500,
+                    stockStatus: 1.0,
+                );
+            }
+        };
+
+        $scorer = new WeightedOfferScorer(
+            circuitBreaker: app(RoutingCircuitBreaker::class),
+            metricsProvider: $latencyBiasedMetrics,
+        );
+
+        $candidates = collect([
+            $this->offer(providerId: 42, margin: 0.6, success: 0.9, stock: 10),
+            $this->offer(providerId: 77, margin: 0.6, success: 0.9, stock: 10),
+        ]);
+
+        $fast = $scorer->score($candidates[0], $candidates, $this->policy);
+        $slow = $scorer->score($candidates[1], $candidates, $this->policy);
+
+        $this->assertGreaterThan($slow, $fast);
+    }
+
     /**
      * @return array<string, mixed>
      */
