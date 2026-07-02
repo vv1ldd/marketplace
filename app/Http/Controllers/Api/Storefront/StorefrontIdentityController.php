@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Storefront;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\MarketplaceIdentityResolver;
+use App\Services\MeanlyAnalyticsService;
 use App\Services\SimpleL1ProtocolClient;
 use App\Services\StorefrontTokenService;
 use Illuminate\Http\JsonResponse;
@@ -170,7 +171,17 @@ class StorefrontIdentityController extends Controller
         abort_if($entityAddress === '' || ($proofHandle === '' && $proofHash === ''), 401, 'Simple L1 session handoff is incomplete.');
 
         $proofToken = $proofHandle !== '' ? Cache::pull($this->proofTokenCacheKey($proofHandle)) : null;
-        abort_if($proofHash === '' && (! is_string($proofToken) || $proofToken === ''), 410, 'Simple L1 session handoff expired.');
+        if ($proofHash === '' && (! is_string($proofToken) || $proofToken === '')) {
+            app(MeanlyAnalyticsService::class)->track('handoff.expired', [
+                'reason' => 'proof_handle_expired',
+                'entity_l1_address_hash' => hash('sha256', strtolower($entityAddress)),
+            ], [
+                'event_type' => 'identity_connect',
+                'surface' => 'storefront',
+                'severity' => 'warning',
+            ]);
+            abort(410, 'Simple L1 session handoff expired.');
+        }
 
         $issued = $tokens->issue([
             'entity_l1_address' => $entityAddress,
@@ -185,6 +196,34 @@ class StorefrontIdentityController extends Controller
             'storefront:vault',
             'storefront:partner-registration',
         ]));
+
+        $connectedAtRaw = (string) data_get($identity, 'connected_at', '');
+        if ($connectedAtRaw !== '') {
+            try {
+                $connectedAt = \Illuminate\Support\Carbon::parse($connectedAtRaw);
+                if ($connectedAt->lt(now()->subMinutes(10))) {
+                    app(MeanlyAnalyticsService::class)->track('handoff.expired', [
+                        'reason' => 'handoff_claim_delayed',
+                        'entity_l1_address_hash' => hash('sha256', strtolower($entityAddress)),
+                        'connected_at' => $connectedAt->toIso8601String(),
+                    ], [
+                        'event_type' => 'identity_connect',
+                        'surface' => 'storefront',
+                        'severity' => 'warning',
+                    ]);
+                }
+            } catch (\Throwable) {
+                // Invalid connected_at should not block token issuance.
+            }
+        }
+
+        app(MeanlyAnalyticsService::class)->track('identity.connect.handoff_claimed', [
+            'entity_l1_address_hash' => hash('sha256', strtolower($entityAddress)),
+            'scope_count' => count((array) data_get($issued, 'session.scopes', [])),
+        ], [
+            'event_type' => 'identity_connect',
+            'surface' => 'storefront',
+        ]);
 
         return response()->json([
             'contract' => [

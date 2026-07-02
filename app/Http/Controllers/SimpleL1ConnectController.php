@@ -13,6 +13,7 @@ use App\Services\SimpleL1IdentityRegistryService;
 use App\Services\SimpleL1ProtocolClient;
 use App\Services\SimpleL1VerificationResultService;
 use App\Services\VaultIdentityService;
+use App\Services\MeanlyAnalyticsService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -27,7 +28,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class SimpleL1ConnectController extends Controller
 {
-    public function connect(Request $request): RedirectResponse|View|JsonResponse
+    public function connect(Request $request): RedirectResponse|View|JsonResponse|Response
     {
         $isPopup = (bool) $request->query('popup', false) || $request->has('popup');
         $returnTo = $this->safeReturnTo((string) $request->query('return_to', '/store'));
@@ -95,6 +96,15 @@ class SimpleL1ConnectController extends Controller
             scope: 'identity.external',
             resource: 'simple-l1-wallet',
         );
+
+        app(MeanlyAnalyticsService::class)->track('identity.connect.started', [
+            'mode' => $mode,
+            'intent_type' => $intent['intent_type'] ?? null,
+            'return_to_hash' => hash('sha256', $returnTo),
+        ], [
+            'event_type' => 'identity_connect',
+            'surface' => 'storefront',
+        ]);
 
         $simpleL1Client = app(SimpleL1ProtocolClient::class);
         // Build the authorization URL using the per-app Sl1e client so that
@@ -169,6 +179,10 @@ class SimpleL1ConnectController extends Controller
                     'status_url' => $this->absoluteCurrentHostRoute($request, 'meanly.simple_l1.status', ['state' => $state]),
                     'return_to' => $returnTo,
                 ]);
+            }
+
+            if ($isPopup && $this->shouldUsePopupSignalBridge($request)) {
+                return $this->popupSignalRedirectResponse($request, $authorizeUrl, $returnTo);
             }
 
             return redirect()->away($authorizeUrl);
@@ -412,6 +426,17 @@ class SimpleL1ConnectController extends Controller
             'mode' => $identityProof->mode,
             'connected_at' => now()->toIso8601String(),
         ];
+        app(MeanlyAnalyticsService::class)->track('identity.connect.callback_received', [
+            'mode' => $mode,
+            'intent_type' => data_get($connectIntent, 'intent_type'),
+            'return_to_hash' => hash('sha256', $returnTo),
+            'entity_l1_address_hash' => hash('sha256', strtolower($l1Address)),
+        ], [
+            'event_type' => 'identity_connect',
+            'surface' => 'storefront',
+            'user_id' => $user?->id,
+        ]);
+
         if ($verificationResult !== null) {
             $ledgerPayload['verification_result_id'] = data_get($verificationResult, 'verification_result_id');
             $ledgerPayload['verification_result'] = $verificationResult;
@@ -429,36 +454,7 @@ class SimpleL1ConnectController extends Controller
         );
 
         if ($isPopup) {
-            return response("<script>
-                (function () {
-                    var msg = {
-                        type: 'simple-l1-connected',
-                        url: " . json_encode($returnTo) . ",
-                        redirectUrl: " . json_encode($returnTo) . "
-                    };
-                    if (window.opener) {
-                        try {
-                            window.opener.postMessage(msg, '*');
-                            window.close();
-                            return;
-                        } catch (e) {
-                            window.location.href = " . json_encode($returnTo) . ";
-                            return;
-                        }
-                    }
-                    if (window.parent && window.parent !== window) {
-                        try {
-                            window.parent.postMessage(msg, '*');
-                            return;
-                        } catch (e) {
-                            window.location.href = " . json_encode($returnTo) . ";
-                            return;
-                        }
-                    }
-                    window.location.href = " . json_encode($returnTo) . ";
-                })();
-            </script>")
-            ->header('Content-Type', 'text/html');
+            return $this->popupSignalCompleteResponse($request, $returnTo);
         }
 
         return redirect($returnTo)->with('status', 'Simple L1 wallet connected.');
@@ -739,6 +735,94 @@ class SimpleL1ConnectController extends Controller
             $request->session()->forget('cabinet_vault_manually_locked');
             $request->session()->put('cabinet_vault_unlocked_until', now()->addMinutes(15)->timestamp);
         }
+    }
+
+    private function popupSignalRedirectResponse(Request $request, string $authorizeUrl, string $returnTo): Response
+    {
+        $targetOrigin = $this->connectSignalTargetOrigin($request, $returnTo);
+
+        return response("<script>
+            (function () {
+                var targetOrigin = ".json_encode($targetOrigin).";
+                var redirectUrl = ".json_encode($authorizeUrl).";
+                var returnTo = ".json_encode($returnTo).";
+                var safePost = function (payload) {
+                    try {
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.postMessage(payload, targetOrigin);
+                        }
+                    } catch (e) {}
+                };
+
+                safePost({ type: 'simple-l1-connect-signal', phase: 'READY', returnTo: returnTo, redirectUrl: redirectUrl });
+                safePost({ type: 'simple-l1-connect-signal', phase: 'PROGRESS', returnTo: returnTo, redirectUrl: redirectUrl });
+                window.location.replace(redirectUrl);
+            })();
+        </script>")->header('Content-Type', 'text/html');
+    }
+
+    private function popupSignalCompleteResponse(Request $request, string $returnTo): Response
+    {
+        $targetOrigin = $this->connectSignalTargetOrigin($request, $returnTo);
+
+        return response("<script>
+            (function () {
+                var targetOrigin = ".json_encode($targetOrigin).";
+                var returnTo = ".json_encode($returnTo).";
+                var payload = { type: 'simple-l1-connect-signal', phase: 'COMPLETE', returnTo: returnTo, redirectUrl: returnTo };
+                var posted = false;
+
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.postMessage(payload, targetOrigin);
+                        posted = true;
+                    }
+                } catch (e) {}
+
+                try {
+                    if (!posted && window.parent && window.parent !== window) {
+                        window.parent.postMessage(payload, targetOrigin);
+                        posted = true;
+                    }
+                } catch (e) {}
+
+                if (posted) {
+                    window.close();
+                    return;
+                }
+
+                window.location.href = returnTo;
+            })();
+        </script>")->header('Content-Type', 'text/html');
+    }
+
+    private function connectSignalTargetOrigin(Request $request, string $returnTo): string
+    {
+        $configured = rtrim((string) config('storefront.frontend_url', ''), '/');
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        $appUrl = rtrim((string) config('app.url', ''), '/');
+        if ($appUrl !== '') {
+            return $appUrl;
+        }
+
+        $fallback = parse_url($returnTo, PHP_URL_SCHEME)
+            ? $returnTo
+            : $request->getSchemeAndHttpHost();
+
+        return rtrim((string) $fallback, '/');
+    }
+
+    private function shouldUsePopupSignalBridge(Request $request): bool
+    {
+        $frontendHost = parse_url((string) config('storefront.frontend_url', ''), PHP_URL_HOST);
+        if (! is_string($frontendHost) || $frontendHost === '') {
+            return true;
+        }
+
+        return strcasecmp($request->getHost(), $frontendHost) === 0;
     }
 
     private function cleanIntentParam(mixed $value, int $limit): string

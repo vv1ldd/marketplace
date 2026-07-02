@@ -146,6 +146,23 @@ class MeanlyOperationalAlertService
             $activeKeys->push('ai.degraded_1h');
         }
 
+        $connectWarnings = $this->recentIdentityConnectWarnings();
+        if ($connectWarnings['count'] > 0) {
+            $alerts->push($this->upsertAlert(
+                key: 'identity_connect.handoff_expired_1h',
+                type: 'identity_connect',
+                severity: $connectWarnings['count'] >= 5 ? 'critical' : 'warning',
+                surface: 'storefront',
+                title: 'Истекают connect handoff сессии',
+                description: 'Пользователи не успевают забрать storefront token после connect callback.',
+                occurrenceCount: $connectWarnings['count'],
+                threshold: 1,
+                context: $connectWarnings,
+                lastAnalyticsEventId: $connectWarnings['last_event_id'],
+            ));
+            $activeKeys->push('identity_connect.handoff_expired_1h');
+        }
+
         $disk = $this->diskUsage();
         if ($disk !== null && $disk['used_percent'] >= self::DISK_WARN_PERCENT) {
             $critical = $disk['used_percent'] >= self::DISK_CRITICAL_PERCENT;
@@ -405,6 +422,28 @@ class MeanlyOperationalAlertService
                         'ai.chat.exception',
                     ]);
             });
+
+        $last = (clone $query)->latest('id')->first();
+
+        return [
+            'count' => (clone $query)->count(),
+            'last_event_id' => $last?->id,
+            'last_event_name' => $last?->event_name,
+            'last_seen_at' => $last?->occurred_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function recentIdentityConnectWarnings(): array
+    {
+        $query = MeanlyAnalyticsEvent::query()
+            ->where('occurred_at', '>=', now()->subHour())
+            ->where('event_type', 'identity_connect')
+            ->whereIn('event_name', [
+                'handoff.expired',
+            ]);
 
         $last = (clone $query)->latest('id')->first();
 

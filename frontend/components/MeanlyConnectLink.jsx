@@ -7,7 +7,9 @@ export function MeanlyConnectLink({
   href,
   children,
   className,
-  statusLabel = 'Opening Meanly One...',
+  statusLabel = 'Preparing secure sign-in...',
+  progressLabel = 'Waiting for confirmation in Meanly One...',
+  completeLabel = 'Confirmed. Opening Vault...',
   failureLabel = 'Could not open Meanly One. Try again.',
 }) {
   const [status, setStatus] = useState('');
@@ -23,7 +25,15 @@ export function MeanlyConnectLink({
 
     setStatus(statusLabel);
 
-    const opened = handleSimpleL1ConnectClick(event, href);
+    const opened = handleSimpleL1ConnectClick(event, href, (signal) => {
+      if (signal.phase === 'READY') {
+        setStatus(statusLabel);
+      } else if (signal.phase === 'PROGRESS') {
+        setStatus(progressLabel);
+      } else if (signal.phase === 'COMPLETE') {
+        setStatus(completeLabel);
+      }
+    });
     if (!opened) {
       setStatus(failureLabel);
     }
