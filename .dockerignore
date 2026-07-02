@@ -1,11 +1,16 @@
 .git
 .github
 .env
+.env.production.*
 .idea
 vendor
 node_modules
 npm-debug.log
 yarn-error.log
+experimental
+scratch
+*.sql
+*.dump
 
 # Laravel specific
 bootstrap/cache/*

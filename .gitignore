@@ -13,6 +13,9 @@
 /.zed
 /auth.json
 mysql-dump-*.dmp
+*.sql
+*.dump
+.env.production.*
 /node_modules
 /scripts/node_modules
 
@@ -29,8 +32,11 @@ scripts/.beta-notify.env
 composer.phar
 /bin/*
 !/bin/.gitkeep
-/scratch/verification-live-proofs/**
-!/scratch/verification-live-proofs/.gitkeep
+
+# Research / temporary workspace quarantine.
+experimental/**/*
+!experimental/README.md
+scratch/
 .cursor/
 selectel
 selectel.pub
