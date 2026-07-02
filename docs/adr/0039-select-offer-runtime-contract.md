@@ -292,7 +292,7 @@ Never mutate the failed snapshot.
 
 | Phase | Deliverable | Touches |
 |-------|-------------|---------|
-| **A** | `RoutingPolicy` value object + config `config/routing.php` | `OfferRoutingService` |
+| **A** | `RoutingPolicy` value object + config `config/routing.php` | `OfferRoutingService` | **Done** (flag `ROUTING_WEIGHTED_ENABLED`) |
 | **B** | Weighted score + deterministic split | `rankOffers()` refactor |
 | **C** | Circuit breaker reader on `ArchitectureMetrics` | cache + ops alert hook |
 | **D** | Multi-provider `availableOffersForEntitlement()` | Knowledge read path |
