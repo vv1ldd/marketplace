@@ -153,6 +153,7 @@ policy when multiple Offers exist for one Entitlement.
 ### Migration
 
 - **Phase 1:** Document `selectOffer()` contract; align ranking service inputs.
+  → See [0039-select-offer-runtime-contract.md](0039-select-offer-runtime-contract.md) (draft).
 - **Phase 2:** First-class Offer snapshots in Knowledge; Execution reads them.
 - **Phase 3:** Policy registry per market / channel; metrics from Execution history.
 
