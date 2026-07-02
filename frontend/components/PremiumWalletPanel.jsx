@@ -18,14 +18,14 @@ import {
   resolvePolygonWalletEntry,
 } from '../lib/identity-wallets';
 import { buildBitcoinReceiveQrDataUrl, buildPolygonUsdcReceiveQrDataUrl } from '../lib/identity-wallet-qr';
-import { fetchWalletBundle, importManagedWalletBinding, provisionManagedWalletBinding, refreshStorefrontVaultToken, revokeWalletBinding } from '../lib/storefront-api';
+import { fetchWalletBundle, importManagedWalletBinding, normalizeVaultDashboardData, provisionManagedWalletBinding, refreshStorefrontVaultToken, revokeWalletBinding } from '../lib/storefront-api';
 import { readIdentityPaymentFlags } from '../lib/settlement-capabilities';
 import { clearVaultAuthorityState, readStoredVaultToken } from '../lib/vault-authority';
 import { connectWalletBinding, isEvmWalletBindingKey, WalletConnectError } from '../lib/wallet-connect';
 import { EvmWalletPicker } from './EvmWalletPicker';
 import { ImportSeedModal } from './ImportSeedModal';
 import { GlossaryHint } from './GlossaryHint';
-import { IdentityAccountPanel } from './IdentityAccountPanel';
+import { VaultDashboardShell } from './vault-dashboard/VaultDashboardShell';
 import { VaultQrIcon, VaultShieldIcon } from './IdentityVaultIcons';
 import { MeanlyLoadingMark } from './MeanlyLoadingMark';
 import { useLocale } from './LocaleProvider';
@@ -516,6 +516,7 @@ function VaultWalletLoadingShell({ status = '', t, variant = 'wallet' }) {
 export function VaultWalletContent({
   wallet,
   vaultIdentity = null,
+  vaultPayload = null,
   status = '',
   error = '',
   isVaultOpen = false,
@@ -948,6 +949,11 @@ export function VaultWalletContent({
     && shouldShowSafeProvisioningShell(model, variant, vaultShellOptions);
   const showSafeDashboard = isVaultVariant && model
     && shouldShowSafeDashboard(model, variant, vaultShellOptions);
+  const vaultDashboardData = useMemo(
+    () => normalizeVaultDashboardData(vaultPayload),
+    [vaultPayload],
+  );
+  const vaultDashboardLoading = isVaultVariant && showSafeDashboard && !vaultPayload && !error;
   const showBindingsSection = hasWallet && !isVaultVariant && (visibleWallets.length > 0 || futureWalletBindings.length > 0);
   const showDashboardNetworks = Boolean(model)
     && !isVaultVariant
@@ -979,31 +985,9 @@ export function VaultWalletContent({
               provisionError={welcomeProvisionError}
             />
           ) : showSafeDashboard ? (
-            <IdentityAccountPanel
-              autoProvisionOnVault={autoProvisionOnVault}
-              connectError={connectError}
-              connectNotice={connectNotice}
-              connectPhase={connectPhase}
-              connectingKey={connectingKey}
-              futureWallets={futureWalletBindings}
-              identity={identity}
-              identityPaymentFlags={identityPaymentFlags}
-              observationState={vaultBalanceObservationState(model?.wallets ?? [])}
-              instrumentActionError={instrumentActionError}
-              instrumentActingKey={instrumentActingKey}
-              legacyConnectEnabled={legacyConnectEnabled}
-              onConnect={handleConnect}
-              onCreateManaged={handleCreateManaged}
-              onImportManaged={handleOpenImportSeed}
-              onRefreshWallet={handleRefreshWallet}
-              onRefreshWalletAssets={handleRefreshBalances}
-              onReplaceInstrument={handleReplaceInstrument}
-              onRevokeInstrument={handleRevokeInstrument}
-              polygonWallet={polygonWallet}
-              refreshingWallet={refreshingWallet}
-              summaryCoins={summaryCoins}
-              visibleWallets={visibleWallets}
-              walletBindings={walletBindings}
+            <VaultDashboardShell
+              loading={vaultDashboardLoading || isLoading}
+              vaultData={vaultDashboardData}
             />
           ) : !isVaultVariant ? (
             <WalletHero

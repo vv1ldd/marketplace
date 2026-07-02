@@ -443,6 +443,35 @@ export async function fetchVault(token) {
   });
 }
 
+export function normalizeVaultDashboardData(payload) {
+  const root = payload && typeof payload === 'object' ? payload : {};
+  const data = root.data && typeof root.data === 'object' ? root.data : {};
+
+  return {
+    identity: {
+      username: data.identity?.username ?? null,
+      status: data.identity?.status ?? 'pending',
+      vault_key_ref: data.identity?.vault_key_ref ?? null,
+      entity_l1_address: data.identity?.entity_l1_address ?? null,
+    },
+    balances: {
+      partner_credit: Number(data.balances?.partner_credit ?? 0),
+      currency: data.balances?.currency || 'USD',
+    },
+    inventory: Array.isArray(data.inventory) ? data.inventory : [],
+    executions: Array.isArray(data.executions) ? data.executions : [],
+  };
+}
+
+export async function revealVaultEntitlement(entitlementId, token) {
+  const payload = await storefrontFetch(`/api/storefront/v1/vault/items/${encodeURIComponent(entitlementId)}/reveal`, {
+    token,
+    body: {},
+  });
+
+  return payload.data || payload;
+}
+
 export async function fetchPremiumWalletAssets(token) {
   return storefrontFetch('/api/storefront/v1/wallet/assets', {
     token,

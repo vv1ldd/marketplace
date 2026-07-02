@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Storefront\StorefrontIdentityController;
 use App\Http\Controllers\Api\Storefront\StorefrontPartnerRegistrationController;
 use App\Http\Controllers\Api\Storefront\StorefrontPersonalizationController;
 use App\Http\Controllers\Api\Storefront\StorefrontVaultController;
+use App\Http\Controllers\Api\Storefront\StorefrontVaultTransitController;
 use App\Http\Controllers\Api\Storefront\StorefrontSettlementController;
 use App\Http\Controllers\Api\Storefront\StorefrontWalletController;
 use App\Http\Controllers\Api\UiProjectionController;
@@ -96,6 +97,8 @@ Route::prefix('storefront/v1')
     Route::get('orders/{order:uuid}/safe/support', [StorefrontCheckoutController::class, 'support'])
         ->middleware('storefront.token:storefront:read');
     Route::get('vault', [StorefrontVaultController::class, 'index'])
+        ->middleware('storefront.token:storefront:vault');
+    Route::post('vault/items/{entitlementId}/reveal', [StorefrontVaultTransitController::class, 'reveal'])
         ->middleware('storefront.token:storefront:vault');
     Route::get('wallet', [StorefrontWalletController::class, 'show'])
         ->middleware('storefront.token:storefront:vault');

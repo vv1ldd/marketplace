@@ -412,6 +412,7 @@ export function StorefrontSessionPanel({
                 status={vaultStatusNote}
                 variant="vault"
                 vaultIdentity={vault?.identity ?? null}
+                vaultPayload={vault}
                 wallet={wallet}
               />
             </section>

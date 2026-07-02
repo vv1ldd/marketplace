@@ -6,13 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Order\Order;
 use App\Models\User;
 use App\Services\StorefrontDecisionService;
+use App\Services\StorefrontVaultAggregateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StorefrontVaultController extends Controller
 {
-    public function index(Request $request, StorefrontDecisionService $decisions): JsonResponse
-    {
+    public function index(
+        Request $request,
+        StorefrontDecisionService $decisions,
+        StorefrontVaultAggregateService $aggregate,
+    ): JsonResponse {
         $identity = (array) $request->attributes->get('storefront_identity', []);
         $address = strtolower((string) data_get($identity, 'entity_l1_address'));
         abort_if($address === '', 403);
@@ -36,7 +40,11 @@ class StorefrontVaultController extends Controller
             ->take(20)
             ->values();
 
+        $dashboard = $aggregate->aggregate($identity, $user, $address, $orders);
+
         return response()->json([
+            'status' => 'success',
+            'data' => $dashboard,
             'contract' => [
                 'name' => 'storefront-vault',
                 'version' => 'v1',
