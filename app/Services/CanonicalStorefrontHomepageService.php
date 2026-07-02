@@ -214,24 +214,31 @@ class CanonicalStorefrontHomepageService
      */
     public function searchPage(Request $request): array
     {
-        $query = trim((string) ($request->query('q') ?? $request->query('intent') ?? ''));
-        $cards = $query === '' ? collect() : $this->groupCardsForInterface($this->storefrontReadyCards($query));
-        $page = max(1, (int) $request->query('page', 1));
-        $browseProducts = new LengthAwarePaginator(
-            $cards->forPage($page, self::BROWSE_PER_PAGE)->values(),
-            $cards->count(),
-            self::BROWSE_PER_PAGE,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ],
-        );
+        return $this->rememberStorefrontBlock(
+            $this->requestCacheKey('search', $request, [
+                'q' => trim((string) ($request->query('q') ?? $request->query('intent') ?? '')),
+            ]),
+            function () use ($request): array {
+                $query = trim((string) ($request->query('q') ?? $request->query('intent') ?? ''));
+                $cards = $query === '' ? collect() : $this->groupCardsForInterface($this->storefrontReadyCards($query));
+                $page = max(1, (int) $request->query('page', 1));
+                $browseProducts = new LengthAwarePaginator(
+                    $cards->forPage($page, self::BROWSE_PER_PAGE)->values(),
+                    $cards->count(),
+                    self::BROWSE_PER_PAGE,
+                    $page,
+                    [
+                        'path' => $request->url(),
+                        'query' => $request->query(),
+                    ],
+                );
 
-        return [
-            'query' => $query,
-            'browse_products' => $browseProducts->withQueryString(),
-        ];
+                return [
+                    'query' => $query,
+                    'browse_products' => $browseProducts->withQueryString(),
+                ];
+            },
+        );
     }
 
     /**
@@ -339,40 +346,48 @@ class CanonicalStorefrontHomepageService
      */
     public function categoryPage(string $category, Request $request, int $perPage = self::BROWSE_PER_PAGE): LengthAwarePaginator
     {
-        $page = max(1, (int) $request->query('page', 1));
-        $perPage = max(1, min($perPage, 72));
-        $filters = $this->categoryRequestFilters($category, $request);
+        return $this->rememberStorefrontBlock(
+            $this->requestCacheKey('category', $request, [
+                'category' => $category,
+                'perPage' => $perPage,
+            ]),
+            function () use ($category, $request, $perPage): LengthAwarePaginator {
+                $page = max(1, (int) $request->query('page', 1));
+                $perPage = max(1, min($perPage, 72));
+                $filters = $this->categoryRequestFilters($category, $request);
 
-        if ($this->shouldUseProductGroupsForCategory($filters)) {
-            return $this->categoryProductGroupPage($category, $request, $filters, $perPage);
-        }
+                if ($this->shouldUseProductGroupsForCategory($filters)) {
+                    return $this->categoryProductGroupPage($category, $request, $filters, $perPage);
+                }
 
-        $query = $this->identityQuery('', null, $category);
+                $query = $this->identityQuery('', null, $category);
 
-        $this->applyCategoryFilters($query, $filters);
-        $this->applyCategorySort($query, (string) $filters['sort']);
+                $this->applyCategoryFilters($query, $filters);
+                $this->applyCategorySort($query, (string) $filters['sort']);
 
-        $total = (clone $query)->getCountForPagination();
-        $lastPage = max(1, (int) ceil($total / $perPage));
-        $page = min($page, $lastPage);
+                $total = (clone $query)->getCountForPagination();
+                $lastPage = max(1, (int) ceil($total / $perPage));
+                $page = min($page, $lastPage);
 
-        $cards = (clone $query)
-            ->forPage($page, $perPage)
-            ->get()
-            ->map(fn (CanonicalProductIdentity $identity) => $this->cardForIdentity($identity))
-            ->filter()
-            ->values();
+                $cards = (clone $query)
+                    ->forPage($page, $perPage)
+                    ->get()
+                    ->map(fn (CanonicalProductIdentity $identity) => $this->cardForIdentity($identity))
+                    ->filter()
+                    ->values();
 
-        return (new LengthAwarePaginator(
-            $cards,
-            $total,
-            $perPage,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ],
-        ))->withQueryString();
+                return (new LengthAwarePaginator(
+                    $cards,
+                    $total,
+                    $perPage,
+                    $page,
+                    [
+                        'path' => $request->url(),
+                        'query' => $request->query(),
+                    ],
+                ))->withQueryString();
+            },
+        );
     }
 
     /**
@@ -1203,59 +1218,64 @@ class CanonicalStorefrontHomepageService
             return collect();
         }
 
-        $query = CanonicalProductIdentity::query()
-            ->select([
-                'id',
-                'identity_slug',
-                'canonical_category',
-                'discovery_intent',
-                'brand',
-                'product_family',
-                'face_value',
-                'face_value_currency',
-                'region',
-                'provider_candidates_count',
-                'seller_offers_count',
-                'best_offer_product_id',
-                'last_seen_at',
-                'updated_at',
-            ])
-            ->whereNotNull('brand')
-            ->where('brand', '<>', '');
+        return $this->rememberStorefrontBlock(
+            'groups:'.md5(json_encode([$category, $brand, $limit], JSON_THROW_ON_ERROR)),
+            function () use ($category, $brand, $limit): Collection {
+                $query = CanonicalProductIdentity::query()
+                    ->select([
+                        'id',
+                        'identity_slug',
+                        'canonical_category',
+                        'discovery_intent',
+                        'brand',
+                        'product_family',
+                        'face_value',
+                        'face_value_currency',
+                        'region',
+                        'provider_candidates_count',
+                        'seller_offers_count',
+                        'best_offer_product_id',
+                        'last_seen_at',
+                        'updated_at',
+                    ])
+                    ->whereNotNull('brand')
+                    ->where('brand', '<>', '');
 
-        $this->applyPublicIdentityFilters($query);
+                $this->applyPublicIdentityFilters($query);
 
-        if ($category !== null) {
-            $this->applyCategoryScope($query, $category);
-        }
+                if ($category !== null) {
+                    $this->applyCategoryScope($query, $category);
+                }
 
-        if ($brand !== null) {
-            $query->where('brand', $brand);
-        }
+                if ($brand !== null) {
+                    $query->where('brand', $brand);
+                }
 
-        $groups = $query
-            ->get()
-            ->groupBy(function (CanonicalProductIdentity $identity): string {
-                $card = $this->identitySummaryCard($identity);
-                $kind = $this->productKindForCard($card);
+                $groups = $query
+                    ->get()
+                    ->groupBy(function (CanonicalProductIdentity $identity): string {
+                        $card = $this->identitySummaryCard($identity);
+                        $kind = $this->productKindForCard($card);
 
-                return implode('|', [
-                    $this->discoveryIntentForIdentity($identity),
-                    Str::lower((string) $identity->brand),
-                    $kind['slug'],
-                ]);
-            })
-            ->map(fn (Collection $group): array => $this->productGroupSummaryCard($group))
-            ->sortBy([
-                ['has_selected_offer', 'desc'],
-                ['seller_offer_count', 'desc'],
-                ['provider_count', 'desc'],
-                ['variant_group.variant_count', 'desc'],
-                ['name', 'asc'],
-            ])
-            ->values();
+                        return implode('|', [
+                            $this->discoveryIntentForIdentity($identity),
+                            Str::lower((string) $identity->brand),
+                            $kind['slug'],
+                        ]);
+                    })
+                    ->map(fn (Collection $group): array => $this->productGroupSummaryCard($group))
+                    ->sortBy([
+                        ['has_selected_offer', 'desc'],
+                        ['seller_offer_count', 'desc'],
+                        ['provider_count', 'desc'],
+                        ['variant_group.variant_count', 'desc'],
+                        ['name', 'asc'],
+                    ])
+                    ->values();
 
-        return $limit !== null ? $groups->take($limit)->values() : $groups;
+                return $limit !== null ? $groups->take($limit)->values() : $groups;
+            },
+        );
     }
 
     /**
@@ -1746,6 +1766,11 @@ class CanonicalStorefrontHomepageService
 
     private function rememberHomepageBlock(string $key, callable $resolver): mixed
     {
+        return $this->rememberStorefrontBlock("homepage:{$key}", $resolver);
+    }
+
+    private function rememberStorefrontBlock(string $key, callable $resolver): mixed
+    {
         if (app()->environment('testing')) {
             return $resolver();
         }
@@ -1756,10 +1781,21 @@ class CanonicalStorefrontHomepageService
         $locale = app()->getLocale();
 
         return Cache::remember(
-            "storefront:homepage:{$market}:{$locale}:{$key}",
+            "storefront:catalog:{$market}:{$locale}:{$key}",
             self::HOMEPAGE_CACHE_SECONDS,
             $resolver,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function requestCacheKey(string $prefix, Request $request, array $extra = []): string
+    {
+        $query = $request->query();
+        ksort($query);
+
+        return $prefix.':'.md5(json_encode(array_merge($extra, $query), JSON_THROW_ON_ERROR));
     }
 
     /**
