@@ -10,6 +10,20 @@ use Illuminate\Support\Str;
 class MappingService
 {
     /**
+     * Provider external names that are categories or placeholders, never master brands.
+     *
+     * @var array<int, string>
+     */
+    private const GENERIC_EXTERNAL_BRAND_NAMES = [
+        'unknown', 'wildflow gifts', 'n/a', 'none', 'null', 'test products',
+        'global catalog', 'retailer catalog', 'general', 'other', 'default',
+        'gift cards', 'gift card', 'gift-cards', 'giftcards', 'giftcards',
+        'подарочные карты', 'подарочная карта', 'подписки', 'subscriptions',
+        'subscription', 'voucher', 'vouchers', 'digital code', 'digital codes',
+        'catalog', 'retailer catalog', 'online subscriptions and payment cards',
+    ];
+
+    /**
      * Resolve Master Brand ID from provider data.
      */
     public static function resolveBrand(int $providerId, ?string $externalName, ?string $sku = null, ?string $title = null, ?string $providerCategoryName = null): ?int
@@ -18,8 +32,19 @@ class MappingService
             return null;
         }
 
-        // 1. Try Exact Mapping
-        if ($externalName) {
+        // 1. Master brand lexicon from title/SKU wins over stale provider category mappings.
+        $titleSearch = mb_strtolower(trim(($title ?? '').' '.($sku ?? '')));
+        if ($titleSearch !== '') {
+            $brandId = self::guessBrandByKeywords($titleSearch);
+            if ($brandId) {
+                self::maybePersistBrandMapping($providerId, $externalName, $brandId);
+
+                return $brandId;
+            }
+        }
+
+        // 2. Exact provider mapping (skip generic category labels like "Подарочные карты").
+        if ($externalName && ! self::isGenericExternalBrandName($externalName)) {
             $mapping = ProviderBrandMapping::with('brand')
                 ->where('provider_id', $providerId)
                 ->where('external_name', $externalName)
@@ -34,20 +59,16 @@ class MappingService
             }
         }
 
-        // 2. Try Fuzzy Keyword Guessing
-        $searchString = mb_strtolower(($externalName ?? '').' '.($sku ?? '').' '.($title ?? ''));
+        // 3. Keyword pass over the full provider payload.
+        $searchString = mb_strtolower(trim(($externalName ?? '').' '.($sku ?? '').' '.($title ?? '')));
 
         $brandId = self::guessBrandByKeywords($searchString);
 
-        // 3. Fallback to cleaned external name if not generic
-        if (! $brandId && $externalName) {
-            $genericNames = [
-                'unknown', 'wildflow gifts', 'n/a', 'none', 'null', 'test products', 
-                'global catalog', 'retailer catalog', 'general', 'other', 'default'
-            ];
+        // 4. Fallback to cleaned external name if not generic
+        if (! $brandId && $externalName && ! self::isGenericExternalBrandName($externalName)) {
             $cleanExternal = mb_strtolower(trim($externalName));
-            
-            if (! in_array($cleanExternal, $genericNames)) {
+
+            if (! self::isGenericExternalBrandName($cleanExternal)) {
                 $cleanedName = self::cleanBrandName($externalName);
                 $brand = Brand::firstOrCreate(['name' => $cleanedName]);
                 
@@ -63,7 +84,7 @@ class MappingService
             }
         }
 
-        // 4. Last resort: Try to extract from title if external is unknown or generic
+        // 5. Last resort: Try to extract from title if external is unknown or generic
         if (! $brandId && $title) {
             // Clean common prefixes from provider title
             $cleanTitle = preg_replace('/^(Gift Card |E-Gift Card |Voucher |Digital Code )/i', '', $title);
@@ -98,15 +119,31 @@ class MappingService
             }
         }
 
-        // 5. If guessed/resolved, create/update mapping for future use
-        if ($brandId && $externalName && ! in_array(mb_strtolower($externalName), ['unknown', 'wildflow gifts'])) {
-            ProviderBrandMapping::updateOrCreate(
-                ['provider_id' => $providerId, 'external_name' => $externalName],
-                ['brand_id' => $brandId]
-            );
-        }
+        self::maybePersistBrandMapping($providerId, $externalName, $brandId);
 
         return $brandId;
+    }
+
+    public static function isGenericExternalBrandName(?string $externalName): bool
+    {
+        $externalName = mb_strtolower(trim((string) $externalName));
+        if ($externalName === '') {
+            return true;
+        }
+
+        return in_array($externalName, self::GENERIC_EXTERNAL_BRAND_NAMES, true);
+    }
+
+    private static function maybePersistBrandMapping(int $providerId, ?string $externalName, ?int $brandId): void
+    {
+        if (! $brandId || ! $externalName || self::isGenericExternalBrandName($externalName)) {
+            return;
+        }
+
+        ProviderBrandMapping::updateOrCreate(
+            ['provider_id' => $providerId, 'external_name' => $externalName],
+            ['brand_id' => $brandId]
+        );
     }
 
     public static function resolveCatalogGroupId(int $providerId, ?string $providerCategoryName, ?string $brandName = null, ?string $context = null): ?int

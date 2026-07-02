@@ -380,11 +380,27 @@ class CanonicalProductIdentityService
      */
     private function brand(array $candidates, string $title): array
     {
+        $masterBrand = MappingService::normalizeBrandName($title);
+        if ($masterBrand !== null) {
+            return ['value' => $masterBrand, 'signal' => 'brand:master_lexicon'];
+        }
+
         foreach ($candidates as [$value, $signal]) {
             $value = $this->stringValue($value);
-            if ($value !== null) {
-                return ['value' => $this->displayLabel($value), 'signal' => $signal];
+            if ($value === null) {
+                continue;
             }
+
+            $display = $this->displayLabel($value);
+            if (MappingService::isGenericExternalBrandName($display)
+                || ! $this->containsNormalizedPhrase($title, $display)) {
+                $masterFromContext = MappingService::normalizeBrandName(trim($display.' '.$title));
+                if ($masterFromContext !== null && strcasecmp($masterFromContext, $display) !== 0) {
+                    return ['value' => $masterFromContext, 'signal' => 'brand:master_override:'.$signal];
+                }
+            }
+
+            return ['value' => $display, 'signal' => $signal];
         }
 
         $normalizedTitle = $this->normalizeText($title);
