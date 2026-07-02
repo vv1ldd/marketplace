@@ -1,6 +1,6 @@
 import { permanentRedirect } from 'next/navigation';
-import { groupCatalogPath } from '../../../../lib/catalog-urls';
-import { queryObject } from '../../../../lib/group-page';
+import { groupCatalogPath } from '../../../../../lib/catalog-urls';
+import { queryObject } from '../../../../../lib/group-page';
 
 export const dynamic = 'force-dynamic';
 
