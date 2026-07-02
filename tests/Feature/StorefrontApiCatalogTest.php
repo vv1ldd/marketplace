@@ -180,6 +180,67 @@ class StorefrontApiCatalogTest extends TestCase
             ->assertJsonPath('pagination.total', 1);
     }
 
+    public function test_storefront_group_projection_resolves_legacy_category_to_intent(): void
+    {
+        $card = $this->productCard(['id' => 16, 'slug' => 'foot-locker-us-25', 'name' => 'Foot Locker US 25 USD']);
+
+        $this->mock(CanonicalStorefrontHomepageService::class, function ($mock) use ($card): void {
+            $mock->shouldReceive('productGroupPage')
+                ->once()
+                ->with('shop', 'foot-locker', 'gift-cards', \Mockery::type(\Illuminate\Http\Request::class))
+                ->andReturn([
+                    'group' => [
+                        'title' => 'Foot Locker Gift Cards',
+                        'discovery_intent' => 'shop',
+                    ],
+                    'meta' => ['description_ru' => 'Foot Locker gift cards'],
+                    'facets' => ['regions' => [], 'nominals' => [], 'selected' => []],
+                    'products' => new LengthAwarePaginator([$card], 1, 24, 1),
+                ]);
+        });
+
+        $this->getJson('/api/storefront/v1/catalog/groups/gift_cards/foot-locker/gift-cards')
+            ->assertOk()
+            ->assertJsonPath('group.discovery_intent', 'shop')
+            ->assertJsonPath('products.0.slug', 'foot-locker-us-25');
+    }
+
+    public function test_storefront_product_endpoint_resolves_group_product_slug(): void
+    {
+        $card = $this->productCard(['id' => 17, 'slug' => 'amazon-us-25', 'name' => 'Amazon US 25 USD']);
+
+        $this->mock(CanonicalStorefrontHomepageService::class, function ($mock) use ($card): void {
+            $mock->shouldReceive('parseGroupProductSlug')
+                ->once()
+                ->with('amazon-gift-cards')
+                ->andReturn(['brandSlug' => 'amazon', 'kindSlug' => 'gift-cards']);
+            $mock->shouldReceive('productGroupPageBySlug')
+                ->once()
+                ->with('amazon-gift-cards', \Mockery::type(\Illuminate\Http\Request::class))
+                ->andReturn([
+                    'group' => [
+                        'title' => 'Amazon Gift Cards',
+                        'brand' => 'Amazon',
+                        'discovery_intent' => 'shop',
+                        'variant_count' => 12,
+                        'region_count' => 4,
+                        'nominal_count' => 6,
+                    ],
+                    'meta' => ['description_ru' => 'Amazon gift cards'],
+                    'facets' => ['regions' => [], 'nominals' => [], 'selected' => []],
+                    'products' => new LengthAwarePaginator([$card], 1, 24, 1),
+                ]);
+        });
+
+        $this->getJson('/api/storefront/v1/catalog/products/amazon-gift-cards')
+            ->assertOk()
+            ->assertJsonPath('contract.name', 'storefront-product-group')
+            ->assertJsonPath('data.type', 'storefront_product_group')
+            ->assertJsonPath('data.slug', 'amazon-gift-cards')
+            ->assertJsonPath('group_page.group.title', 'Amazon Gift Cards')
+            ->assertJsonPath('group_page.products.0.slug', 'amazon-us-25');
+    }
+
     public function test_storefront_suggest_is_versioned_under_storefront_boundary(): void
     {
         $this->mock(CanonicalProductSearchSuggestService::class, function ($mock): void {

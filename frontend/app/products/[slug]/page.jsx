@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { CatalogGroupPanel } from '../../../components/CatalogGroupPanel';
 import { actionLabel, blockingReasonLabel } from '../../../components/ProductCard';
+import { normalizeGroupQuery, queryObject } from '../../../lib/group-page';
 import { fetchStorefrontCatalog, fetchStorefrontProduct } from '../../../lib/storefront-api';
 
 export const dynamic = 'force-dynamic';
@@ -56,9 +58,9 @@ function canonicalProductMatch(catalog, requestedSlug) {
   }) || null;
 }
 
-async function fetchProductOrRedirect(slug) {
+async function fetchProductOrRedirect(slug, query = {}) {
   try {
-    return await fetchStorefrontProduct(slug);
+    return await fetchStorefrontProduct(slug, query);
   } catch (error) {
     if (error.status !== 404) {
       throw error;
@@ -75,9 +77,35 @@ async function fetchProductOrRedirect(slug) {
   }
 }
 
-export default async function ProductPage({ params }) {
+export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const product = await fetchProductOrRedirect(slug);
+
+  try {
+    const product = await fetchStorefrontProduct(slug);
+    const title = product.group_page?.group?.title || product.name || slug;
+
+    return {
+      title: `${title} | Meanly`,
+      alternates: {
+        canonical: `/products/${slug}`,
+      },
+    };
+  } catch {
+    return {
+      title: 'Product | Meanly',
+    };
+  }
+}
+
+export default async function ProductPage({ params, searchParams }) {
+  const { slug } = await params;
+  const query = normalizeGroupQuery(queryObject(await searchParams));
+  const product = await fetchProductOrRedirect(slug, query);
+
+  if (product.group_page) {
+    return <CatalogGroupPanel group={product.group_page} />;
+  }
+
   const actions = product.actions || {};
   const allowedActions = actions.allowed_actions || [];
   const checkoutProductId = product.selected_offer?.product_id;

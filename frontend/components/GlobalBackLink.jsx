@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { isGroupCatalogPath } from '../lib/catalog-urls';
 
 const currentRouteKey = 'meanly:last-route';
 const previousRouteKey = 'meanly:previous-route';
@@ -30,6 +31,7 @@ function backTarget(pathname) {
 
   if (
     pathname.startsWith('/catalog/')
+    || pathname.startsWith('/g/')
     || pathname.startsWith('/products/')
     || pathname.startsWith('/checkout')
     || pathname.startsWith('/products-search')
@@ -50,7 +52,7 @@ function labelForPrevious(href, fallback) {
     return 'Back';
   }
 
-  if (href.startsWith('/catalog/groups/')) {
+  if (isGroupCatalogPath(href)) {
     return 'Back';
   }
 

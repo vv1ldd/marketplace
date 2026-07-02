@@ -222,7 +222,7 @@ export function merchantConnectUrl(returnTo = frontendUrl('/merchant')) {
 
 export async function fetchStorefrontContext(options = {}) {
   return storefrontFetch('/api/storefront/v1/context', {
-    next: { revalidate: 60 },
+    next: { revalidate: 300 },
     ...options,
   });
 }
@@ -230,7 +230,7 @@ export async function fetchStorefrontContext(options = {}) {
 export async function fetchStorefrontCatalog(query = '') {
   const payload = await storefrontFetch('/api/storefront/v1/catalog', {
     query: { q: query },
-    next: { revalidate: 60 },
+    next: { revalidate: 300 },
   });
 
   return payload.data;
@@ -295,18 +295,22 @@ export async function submitStorefrontChat(message, history = []) {
   return payload;
 }
 
-export async function fetchStorefrontProduct(slug) {
+export async function fetchStorefrontProduct(slug, query = {}) {
   const payload = await storefrontFetch(`/api/storefront/v1/catalog/products/${slug}`, {
-    next: { revalidate: 60 },
+    query,
+    next: { revalidate: 300 },
   });
 
-  return payload.data;
+  return {
+    ...(payload.data || {}),
+    group_page: payload.group_page || null,
+  };
 }
 
 export async function fetchStorefrontCategory(category, query = {}) {
   const payload = await storefrontFetch(`/api/storefront/v1/catalog/categories/${category}`, {
     query,
-    next: { revalidate: 60 },
+    next: { revalidate: 300 },
   });
 
   return payload.data;
@@ -315,7 +319,7 @@ export async function fetchStorefrontCategory(category, query = {}) {
 export async function fetchStorefrontGroup(category, brandSlug, kindSlug, query = {}) {
   return storefrontFetch(`/api/storefront/v1/catalog/groups/${category}/${brandSlug}/${kindSlug}`, {
     query: { compact: 1, ...query },
-    next: { revalidate: 60 },
+    next: { revalidate: 300 },
   });
 }
 

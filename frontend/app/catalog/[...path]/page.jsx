@@ -1,27 +1,12 @@
 import Link from 'next/link';
-import { CatalogGroupPanel } from '../../../components/CatalogGroupPanel';
+import { permanentRedirect } from 'next/navigation';
 import { ProjectionSurface } from '../../../components/ProjectionSurface';
 import { ProductCard } from '../../../components/ProductCard';
-import { fetchStorefrontCategory, fetchStorefrontGroup } from '../../../lib/storefront-api';
+import { groupCatalogPath } from '../../../lib/catalog-urls';
+import { queryObject } from '../../../lib/group-page';
+import { fetchStorefrontCategory } from '../../../lib/storefront-api';
 
 export const dynamic = 'force-dynamic';
-
-function queryObject(searchParams = {}) {
-  return Object.fromEntries(
-    Object.entries(searchParams || {}).filter(([, value]) => value !== undefined && value !== null && value !== ''),
-  );
-}
-
-function hrefWithQuery(pathname, query = {}) {
-  const params = new URLSearchParams();
-  Object.entries(query || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      params.set(key, String(value));
-    }
-  });
-
-  return `${pathname}${params.toString() ? `?${params.toString()}` : ''}`;
-}
 
 function localHref(href, fallback = '/') {
   if (!href) {
@@ -34,27 +19,6 @@ function localHref(href, fallback = '/') {
   } catch {
     return href;
   }
-}
-
-function nominalParam(value = '') {
-  const [faceValue = '', currency = ''] = String(value).split('|');
-
-  return { face_value: faceValue, currency };
-}
-
-function normalizeGroupQuery(query = {}) {
-  if (!query.nominal) {
-    return query;
-  }
-
-  const { face_value: faceValue, currency } = nominalParam(query.nominal);
-  const { nominal, ...rest } = query;
-
-  return {
-    ...rest,
-    face_value: faceValue,
-    currency,
-  };
 }
 
 const NEED_ANSWERS_BY_CATEGORY = {
@@ -170,7 +134,6 @@ function CatalogResults({ answer, products = [], pagination }) {
 
 export async function generateMetadata({ params, searchParams }) {
   const { path = [] } = await params;
-  const query = queryObject(await searchParams);
 
   if (path[0] === 'groups' && path.length >= 4) {
     const brand = path[2]
@@ -183,12 +146,13 @@ export async function generateMetadata({ params, searchParams }) {
       title: `${brand} ${kind} | Meanly`,
       description: 'Choose region and nominal for this product group.',
       alternates: {
-        canonical: `/catalog/groups/${path[1]}/${path[2]}/${path[3]}`,
+        canonical: groupCatalogPath(path[1], path[2], path[3]),
       },
     };
   }
 
   if (path.length === 1) {
+    const query = queryObject(await searchParams);
     const category = await fetchStorefrontCategory(path[0], query);
     const surface = category.surface || {};
 
@@ -211,9 +175,7 @@ export default async function CatalogProjectionPage({ params, searchParams }) {
   const query = queryObject(await searchParams);
 
   if (path[0] === 'groups' && path.length >= 4) {
-    const group = await fetchStorefrontGroup(path[1], path[2], path[3], normalizeGroupQuery(query));
-
-    return <CatalogGroupPanel group={group} />;
+    permanentRedirect(groupCatalogPath(path[1], path[2], path[3], query));
   }
 
   if (path.length === 1) {

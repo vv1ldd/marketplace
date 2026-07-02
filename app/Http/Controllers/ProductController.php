@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Services\CanonicalStorefrontHomepageService;
 use App\Services\LlmProductFactsService;
 use App\Services\PricingProjectionService;
 use App\Support\StorefrontFrontendRedirect;
@@ -10,9 +11,15 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function show(string $slug, Request $request, LlmProductFactsService $llmFacts, PricingProjectionService $pricingProjection)
+    public function show(string $slug, Request $request, LlmProductFactsService $llmFacts, PricingProjectionService $pricingProjection, CanonicalStorefrontHomepageService $homepage)
     {
-        abort_unless(Product::where('slug', $slug)->where('is_active', true)->exists(), 404);
+        $exists = Product::query()
+            ->where('slug', $slug)
+            ->where('is_active', true)
+            ->exists()
+            || $homepage->productGroupPageBySlug($slug, $request) !== null;
+
+        abort_unless($exists, 404);
 
         return StorefrontFrontendRedirect::fromRequest($request);
     }

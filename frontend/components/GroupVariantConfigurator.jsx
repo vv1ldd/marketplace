@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { groupCatalogPathFromInfo } from '../lib/catalog-urls';
 import { useLocale } from './LocaleProvider';
 
 function groupBy(items, keyFn) {
@@ -26,15 +27,7 @@ function priceLabel(variant, waitingLabel) {
 }
 
 function groupHref(info, query = {}) {
-  const params = new URLSearchParams();
-  Object.entries(query).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      params.set(key, String(value));
-    }
-  });
-
-  const path = `/catalog/groups/${info.category}/${info.brand_slug}/${info.kind}`;
-  return `${path}${params.toString() ? `?${params.toString()}` : ''}`;
+  return groupCatalogPathFromInfo(info, query) || '/catalog';
 }
 
 function variantFromSelectedProduct(product) {

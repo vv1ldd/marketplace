@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\CanonicalCategoryResolver;
 use App\Services\CanonicalStorefrontHomepageService;
 use App\Services\DiscoveryEntityGraphService;
 use App\Support\StorefrontFrontendRedirect;
@@ -31,11 +32,36 @@ class MeanlyCatalogCategoryController extends Controller
         return StorefrontFrontendRedirect::fromRequest($request);
     }
 
-    public function group(string $category, string $brandSlug, string $kindSlug, Request $request, CanonicalStorefrontHomepageService $catalog): RedirectResponse
+    public function group(string $intent, string $brandSlug, string $kindSlug, Request $request, CanonicalStorefrontHomepageService $catalog): RedirectResponse
     {
-        abort_unless($catalog->productGroupPage($category, $brandSlug, $kindSlug, $request) !== null, 404);
+        $page = $catalog->productGroupPage($intent, $brandSlug, $kindSlug, $request);
+        abort_unless($page !== null, 404);
 
-        return StorefrontFrontendRedirect::fromRequest($request);
+        $slug = $catalog->groupProductSlug((string) ($page['group']['brand'] ?? $brandSlug), $kindSlug);
+
+        return redirect()->route('products.show', array_merge(['slug' => $slug], $request->query()), 301);
+    }
+
+    public function legacyGroup(
+        string $category,
+        string $brandSlug,
+        string $kindSlug,
+        Request $request,
+        CanonicalCategoryResolver $resolver,
+        CanonicalStorefrontHomepageService $catalog,
+    ): RedirectResponse {
+        $intent = $resolver->isKnownIntentCorridor($category)
+            ? $category
+            : $resolver->discoveryIntent($category, [str_replace('-', ' ', $brandSlug)]);
+
+        abort_unless($resolver->isKnownIntentCorridor($intent), 404);
+
+        $page = $catalog->productGroupPage($intent, $brandSlug, $kindSlug, $request);
+        abort_unless($page !== null, 404);
+
+        $slug = $catalog->groupProductSlug((string) ($page['group']['brand'] ?? $brandSlug), $kindSlug);
+
+        return redirect()->route('products.show', array_merge(['slug' => $slug], $request->query()), 301);
     }
 
     public function collection(string $slug, Request $request): RedirectResponse

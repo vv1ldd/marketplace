@@ -468,7 +468,9 @@ class CatalogQueryUnderstandingService
     {
         $tokens = collect($queryVariants)
             ->flatMap(fn (string $variant): array => preg_split('/\s+/', $this->normalizeAsciiText($variant)) ?: [])
-            ->filter(fn (string $token): bool => strlen($token) >= 4 && preg_match('/^[a-z0-9]+$/', $token) === 1)
+            ->filter(fn (string $token): bool => strlen($token) >= 4
+                && preg_match('/^[a-z0-9]+$/', $token) === 1
+                && ! $this->isAmbiguousFuzzyBrandToken($token))
             ->unique()
             ->values();
 
@@ -498,6 +500,21 @@ class CatalogQueryUnderstandingService
         }
 
         return null;
+    }
+
+    private function isAmbiguousFuzzyBrandToken(string $token): bool
+    {
+        return in_array($token, [
+            'card',
+            'code',
+            'game',
+            'gift',
+            'play',
+            'shop',
+            'store',
+            'stream',
+            'wallet',
+        ], true);
     }
 
     /**

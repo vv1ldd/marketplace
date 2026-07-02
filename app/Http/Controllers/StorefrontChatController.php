@@ -306,6 +306,7 @@ class StorefrontChatController extends Controller
 
         return $cards
             ->unique('slug')
+            ->filter(fn (array $card): bool => $this->chatCardMatchesUnderstanding($card, $understanding))
             ->sortByDesc(fn (array $card): int => $this->chatCatalogScore($card, $understanding))
             ->take(60)
             ->values();
@@ -346,7 +347,7 @@ class StorefrontChatController extends Controller
             $queries->push(trim("itunes app store {$appleRegion}"));
         }
 
-        if ($region) {
+        if ($region && $brandSearchTerm === null && empty($filters['discovery_intent'])) {
             $queries->push($region);
         }
 
@@ -402,6 +403,36 @@ class StorefrontChatController extends Controller
         }
 
         return $score;
+    }
+
+    /**
+     * @param  array<string, mixed>  $understanding
+     */
+    private function chatCardMatchesUnderstanding(array $card, array $understanding): bool
+    {
+        $filters = (array) ($understanding['filters'] ?? []);
+        $haystack = $this->normalizeChatText(implode(' ', array_filter([
+            $card['name'] ?? null,
+            $card['brand'] ?? null,
+            $card['product_family'] ?? null,
+        ])));
+
+        if (! empty($filters['brand'])) {
+            $brand = $this->normalizeChatText((string) $filters['brand']);
+            if ($brand !== '' && ! str_contains($haystack, $brand)) {
+                return false;
+            }
+        }
+
+        if (! empty($filters['discovery_intent'])) {
+            $intent = (string) $filters['discovery_intent'];
+            $cardIntent = (string) ($card['discovery_intent'] ?? $card['category_slug'] ?? '');
+            if ($cardIntent !== '' && $cardIntent !== $intent) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function isAppleGiftCardBrand(?string $brand): bool

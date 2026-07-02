@@ -148,7 +148,8 @@ $meanlyPublicRoutes = function () {
     Route::get('/catalog/brands/{brandSlug}/regions/{regionSlug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'brandRegion'])->name('meanly.catalog.brand-regions.show');
     Route::get('/catalog/brands/{brandSlug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'brand'])->name('meanly.catalog.brands.show');
     Route::get('/catalog/regions/{regionSlug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'region'])->name('meanly.catalog.regions.show');
-    Route::get('/catalog/groups/{category}/{brandSlug}/{kindSlug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'group'])->name('meanly.catalog.groups.show');
+    Route::get('/g/{intent}/{brandSlug}/{kindSlug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'group'])->name('meanly.catalog.groups.show');
+    Route::get('/catalog/groups/{category}/{brandSlug}/{kindSlug}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'legacyGroup'])->name('meanly.catalog.groups.legacy');
     Route::get('/catalog/products/{identitySlug}', [\App\Http\Controllers\CanonicalProductPageController::class, 'show'])->name('meanly.canonical-products.show');
     Route::get('/catalog/{category}', [\App\Http\Controllers\MeanlyCatalogCategoryController::class, 'show'])->name('meanly.catalog.categories.show');
     Route::get('/catalog-network', [\App\Http\Controllers\ProviderNetworkCatalogController::class, 'index'])->name('meanly.network.index');

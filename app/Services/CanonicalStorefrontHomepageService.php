@@ -273,7 +273,8 @@ class CanonicalStorefrontHomepageService
         $query = trim((string) $query);
         $limit = $limit ?? ($query === '' ? null : self::IDENTITY_SCAN_LIMIT);
 
-        $cards = $this->cardsFromIdentityQuery($this->identityQuery($query === '' ? '' : $query, $limit));
+        $filters = $query === '' ? [] : $this->storefrontQueryFilters($query);
+        $cards = $this->cardsFromIdentityQuery($this->identityQuery($query === '' ? '' : $query, $limit, null, $filters));
 
         if ($query === '') {
             return $cards;
@@ -488,11 +489,8 @@ class CanonicalStorefrontHomepageService
                 'selected_offer' => $selectedProduct['selected_offer'] ?? null,
                 'price_range' => $priceRange,
                 'variants' => $this->productGroupVariantOptions($allCards),
-                'canonical_url' => route('meanly.catalog.groups.show', [
-                    'category' => $category,
-                    'brandSlug' => Str::slug($brand),
-                    'kindSlug' => $kindSlug,
-                ]),
+                'slug' => $this->groupProductSlug($brand, $kindSlug),
+                'canonical_url' => route('products.show', $this->groupProductSlug($brand, $kindSlug)),
             ],
             'meta' => [
                 'label_ru' => trim($brand.' '.$kind['label']),
@@ -514,6 +512,70 @@ class CanonicalStorefrontHomepageService
                 'sort_options' => $this->categorySortOptions(),
             ],
         ];
+    }
+
+    public function groupProductSlug(string $brand, string $kindSlug): string
+    {
+        return Str::slug($brand).'-'.trim($kindSlug);
+    }
+
+    /**
+     * @return array{brandSlug: string, kindSlug: string}|null
+     */
+    public function parseGroupProductSlug(string $slug): ?array
+    {
+        $slug = trim($slug);
+        if ($slug === '') {
+            return null;
+        }
+
+        foreach (collect(self::PRODUCT_KIND_SLUGS)->sortByDesc(fn (string $kind): int => strlen($kind)) as $kindSlug) {
+            $suffix = '-'.$kindSlug;
+            if (! Str::endsWith($slug, $suffix)) {
+                continue;
+            }
+
+            $brandSlug = substr($slug, 0, -strlen($suffix));
+            if ($brandSlug === '') {
+                continue;
+            }
+
+            return [
+                'brandSlug' => $brandSlug,
+                'kindSlug' => $kindSlug,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function productGroupPageBySlug(string $slug, Request $request, int $perPage = self::BROWSE_PER_PAGE): ?array
+    {
+        $parsed = $this->parseGroupProductSlug($slug);
+        if ($parsed === null) {
+            return null;
+        }
+
+        foreach (array_keys((array) config('catalog_taxonomy.intent_corridors', [])) as $intent) {
+            if (! $this->categoryResolver->isKnownIntentCorridor($intent)) {
+                continue;
+            }
+
+            $page = $this->productGroupPage($intent, $parsed['brandSlug'], $parsed['kindSlug'], $request, $perPage);
+            if ($page === null) {
+                continue;
+            }
+
+            $page['group']['slug'] = $slug;
+            $page['group']['canonical_url'] = route('products.show', $slug);
+
+            return $page;
+        }
+
+        return null;
     }
 
     /**
@@ -1331,8 +1393,11 @@ class CanonicalStorefrontHomepageService
             ->map(fn (CanonicalProductIdentity $identity): string => route('meanly.canonical-products.show', $identity->identity_slug))
             ->values();
 
+        $slug = $this->groupProductSlugForCard($representative);
+
         return array_merge($representative, [
-            'url' => $this->interfaceGroupUrl($representative),
+            'slug' => $slug,
+            'url' => route('products.show', $slug),
             'name' => trim((string) $representative['brand'].' '.$kind['label']),
             'face_value' => null,
             'face_value_currency' => null,
@@ -1457,10 +1522,18 @@ class CanonicalStorefrontHomepageService
         }
 
         return implode('|', [
-            $this->normalizeGroupPart($card['category'] ?? null),
+            $this->normalizeGroupPart($this->groupIntentSlug($card)),
             $brand,
             $kind,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $card
+     */
+    private function groupIntentSlug(array $card): string
+    {
+        return (string) ($card['discovery_intent'] ?? $card['category_slug'] ?? $card['category'] ?? '');
     }
 
     private function normalizeGroupPart(mixed $value): string
@@ -1527,10 +1600,11 @@ class CanonicalStorefrontHomepageService
         $offerCard = $group->first(fn (array $card): bool => (bool) ($card['has_selected_offer'] ?? false));
         $sellerOfferCount = (int) $group->sum(fn (array $card): int => (int) ($card['seller_offer_count'] ?? 0));
         $providerCount = (int) $group->sum(fn (array $card): int => (int) ($card['provider_count'] ?? 0));
-        $groupUrl = $this->interfaceGroupUrl($representative);
+        $slug = $this->groupProductSlugForCard($representative);
 
         return array_merge($representative, [
-            'url' => $groupUrl,
+            'slug' => $slug,
+            'url' => route('products.show', $slug),
             'name' => $this->interfaceGroupName($representative),
             'face_value' => null,
             'face_value_currency' => null,
@@ -1574,19 +1648,25 @@ class CanonicalStorefrontHomepageService
      */
     private function interfaceGroupUrl(array $card): string
     {
-        $category = (string) ($card['category'] ?? '');
         $brand = trim((string) ($card['brand'] ?? ''));
         $kind = $this->productKindForCard($card);
 
-        if ($category !== '' && $brand !== '') {
-            return route('meanly.catalog.groups.show', [
-                'category' => $category,
-                'brandSlug' => Str::slug($brand),
-                'kindSlug' => $kind['slug'],
-            ]);
+        if ($brand !== '') {
+            return route('products.show', $this->groupProductSlug($brand, $kind['slug']));
         }
 
         return (string) ($card['url'] ?? route('meanly.catalog.index'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $card
+     */
+    private function groupProductSlugForCard(array $card): string
+    {
+        $brand = trim((string) ($card['brand'] ?? ''));
+        $kind = $this->productKindForCard($card);
+
+        return $this->groupProductSlug($brand !== '' ? $brand : 'product', $kind['slug']);
     }
 
     /**
@@ -1844,7 +1924,10 @@ class CanonicalStorefrontHomepageService
     /**
      * @return Builder<CanonicalProductIdentity>
      */
-    private function identityQuery(string $query, ?int $limit, ?string $category = null): Builder
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function identityQuery(string $query, ?int $limit, ?string $category = null, array $filters = []): Builder
     {
         $builder = CanonicalProductIdentity::query()
             ->select([
@@ -1883,6 +1966,8 @@ class CanonicalStorefrontHomepageService
         if ($category !== null) {
             $this->applyCategoryScope($builder, $category);
         }
+
+        $this->applyStorefrontSearchFilters($builder, $filters);
 
         if ($this->overrideTableExists()) {
             $builder->with('override');
@@ -2048,6 +2133,48 @@ class CanonicalStorefrontHomepageService
 
         if (! in_array('currency', $except, true) && $filters['currency'] !== null) {
             $builder->whereRaw('upper(face_value_currency) = ?', [$filters['currency']]);
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function storefrontQueryFilters(string $query): array
+    {
+        $understanding = app(CatalogQueryUnderstandingService::class)->understand($query);
+        $filters = (array) ($understanding['filters'] ?? []);
+        $strict = [];
+
+        if (! empty($filters['brand'])) {
+            $strict['brand'] = (string) $filters['brand'];
+        }
+
+        if (! empty($filters['discovery_intent']) && $this->categoryResolver->isKnownIntentCorridor((string) $filters['discovery_intent'])) {
+            $strict['discovery_intent'] = (string) $filters['discovery_intent'];
+        }
+
+        if ($strict === [] && ! empty($filters['category'])) {
+            $strict['category'] = (string) $filters['category'];
+        }
+
+        return $strict;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyStorefrontSearchFilters(Builder $builder, array $filters): void
+    {
+        if (! empty($filters['brand'])) {
+            $builder->whereRaw('lower(brand) = ?', [Str::lower((string) $filters['brand'])]);
+        }
+
+        if (! empty($filters['discovery_intent'])) {
+            $builder->where('discovery_intent', (string) $filters['discovery_intent']);
+        }
+
+        if (! empty($filters['category'])) {
+            $builder->where('canonical_category', (string) $filters['category']);
         }
     }
 

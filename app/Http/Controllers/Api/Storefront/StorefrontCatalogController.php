@@ -87,11 +87,18 @@ class StorefrontCatalogController extends Controller
         string $kindSlug,
         Request $request,
         CanonicalStorefrontHomepageService $homepage,
+        CanonicalCategoryResolver $resolver,
     ): JsonResponse {
+        $intent = $resolver->isKnownIntentCorridor($category)
+            ? $category
+            : $resolver->discoveryIntent($category, [str_replace('-', ' ', $brandSlug)]);
+
+        abort_unless($resolver->isKnownIntentCorridor($intent), 404);
+
         $compact = $request->boolean('compact');
         $data = $compact
-            ? $homepage->productGroupPage($category, $brandSlug, $kindSlug, $request, 4)
-            : $homepage->productGroupPage($category, $brandSlug, $kindSlug, $request);
+            ? $homepage->productGroupPage($intent, $brandSlug, $kindSlug, $request, 4)
+            : $homepage->productGroupPage($intent, $brandSlug, $kindSlug, $request);
 
         abort_unless($data !== null, 404);
 
@@ -136,17 +143,34 @@ class StorefrontCatalogController extends Controller
 
     public function product(
         string $slug,
+        Request $request,
         MeanlyFirstPartyStorefrontService $storefront,
         CanonicalStorefrontHomepageService $homepage,
     ): JsonResponse {
+        if ($homepage->parseGroupProductSlug($slug) !== null) {
+            $groupPage = $homepage->productGroupPageBySlug($slug, $request);
+            if ($groupPage !== null) {
+                return $this->groupProductResponse($slug, $groupPage);
+            }
+        }
+
         $product = $storefront->marketplaceProductsQuery()
             ->where('slug', $slug)
             ->first();
 
-        $card = $product instanceof Product
-            ? $this->productCard($product)
-            : $homepage->storefrontReadyCards($slug)->firstWhere('slug', $slug);
+        if ($product instanceof Product) {
+            return response()->json([
+                'contract' => [
+                    'name' => 'storefront-product',
+                    'version' => 'v1',
+                    'authority' => 'marketplace-commerce',
+                    'dto_boundary' => 'transitions_not_conditions',
+                ],
+                'data' => StorefrontProductResource::make($this->productCard($product)),
+            ]);
+        }
 
+        $card = $homepage->storefrontReadyCards($slug)->firstWhere('slug', $slug);
         abort_if($card === null, 404);
 
         return response()->json([
@@ -157,6 +181,62 @@ class StorefrontCatalogController extends Controller
                 'dto_boundary' => 'transitions_not_conditions',
             ],
             'data' => StorefrontProductResource::make($card),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $groupPage
+     */
+    private function groupProductResponse(string $slug, array $groupPage): JsonResponse
+    {
+        $group = (array) ($groupPage['group'] ?? []);
+        $products = $groupPage['products'];
+
+        return response()->json([
+            'contract' => [
+                'name' => 'storefront-product-group',
+                'version' => 'v1',
+                'authority' => 'marketplace-commerce',
+                'dto_boundary' => 'transitions_not_conditions',
+            ],
+            'data' => [
+                'type' => 'storefront_product_group',
+                'id' => $slug,
+                'slug' => $slug,
+                'name' => (string) ($group['title'] ?? $slug),
+                'brand' => $group['brand'] ?? null,
+                'category' => [
+                    'slug' => (string) ($group['discovery_intent'] ?? $group['category'] ?? ''),
+                    'label' => (string) ($group['category_label'] ?? ''),
+                ],
+                'variant_group' => [
+                    'is_grouped' => true,
+                    'variant_count' => (int) ($group['variant_count'] ?? 0),
+                    'region_count' => (int) ($group['region_count'] ?? 0),
+                    'nominal_count' => (int) ($group['nominal_count'] ?? 0),
+                ],
+                'links' => [
+                    'self' => route('products.show', $slug),
+                ],
+                'actions' => [
+                    'allowed_actions' => ['VIEW'],
+                    'blocked_actions' => ['ADD_TO_CART', 'CHECKOUT'],
+                    'next_action' => 'VIEW',
+                    'blocking_reason' => 'group_requires_variant_selection',
+                ],
+            ],
+            'group_page' => [
+                'group' => $group,
+                'meta' => $groupPage['meta'] ?? [],
+                'facets' => $groupPage['facets'] ?? [],
+                'products' => StorefrontProductResource::collection(collect($products instanceof \Illuminate\Pagination\LengthAwarePaginator ? $products->items() : [])),
+                'pagination' => $products instanceof \Illuminate\Pagination\LengthAwarePaginator ? [
+                    'current_page' => $products->currentPage(),
+                    'per_page' => $products->perPage(),
+                    'total' => $products->total(),
+                    'last_page' => $products->lastPage(),
+                ] : null,
+            ],
         ]);
     }
 
