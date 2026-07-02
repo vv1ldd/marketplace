@@ -120,6 +120,8 @@ class CatalogQueryLexiconService
                 ];
             }
 
+            $this->mergeConfiguredBrandAliases($candidates);
+
             if (! Schema::hasTable('canonical_product_identities')) {
                 return $candidates;
             }
@@ -237,6 +239,338 @@ class CatalogQueryLexiconService
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string, array{display: string, aliases: array<int, string>, confidence: float, source: string}>
+     */
+    public function intentCandidates(): array
+    {
+        return Cache::remember('catalog_query_intent_lexicon', 3600, function (): array {
+            $candidates = [];
+            $extraAliases = (array) config('catalog_taxonomy.search_aliases.intents', []);
+            $corridors = (array) config('catalog_taxonomy.intent_corridors', []);
+
+            foreach ($corridors as $slug => $definition) {
+                $aliases = [
+                    (string) $slug,
+                    str_replace('_', ' ', (string) $slug),
+                    data_get($definition, 'label_en'),
+                    data_get($definition, 'label_ru'),
+                    data_get($definition, 'description_en'),
+                    data_get($definition, 'description_ru'),
+                    ...(array) ($extraAliases[$slug] ?? []),
+                ];
+
+                foreach ((array) ($definition['brand_overrides'] ?? []) as $brand => $brandAliases) {
+                    $aliases[] = $brand;
+                    $aliases = array_merge($aliases, (array) $brandAliases);
+                }
+
+                $candidates[(string) $slug] = [
+                    'display' => (string) (data_get($definition, 'label_en') ?: $slug),
+                    'aliases' => $this->uniqueAliases($aliases),
+                    'confidence' => 0.86,
+                    'source' => 'lexicon.intent_alias',
+                ];
+            }
+
+            return $candidates;
+        });
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public function productKeywordMap(): array
+    {
+        return Cache::remember('catalog_query_product_keyword_lexicon', 3600, function (): array {
+            $map = (array) config('catalog_taxonomy.search_aliases.products', []);
+            $keywordRules = (array) config('catalog_taxonomy.keyword_rules', []);
+
+            foreach ($keywordRules as $category => $keywords) {
+                $map[$category] = array_values(array_unique([
+                    ...(array) ($map[$category] ?? []),
+                    ...(array) $keywords,
+                ]));
+            }
+
+            return $map;
+        });
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public function searchSynonymMap(): array
+    {
+        return Cache::remember('catalog_search_synonym_map', 3600, function (): array {
+            $map = [];
+
+            foreach ((array) config('catalog_taxonomy.search_aliases.synonyms', []) as $token => $synonyms) {
+                $normalized = $this->normalizeSearchToken((string) $token);
+                if ($normalized === '') {
+                    continue;
+                }
+
+                $map[$normalized] = array_values(array_unique([
+                    ...($map[$normalized] ?? []),
+                    ...array_map(fn (string $synonym): string => $this->normalizeSearchToken($synonym), (array) $synonyms),
+                ]));
+            }
+
+            foreach ($this->brandCandidates() as $brand => $candidate) {
+                $group = collect($candidate['aliases'])
+                    ->map(fn (string $alias): string => $this->normalizeSearchToken($alias))
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                foreach ($group as $alias) {
+                    $map[$alias] = array_values(array_unique([
+                        ...($map[$alias] ?? []),
+                        ...$group,
+                        $this->normalizeSearchToken($brand),
+                    ]));
+                }
+            }
+
+            return $map;
+        });
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function fuzzyBrandTerms(): array
+    {
+        return Cache::remember('catalog_search_fuzzy_brand_terms', 3600, function (): array {
+            return collect($this->brandCandidates())
+                ->flatMap(fn (array $candidate): array => $candidate['aliases'])
+                ->map(fn (string $alias): string => $this->normalizeSearchToken($alias))
+                ->filter(fn (string $term): bool => strlen($term) >= 4 && preg_match('/^[a-z0-9]+$/', $term) === 1)
+                ->unique()
+                ->values()
+                ->all();
+        });
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function expandSearchToken(string $token): array
+    {
+        $token = $this->normalizeSearchToken($token);
+        if ($token === '') {
+            return [];
+        }
+
+        $queue = collect([
+            $token,
+            $this->convertKeyboardLayout($token, 'ru_to_en'),
+            $this->convertKeyboardLayout($token, 'en_to_ru'),
+            app(QueryNormalizationService::class)->transliterate($token),
+        ])
+            ->map(fn (string $variant): string => $this->normalizeSearchToken($variant))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $expanded = $queue->all();
+        $synonyms = $this->searchSynonymMap();
+
+        foreach ($queue as $variant) {
+            $expanded = array_merge($expanded, $synonyms[$variant] ?? []);
+            $expanded = array_merge($expanded, $this->fuzzyKnownTerms($variant));
+        }
+
+        return collect($expanded)
+            ->map(fn (string $variant): string => $this->normalizeSearchToken($variant))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function categoriesMatchingToken(string $token): array
+    {
+        $token = $this->normalizeSearchToken($token);
+        if ($token === '') {
+            return [];
+        }
+
+        $matches = [];
+
+        foreach ((array) config('catalog_taxonomy.categories', []) as $slug => $definition) {
+            $haystack = $this->normalizeSearchText(implode(' ', [
+                $slug,
+                str_replace('_', ' ', (string) $slug),
+                $definition['label_ru'] ?? '',
+                $definition['label_en'] ?? '',
+                $definition['description_ru'] ?? '',
+            ]));
+
+            if (str_contains($haystack, $token)) {
+                $matches[] = (string) $slug;
+            }
+        }
+
+        foreach ($this->productKeywordMap() as $category => $keywords) {
+            foreach ((array) $keywords as $keyword) {
+                if ($this->aliasMatchesToken($token, (string) $keyword)) {
+                    $matches[] = (string) $category;
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($matches));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function intentsMatchingToken(string $token): array
+    {
+        $token = $this->normalizeSearchToken($token);
+        if ($token === '') {
+            return [];
+        }
+
+        $matches = [];
+
+        foreach ($this->intentCandidates() as $intent => $candidate) {
+            foreach ($candidate['aliases'] as $alias) {
+                if ($this->aliasMatchesToken($token, (string) $alias)) {
+                    $matches[] = (string) $intent;
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($matches));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function brandsMatchingToken(string $token): array
+    {
+        $token = $this->normalizeSearchToken($token);
+        if ($token === '') {
+            return [];
+        }
+
+        $matches = [];
+
+        foreach ($this->brandCandidates() as $brand => $candidate) {
+            foreach ($candidate['aliases'] as $alias) {
+                if ($this->aliasMatchesToken($token, (string) $alias)) {
+                    $matches[] = (string) $brand;
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($matches));
+    }
+
+    public function normalizeSearchToken(string $value): string
+    {
+        return Str::of($value)
+            ->lower()
+            ->replaceMatches('/[^\pL\pN$€£₽.]+/u', ' ')
+            ->squish()
+            ->toString();
+    }
+
+    /**
+     * @param  array<string, array{display: string, aliases: array<int, string>, confidence: float, source: string}>  $candidates
+     */
+    private function mergeConfiguredBrandAliases(array &$candidates): void
+    {
+        $sources = [
+            ...(array) config('catalog_taxonomy.search_aliases.brands', []),
+        ];
+
+        foreach ((array) config('catalog_taxonomy.intent_corridors', []) as $corridor) {
+            foreach ((array) ($corridor['brand_overrides'] ?? []) as $brand => $aliases) {
+                $sources[$brand] = array_values(array_unique([
+                    ...(array) ($sources[$brand] ?? []),
+                    ...(array) $aliases,
+                ]));
+            }
+        }
+
+        foreach ($sources as $brand => $aliases) {
+            $existing = $candidates[$brand] ?? null;
+            $mergedAliases = $this->uniqueAliases([
+                $brand,
+                ...(array) $aliases,
+                ...($existing['aliases'] ?? []),
+            ]);
+
+            $candidates[$brand] = [
+                'display' => $existing['display'] ?? (string) $brand,
+                'aliases' => $mergedAliases,
+                'confidence' => $existing['confidence'] ?? 0.9,
+                'source' => $existing['source'] ?? 'lexicon.config_brand_alias',
+            ];
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function fuzzyKnownTerms(string $token): array
+    {
+        if (strlen($token) < 4 || preg_match('/[^a-z0-9]/', $token)) {
+            return [];
+        }
+
+        return collect($this->fuzzyBrandTerms())
+            ->filter(function (string $term) use ($token): bool {
+                if (str_starts_with($term, $token) || str_starts_with($token, $term)) {
+                    return true;
+                }
+
+                $maxDistance = max(1, min(3, (int) floor(max(strlen($token), strlen($term)) / 4)));
+
+                return levenshtein($token, $term) <= $maxDistance;
+            })
+            ->values()
+            ->all();
+    }
+
+    private function aliasMatchesToken(string $token, string $alias): bool
+    {
+        $alias = $this->normalizeSearchToken($alias);
+        if ($alias === '' || $token === '') {
+            return false;
+        }
+
+        if ($token === $alias) {
+            return true;
+        }
+
+        if (strlen($alias) >= 4 && str_contains($token, $alias)) {
+            return true;
+        }
+
+        if (strlen($token) >= 4 && str_contains($alias, $token)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function normalizeSearchText(string $value): string
+    {
+        return $this->normalizeSearchToken($value);
     }
 
     /**

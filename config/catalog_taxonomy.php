@@ -121,6 +121,146 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Search aliases (intent corridors, brands, product keywords)
+    |--------------------------------------------------------------------------
+    |
+    | Powers storefront search token expansion and CatalogQueryUnderstanding.
+    | Brand aliases from intent_corridors.brand_overrides are merged at runtime.
+    */
+    'search_aliases' => [
+        'intents' => [
+            'play' => [
+                'игры', 'игра', 'играть', 'gaming', 'gamer', 'gamers', 'game pass', 'gamepass',
+                'консоль', 'приставка', 'playstation store', 'ps store', 'xbox live', 'nintendo eshop',
+                'in-game', 'ingame', 'skin', 'skins', 'vbucks', 'v-bucks', 'robux', 'diamonds',
+                'battle pass', 'dlc', 'game key', 'game code', 'wallet code',
+            ],
+            'stream' => [
+                'подписка', 'подписки', 'подписку', 'стриминг', 'streaming', 'music', 'музыка',
+                'фильмы', 'сериалы', 'watch', 'listen', 'premium', 'plus', 'membership',
+                'netflix', 'spotify', 'disney', 'youtube premium', 'hbo', 'crunchyroll',
+            ],
+            'work' => [
+                'работа', 'офис', 'office', 'license', 'licence', 'лицензия', 'ключ', 'activation',
+                'antivirus', 'антивирус', 'vpn', 'software', 'по', 'windows', 'microsoft 365',
+            ],
+            'shop' => [
+                'подарок', 'подарочная', 'подарочную', 'gift', 'gift card', 'giftcard', 'voucher',
+                'сертификат', 'магазин', 'shopping', 'retail', 'ecommerce', 'e-commerce',
+            ],
+            'pay' => [
+                'оплата', 'платеж', 'payment', 'prepaid', 'virtual card', 'virtualcard',
+                'visa card', 'mastercard card', 'amex card', 'без карты', 'pay without card',
+            ],
+            'mobile' => [
+                'телефон', 'мобильный', 'mobile', 'app store', 'google play', 'play store',
+                'itunes', 'esim', 'e-sim', 'sim', 'связь', 'баланс', 'topup mobile', 'airtime',
+            ],
+            'go' => [
+                'путешествие', 'поездка', 'travel', 'trip', 'hotel', 'отель', 'такси', 'taxi',
+                'uber', 'ride', 'cinema', 'кино', 'ticket', 'билет', 'airbnb', 'booking',
+            ],
+        ],
+        'brands' => [
+            'Amazon' => ['amazon', 'амазон'],
+            'Netflix' => ['netflix', 'нетфликс'],
+            'Disney+' => ['disney+', 'disney plus', 'дисней'],
+            'YouTube' => ['youtube', 'youtube premium', 'ютуб'],
+            'Microsoft' => ['microsoft', 'майкрософт', 'ms office'],
+            'NordVPN' => ['nordvpn', 'nord vpn', 'норд впн'],
+            'Telegram Premium' => ['telegram premium', 'telegram', 'телеграм'],
+            'Visa' => ['visa', 'виза'],
+            'Mastercard' => ['mastercard', 'master card', 'мастеркард'],
+            'Uber' => ['uber', 'убер'],
+            'Airbnb' => ['airbnb', 'эрбнб'],
+        ],
+        'products' => [
+            'gift_cards' => [
+                'gift card', 'giftcard', 'gift-card', 'voucher', 'e-voucher', 'evoucher',
+                'подарочная карта', 'подарочную карту', 'сертификат', 'gift code', 'store credit',
+            ],
+            'console_payment_cards' => [
+                'psn card', 'psn code', 'playstation card', 'xbox card', 'xbox code',
+                'nintendo card', 'eshop card', 'console card',
+            ],
+            'game_wallet_topups' => [
+                'top up', 'topup', 'top-up', 'wallet', 'wallet code', 'game wallet',
+                'пополнение', 'пополнить', 'баланс steam', 'steam wallet', 'robux', 'vbucks',
+                'uc', 'diamonds', 'coins', 'credits', 'points pack',
+            ],
+            'mobile_app_store_cards' => [
+                'app store card', 'itunes card', 'google play card', 'play store card',
+                'apple gift', 'google play gift',
+            ],
+            'subscriptions' => [
+                'subscription', 'membership', 'monthly pass', 'annual pass', 'renewal',
+                'абонемент', 'membership code',
+            ],
+            'software_licenses' => [
+                'license key', 'licence key', 'activation key', 'product key', 'software key',
+                'ключ активации', 'лицензионный ключ',
+            ],
+            'payment_prepaid_cards' => [
+                'prepaid card', 'virtual card', 'virtualcard', 'payment card', 'reloadable card',
+            ],
+            'telecom_topups' => [
+                'mobile topup', 'mobile top-up', 'airtime', 'data pack', 'internet pack',
+                'пополнение телефона', 'мобильный баланс',
+            ],
+            'travel_entertainment_vouchers' => [
+                'travel voucher', 'hotel voucher', 'flight voucher', 'cinema ticket', 'movie ticket',
+            ],
+        ],
+        'synonyms' => [
+            'ps' => ['playstation', 'psn', 'sony'],
+            'psn' => ['playstation', 'sony'],
+            'ps4' => ['playstation', 'sony'],
+            'ps5' => ['playstation', 'sony'],
+            'play' => ['playstation'],
+            'playstation' => ['ps', 'psn', 'sony'],
+            'плейстейшн' => ['playstation', 'psn', 'sony'],
+            'плейстейшен' => ['playstation', 'psn', 'sony'],
+            'плейстешн' => ['playstation', 'psn', 'sony'],
+            'сони' => ['sony', 'playstation'],
+            'стим' => ['steam'],
+            'сша' => ['us', 'usa', 'united states', 'unitedstates'],
+            'usa' => ['us', 'united states', 'unitedstates', 'сша'],
+            'us' => ['usa', 'united states', 'unitedstates', 'сша'],
+            'ssha' => ['сша', 'us', 'usa', 'united states', 'unitedstates'],
+            'cif' => ['сша', 'us', 'usa', 'united states', 'unitedstates'],
+            'america' => ['us', 'usa', 'united states', 'unitedstates', 'сша'],
+            'америка' => ['us', 'usa', 'united states', 'unitedstates', 'сша'],
+            'штаты' => ['us', 'usa', 'united states', 'unitedstates', 'сша'],
+            'states' => ['us', 'usa', 'united states', 'unitedstates'],
+            'unitedstates' => ['us', 'usa', 'united states', 'сша'],
+            'pleysteyshn' => ['playstation', 'psn', 'sony'],
+            'pleystation' => ['playstation', 'psn', 'sony'],
+            'tr' => ['turkey', 'turkiye', 'türkiye', 'турция'],
+            'turkey' => ['tr', 'turkiye', 'türkiye', 'турция'],
+            'turkiye' => ['tr', 'turkey', 'türkiye', 'турция'],
+            'турция' => ['tr', 'turkey', 'turkiye', 'türkiye'],
+            'подписка' => ['subscription', 'premium', 'plus'],
+            'подписку' => ['subscription', 'premium', 'plus'],
+            'подписки' => ['subscription', 'premium', 'plus'],
+            'карта' => ['card', 'gift card'],
+            'гифт' => ['gift', 'gift card'],
+            'код' => ['code', 'key'],
+            'иксбокс' => ['xbox'],
+            'хбокс' => ['xbox'],
+            'нинтендо' => ['nintendo'],
+            'свитч' => ['nintendo', 'switch'],
+            'спотифай' => ['spotify'],
+            'спотифи' => ['spotify'],
+            'нетфликс' => ['netflix'],
+            'гугл плей' => ['google play'],
+            'апп стор' => ['app store', 'apple'],
+            'эпл' => ['apple'],
+            'айтюнс' => ['itunes', 'apple'],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Intent-based discovery corridors (ADR 0040)
     |--------------------------------------------------------------------------
     |

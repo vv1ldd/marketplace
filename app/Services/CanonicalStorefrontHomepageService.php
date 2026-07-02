@@ -138,6 +138,7 @@ class CanonicalStorefrontHomepageService
         private readonly MeanlyFirstPartyStorefrontService $storefront,
         private readonly PricingProjectionService $pricingProjection,
         private readonly MappingCountryLabelService $countryLabels,
+        private readonly CatalogQueryLexiconService $searchLexicon,
     ) {}
 
     /**
@@ -1897,7 +1898,9 @@ class CanonicalStorefrontHomepageService
                     $builder->where(function ($builder) use ($tokenVariants): void {
                         foreach ($tokenVariants->take(12) as $token) {
                             $like = '%'.$this->escapeLike($token).'%';
-                            $matchingCategories = $this->categoryKeysMatchingToken($token);
+                            $matchingCategories = $this->searchLexicon->categoriesMatchingToken($token);
+                            $matchingIntents = $this->searchLexicon->intentsMatchingToken($token);
+                            $matchingBrands = $this->searchLexicon->brandsMatchingToken($token);
 
                             $builder
                                 ->orWhere('identity_slug', 'like', $like)
@@ -1907,6 +1910,7 @@ class CanonicalStorefrontHomepageService
                                 ->orWhere('region', 'like', $like)
                                 ->orWhere('platform', 'like', $like)
                                 ->orWhere('canonical_category', 'like', $like)
+                                ->orWhere('discovery_intent', 'like', $like)
                                 ->orWhereHas('bestOfferProduct', function ($query) use ($like): void {
                                     $query
                                         ->where('name', 'like', $like)
@@ -1916,6 +1920,14 @@ class CanonicalStorefrontHomepageService
 
                             if ($matchingCategories !== []) {
                                 $builder->orWhereIn('canonical_category', $matchingCategories);
+                            }
+
+                            if ($matchingIntents !== []) {
+                                $builder->orWhereIn('discovery_intent', $matchingIntents);
+                            }
+
+                            foreach ($matchingBrands as $brand) {
+                                $builder->orWhere('brand', 'like', '%'.$this->escapeLike($this->normalizeSearchText($brand)).'%');
                             }
 
                             if (is_numeric($token)) {
@@ -2662,30 +2674,7 @@ class CanonicalStorefrontHomepageService
      */
     private function expandSearchToken(string $token): array
     {
-        $queue = collect([
-            $token,
-            $this->convertKeyboardLayout($token, 'ru_to_en'),
-            $this->convertKeyboardLayout($token, 'en_to_ru'),
-            $this->transliterateCyrillicToLatin($token),
-        ])
-            ->map(fn (string $variant): string => $this->normalizeSearchText($variant))
-            ->filter()
-            ->unique()
-            ->values();
-
-        $expanded = $queue->all();
-
-        foreach ($queue as $variant) {
-            $expanded = array_merge($expanded, self::SEARCH_SYNONYMS[$variant] ?? []);
-            $expanded = array_merge($expanded, $this->fuzzyKnownTerms($variant));
-        }
-
-        return collect($expanded)
-            ->map(fn (string $variant): string => $this->normalizeSearchText($variant))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        return $this->searchLexicon->expandSearchToken($token);
     }
 
     /**

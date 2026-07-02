@@ -20,6 +20,7 @@ class CatalogRetrievalService
         private readonly ProductIndexingPolicyService $indexingPolicy,
         private readonly ProductIntentResolutionService $intentResolver,
         private readonly CanonicalProductIdentityCurationService $curation,
+        private readonly CatalogQueryLexiconService $lexicon,
     ) {}
 
     /**
@@ -41,7 +42,7 @@ class CatalogRetrievalService
             ]);
         }
 
-        $queryTokens = $this->tokens($query);
+        $queryTokens = $this->expandedQueryTokens($query);
         $candidates = $this->candidateQuery($query, $queryTokens, $filters)
             ->get()
             ->map(fn (CanonicalProductIdentity $identity) => $this->scoreCandidate($identity, $query, $queryTokens, $filters))
@@ -74,6 +75,7 @@ class CatalogRetrievalService
                 'fingerprint',
                 'identity_slug',
                 'canonical_category',
+                'discovery_intent',
                 'brand',
                 'product_family',
                 'face_value',
@@ -119,6 +121,7 @@ class CatalogRetrievalService
 
         foreach ([
             'category' => 'canonical_category',
+            'discovery_intent' => 'discovery_intent',
             'currency' => 'face_value_currency',
             'region' => 'region',
         ] as $filter => $column) {
@@ -140,14 +143,30 @@ class CatalogRetrievalService
             foreach ($queryTokens->take(6) as $token) {
                 $builder->where(function (Builder $builder) use ($token): void {
                     $like = '%'.$this->escapeLike($token).'%';
+                    $matchingCategories = $this->lexicon->categoriesMatchingToken($token);
+                    $matchingIntents = $this->lexicon->intentsMatchingToken($token);
+                    $matchingBrands = $this->lexicon->brandsMatchingToken($token);
 
                     $builder
                         ->where('identity_slug', 'like', $like)
                         ->orWhere('brand', 'like', $like)
                         ->orWhere('product_family', 'like', $like)
                         ->orWhere('canonical_category', 'like', $like)
+                        ->orWhere('discovery_intent', 'like', $like)
                         ->orWhere('face_value_currency', 'like', $like)
                         ->orWhere('region', 'like', $like);
+
+                    if ($matchingCategories !== []) {
+                        $builder->orWhereIn('canonical_category', $matchingCategories);
+                    }
+
+                    if ($matchingIntents !== []) {
+                        $builder->orWhereIn('discovery_intent', $matchingIntents);
+                    }
+
+                    foreach ($matchingBrands as $brand) {
+                        $builder->orWhere('brand', 'like', '%'.$this->escapeLike($this->normalizedText($brand)).'%');
+                    }
 
                     if (is_numeric($token)) {
                         $amount = (float) $token;
@@ -361,6 +380,10 @@ class CatalogRetrievalService
             return false;
         }
 
+        if (isset($filters['discovery_intent']) && (string) ($identity['discovery_intent'] ?? $model->discovery_intent ?? '') !== (string) $filters['discovery_intent']) {
+            return false;
+        }
+
         if (isset($filters['brand']) && ! str_contains($this->normalizedText($identity['brand'] ?? ''), $this->normalizedText($filters['brand']))) {
             return false;
         }
@@ -416,6 +439,7 @@ class CatalogRetrievalService
 
         foreach ([
             'category' => 'category',
+            'discovery_intent' => 'discovery_intent',
             'brand' => 'brand',
             'region' => 'region',
             'currency' => 'currency',
@@ -487,6 +511,19 @@ class CatalogRetrievalService
         return Str::of($this->normalizedText($value))
             ->replace(' ', '')
             ->toString();
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    private function expandedQueryTokens(string $query): Collection
+    {
+        return $this->tokens($query)
+            ->flatMap(fn (string $token): array => $this->lexicon->expandSearchToken($token))
+            ->map(fn (string $token): string => $this->normalizedText($token))
+            ->filter(fn (string $token): bool => strlen($token) >= 2)
+            ->unique()
+            ->values();
     }
 
     /**

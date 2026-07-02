@@ -55,6 +55,7 @@ class CatalogQueryUnderstandingService
         $intent = $this->detectIntent($queryVariants, $entities);
         $this->detectAmountsAndCurrencies($normalizedQuery, $asciiQuery, $filters, $entities);
         $this->detectBrands($queryVariants, $filters, $entities);
+        $this->detectDiscoveryCorridor($queryVariants, $filters, $entities);
         $this->detectCategory($queryVariants, $filters, $entities);
         $this->detectRegion($queryVariants, $filters, $entities);
         $this->detectAvailabilityFilters($queryVariants, $filters, $entities);
@@ -242,10 +243,45 @@ class CatalogQueryUnderstandingService
      * @param  array<string, mixed>  $filters
      * @param  array<int, array<string, mixed>>  $entities
      */
+    private function detectDiscoveryCorridor(array $queryVariants, array &$filters, array &$entities): void
+    {
+        $best = null;
+
+        foreach ($this->lexicon->intentCandidates() as $intent => $candidate) {
+            $matched = $this->firstMatchedAlias($queryVariants, $candidate['aliases']);
+            if ($matched === null) {
+                continue;
+            }
+
+            $confidence = max(0.72, $candidate['confidence'] - (str_contains($matched, ' ') ? 0 : 0.04));
+            if ($best === null || $confidence > $best['confidence']) {
+                $best = [
+                    'intent' => (string) $intent,
+                    'display' => $candidate['display'],
+                    'matched' => $matched,
+                    'confidence' => $confidence,
+                ];
+            }
+        }
+
+        if ($best === null) {
+            return;
+        }
+
+        $filters['discovery_intent'] = $best['intent'];
+        $entities[] = $this->entity('discovery_intent', $best['display'], $best['matched'], $best['confidence'], 'lexicon.intent_alias');
+    }
+
+    /**
+     * @param  array<int, string>  $queryVariants
+     * @param  array<string, mixed>  $filters
+     * @param  array<int, array<string, mixed>>  $entities
+     */
     private function detectCategory(array $queryVariants, array &$filters, array &$entities): void
     {
         $categories = (array) config('catalog_taxonomy.categories', []);
         $keywordRules = (array) config('catalog_taxonomy.keyword_rules', []);
+        $productKeywords = $this->lexicon->productKeywordMap();
         $best = null;
 
         foreach ($categories as $slug => $definition) {
@@ -260,12 +296,17 @@ class CatalogQueryUnderstandingService
                 $aliases[] = (string) $keyword;
             }
 
+            foreach ((array) ($productKeywords[$slug] ?? []) as $keyword) {
+                $aliases[] = (string) $keyword;
+            }
+
             $matched = $this->firstMatchedAlias($queryVariants, $aliases);
             if ($matched === null) {
                 continue;
             }
 
-            $confidence = in_array($matched, (array) ($keywordRules[$slug] ?? []), true) ? 0.78 : 0.72;
+            $confidence = in_array($matched, (array) ($productKeywords[$slug] ?? []), true) ? 0.82
+                : (in_array($matched, (array) ($keywordRules[$slug] ?? []), true) ? 0.78 : 0.72);
             if ($best === null || $confidence > $best['confidence']) {
                 $best = [
                     'slug' => (string) $slug,
