@@ -11,6 +11,9 @@ use App\Services\Provider\ProviderHub;
 use App\Services\Provider\WildflowDriver;
 use App\Services\DgsShadowIngestDispatcher;
 use App\Services\Dgs\DgsFulfillmentPayloadBuilder;
+use App\Services\Architecture\ArchitectureMetrics;
+use App\Services\Architecture\ExecutionRecordServiceInterface;
+use App\Services\Architecture\OfferSnapshotServiceInterface;
 use App\Services\WildflowService;
 use App\Services\RedeemFallbackPurchaseService;
 use Illuminate\Bus\Queueable;
@@ -100,6 +103,8 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
             return;
         }
 
+        $architecture = $this->pinRedeemArchitecture($order, $order_item);
+
         // 🛡️ Provider Hub Integration
         $hub = app(ProviderHub::class);
         $vault = app(\App\Services\VaultTransitService::class);
@@ -109,12 +114,17 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
         
         // The true numeric SKU for provider API is buried inside the JSON blob, 
         // while the column holds the internal encrypted vault alias string.
-        $numericServiceSku = data_get($catalog->data, 'service_sku') 
-            ?? data_get($catalog->data, 'data.sku') 
-            ?? $catalog->service_sku;
+        $numericServiceSku = $this->resolveRedeemServiceSku($order, $order_item, $catalog, $architecture);
 
         try {
             $providerReference = $order_item->providerReference();
+
+            if ($architecture['execution_id']) {
+                app(ExecutionRecordServiceInterface::class)->markAsFulfilling(
+                    $architecture['execution_id'],
+                    $providerReference,
+                );
+            }
 
             // 🛡️ Sovereign Ledger: Record the START of the external order
             app(\App\Services\LedgerService::class)->record($order->shop, 'PROVIDER_ORDER_START', $order_item, [
@@ -186,6 +196,15 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
                     'original_code' => $original_code,
                     'purchase_error' => null,
                 ]);
+
+                if ($architecture['execution_id']) {
+                    app(ExecutionRecordServiceInterface::class)->recordSuccess(
+                        $architecture['execution_id'],
+                        (string) $original_code,
+                        ['provider_order_id' => $externalOrderId],
+                    );
+                }
+
                 $this->markOrderProgressIfComplete($order, $order_item);
                 $this->notifyCustomerWithCode($order_item, $order, $customer, $original_code);
                 $this->dispatchShadowIngest($order, $order_item->fresh(), $catalog, $provider, $providerProduct, $driver, $externalOrderId, $codes);
@@ -213,6 +232,14 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
             throw new \Exception("Provider returned empty codes list for order {$externalOrderId} after max fallback attempts.");
 
         } catch (\Exception $e) {
+            if (! empty($architecture['execution_id'])) {
+                app(ExecutionRecordServiceInterface::class)->recordFailure(
+                    $architecture['execution_id'],
+                    str_contains(strtolower($e->getMessage()), '500') ? 'PROVIDER_500' : 'PROVIDER_ERROR',
+                    ['message' => $e->getMessage()],
+                );
+            }
+
             // ⛓️ Sovereign Ledger: Record the FAILED PROVIDER ORDER
             app(\App\Services\LedgerService::class)->record($order->shop, 'PROVIDER_ORDER_FAILED', $order_item, [
                 'provider' => $provider->type,
@@ -248,6 +275,92 @@ class ProcessRedeemWildflowPurchase implements ShouldQueue
                 $e->getMessage()
             );
         }
+    }
+
+    /**
+     * @return array{snapshot_id: ?string, execution_id: ?string}
+     */
+    private function pinRedeemArchitecture(Order $order, OrderItems $order_item): array
+    {
+        if (! config('architecture.sidecar_enabled', true)) {
+            return ['snapshot_id' => null, 'execution_id' => null];
+        }
+
+        $snapshotId = data_get($order->info, 'order_safe.offer_snapshot_id')
+            ?? data_get($order_item->client_info, 'provider_redemption.offer_snapshot_id');
+        $executionId = data_get($order->info, 'order_safe.execution_record_id')
+            ?? data_get($order_item->client_info, 'provider_redemption.execution_record_id');
+
+        if (! $snapshotId) {
+            $product = \App\Models\Product::query()
+                ->where('sku', $order_item->sku)
+                ->where('shop_id', $order->shop_id)
+                ->first();
+
+            if ($product) {
+                try {
+                    $snapshot = app(OfferSnapshotServiceInterface::class)->createFromProduct($product, 'redeem');
+                    $snapshotId = $snapshot->id;
+                    $executionId = app(ExecutionRecordServiceInterface::class)->startExecution(
+                        $snapshotId,
+                        $order->id,
+                        $order_item->id,
+                    );
+
+                    $info = $order->info ?? [];
+                    data_set($info, 'order_safe.offer_snapshot_id', $snapshotId);
+                    data_set($info, 'order_safe.execution_record_id', $executionId);
+                    $order->forceFill(['info' => $info])->save();
+
+                    $clientInfo = $order_item->client_info ?? [];
+                    data_set($clientInfo, 'provider_redemption.offer_snapshot_id', $snapshotId);
+                    data_set($clientInfo, 'provider_redemption.execution_record_id', $executionId);
+                    $order_item->forceFill(['client_info' => $clientInfo])->save();
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        } elseif (! $executionId && $snapshotId) {
+            $executionId = app(ExecutionRecordServiceInterface::class)->startExecution(
+                (string) $snapshotId,
+                $order->id,
+                $order_item->id,
+            );
+        }
+
+        return [
+            'snapshot_id' => $snapshotId ? (string) $snapshotId : null,
+            'execution_id' => $executionId ? (string) $executionId : null,
+        ];
+    }
+
+    /**
+     * @param  array{snapshot_id: ?string, execution_id: ?string}  $architecture
+     */
+    private function resolveRedeemServiceSku(
+        Order $order,
+        OrderItems $order_item,
+        WildflowCatalog $catalog,
+        array $architecture,
+    ): string {
+        if ($architecture['snapshot_id'] && config('architecture.snapshot_fulfillment_mode')) {
+            $snapshot = app(OfferSnapshotServiceInterface::class)->getOrFail($architecture['snapshot_id']);
+            ArchitectureMetrics::logFulfillment('architecture.redeem.snapshot_sku', [
+                'offer_snapshot_id' => $architecture['snapshot_id'],
+                'execution_record_id' => $architecture['execution_id'],
+                'service_sku' => app(OfferSnapshotServiceInterface::class)->serviceSkuFromSnapshot($snapshot),
+            ]);
+
+            return app(OfferSnapshotServiceInterface::class)->serviceSkuFromSnapshot($snapshot);
+        }
+
+        ArchitectureMetrics::recordFallbackLiveCatalog();
+
+        return (string) (
+            data_get($catalog->data, 'service_sku')
+            ?? data_get($catalog->data, 'data.sku')
+            ?? $catalog->service_sku
+        );
     }
 
     private function applyFallbackSuccess(Order $order, OrderItems $order_item, Customer $customer, string $original_code): void

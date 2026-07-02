@@ -6,6 +6,7 @@ use App\Mail\SendActivationCode;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItems;
 use App\Models\WildflowCatalog;
+use App\Services\Architecture\ExecutionRecordServiceInterface;
 use App\Services\Mutation\MutationContext;
 use App\Services\Mutation\MutationDedupGuard;
 use App\Services\Mutation\MutationIdentityResolver;
@@ -157,6 +158,13 @@ class OrderService
 
         // 🛡️ Sovereign Ledger: Record the START of the external order
         $providerReference = $item->providerReference();
+        $executionId = null;
+        $snapshotId = data_get($item->order?->info, 'order_safe.offer_snapshot_id')
+            ?? data_get($item->client_info, 'provider_redemption.offer_snapshot_id');
+        if ($snapshotId && config('architecture.sidecar_enabled', true)) {
+            $executionId = app(ExecutionRecordServiceInterface::class)->startRetryForOrderItem($item, (string) $snapshotId);
+        }
+
         if ($shop) {
             app(\App\Services\LedgerService::class)->record($shop, 'PROVIDER_ORDER_START', $item, [
                 'provider' => $provider->type,
@@ -166,6 +174,10 @@ class OrderService
         }
 
         try {
+            if ($executionId) {
+                app(ExecutionRecordServiceInterface::class)->markAsFulfilling($executionId, $providerReference);
+            }
+
             // 1. Create order at Provider
             $externalOrderId = $driver->createOrder(
                 sku: $catalogSku,
@@ -204,6 +216,10 @@ class OrderService
                     'purchase_error' => null,
                 ]);
 
+                if ($executionId) {
+                    app(ExecutionRecordServiceInterface::class)->recordSuccess($executionId, $code);
+                }
+
                 $this->notifyCustomer($item, $code);
 
                 if ($item->order) {
@@ -223,6 +239,14 @@ class OrderService
                 return ['success' => true, 'code' => $code];
             }
         } catch (\Exception $e) {
+            if ($executionId) {
+                app(ExecutionRecordServiceInterface::class)->recordFailure(
+                    $executionId,
+                    str_contains(strtolower($e->getMessage()), '500') ? 'PROVIDER_500' : 'PROVIDER_ERROR',
+                    ['message' => $e->getMessage()],
+                );
+            }
+
             if ($shop) {
                 app(\App\Services\LedgerService::class)->record($shop, 'PROVIDER_ORDER_FAILED', $item, [
                     'provider' => $provider->type,

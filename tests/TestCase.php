@@ -63,4 +63,15 @@ abstract class TestCase extends BaseTestCase
         $path = $path === '' ? '/' : '/'.ltrim($path, '/');
         $response->assertRedirect($path);
     }
+
+    protected function withArchitectureSnapshotFulfillment(bool $sidecar = true): static
+    {
+        config([
+            'architecture.snapshot_fulfillment_mode' => true,
+            'architecture.sidecar_enabled' => $sidecar,
+            'meanly_storefront.provider_fulfillment.allow_live_redemption' => true,
+        ]);
+
+        return $this;
+    }
 }

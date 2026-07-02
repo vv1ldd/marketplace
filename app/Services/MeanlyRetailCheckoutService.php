@@ -7,6 +7,9 @@ use App\Models\Order\OrderItems;
 use App\Models\Product;
 use App\Models\ProductInventory;
 use App\Models\Warehouse;
+use App\Services\Architecture\ArchitectureMetrics;
+use App\Services\Architecture\ExecutionRecordServiceInterface;
+use App\Services\Architecture\OfferSnapshotServiceInterface;
 use App\Services\Mutation\MutationContext;
 use App\Services\Mutation\MutationDedupGuard;
 use App\Services\Mutation\MutationIdentityResolver;
@@ -21,6 +24,8 @@ class MeanlyRetailCheckoutService
         private readonly LedgerService $ledger,
         private readonly SellerVoucherStockService $stock,
         private readonly StorefrontFulfillmentService $fulfillment,
+        private readonly OfferSnapshotServiceInterface $offerSnapshotService,
+        private readonly ExecutionRecordServiceInterface $executionRecordService,
     ) {}
 
     /**
@@ -194,6 +199,8 @@ class MeanlyRetailCheckoutService
                     'preorder_acknowledged' => $preorderAcknowledged,
                 ],
             ]);
+
+            $this->pinCheckoutArchitecture($order, $orderItem, $product, $requiresProviderExchange);
 
             $fulfillmentStatus = $trustedCapture
                 ? ($requiresProviderExchange ? 'provider_redeem_pending' : 'local_code_ready')
@@ -436,6 +443,45 @@ class MeanlyRetailCheckoutService
         }
 
         return $reserved;
+    }
+
+    private function pinCheckoutArchitecture(
+        Order $order,
+        OrderItems $orderItem,
+        Product $product,
+        bool $requiresProviderExchange,
+    ): void {
+        if (! config('architecture.sidecar_enabled', true) || ! $requiresProviderExchange) {
+            return;
+        }
+
+        try {
+            $snapshot = $this->offerSnapshotService->createFromProduct($product, 'checkout');
+            $executionId = $this->executionRecordService->startExecution(
+                $snapshot->id,
+                $order->id,
+                $orderItem->id,
+            );
+
+            $info = $order->info ?? [];
+            data_set($info, 'order_safe.offer_snapshot_id', $snapshot->id);
+            data_set($info, 'order_safe.execution_record_id', $executionId);
+            $order->forceFill(['info' => $info])->save();
+
+            $clientInfo = $orderItem->client_info ?? [];
+            data_set($clientInfo, 'provider_redemption.offer_snapshot_id', $snapshot->id);
+            data_set($clientInfo, 'provider_redemption.execution_record_id', $executionId);
+            $orderItem->forceFill(['client_info' => $clientInfo])->save();
+
+            ArchitectureMetrics::logFulfillment('architecture.checkout.snapshot_pinned', [
+                'offer_snapshot_id' => $snapshot->id,
+                'execution_record_id' => $executionId,
+                'order_id' => $order->id,
+                'order_item_id' => $orderItem->id,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function meterCheckout($legalEntity, $shop, Order $order, float $totalRub, int $quantity): void

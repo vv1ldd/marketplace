@@ -10,6 +10,9 @@ use App\Models\Provider;
 use App\Models\ProviderProduct;
 use App\Models\WildflowCatalog;
 use App\Services\Dgs\DgsFulfillmentPayloadBuilder;
+use App\Services\Architecture\ArchitectureMetrics;
+use App\Services\Architecture\ExecutionRecordServiceInterface;
+use App\Services\Architecture\OfferSnapshotServiceInterface;
 use App\Services\Provider\ProviderHub;
 use App\Services\Provider\WildflowDriver;
 use Illuminate\Support\Facades\DB;
@@ -200,6 +203,8 @@ class StorefrontFulfillmentService
         data_set($info, 'order_safe.provider_id', $provider?->id);
         data_set($info, 'order_safe.provider_type', $provider?->type);
 
+        $this->ensureArchitecturePinned($order, $item, $product, $info, $clientInfo);
+
         $order->forceFill([
             'status' => 'PROCESSING',
             'progress_id' => 2,
@@ -306,11 +311,16 @@ class StorefrontFulfillmentService
         try {
             $driver = app(ProviderHub::class)->forProvider($provider);
             $reference = $item->provider_order_id ?: $item->providerReference();
-            $serviceSku = $this->serviceSku($catalog, $providerProduct, $catalogSku);
+            $serviceSku = $this->resolveServiceSkuForFulfillment($order, $item, $product, $catalog, $providerProduct, $catalogSku);
             $nominal = $this->nominalAmount($item, $catalog, $providerProduct);
             $shop = $order->shop;
+            $executionId = $this->executionIdForItem($order, $item);
 
             if (blank($item->provider_order_id)) {
+                if ($executionId) {
+                    app(ExecutionRecordServiceInterface::class)->markAsFulfilling($executionId, $reference);
+                }
+
                 app(LedgerService::class)->record($shop, 'PROVIDER_ORDER_START', $item, [
                     'provider' => $provider->type,
                     'sku' => $catalogSku,
@@ -390,6 +400,14 @@ class StorefrontFulfillmentService
             $item = $item->fresh();
             $this->storeProviderCodes($order, $item, $provider, $catalog, $providerProduct, $codes, $externalOrderId, $driver instanceof WildflowDriver ? $driver : null);
 
+            if ($executionId) {
+                app(ExecutionRecordServiceInterface::class)->recordSuccess(
+                    $executionId,
+                    (string) ($codes[0] ?? $externalOrderId),
+                    ['provider_order_id' => $externalOrderId, 'codes_count' => count($codes)],
+                );
+            }
+
             app(LedgerService::class)->record($shop, 'PROVIDER_ORDER_SUCCESS', $item, [
                 'provider' => $provider->type,
                 'external_id' => $externalOrderId,
@@ -403,6 +421,15 @@ class StorefrontFulfillmentService
             return ['status' => 'provider_code_ready', 'codes' => count($codes)];
         } catch (\Throwable $e) {
             report($e);
+
+            $executionId = $this->executionIdForItem($order, $item);
+            if ($executionId) {
+                app(ExecutionRecordServiceInterface::class)->recordFailure(
+                    $executionId,
+                    $this->classifyProviderError($e->getMessage()),
+                    ['message' => $e->getMessage()],
+                );
+            }
 
             app(LedgerService::class)->record($order->shop, 'PROVIDER_ORDER_FAILED', $item, [
                 'provider' => $provider->type,
@@ -1090,5 +1117,111 @@ class StorefrontFulfillmentService
             data_set($clientInfo, 'local_entitlement.updated_at', now()->toJSON());
             $item->forceFill(['client_info' => $clientInfo])->save();
         }
+    }
+
+    private function ensureArchitecturePinned(
+        Order $order,
+        OrderItems $item,
+        Product $product,
+        array &$info,
+        array &$clientInfo,
+    ): void {
+        if (! config('architecture.sidecar_enabled', true)) {
+            return;
+        }
+
+        $snapshotId = data_get($info, 'order_safe.offer_snapshot_id')
+            ?? data_get($clientInfo, 'provider_redemption.offer_snapshot_id');
+
+        if ($snapshotId) {
+            return;
+        }
+
+        try {
+            $snapshot = app(OfferSnapshotServiceInterface::class)->createFromProduct($product, 'mark_provider_pending');
+            $executionId = app(ExecutionRecordServiceInterface::class)->startExecution(
+                $snapshot->id,
+                $order->id,
+                $item->id,
+            );
+
+            data_set($info, 'order_safe.offer_snapshot_id', $snapshot->id);
+            data_set($info, 'order_safe.execution_record_id', $executionId);
+            data_set($clientInfo, 'provider_redemption.offer_snapshot_id', $snapshot->id);
+            data_set($clientInfo, 'provider_redemption.execution_record_id', $executionId);
+
+            ArchitectureMetrics::logFulfillment('architecture.fulfillment.snapshot_backstop', [
+                'offer_snapshot_id' => $snapshot->id,
+                'execution_record_id' => $executionId,
+                'order_id' => $order->id,
+                'order_item_id' => $item->id,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function executionIdForItem(Order $order, OrderItems $item): ?string
+    {
+        $executionId = data_get($order->info, 'order_safe.execution_record_id')
+            ?? data_get($item->client_info, 'provider_redemption.execution_record_id');
+
+        if ($executionId) {
+            return (string) $executionId;
+        }
+
+        $open = app(ExecutionRecordServiceInterface::class)->findOpenForOrderItem($item);
+
+        return $open ? (string) $open->id : null;
+    }
+
+    private function resolveServiceSkuForFulfillment(
+        Order $order,
+        OrderItems $item,
+        Product $product,
+        ?WildflowCatalog $catalog,
+        ?ProviderProduct $providerProduct,
+        string $catalogSku,
+    ): string {
+        $snapshotId = data_get($order->info, 'order_safe.offer_snapshot_id')
+            ?? data_get($item->client_info, 'provider_redemption.offer_snapshot_id');
+
+        if ($snapshotId && config('architecture.snapshot_fulfillment_mode')) {
+            $snapshot = app(OfferSnapshotServiceInterface::class)->getOrFail((string) $snapshotId);
+            ArchitectureMetrics::logFulfillment('architecture.fulfillment.snapshot_sku', [
+                'offer_snapshot_id' => $snapshotId,
+                'execution_record_id' => $this->executionIdForItem($order, $item),
+                'service_sku' => app(OfferSnapshotServiceInterface::class)->serviceSkuFromSnapshot($snapshot),
+            ]);
+
+            return app(OfferSnapshotServiceInterface::class)->serviceSkuFromSnapshot($snapshot);
+        }
+
+        ArchitectureMetrics::recordFallbackLiveCatalog();
+
+        return $this->serviceSku($catalog, $providerProduct, $catalogSku);
+    }
+
+    private function classifyProviderError(string $message): string
+    {
+        $message = strtolower($message);
+
+        if (str_contains($message, 'timeout') || str_contains($message, 'timed out')) {
+            return 'TIMEOUT';
+        }
+
+        if (str_contains($message, '500') || str_contains($message, 'internal server')) {
+            return 'PROVIDER_500';
+        }
+
+        if (str_starts_with($message, 'api error:')) {
+            return 'PROVIDER_500';
+        }
+
+        if (str_contains($message, 'balance') || str_contains($message, 'insufficient')) {
+            return 'INSUFFICIENT_FUNDS';
+        }
+
+        return 'PROVIDER_ERROR';
     }
 }
