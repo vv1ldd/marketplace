@@ -12,15 +12,20 @@ export function MeanlyConnectPanel({
   secondaryLabel = 'Open Vault',
 }) {
   return (
-    <section className="meanly-connect-panel">
-      <div>
-        <p className="eyebrow">{eyebrow}</p>
-        <h2>{title}</h2>
-        <p>{body}</p>
-      </div>
-      <div className="product-card__actions">
-        <MeanlyConnectLink href={href}>Continue with Meanly</MeanlyConnectLink>
-        {secondaryHref ? <Link href={secondaryHref}>{secondaryLabel}</Link> : null}
+    <section className="connect-card meanly-connect-panel">
+      <span className="connect-card__mark" aria-hidden="true" />
+      <p className="eyebrow">{eyebrow}</p>
+      <h2>{title}</h2>
+      <p>{body}</p>
+      <div className="connect-card__actions">
+        <MeanlyConnectLink href={href} className="connect-cta connect-cta--primary">
+          Continue with Meanly
+        </MeanlyConnectLink>
+        {secondaryHref ? (
+          <Link className="connect-cta connect-cta--ghost" href={secondaryHref}>
+            {secondaryLabel}
+          </Link>
+        ) : null}
       </div>
     </section>
   );

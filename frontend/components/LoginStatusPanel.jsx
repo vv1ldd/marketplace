@@ -64,16 +64,19 @@ export function LoginStatusPanel({ connectUrl, returnTo = '/vault' }) {
       : status.identity?.display_alias || status.identity?.alias || status.identity?.entity_l1_address || 'Meanly identity';
 
     return (
-      <section className="meanly-connect-panel meanly-session-panel">
-        <div>
-          <p className="eyebrow">Already connected</p>
-          <h2>You are signed in.</h2>
-          <p>{label} is already active in this browser.</p>
-        </div>
-        <div className="product-card__actions">
-          <Link href={destination}>{destination.startsWith('/merchant') ? 'Open Merchant Center' : 'Continue'}</Link>
-          <Link href="/">Browse marketplace</Link>
-          {destination.startsWith('/merchant') ? null : <Link href="/merchant">Merchant Center</Link>}
+      <section className="connect-card meanly-connect-panel meanly-session-panel">
+        <span className="connect-card__mark" aria-hidden="true" />
+        <p className="eyebrow">Already connected</p>
+        <h2>You are signed in.</h2>
+        <p>{label} is already active in this browser.</p>
+        <div className="connect-card__actions">
+          <Link className="connect-cta connect-cta--primary" href={destination}>
+            {destination.startsWith('/merchant') ? 'Open Merchant Center' : 'Continue'}
+          </Link>
+          <Link className="connect-cta connect-cta--ghost" href="/">Browse marketplace</Link>
+          {destination.startsWith('/merchant') ? null : (
+            <Link className="connect-cta connect-cta--ghost" href="/merchant">Merchant Center</Link>
+          )}
         </div>
       </section>
     );

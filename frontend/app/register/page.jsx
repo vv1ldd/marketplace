@@ -14,8 +14,8 @@ export default function RegisterPage() {
   });
 
   return (
-    <main className="page">
-      <section className="hero">
+    <main className="page page--connect">
+      <section className="connect-ceremony">
         <p className="eyebrow">Meanly account</p>
         <h1>Set up your Meanly access.</h1>
         <p>
@@ -29,8 +29,8 @@ export default function RegisterPage() {
           secondaryHref="/"
           secondaryLabel="Browse first"
         />
-        <div className="product-card__actions">
-          <Link href="/vault">Open Vault</Link>
+        <div className="connect-card__actions">
+          <Link className="connect-cta connect-cta--ghost" href="/vault">Open Vault</Link>
         </div>
       </section>
     </main>

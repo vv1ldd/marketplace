@@ -29,8 +29,8 @@ export default async function LoginPage({ searchParams }) {
       });
 
   return (
-    <main className="page">
-      <section className="hero">
+    <main className="page page--connect">
+      <section className="connect-ceremony">
         <p className="eyebrow">Meanly Connect</p>
         <h1>Sign in with Meanly.</h1>
         <p>
@@ -42,8 +42,8 @@ export default async function LoginPage({ searchParams }) {
           New here? Start by browsing. Meanly is only needed when you save,
           buy, or open your vault.
         </p>
-        <div className="product-card__actions">
-          <Link href="/">Browse first</Link>
+        <div className="connect-card__actions">
+          <Link className="connect-cta connect-cta--ghost" href="/">Browse first</Link>
         </div>
       </section>
     </main>
