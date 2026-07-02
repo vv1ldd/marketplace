@@ -25,6 +25,14 @@ php artisan meanly:deployment-readiness --domain=https://meanly.com
 php artisan meanly:launch-readiness --quick --domain=https://meanly.com
 ```
 
+## Immutable Docker deploy
+
+Production API images are published as `ghcr.io/vv1ldd/marketplace:<git-short-sha>` only
+(no floating `:latest`). Base images are digest-pinned in Dockerfiles.
+
+See [docker-immutable-deploy.md](./docker-immutable-deploy.md) for the full pin/rollback
+procedure and Coolify host commands.
+
 Admin Passkey enrollment pill:
 
 ```bash

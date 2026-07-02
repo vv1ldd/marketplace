@@ -1,4 +1,5 @@
-FROM serversideup/php:8.4-fpm-nginx
+# Base digest locked in docker/base-images.lock.json
+FROM serversideup/php:8.4-fpm-nginx@sha256:d29a968c5bd3401a00de885541c04537eba20af21a60c8270c11d4306c36b5fc
 
 ARG GIT_SHA=unknown
 ARG GIT_REF=unknown
