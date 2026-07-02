@@ -19,6 +19,16 @@ class ProviderProduct extends Model
                     $item->reward_type,
                 ]);
             }
+
+            $item->discovery_intent = app(\App\Services\CanonicalCategoryResolver::class)->discoveryIntent(
+                (string) $item->canonical_category,
+                [
+                    $item->brand?->name,
+                    $item->name,
+                    $item->category,
+                    $item->reward_type,
+                ],
+            );
         });
 
         static::updated(function ($item) {
@@ -44,6 +54,7 @@ class ProviderProduct extends Model
         'name',
         'category',
         'canonical_category',
+        'discovery_intent',
         'reward_type',
         'purchase_price',
         'retail_price',

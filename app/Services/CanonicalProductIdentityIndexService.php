@@ -74,6 +74,7 @@ class CanonicalProductIdentityIndexService
                 $identityModel->fill([
                     'identity_slug' => $this->persistedSlug($representativeIdentity, $fingerprint),
                     'canonical_category' => $representativeIdentity['canonical_category'] ?? null,
+                    'discovery_intent' => $representativeIdentity['discovery_intent'] ?? null,
                     'brand' => $representativeIdentity['brand'] ?? null,
                     'product_family' => $representativeIdentity['product_family'] ?? null,
                     'face_value' => $representativeIdentity['face_value'] ?? null,

@@ -60,13 +60,14 @@ class StorefrontApiCatalogTest extends TestCase
                     'product_groups' => collect([$groupCard]),
                     'categories' => collect([
                         [
-                            'slug' => 'gift_cards',
-                            'name' => 'Gift Cards',
-                            'label' => 'Gift Cards',
+                            'slug' => 'shop',
+                            'name' => 'Gift & shop',
+                            'label' => 'Gift & shop',
+                            'intent_key' => 'discover:shop',
                             'count' => 2,
                             'seller_offer_count' => 1,
                             'provider_count' => 3,
-                            'url' => 'https://meanly.test/catalog/gift_cards',
+                            'url' => 'https://meanly.test/catalog/shop',
                         ],
                     ]),
                     'brands' => collect([
@@ -96,7 +97,7 @@ class StorefrontApiCatalogTest extends TestCase
             ->assertJsonPath('data.categories.0.actions.allowed_actions.0', 'VIEW')
             ->assertJsonPath('data.categories.0.seller_offer_count', 1)
             ->assertJsonPath('data.categories.0.provider_count', 3)
-            ->assertJsonPath('data.categories.0.links.self', 'https://meanly.test/catalog/gift_cards')
+            ->assertJsonPath('data.categories.0.links.self', 'https://meanly.test/catalog/shop')
             ->assertJsonPath('data.brands.0.seller_offer_count', 1)
             ->assertJsonPath('data.brands.0.links.self', 'https://meanly.test/catalog/brands/steam')
             ->assertJsonMissing(['html'])
@@ -127,9 +128,10 @@ class StorefrontApiCatalogTest extends TestCase
     public function test_storefront_category_projection_returns_real_catalog_results(): void
     {
         config([
-            'catalog_taxonomy.categories.subscriptions' => [
-                'label_en' => 'Subscriptions',
-                'description_ru' => 'Subscription products',
+            'catalog_taxonomy.intent_corridors.stream' => [
+                'intent_key' => 'discover:stream',
+                'label_en' => 'Watch & listen',
+                'description_ru' => 'Streaming products',
             ],
         ]);
 
@@ -138,15 +140,15 @@ class StorefrontApiCatalogTest extends TestCase
         $this->mock(CanonicalStorefrontHomepageService::class, function ($mock) use ($card): void {
             $mock->shouldReceive('categoryPage')
                 ->once()
-                ->with('subscriptions', \Mockery::type(\Illuminate\Http\Request::class))
+                ->with('stream', \Mockery::type(\Illuminate\Http\Request::class))
                 ->andReturn(new LengthAwarePaginator([$card], 1, 24, 1));
         });
 
-        $this->getJson('/api/storefront/v1/catalog/categories/subscriptions')
+        $this->getJson('/api/storefront/v1/catalog/categories/stream')
             ->assertOk()
             ->assertJsonPath('data.contract.name', 'storefront-catalog')
             ->assertJsonPath('data.surface.type', 'storefront_catalog_category')
-            ->assertJsonPath('data.surface.title', 'Subscriptions')
+            ->assertJsonPath('data.surface.discovery_intent', 'stream')
             ->assertJsonPath('data.products.browse.0.slug', 'spotify-global')
             ->assertJsonPath('data.pagination.total', 1);
     }
@@ -158,7 +160,7 @@ class StorefrontApiCatalogTest extends TestCase
         $this->mock(CanonicalStorefrontHomepageService::class, function ($mock) use ($card): void {
             $mock->shouldReceive('productGroupPage')
                 ->once()
-                ->with('console_payment_cards', 'playstation', 'gift-cards', \Mockery::type(\Illuminate\Http\Request::class))
+                ->with('play', 'playstation', 'gift-cards', \Mockery::type(\Illuminate\Http\Request::class))
                 ->andReturn([
                     'group' => [
                         'title' => 'PlayStation Gift Cards',
@@ -170,7 +172,7 @@ class StorefrontApiCatalogTest extends TestCase
                 ]);
         });
 
-        $this->getJson('/api/storefront/v1/catalog/groups/console_payment_cards/playstation/gift-cards')
+        $this->getJson('/api/storefront/v1/catalog/groups/play/playstation/gift-cards')
             ->assertOk()
             ->assertJsonPath('contract.name', 'storefront-catalog-group')
             ->assertJsonPath('group.title', 'PlayStation Gift Cards')

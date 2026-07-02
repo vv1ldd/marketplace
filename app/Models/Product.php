@@ -49,6 +49,17 @@ class Product extends Model
                     $product->type,
                 ]);
             }
+
+            $product->discovery_intent = app(\App\Services\CanonicalCategoryResolver::class)->discoveryIntent(
+                (string) $product->canonical_category,
+                [
+                    $product->brand?->name,
+                    $product->name,
+                    $product->category,
+                    $product->vendor,
+                    $product->type,
+                ],
+            );
         });
     }
 
@@ -71,6 +82,7 @@ class Product extends Model
         'type',
         'category',
         'canonical_category',
+        'discovery_intent',
         'category_id',
         'market_category_name',
         'market_category_id',

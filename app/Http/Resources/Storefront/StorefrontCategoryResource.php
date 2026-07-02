@@ -17,11 +17,18 @@ class StorefrontCategoryResource extends JsonResource
         return [
             'type' => 'storefront_category',
             'slug' => (string) (data_get($category, 'slug') ?? data_get($category, 'value')),
+            'intent_key' => data_get($category, 'intent_key'),
             'name' => (string) (data_get($category, 'name') ?? data_get($category, 'label')),
+            'name_key' => data_get($category, 'name_key'),
             'label' => (string) (data_get($category, 'label') ?? data_get($category, 'name')),
+            'description' => data_get($category, 'description'),
             'count' => (int) data_get($category, 'count', 0),
+            'demand_score' => data_get($category, 'demand_score') !== null
+                ? round((float) data_get($category, 'demand_score'), 1)
+                : null,
             'seller_offer_count' => (int) data_get($category, 'seller_offer_count', 0),
             'provider_count' => (int) data_get($category, 'provider_count', 0),
+            'cross_links' => data_get($category, 'cross_links', []),
             'links' => [
                 'self' => data_get($category, 'url'),
                 'machine_readable' => data_get($category, 'machine_readable_url'),

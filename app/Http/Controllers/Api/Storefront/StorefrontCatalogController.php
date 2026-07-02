@@ -39,24 +39,33 @@ class StorefrontCatalogController extends Controller
 
     public function category(string $category, Request $request, CanonicalStorefrontHomepageService $homepage): StorefrontCatalogResource
     {
-        abort_unless(array_key_exists($category, (array) config('catalog_taxonomy.categories', [])), 404);
+        abort_unless(app(CanonicalCategoryResolver::class)->isKnownIntentCorridor($category), 404);
 
-        $meta = (array) config("catalog_taxonomy.categories.{$category}", []);
-        $descriptionKey = "catalog.taxonomy.{$category}.description";
-        $categoryDescription = __($descriptionKey);
-        if ($categoryDescription === $descriptionKey) {
-            $categoryDescription = app()->getLocale() === 'ru'
-                ? ($meta['description_ru'] ?? null)
-                : null;
-        }
+        $meta = (array) config("catalog_taxonomy.intent_corridors.{$category}", []);
+        $resolver = app(CanonicalCategoryResolver::class);
+        $categoryDescription = app()->getLocale() === 'ru'
+            ? ($meta['description_ru'] ?? $meta['description_en'] ?? null)
+            : ($meta['description_en'] ?? $meta['description_ru'] ?? null);
         $products = $homepage->categoryPage($category, $request);
 
         return StorefrontCatalogResource::make([
             'surface' => [
                 'type' => 'storefront_catalog_category',
                 'category' => $category,
-                'title' => app(CanonicalCategoryResolver::class)->label($category),
+                'discovery_intent' => $category,
+                'discovery_intent_key' => $resolver->discoveryIntentKey($category),
+                'title' => $resolver->discoveryLabel($category),
                 'description' => $categoryDescription,
+                'cross_links' => collect($resolver->crossLinksForCorridor($category))
+                    ->map(fn (array $link): array => [
+                        'target_slug' => (string) ($link['target_corridor'] ?? ''),
+                        'anchor_text' => app()->getLocale() === 'ru'
+                            ? ($link['label_ru'] ?? $link['label_en'] ?? '')
+                            : ($link['label_en'] ?? $link['label_ru'] ?? ''),
+                        'brand_focus' => (string) (((array) ($link['brand_filter'] ?? []))[0] ?? ''),
+                    ])
+                    ->values()
+                    ->all(),
             ],
             'query' => '',
             'quick_chips' => [],

@@ -388,6 +388,7 @@ Plane-level forbidden crossings: [ADR 0038](0038-knowledge-execution-plane-bound
 | **0037** (this document) | **Accepted** | Terminology stable; used in new docs |
 | **0038** | Accepted | Green-path E2E **+ Appendix A pressure cases** PC-1, PC-2, PC-4, PC-5 (automated) |
 | **0039** | Proposed | ≥2 Providers + working `selectOffer()` under real competition |
+| **0040** | Accepted | Storefront uses `discovery_intent` corridors; 0% unclassified on SKU baseline |
 
 Canon = invariants (source of truth, causality direction, allowed dependencies,
 moment of Offer selection). Services, tables, and APIs are current embodiment only.

@@ -15,57 +15,34 @@ const DEFAULT_QUICK_CHIPS = [
   '20 EUR card',
 ];
 
-const NEED_GROUPS = [
-  { key: 'games', title: 'Games', body: 'Top up games, wallets, and platforms.', query: 'games' },
-  { key: 'travel', title: 'Travel', body: 'Hotels, tickets, eSIM, and transport.', query: 'travel hotels tickets' },
-  { key: 'mobile', title: 'Mobile', body: 'Balance, internet, eSIM, and operators.', query: 'mobile internet esim' },
-  { key: 'subscriptions', title: 'Subscriptions', body: 'Music, video, cloud, and software.', query: 'subscriptions' },
-  { key: 'gift_cards', title: 'Gift Cards', body: 'Retail cards, vouchers, and prepaid codes.', query: 'gift cards' },
-  { key: 'food', title: 'Food', body: 'Delivery, groceries, and local food credits.', query: 'food delivery' },
-  { key: 'learning', title: 'Learning', body: 'Courses, exams, and language tools.', query: 'learning courses' },
-  { key: 'finance', title: 'Prepaid', body: 'Wallet codes, rewards, and payment vouchers.', query: 'prepaid vouchers' },
-];
-
 const NEED_COPY_BY_CATEGORY = {
-  gift_cards: {
-    title: 'Gift cards for checkout',
-    body: 'Retail cards, brand vouchers, and digital codes for checkout.',
+  play: {
+    title: 'Play',
+    body: 'Game accounts, console wallets, and in-game currency.',
   },
-  subscriptions: {
-    title: 'Subscription renewals',
-    body: 'Music, video, cloud, apps, and membership renewals.',
+  stream: {
+    title: 'Watch & listen',
+    body: 'Streaming, music, and video subscriptions.',
   },
-  console_payment_cards: {
-    title: 'Console wallet credit',
-    body: 'PlayStation, Xbox, Nintendo, and regional wallet cards.',
+  work: {
+    title: 'Work & protect',
+    body: 'Software licenses, VPN, antivirus, and productivity tools.',
   },
-  game_wallet_topups: {
-    title: 'Game balance top-ups',
-    body: 'Steam, Roblox, Riot, PUBG, Razer Gold, and in-game wallets.',
+  shop: {
+    title: 'Gift & shop',
+    body: 'Retail and e-commerce gift cards.',
   },
-  mobile_app_store_cards: {
-    title: 'App store credit',
-    body: 'Apple, iTunes, Google Play, and mobile ecosystem cards.',
+  pay: {
+    title: 'Pay without a card',
+    body: 'Prepaid and virtual payment cards.',
   },
-  software_licenses: {
-    title: 'Software access',
-    body: 'License keys, VPN, antivirus, productivity, and work tools.',
+  mobile: {
+    title: 'On your phone',
+    body: 'App Store, Google Play, mobile balance, and eSIM.',
   },
-  payment_prepaid_cards: {
-    title: 'Prepaid money',
-    body: 'Virtual cards, payment vouchers, and wallet-ready codes.',
-  },
-  telecom_topups: {
-    title: 'Mobile top-ups',
-    body: 'Airtime, data packs, internet balance, and telecom products.',
-  },
-  travel_entertainment_vouchers: {
-    title: 'Travel, rides, and tickets',
-    body: 'Transport, hotels, tickets, entertainment, and local vouchers.',
-  },
-  local_vouchers: {
-    title: 'Local Meanly vouchers',
-    body: 'Local inventory and voucher products managed by Meanly.',
+  go: {
+    title: 'Go & enjoy',
+    body: 'Travel, rides, hotels, cinema, and entertainment.',
   },
 };
 
@@ -189,20 +166,14 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
 
   const quickChips = catalog?.quick_chips?.length ? catalog.quick_chips : DEFAULT_QUICK_CHIPS;
   const isHome = surface === 'home';
-  const categoryNeeds = catalog?.categories?.length
-    ? catalog.categories.map((category) => ({
-      body: categoryDescription(category, t),
-      href: categoryHref(category),
-      key: categoryKey(category),
-      meta: categoryMeta(category, t),
-      title: categoryTitle(category, t),
-    }))
-    : NEED_GROUPS.map((group) => ({
-      ...group,
-      title: t(`need_${group.key}`),
-      body: t(`need_${group.key}_body`),
-    }));
-  const isUsingCatalogCategories = Boolean(catalog?.categories?.length);
+  const categoryNeeds = (catalog?.categories || []).map((category) => ({
+    body: categoryDescription(category, t),
+    href: categoryHref(category),
+    key: categoryKey(category),
+    meta: categoryMeta(category, t),
+    title: categoryTitle(category, t),
+    crossLinks: category.cross_links || [],
+  }));
 
   function selectNeed(need) {
     if (need.href) {
@@ -307,7 +278,7 @@ export function CatalogSurface({ query = '', surface = 'catalog', initialCatalog
                 <GlossaryHint>{t('demand_hint')}</GlossaryHint>
               </span>
               <strong>{t('demand_missing')}</strong>
-              <p>{isUsingCatalogCategories ? t('demand_desc_categories') : t('demand_desc_screenshot')}</p>
+              <p>{categoryNeeds.length > 0 ? t('demand_desc_categories') : t('demand_desc_screenshot')}</p>
             </div>
             {!isNeedRequestOpen ? (
               <button className="need-request-toggle" onClick={() => setIsNeedRequestOpen(true)} type="button">

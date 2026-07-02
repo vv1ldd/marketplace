@@ -13,6 +13,7 @@ class CanonicalProductIdentity extends Model
         'fingerprint',
         'identity_slug',
         'canonical_category',
+        'discovery_intent',
         'brand',
         'product_family',
         'face_value',

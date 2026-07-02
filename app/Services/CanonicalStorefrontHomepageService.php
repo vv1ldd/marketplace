@@ -378,7 +378,7 @@ class CanonicalStorefrontHomepageService
      */
     public function productGroupPage(string $category, string $brandSlug, string $kindSlug, Request $request, int $perPage = self::BROWSE_PER_PAGE): ?array
     {
-        if (! $this->identityTablesExist() || ! array_key_exists($category, (array) config('catalog_taxonomy.categories', []))) {
+        if (! $this->identityTablesExist() || ! $this->categoryResolver->isKnownIntentCorridor($category)) {
             return null;
         }
 
@@ -470,7 +470,9 @@ class CanonicalStorefrontHomepageService
         return [
             'group' => [
                 'category' => $category,
-                'category_label' => $this->categoryResolver->label($category),
+                'category_label' => $this->categoryResolver->discoveryLabel($category),
+                'discovery_intent' => $category,
+                'discovery_intent_key' => $this->categoryResolver->discoveryIntentKey($category),
                 'brand' => $brand,
                 'brand_slug' => Str::slug($brand),
                 'kind' => $kindSlug,
@@ -1046,45 +1048,53 @@ class CanonicalStorefrontHomepageService
             return collect();
         }
 
-        $categories = (array) config('catalog_taxonomy.categories', []);
+        $corridors = (array) config('catalog_taxonomy.intent_corridors', []);
 
-        if ($categories === []) {
+        if ($corridors === []) {
             return collect();
         }
 
         $query = CanonicalProductIdentity::query()
-            ->whereIn('canonical_category', array_keys($categories));
+            ->whereIn('discovery_intent', array_keys($corridors));
 
         $this->applyPublicIdentityFilters($query);
 
-        return $query
-            ->selectRaw('canonical_category, count(*) as product_count, sum(seller_offers_count) as seller_offer_count, sum(provider_candidates_count) as provider_count')
-            ->groupBy('canonical_category')
-            ->get()
-            ->map(function (CanonicalProductIdentity $row): array {
-                $category = (string) $row->canonical_category;
-                $meta = (array) config("catalog_taxonomy.categories.{$category}", []);
+        $rows = $query
+            ->selectRaw('discovery_intent, count(*) as product_count, sum(seller_offers_count) as seller_offer_count, sum(provider_candidates_count) as provider_count')
+            ->groupBy('discovery_intent')
+            ->get();
+
+        $totalProducts = (int) $rows->sum(fn (CanonicalProductIdentity $row): int => (int) $row->getAttribute('product_count'));
+
+        return $rows
+            ->map(function (CanonicalProductIdentity $row) use ($totalProducts): array {
+                $corridor = (string) $row->discovery_intent;
+                $meta = (array) config("catalog_taxonomy.intent_corridors.{$corridor}", []);
                 $count = (int) $row->getAttribute('product_count');
-                $label = $this->localizedCategoryLabel($meta, $category);
+                $label = $this->localizedIntentLabel($meta, $corridor);
+                $demandScore = $this->discoveryDemandScore($corridor, $count, $totalProducts);
 
                 return [
-                    'slug' => $category,
+                    'slug' => $corridor,
+                    'intent_key' => $this->categoryResolver->discoveryIntentKey($corridor),
                     'name' => $label,
-                    'label_ru' => $meta['label_ru'] ?? $this->categoryResolver->label($category),
-                    'label_en' => $meta['label_en'] ?? $category,
-                    'description' => $this->localizedCategoryDescription($meta, $category),
+                    'name_key' => "category_{$corridor}_title",
+                    'label_ru' => $meta['label_ru'] ?? $this->categoryResolver->discoveryLabel($corridor, 'ru'),
+                    'label_en' => $meta['label_en'] ?? $this->categoryResolver->discoveryLabel($corridor, 'en'),
+                    'description' => $this->localizedIntentDescription($meta, $corridor),
                     'description_ru' => $meta['description_ru'] ?? null,
-                    'schema_org' => $meta['schema_org'] ?? 'Product',
-                    'google_product_category' => $meta['google_product_category'] ?? null,
+                    'description_en' => $meta['description_en'] ?? null,
                     'count' => $count,
                     'product_count' => $count,
+                    'demand_score' => $demandScore,
                     'seller_offer_count' => (int) $row->getAttribute('seller_offer_count'),
                     'provider_count' => (int) $row->getAttribute('provider_count'),
-                    'url' => route('meanly.catalog.categories.show', $category),
-                    'machine_readable_url' => route('llms.categories.show', $category),
+                    'cross_links' => $this->discoveryCrossLinksForCorridor($corridor),
+                    'url' => route('meanly.catalog.categories.show', $corridor),
+                    'machine_readable_url' => route('llms.categories.show', $corridor),
                 ];
             })
-            ->sortByDesc('count')
+            ->sortByDesc('demand_score')
             ->when($limit !== null, fn (Collection $summaries) => $summaries->take($limit))
             ->values();
     }
@@ -1135,6 +1145,7 @@ class CanonicalStorefrontHomepageService
                 'id',
                 'identity_slug',
                 'canonical_category',
+                'discovery_intent',
                 'brand',
                 'product_family',
                 'face_value',
@@ -1152,7 +1163,7 @@ class CanonicalStorefrontHomepageService
         $this->applyPublicIdentityFilters($query);
 
         if ($category !== null) {
-            $query->where('canonical_category', $category);
+            $this->applyCategoryScope($query, $category);
         }
 
         if ($brand !== null) {
@@ -1166,7 +1177,7 @@ class CanonicalStorefrontHomepageService
                 $kind = $this->productKindForCard($card);
 
                 return implode('|', [
-                    (string) $identity->canonical_category,
+                    $this->discoveryIntentForIdentity($identity),
                     Str::lower((string) $identity->brand),
                     $kind['slug'],
                 ]);
@@ -1224,13 +1235,17 @@ class CanonicalStorefrontHomepageService
      */
     private function identitySummaryCard(CanonicalProductIdentity $identity): array
     {
+        $discoveryIntent = $this->discoveryIntentForIdentity($identity);
+
         return [
             'id' => $identity->id,
             'slug' => $identity->identity_slug,
             'url' => route('meanly.canonical-products.show', $identity->identity_slug),
             'name' => $identity->identity_slug,
             'category' => (string) $identity->canonical_category,
-            'category_label' => $this->categoryResolver->label((string) $identity->canonical_category),
+            'category_slug' => $discoveryIntent,
+            'discovery_intent' => $discoveryIntent,
+            'category_label' => $this->categoryResolver->discoveryLabel($discoveryIntent),
             'brand' => $identity->brand,
             'product_family' => $identity->product_family,
             'face_value' => $identity->face_value,
@@ -1250,6 +1265,7 @@ class CanonicalStorefrontHomepageService
     {
         $canonicalIdentity = $identity->toArray();
         $category = (string) ($canonicalIdentity['canonical_category'] ?: config('catalog_taxonomy.default', 'gift_cards'));
+        $discoveryIntent = $this->discoveryIntentForIdentity($identity);
         $bestOfferProductId = $identity->best_offer_product_id;
 
         return [
@@ -1257,7 +1273,9 @@ class CanonicalStorefrontHomepageService
             'slug' => (string) $canonicalIdentity['identity_slug'],
             'name' => $this->displayName($canonicalIdentity, $identity),
             'category' => $category,
-            'category_label' => $this->categoryResolver->label($category),
+            'category_slug' => $discoveryIntent,
+            'discovery_intent' => $discoveryIntent,
+            'category_label' => $this->categoryResolver->discoveryLabel($discoveryIntent),
             'brand' => $canonicalIdentity['brand'] ?? null,
             'product_family' => $canonicalIdentity['product_family'] ?? null,
             'face_value' => $canonicalIdentity['face_value'] ?? null,
@@ -1677,6 +1695,109 @@ class CanonicalStorefrontHomepageService
     }
 
     /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function localizedIntentLabel(array $meta, string $corridor, ?string $fallback = null): string
+    {
+        $locale = app()->getLocale();
+        $label = $locale === 'ru'
+            ? ($meta['label_ru'] ?? $fallback)
+            : ($meta['label_en'] ?? $fallback);
+
+        return (string) ($label ?: $this->categoryResolver->discoveryLabel($corridor));
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function localizedIntentDescription(array $meta, string $corridor): ?string
+    {
+        $locale = app()->getLocale();
+
+        return $locale === 'ru'
+            ? ($meta['description_ru'] ?? $meta['description_en'] ?? null)
+            : ($meta['description_en'] ?? $meta['description_ru'] ?? null);
+    }
+
+    private function discoveryIntentForIdentity(CanonicalProductIdentity $identity): string
+    {
+        if (is_string($identity->discovery_intent) && $identity->discovery_intent !== '') {
+            return $identity->discovery_intent;
+        }
+
+        return $this->categoryResolver->discoveryIntent(
+            (string) ($identity->canonical_category ?: config('catalog_taxonomy.default', 'gift_cards')),
+            [
+                $identity->brand,
+                $identity->product_family,
+                $identity->platform,
+                $identity->region,
+            ],
+        );
+    }
+
+    /**
+     * @param  Builder<CanonicalProductIdentity>  $builder
+     */
+    private function applyCategoryScope(Builder $builder, string $categorySlug): void
+    {
+        if ($this->categoryResolver->isKnownIntentCorridor($categorySlug)) {
+            $builder->where('discovery_intent', $categorySlug);
+
+            return;
+        }
+
+        $builder->where('canonical_category', $categorySlug);
+    }
+
+    private function discoveryDemandScore(string $corridor, int $productCount, int $totalProducts): float
+    {
+        $intentKey = $this->categoryResolver->discoveryIntentKey($corridor);
+
+        if (class_exists(\App\Models\IntentLiquidityNode::class)) {
+            $graphScore = \App\Models\IntentLiquidityNode::query()
+                ->where('intent_key', $intentKey)
+                ->value('demand_score');
+
+            if ($graphScore !== null && (float) $graphScore > 0) {
+                return round((float) $graphScore, 1);
+            }
+        }
+
+        if ($totalProducts <= 0 || $productCount <= 0) {
+            return 0.0;
+        }
+
+        return round(($productCount / $totalProducts) * 100, 1);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function discoveryCrossLinksForCorridor(string $corridor): array
+    {
+        return collect($this->categoryResolver->crossLinksForCorridor($corridor))
+            ->map(function (array $link) use ($corridor): array {
+                $targetSlug = (string) ($link['target_corridor'] ?? '');
+                $brands = (array) ($link['brand_filter'] ?? []);
+                $anchorKey = "cross_link_{$corridor}_to_{$targetSlug}_".Str::slug(implode('_', $brands), '_');
+                $anchorText = app()->getLocale() === 'ru'
+                    ? ($link['label_ru'] ?? $link['label_en'] ?? '')
+                    : ($link['label_en'] ?? $link['label_ru'] ?? '');
+
+                return [
+                    'target_slug' => $targetSlug,
+                    'anchor_text' => $anchorText,
+                    'anchor_key' => $anchorKey,
+                    'brand_focus' => (string) ($brands[0] ?? ''),
+                    'url' => route('meanly.catalog.categories.show', $targetSlug),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  Builder<CanonicalProductIdentity>  $query
      * @return Collection<int, array<string, mixed>>
      */
@@ -1730,6 +1851,7 @@ class CanonicalStorefrontHomepageService
                 'fingerprint',
                 'identity_slug',
                 'canonical_category',
+                'discovery_intent',
                 'brand',
                 'product_family',
                 'face_value',
@@ -1758,7 +1880,7 @@ class CanonicalStorefrontHomepageService
         $this->applyPublicIdentityFilters($builder);
 
         if ($category !== null) {
-            $builder->where('canonical_category', $category);
+            $this->applyCategoryScope($builder, $category);
         }
 
         if ($this->overrideTableExists()) {
@@ -2176,6 +2298,7 @@ class CanonicalStorefrontHomepageService
         }
 
         $category = (string) ($canonicalIdentity['canonical_category'] ?: config('catalog_taxonomy.default', 'gift_cards'));
+        $discoveryIntent = $this->discoveryIntentForIdentity($identity);
         $slug = (string) $canonicalIdentity['identity_slug'];
         $name = $this->displayName($canonicalIdentity, $identity);
         $url = route('meanly.canonical-products.show', $slug);
@@ -2187,7 +2310,12 @@ class CanonicalStorefrontHomepageService
             'machine_readable_at' => route('llms.catalog.canonical-products.show', $slug),
             'name' => $name,
             'category' => $category,
-            'category_label' => $this->categoryResolver->label($category),
+            'category_slug' => $discoveryIntent,
+            'discovery_intent' => $discoveryIntent,
+            'discovery_intent_key' => $this->categoryResolver->discoveryIntentKey($discoveryIntent),
+            'category_label' => $this->categoryResolver->discoveryLabel($discoveryIntent),
+            'legacy_category' => $category,
+            'legacy_category_label' => $this->categoryResolver->label($category),
             'brand' => $canonicalIdentity['brand'] ?? null,
             'product_family' => $canonicalIdentity['product_family'] ?? null,
             'face_value' => $canonicalIdentity['face_value'] ?? null,

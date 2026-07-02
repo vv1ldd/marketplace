@@ -9,6 +9,11 @@ use App\Models\WildflowCatalog;
 
 class CanonicalCategoryResolver
 {
+    /**
+     * @var array<int, string>|null
+     */
+    private ?array $intentResolutionPriority = null;
+
     public function forProduct(Product $product): string
     {
         if ($this->isKnown($product->canonical_category ?? null)) {
@@ -65,6 +70,80 @@ class CanonicalCategoryResolver
     /**
      * @param  array<string, mixed>  $payload
      * @param  array<int, mixed>  $context
+     * @return array{canonical_category: string, discovery_intent: string, resolution: string}
+     */
+    public function resolve(array $payload, array $context = [], ?string $legacyCategory = null): array
+    {
+        $canonicalCategory = $legacyCategory && $this->isKnown($legacyCategory)
+            ? $legacyCategory
+            : $this->fromPayload($payload, $context);
+
+        [$discoveryIntent, $resolution] = $this->discoveryIntentWithResolution($canonicalCategory, $context);
+
+        return [
+            'canonical_category' => $canonicalCategory,
+            'discovery_intent' => $discoveryIntent,
+            'resolution' => $resolution,
+        ];
+    }
+
+    /**
+     * Phase 2: discovery corridor from legacy category + brand/text signals.
+     *
+     * @param  array<int, mixed>  $context
+     */
+    public function discoveryIntent(string $legacyCategory, array $context = []): string
+    {
+        return $this->discoveryIntentWithResolution($legacyCategory, $context)[0];
+    }
+
+    /**
+     * @param  array<int, mixed>  $context
+     * @return array{0: string, 1: string}
+     */
+    public function discoveryIntentWithResolution(string $legacyCategory, array $context = []): array
+    {
+        $text = $this->normalizeText($this->flattenText($context));
+        $brandText = $this->normalizeText((string) ($this->firstScalar($context) ?? ''));
+
+        foreach ($this->intentResolutionPriority() as $corridor) {
+            $config = $this->intentCorridorConfig($corridor);
+            if ($config === null) {
+                continue;
+            }
+
+            if ($this->matchesBrandOverrides($config, $text, $brandText)) {
+                return [$corridor, 'brand_override'];
+            }
+        }
+
+        foreach ($this->intentResolutionPriority() as $corridor) {
+            $config = $this->intentCorridorConfig($corridor);
+            if ($config === null) {
+                continue;
+            }
+
+            $legacyCategories = (array) ($config['legacy_categories'] ?? []);
+            if (! in_array($legacyCategory, $legacyCategories, true)) {
+                continue;
+            }
+
+            if ($corridor === 'shop' && $this->matchesExcludedBrands($config, $text, $brandText)) {
+                continue;
+            }
+
+            return [$corridor, 'legacy_category'];
+        }
+
+        return [
+            (string) config('catalog_taxonomy.discovery_default', 'unclassified'),
+            'default',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<int, mixed>  $context
      */
     public function fromPayload(array $payload, array $context = []): string
     {
@@ -88,6 +167,43 @@ class CanonicalCategoryResolver
         }
 
         return (string) config('catalog_taxonomy.default', 'gift_cards');
+    }
+
+    public function discoveryIntentKey(string $corridor): string
+    {
+        if (! $this->isKnownIntentCorridor($corridor)) {
+            return 'discover:unclassified';
+        }
+
+        return (string) config(
+            "catalog_taxonomy.intent_corridors.{$corridor}.intent_key",
+            "discover:{$corridor}"
+        );
+    }
+
+    public function discoveryLabel(string $corridor, ?string $locale = null): string
+    {
+        if (! $this->isKnownIntentCorridor($corridor)) {
+            return $corridor;
+        }
+
+        $locale = $locale ?: app()->getLocale();
+
+        return (string) config(
+            "catalog_taxonomy.intent_corridors.{$corridor}.label_{$locale}",
+            config(
+                "catalog_taxonomy.intent_corridors.{$corridor}.label_en",
+                config("catalog_taxonomy.intent_corridors.{$corridor}.label_ru", $corridor)
+            )
+        );
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function crossLinksForCorridor(string $corridor): array
+    {
+        return (array) config("catalog_taxonomy.cross_links.{$corridor}", []);
     }
 
     public function yandexCategoryId(string $canonicalCategory, ?int $fallback = null): int
@@ -120,11 +236,99 @@ class CanonicalCategoryResolver
         );
     }
 
+    public function isKnownIntentCorridor(?string $corridor): bool
+    {
+        return is_string($corridor)
+            && $corridor !== ''
+            && array_key_exists($corridor, (array) config('catalog_taxonomy.intent_corridors', []));
+    }
+
     private function isKnown(?string $category): bool
     {
         return is_string($category)
             && $category !== ''
             && array_key_exists($category, (array) config('catalog_taxonomy.categories', []));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function intentResolutionPriority(): array
+    {
+        if ($this->intentResolutionPriority !== null) {
+            return $this->intentResolutionPriority;
+        }
+
+        $priority = (array) config('catalog_taxonomy.intent_resolution_priority', []);
+        if ($priority === []) {
+            $priority = array_keys((array) config('catalog_taxonomy.intent_corridors', []));
+        }
+
+        return $this->intentResolutionPriority = array_values(array_filter(
+            $priority,
+            fn (string $corridor) => $this->isKnownIntentCorridor($corridor)
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function intentCorridorConfig(string $corridor): ?array
+    {
+        $config = config("catalog_taxonomy.intent_corridors.{$corridor}");
+
+        return is_array($config) ? $config : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function matchesBrandOverrides(array $config, string $text, string $brandText): bool
+    {
+        foreach ((array) ($config['brand_overrides'] ?? []) as $brand => $aliases) {
+            if (is_int($brand)) {
+                $brand = (string) $aliases;
+                $aliases = [$brand];
+            }
+
+            foreach ((array) $aliases as $alias) {
+                $needle = $this->normalizeText((string) $alias);
+                if ($needle === '') {
+                    continue;
+                }
+
+                if (
+                    ($brandText !== '' && str_contains($brandText, $needle))
+                    || str_contains($text, $needle)
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function matchesExcludedBrands(array $config, string $text, string $brandText): bool
+    {
+        foreach ((array) ($config['exclude_brands'] ?? []) as $brand) {
+            $needle = $this->normalizeText((string) $brand);
+            if ($needle === '') {
+                continue;
+            }
+
+            if (
+                ($brandText !== '' && str_contains($brandText, $needle))
+                || str_contains($text, $needle)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -150,6 +354,20 @@ class CanonicalCategoryResolver
         }
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * @param  array<int, mixed>  $values
+     */
+    private function firstScalar(array $values): mixed
+    {
+        foreach ($values as $value) {
+            if (is_scalar($value) && (string) $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     private function normalizeText(string $text): string

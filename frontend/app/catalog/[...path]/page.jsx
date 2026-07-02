@@ -58,50 +58,40 @@ function normalizeGroupQuery(query = {}) {
 }
 
 const NEED_ANSWERS_BY_CATEGORY = {
-  gift_cards: {
-    question: 'Gift cards for checkout',
-    answer: 'Start with the brand card. Meanly resolves the region, currency, nominal, and checkout-ready supplier behind it.',
-    examples: ['Retail and marketplace vouchers', 'Brand cards by region', 'Digital codes for checkout'],
+  play: {
+    question: 'Play',
+    answer: 'Start with the game or platform. Meanly matches region, currency, nominal, and supplier stock.',
+    examples: ['Steam and console wallets', 'Roblox, Riot, PUBG', 'In-game currency'],
   },
-  subscriptions: {
-    question: 'Subscription renewals',
+  stream: {
+    question: 'Watch & listen',
     answer: 'Start with the service family. Meanly narrows it to the account region and renewal value that can actually be delivered.',
-    examples: ['Music and video renewals', 'Cloud and app memberships', 'Account-region specific cards'],
+    examples: ['Music and video renewals', 'Streaming memberships', 'Account-region specific cards'],
   },
-  console_payment_cards: {
-    question: 'Console wallet credit',
-    answer: 'Start with the console ecosystem. Meanly matches the wallet region before the buyer chooses a nominal.',
-    examples: ['PlayStation wallet cards', 'Xbox and Nintendo credit', 'Regional console balance'],
-  },
-  travel_entertainment_vouchers: {
-    question: 'Travel, rides, and tickets',
-    answer: 'Start with the travel or entertainment network. Meanly narrows it by city, region, and redeemable voucher type.',
-    examples: ['Transport and rides', 'Hotels and tickets', 'Local entertainment vouchers'],
-  },
-  payment_prepaid_cards: {
-    question: 'Prepaid money',
-    answer: 'Use this route for wallet-ready value, virtual payment codes, and stored-value vouchers.',
-    examples: ['Virtual cards', 'Payment vouchers', 'Wallet-ready codes'],
-  },
-  mobile_app_store_cards: {
-    question: 'App store credit',
-    answer: 'Start with the mobile ecosystem. Meanly matches the storefront region and available value.',
-    examples: ['Apple and iTunes credit', 'Google Play cards', 'Mobile ecosystem cards'],
-  },
-  software_licenses: {
-    question: 'Software access',
+  work: {
+    question: 'Work & protect',
     answer: 'Start with the software family. Meanly compares license type, activation region, and delivery source.',
     examples: ['VPN and antivirus', 'Productivity tools', 'License keys'],
   },
-  game_wallet_topups: {
-    question: 'Game balance top-ups',
-    answer: 'Start with the game or wallet. Meanly matches region, currency, nominal, and available supplier stock.',
-    examples: ['Steam and Razer Gold', 'Roblox, Riot, PUBG', 'In-game wallets'],
+  shop: {
+    question: 'Gift & shop',
+    answer: 'Start with the brand card. Meanly resolves the region, currency, nominal, and checkout-ready supplier behind it.',
+    examples: ['Retail and marketplace vouchers', 'Brand cards by region', 'Digital codes for checkout'],
   },
-  telecom_topups: {
-    question: 'Mobile top-ups',
-    answer: 'Start with the operator or top-up product. Meanly matches country, airtime/data type, and delivery path.',
-    examples: ['Airtime', 'Data packs', 'Telecom balance'],
+  pay: {
+    question: 'Pay without a card',
+    answer: 'Use this route for wallet-ready value, virtual payment codes, and stored-value vouchers.',
+    examples: ['Virtual cards', 'Payment vouchers', 'Wallet-ready codes'],
+  },
+  mobile: {
+    question: 'On your phone',
+    answer: 'Start with the mobile ecosystem or operator. Meanly matches the storefront region and available value.',
+    examples: ['Apple and Google Play credit', 'Airtime and data packs', 'Mobile ecosystem cards'],
+  },
+  go: {
+    question: 'Go & enjoy',
+    answer: 'Start with the travel or entertainment network. Meanly narrows it by city, region, and redeemable voucher type.',
+    examples: ['Transport and rides', 'Hotels and tickets', 'Local entertainment vouchers'],
   },
 };
 

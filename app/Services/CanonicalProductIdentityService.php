@@ -313,6 +313,11 @@ class CanonicalProductIdentityService
         $category = (string) ($parts['canonical_category'] ?: config('catalog_taxonomy.default', 'gift_cards'));
         $platform = $parts['platform']['value'] ?? null;
         $title = (string) ($parts['title'] ?? '');
+        $discoveryIntent = $this->categoryResolver->discoveryIntent($category, [
+            $brand,
+            $title,
+            $platform,
+        ]);
         $productFamily = $this->productFamily($title, $brand, $currency, $region, $regionCode, $faceValue);
         $regionSlug = $this->slugPart($regionCode ?: $region ?: 'global') ?: 'global';
         $brandSlug = $this->slugPart($brand ?: '');
@@ -363,6 +368,7 @@ class CanonicalProductIdentityService
             'region_code' => $regionCode,
             'platform' => $platform,
             'canonical_category' => $category,
+            'discovery_intent' => $discoveryIntent,
             'confidence' => $this->confidence($hashParts, $category, $signals),
             'signals' => $signals,
         ];
