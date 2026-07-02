@@ -39,6 +39,11 @@ class WarmStorefrontCacheCommandTest extends TestCase
             'last_seen_at' => now(),
         ]);
 
+        // Emulate a clean CLI context: no request-scoped MarketContext /
+        // PricingContext bound. The command must resolve them itself.
+        app()->forgetInstance(\App\Support\MarketContext::class);
+        app()->forgetInstance(\App\Support\PricingContext::class);
+
         $this->artisan('catalog:warm-cache', ['--searches' => 3])
             ->assertSuccessful();
     }

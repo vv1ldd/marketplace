@@ -5,7 +5,9 @@ namespace App\Console\Commands;
 use App\Models\ExternalSearchQuerySignal;
 use App\Services\CanonicalStorefrontHomepageService;
 use App\Services\MarketContextResolver;
+use App\Services\PricingContextResolver;
 use App\Support\MarketContext;
+use App\Support\PricingContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Schema;
@@ -137,11 +139,17 @@ class WarmStorefrontCacheCommand extends Command
      */
     private function withMarketContext(MarketContext $context, callable $callback): mixed
     {
-        $hadContext = App::bound(MarketContext::class);
-        $previousContext = $hadContext ? App::make(MarketContext::class) : null;
+        $hadMarket = App::bound(MarketContext::class);
+        $previousMarket = $hadMarket ? App::make(MarketContext::class) : null;
+        $hadPricing = App::bound(PricingContext::class);
+        $previousPricing = $hadPricing ? App::make(PricingContext::class) : null;
         $previousLocale = App::getLocale();
 
         App::instance(MarketContext::class, $context);
+        App::instance(
+            PricingContext::class,
+            App::make(PricingContextResolver::class)->resolve($context),
+        );
 
         if ($context->locale !== '') {
             App::setLocale($context->locale);
@@ -152,10 +160,16 @@ class WarmStorefrontCacheCommand extends Command
         } finally {
             App::setLocale($previousLocale);
 
-            if ($hadContext && $previousContext !== null) {
-                App::instance(MarketContext::class, $previousContext);
+            if ($hadMarket && $previousMarket !== null) {
+                App::instance(MarketContext::class, $previousMarket);
             } else {
                 App::forgetInstance(MarketContext::class);
+            }
+
+            if ($hadPricing && $previousPricing !== null) {
+                App::instance(PricingContext::class, $previousPricing);
+            } else {
+                App::forgetInstance(PricingContext::class);
             }
         }
     }

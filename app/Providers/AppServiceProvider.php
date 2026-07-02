@@ -47,6 +47,21 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(BitcoinManagedKeyMaterialGenerator::class),
             ]);
         });
+
+        // Safe defaults for non-HTTP contexts (CLI, queue, scheduler). During
+        // web requests, ResolveMarketContext / ResolvePricingContext override
+        // these via instance() bindings. This prevents "Unresolvable dependency"
+        // errors when a service resolves the market/pricing context off-request.
+        $this->app->bind(\App\Support\MarketContext::class, function ($app): \App\Support\MarketContext {
+            $default = (string) config('markets.default', 'global');
+
+            return $app->make(\App\Services\MarketContextResolver::class)->resolveForMarketKey($default);
+        });
+
+        $this->app->bind(\App\Support\PricingContext::class, function ($app): \App\Support\PricingContext {
+            return $app->make(\App\Services\PricingContextResolver::class)
+                ->resolve($app->make(\App\Support\MarketContext::class));
+        });
     }
 
     /**
