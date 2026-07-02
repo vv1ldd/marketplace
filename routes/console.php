@@ -17,6 +17,16 @@ Schedule::command(\App\Console\Commands\SendRedeemReminders::class)->everyFiftee
 Schedule::command(\App\Console\Commands\RetryFailedPurchases::class)->everyFifteenMinutes();
 Schedule::command(\App\Console\Commands\NormalizeBrands::class)->hourlyAt(45); // Run 15 mins after WildflowToMarket
 
+// 🔥 Keep hot storefront caches warm so runtime never pays the cold-start cost.
+// TTL is 300s; warming every 3 min keeps keys from ever expiring under live traffic.
+Schedule::command('catalog:warm-cache')
+    ->everyThreeMinutes()
+    ->withoutOverlapping(10)
+    ->runInBackground();
+
+// 🚨 Operational alerts (fulfillment, checkout, disk, queue depth).
+Schedule::command('meanly:check-alerts')->everyFiveMinutes()->withoutOverlapping();
+
 // 🤖 Auto-healing loop for OOS items
 Schedule::command(\App\Console\Commands\HealOutOfStockItems::class, ['--limit=50'])->everyFifteenMinutes();
 Schedule::command('catalog:refresh-indexing --skip-audit --fail-on-internal-review-rate=35')

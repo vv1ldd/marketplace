@@ -30,6 +30,8 @@ class CanonicalStorefrontHomepageService
 
     private ?bool $overrideTableExists = null;
 
+    private bool $forceCacheRefresh = false;
+
     /**
      * @var array<string, float|null>
      */
@@ -1775,16 +1777,79 @@ class CanonicalStorefrontHomepageService
             return $resolver();
         }
 
+        if ($this->forceCacheRefresh) {
+            $value = $resolver();
+            Cache::put($this->storefrontCacheKey($key), $value, self::HOMEPAGE_CACHE_SECONDS);
+
+            return $value;
+        }
+
+        return Cache::remember(
+            $this->storefrontCacheKey($key),
+            self::HOMEPAGE_CACHE_SECONDS,
+            $resolver,
+        );
+    }
+
+    private function storefrontCacheKey(string $key): string
+    {
         $market = app()->bound(\App\Support\MarketContext::class)
             ? app(\App\Support\MarketContext::class)->market
             : 'global';
         $locale = app()->getLocale();
 
-        return Cache::remember(
-            "storefront:catalog:{$market}:{$locale}:{$key}",
-            self::HOMEPAGE_CACHE_SECONDS,
-            $resolver,
-        );
+        return "storefront:catalog:{$market}:{$locale}:{$key}";
+    }
+
+    /**
+     * Recompute and overwrite the hot storefront caches (homepage blocks,
+     * top intent corridors, and popular searches) so runtime requests never
+     * pay the cold-start cost. Safe to run on a short schedule; each key is
+     * force-refreshed under the same key the runtime reads.
+     *
+     * @param  array<int, string>  $searchTerms
+     * @return array<string, int>
+     */
+    public function warmStorefrontCaches(array $searchTerms = []): array
+    {
+        $previous = $this->forceCacheRefresh;
+        $this->forceCacheRefresh = true;
+
+        $warmed = ['homepage' => 0, 'categories' => 0, 'searches' => 0];
+
+        try {
+            $this->rememberHomepageBlock('featured_products', fn (): Collection => $this->homepageFeaturedProducts());
+            $this->rememberHomepageBlock('provider_network_products', fn (): Collection => $this->homepageProviderNetworkProducts());
+            $this->rememberHomepageBlock('categories', fn (): Collection => $this->publicCategorySummaries(self::CATEGORY_LIMIT));
+            $this->rememberHomepageBlock('brands', fn (): Collection => $this->publicBrandSummaries());
+            $this->rememberHomepageBlock('product_groups', fn (): Collection => $this->publicProductGroupSummaries(limit: 12));
+            $this->rememberHomepageBlock('stats', fn (): array => $this->stats());
+            $warmed['homepage'] = 6;
+
+            foreach ($this->warmableIntentCorridors() as $corridor) {
+                // Warm the exact key the runtime reads by driving the real
+                // categoryPage() path with an empty first-page request.
+                $this->categoryPage($corridor, Request::create('/warm', 'GET'));
+                $warmed['categories']++;
+            }
+
+            foreach (array_unique(array_filter(array_map('trim', $searchTerms))) as $term) {
+                $this->searchPage(Request::create('/warm', 'GET', ['q' => $term]));
+                $warmed['searches']++;
+            }
+        } finally {
+            $this->forceCacheRefresh = $previous;
+        }
+
+        return $warmed;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function warmableIntentCorridors(): array
+    {
+        return array_keys((array) config('catalog_taxonomy.intent_corridors', []));
     }
 
     /**

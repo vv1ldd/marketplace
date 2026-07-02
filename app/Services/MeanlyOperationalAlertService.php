@@ -6,10 +6,22 @@ use App\Models\MeanlyAnalyticsEvent;
 use App\Models\MeanlyOperationalAlert;
 use App\Models\Order\Order;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 
 class MeanlyOperationalAlertService
 {
+    private const DISK_WARN_PERCENT = 85;
+
+    private const DISK_CRITICAL_PERCENT = 92;
+
+    private const QUEUE_DEPTH_WARN = 500;
+
+    private const QUEUE_DEPTH_CRITICAL = 2000;
+
+    private const FAILED_JOBS_CRITICAL = 10;
+
     /**
      * @return Collection<int, array<string, mixed>>
      */
@@ -134,9 +146,123 @@ class MeanlyOperationalAlertService
             $activeKeys->push('ai.degraded_1h');
         }
 
+        $disk = $this->diskUsage();
+        if ($disk !== null && $disk['used_percent'] >= self::DISK_WARN_PERCENT) {
+            $critical = $disk['used_percent'] >= self::DISK_CRITICAL_PERCENT;
+            $alerts->push($this->upsertAlert(
+                key: 'ops.disk_pressure',
+                type: 'ops',
+                severity: $critical ? 'critical' : 'warning',
+                surface: 'ops',
+                title: 'Диск заполняется',
+                description: 'Свободное место на диске критически низкое. При 100% БД/кэш могут уйти в read-only.',
+                occurrenceCount: (int) $disk['used_percent'],
+                threshold: self::DISK_WARN_PERCENT,
+                context: $disk,
+            ));
+            $activeKeys->push('ops.disk_pressure');
+        }
+
+        $queueDepth = $this->pendingQueueDepth();
+        if ($queueDepth !== null && $queueDepth['pending'] >= self::QUEUE_DEPTH_WARN) {
+            $critical = $queueDepth['pending'] >= self::QUEUE_DEPTH_CRITICAL;
+            $alerts->push($this->upsertAlert(
+                key: 'ops.queue_backlog',
+                type: 'ops',
+                severity: $critical ? 'critical' : 'warning',
+                surface: 'ops',
+                title: 'Очередь задач растёт',
+                description: 'Накопился backlog в очереди задач. Воркеры могут не успевать — проверь queue workers.',
+                occurrenceCount: $queueDepth['pending'],
+                threshold: self::QUEUE_DEPTH_WARN,
+                context: $queueDepth,
+            ));
+            $activeKeys->push('ops.queue_backlog');
+        }
+
+        $failedJobs = $this->recentFailedJobs();
+        if ($failedJobs !== null && $failedJobs['count'] > 0) {
+            $alerts->push($this->upsertAlert(
+                key: 'ops.failed_jobs_1h',
+                type: 'ops',
+                severity: $failedJobs['count'] >= self::FAILED_JOBS_CRITICAL ? 'critical' : 'warning',
+                surface: 'ops',
+                title: 'Упавшие задачи за последний час',
+                description: 'Задачи падают в failed_jobs. Проверь причину и перезапусти обработку.',
+                occurrenceCount: $failedJobs['count'],
+                threshold: 1,
+                context: $failedJobs,
+            ));
+            $activeKeys->push('ops.failed_jobs_1h');
+        }
+
         $this->resolveMissing($activeKeys);
 
         return $alerts->values();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function diskUsage(): ?array
+    {
+        $path = base_path();
+
+        $total = @disk_total_space($path);
+        $free = @disk_free_space($path);
+
+        if ($total === false || $free === false || $total <= 0) {
+            return null;
+        }
+
+        $used = $total - $free;
+        $usedPercent = (int) round(($used / $total) * 100);
+
+        return [
+            'path' => $path,
+            'used_percent' => $usedPercent,
+            'free_gb' => round($free / 1_073_741_824, 2),
+            'total_gb' => round($total / 1_073_741_824, 2),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function pendingQueueDepth(): ?array
+    {
+        if (! Schema::hasTable('jobs')) {
+            return null;
+        }
+
+        $reservedThreshold = now()->subMinutes(5)->timestamp;
+
+        return [
+            'pending' => (int) DB::table('jobs')->count(),
+            'stuck_reserved' => (int) DB::table('jobs')
+                ->whereNotNull('reserved_at')
+                ->where('reserved_at', '<', $reservedThreshold)
+                ->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function recentFailedJobs(): ?array
+    {
+        if (! Schema::hasTable('failed_jobs')) {
+            return null;
+        }
+
+        $query = DB::table('failed_jobs')->where('failed_at', '>=', now()->subHour());
+        $last = (clone $query)->orderByDesc('id')->first();
+
+        return [
+            'count' => (int) (clone $query)->count(),
+            'last_failed_at' => $last->failed_at ?? null,
+            'total_failed' => (int) DB::table('failed_jobs')->count(),
+        ];
     }
 
     /**
