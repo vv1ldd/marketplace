@@ -15,8 +15,9 @@ use Illuminate\Support\Facades\Schema;
 class WarmStorefrontCacheCommand extends Command
 {
     protected $signature = 'catalog:warm-cache
-        {--market=* : Limit warming to specific market keys (default: all configured markets)}
-        {--searches=12 : How many top search terms to pre-warm per market}';
+        {--market=* : Limit warming to specific market keys (default: the default market only)}
+        {--all-markets : Warm every configured market instead of just the default one}
+        {--searches=6 : How many top search terms to pre-warm per market}';
 
     protected $description = 'Pre-warm hot storefront caches (homepage, intent corridors, top searches) so runtime never pays the cold-start cost.';
 
@@ -70,12 +71,22 @@ class WarmStorefrontCacheCommand extends Command
         }
 
         $configured = array_keys((array) config('markets.markets', []));
+        $default = (string) config('markets.default', 'global');
+
+        // By default warm only the primary market to keep the 3-min loop cheap.
+        // Secondary markets warm lazily on first request (Cache::remember), or
+        // eagerly via --all-markets on a slower cadence.
+        if (! $this->option('all-markets')) {
+            return $configured !== [] && in_array($default, $configured, true)
+                ? [$default]
+                : [$default];
+        }
 
         if ($configured !== []) {
             return $configured;
         }
 
-        return [(string) config('markets.default', 'global')];
+        return [$default];
     }
 
     /**

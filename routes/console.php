@@ -18,10 +18,19 @@ Schedule::command(\App\Console\Commands\RetryFailedPurchases::class)->everyFifte
 Schedule::command(\App\Console\Commands\NormalizeBrands::class)->hourlyAt(45); // Run 15 mins after WildflowToMarket
 
 // 🔥 Keep hot storefront caches warm so runtime never pays the cold-start cost.
-// TTL is 300s; warming every 3 min keeps keys from ever expiring under live traffic.
+// TTL is 300s; warming the primary market every 4 min refreshes keys before they
+// expire while keeping the loop cheap. Secondary markets warm lazily on request,
+// plus a slower full-market sweep below.
 Schedule::command('catalog:warm-cache')
-    ->everyThreeMinutes()
-    ->withoutOverlapping(10)
+    ->everyFourMinutes()
+    ->withoutOverlapping(15)
+    ->runInBackground();
+
+// Slower full sweep so secondary markets also stay warm without loading the DB
+// every few minutes.
+Schedule::command('catalog:warm-cache --all-markets')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping(20)
     ->runInBackground();
 
 // 🚨 Operational alerts (fulfillment, checkout, disk, queue depth).
