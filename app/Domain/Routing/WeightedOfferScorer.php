@@ -8,6 +8,7 @@ class WeightedOfferScorer
 {
     public function __construct(
         private readonly RoutingCircuitBreaker $circuitBreaker,
+        private readonly ProviderMetricsProviderInterface $metricsProvider,
     ) {}
 
     /**
@@ -30,7 +31,7 @@ class WeightedOfferScorer
             return 0.0;
         }
 
-        $signals = $this->rawSignals($offer, $candidates);
+        $signals = $this->rawSignals($offer, $candidates, $providerId);
         $normalized = $this->normalizeSignals($signals, $candidates, $policy);
 
         return round(
@@ -56,7 +57,7 @@ class WeightedOfferScorer
      * @param  array<string, mixed>  $offer
      * @return array{margin: float, success_rate: float, latency: float, stock: float}
      */
-    private function rawSignals(array $offer, Collection $candidates): array
+    private function rawSignals(array $offer, Collection $candidates, int $providerId): array
     {
         $metrics = (array) data_get($offer, 'ranking.metrics', []);
 
@@ -68,15 +69,9 @@ class WeightedOfferScorer
             $margin = $this->inversePriceSignal($offer, $candidates);
         }
 
-        $totalOrders = (int) ($metrics['seller_orders_90_days'] ?? 0);
-        $completedOrders = (int) ($metrics['seller_completed_90_days'] ?? 0);
-        if ($totalOrders > 0) {
-            $successRate = $completedOrders / $totalOrders;
-        } else {
-            $successRate = (float) ($metrics['success_rate_7d'] ?? 0.5);
-        }
-
-        $latencyMs = (float) ($metrics['p50_fulfillment_ms_7d'] ?? 5000.0);
+        $providerSignals = $this->metricsProvider->getSignalsForProvider($providerId);
+        $successRate = $providerSignals->successRate;
+        $latencyMs = (float) $providerSignals->p50LatencyMs;
         $stock = (float) ($metrics['stock_count'] ?? 0);
 
         return [
@@ -95,22 +90,19 @@ class WeightedOfferScorer
     private function normalizeSignals(array $signals, Collection $candidates, RoutingPolicy $policy): array
     {
         $marginValues = $candidates
-            ->map(fn (array $candidate): float => $this->rawSignals($candidate, $candidates)['margin'])
-            ->all();
-        $successValues = $candidates
-            ->map(fn (array $candidate): float => $this->rawSignals($candidate, $candidates)['success_rate'])
-            ->all();
-        $latencyValues = $candidates
-            ->map(fn (array $candidate): float => $this->rawSignals($candidate, $candidates)['latency'])
+            ->map(fn (array $candidate): float => $this->rawSignals($candidate, $candidates, $this->providerId($candidate))['margin'])
             ->all();
         $stockValues = $candidates
-            ->map(fn (array $candidate): float => $this->rawSignals($candidate, $candidates)['stock'])
+            ->map(fn (array $candidate): float => $this->rawSignals($candidate, $candidates, $this->providerId($candidate))['stock'])
             ->all();
+
+        $maxLatencyMs = max(1000, (int) config('routing.metrics.max_latency_ms', 30000));
+        $latencyScore = 1.0 - (min($signals['latency'], (float) $maxLatencyMs) / (float) $maxLatencyMs);
 
         return [
             'margin' => $this->normalizeHigherIsBetter($signals['margin'], $marginValues),
-            'success_rate' => $this->normalizeHigherIsBetter($signals['success_rate'], $successValues),
-            'latency' => $this->normalizeLowerIsBetter($signals['latency'], $latencyValues),
+            'success_rate' => max(0.0, min(1.0, $signals['success_rate'])),
+            'latency' => max(0.0, min(1.0, $latencyScore)),
             'stock' => $this->normalizeHigherIsBetter($signals['stock'], $stockValues),
         ];
     }

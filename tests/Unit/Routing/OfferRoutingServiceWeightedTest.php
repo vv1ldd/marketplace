@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Routing;
 
+use App\Domain\Routing\ProviderMetricsProviderInterface;
+use App\Domain\Routing\ProviderRuntimeSignals;
 use App\Domain\Routing\RoutingPolicy;
 use App\Services\Architecture\OfferRoutingService;
 use Illuminate\Support\Collection;
@@ -19,6 +21,15 @@ class OfferRoutingServiceWeightedTest extends TestCase
 
     public function test_weighted_ranking_prefers_higher_margin_offer_when_enabled(): void
     {
+        $this->app->singleton(ProviderMetricsProviderInterface::class, function () {
+            return new class implements ProviderMetricsProviderInterface {
+                public function getSignalsForProvider(int $providerId): ProviderRuntimeSignals
+                {
+                    return new ProviderRuntimeSignals(successRate: 0.9, p50LatencyMs: 1500, stockStatus: 1.0);
+                }
+            };
+        });
+
         config([
             'routing.enabled' => true,
             'routing.weights' => [
@@ -64,6 +75,15 @@ class OfferRoutingServiceWeightedTest extends TestCase
 
     public function test_legacy_ranking_is_used_when_feature_flag_disabled(): void
     {
+        $this->app->singleton(ProviderMetricsProviderInterface::class, function () {
+            return new class implements ProviderMetricsProviderInterface {
+                public function getSignalsForProvider(int $providerId): ProviderRuntimeSignals
+                {
+                    return new ProviderRuntimeSignals(successRate: 0.9, p50LatencyMs: 1500, stockStatus: 1.0);
+                }
+            };
+        });
+
         config(['routing.enabled' => false]);
 
         $service = app(OfferRoutingService::class);

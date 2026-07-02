@@ -40,4 +40,10 @@ return [
     */
     'provider_split' => [],
 
+    'metrics' => [
+        'window_days' => 7,
+        'cache_seconds' => 1800,
+        'max_latency_ms' => 30000,
+    ],
+
 ];

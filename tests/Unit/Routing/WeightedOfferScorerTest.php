@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Routing;
 
+use App\Domain\Routing\ProviderMetricsProviderInterface;
+use App\Domain\Routing\ProviderRuntimeSignals;
 use App\Domain\Routing\RoutingCircuitBreaker;
 use App\Domain\Routing\RoutingPolicy;
 use App\Domain\Routing\WeightedOfferScorer;
@@ -18,7 +20,21 @@ class WeightedOfferScorerTest extends TestCase
     {
         parent::setUp();
 
-        $this->scorer = app(WeightedOfferScorer::class);
+        $metrics = new class implements ProviderMetricsProviderInterface {
+            public function getSignalsForProvider(int $providerId): ProviderRuntimeSignals
+            {
+                return new ProviderRuntimeSignals(
+                    successRate: $providerId === 42 ? 0.95 : 0.70,
+                    p50LatencyMs: $providerId === 42 ? 1200 : 8000,
+                    stockStatus: 1.0,
+                );
+            }
+        };
+
+        $this->scorer = new WeightedOfferScorer(
+            circuitBreaker: app(RoutingCircuitBreaker::class),
+            metricsProvider: $metrics,
+        );
         $this->policy = new RoutingPolicy(
             type: 'weighted',
             weights: [

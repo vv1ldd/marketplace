@@ -2,6 +2,8 @@
 
 namespace App\Services\Architecture;
 
+use App\Domain\Routing\RoutingCircuitBreaker;
+use App\Domain\Routing\RoutingPolicy;
 use App\Models\Architecture\ExecutionRecord;
 use App\Models\Architecture\OfferSnapshot;
 use App\Models\Order\Order;
@@ -10,6 +12,10 @@ use Illuminate\Support\Str;
 
 class ExecutionRecordService implements ExecutionRecordServiceInterface
 {
+    public function __construct(
+        private readonly RoutingCircuitBreaker $circuitBreaker,
+    ) {}
+
     public function startExecution(
         string $snapshotId,
         ?int $orderId,
@@ -131,6 +137,11 @@ class ExecutionRecordService implements ExecutionRecordServiceInterface
             'offer_snapshot_id' => $execution->offer_snapshot_id,
             'error_class' => $errorClass,
         ]);
+
+        if (config('routing.enabled', false)) {
+            $policy = RoutingPolicy::fromConfig();
+            $this->circuitBreaker->recordFailure((int) $execution->provider_id, $policy);
+        }
     }
 
     public function findOpenForOrderItem(OrderItems $item): ?ExecutionRecord
